@@ -242,16 +242,21 @@ const EX = {
     "Kettlebell figure-of-eight"].map(n => ({name:n, work:WORK_S, rest:REST_S})),
 
   warmupNoEquip: ["Knees up","Bum kicks","Open gates, close gates","Hand to opposite toe","Body hoops","Body twists",
-    "Arm circles backwards","Arm circles forwards","Arm side circles","Air squats","Step back lunges left-right",
+    "Arm circles backwards","Arm circles forwards","Arm side circles","Air squats",
+    "Step back lunge - Left","Step back lunge - Right",
     "Walk to plank and push up","Star jumps","Burpees"].map(n => ({name:n, work:WORK_S, rest:REST_S})),
 
-  cooldownEquip: ["Toe touch","Inside thigh stretch","Wide toe touch","Hip flexor + arm across pull + overhead tricep L-R",
-    "Kneeling hamstring L-R","Frog","Standing quads","Downward dog to upward dog","Plank calf stretch","Pigeon",
+  cooldownEquip: ["Toe touch","Inside thigh stretch","Wide toe touch",
+    "Hip flexor + arm across pull + overhead tricep - Left","Hip flexor + arm across pull + overhead tricep - Right",
+    "Kneeling hamstring - Left","Kneeling hamstring - Right",
+    "Frog","Standing quads","Downward dog to upward dog","Plank calf stretch","Pigeon",
     "TRX lean back and sink","TRX lunge, calf and chest opener","TRX glute standing","TRX side stretch",
     "Lying torso twist","Full body stretch"].map(n => ({name:n, work:WORK_S, rest:REST_S})),
 
-  cooldownNoEquip: ["Toe touch","Inside thigh stretch","Wide toe touch","Hip flexor + arm across pull + overhead tricep L-R",
-    "Kneeling hamstring L-R","Frog","Standing quads","Downward dog to upward dog","Plank calf stretch","Pigeon",
+  cooldownNoEquip: ["Toe touch","Inside thigh stretch","Wide toe touch",
+    "Hip flexor + arm across pull + overhead tricep - Left","Hip flexor + arm across pull + overhead tricep - Right",
+    "Kneeling hamstring - Left","Kneeling hamstring - Right",
+    "Frog","Standing quads","Downward dog to upward dog","Plank calf stretch","Pigeon",
     "Lean back and sink","Chest opener","Side stretch","Glute stretch","Lying torso twist",
     "Full body stretch"].map(n => ({name:n, work:WORK_S, rest:REST_S})),
 
@@ -265,13 +270,15 @@ const EX = {
     {name:"Burpees", reps:10, work:30, rest:0}
   ],
 
-  // Placeholder — swap these out for your own list any time.
+  // Fixed-time snacks. `gear` is metadata for the future "My Equipment" screen —
+  // not filtered on yet, so the pool stays available regardless of the toggle.
   snackPool: [
-    {name:"Air squats", work:30},
-    {name:"Press ups", work:30},
-    {name:"Plank hold", work:30},
-    {name:"Star jumps", work:30},
-    {name:"Wall sit", work:30}
+    {name:"Deadlift",         work:30, gear:["barbell"]},
+    {name:"Squat",            work:30, gear:["barbell"]},
+    {name:"Chest press",      work:30, gear:["bench","dumbbells"]},
+    {name:"Shoulder press",   work:30, gear:["dumbbells"]},
+    {name:"Pull up",          work:30, gear:["pullup-bar"]},
+    {name:"Kettlebell swings",work:30, gear:["kettlebell"]}
   ]
 };
 
