@@ -39,9 +39,15 @@
   .workouts-heading .home-title{margin-bottom:8px}
   .workouts-heading h1{font-size:32px;line-height:1;margin:0 0 8px;font-weight:950;text-transform:uppercase;letter-spacing:-.02em}
   .workouts-heading p{margin:0;color:var(--text-muted);font-size:14px;line-height:1.45}
+  .workout-list{display:flex;flex-direction:column;gap:16px}
   .workout-launch{width:100%;min-height:260px;border:1px solid #594525;border-radius:24px;padding:24px;background:linear-gradient(150deg,#2a2a24 0%,#26271f 52%,#5a411d 135%);color:var(--text);text-align:left;display:flex;flex-direction:column;align-items:flex-start;position:relative;overflow:hidden;box-shadow:0 18px 42px rgba(0,0,0,.24);transition:transform .12s ease,border-color .2s ease}
   .workout-launch:active{transform:scale(.985)}
   .workout-launch::after{content:"";position:absolute;width:220px;height:220px;border:52px solid rgba(242,169,59,.08);border-radius:50%;right:-100px;top:-110px}
+  .workout-launch.seven-minute{min-height:230px;border-color:#285742;background:linear-gradient(150deg,#202c29 0%,#202925 52%,#275a43 135%)}
+  .workout-launch.seven-minute::after{border-color:rgba(79,191,139,.09)}
+  .workout-launch.seven-minute .workout-kicker{color:var(--rest)}
+  .workout-launch.seven-minute .workout-number{font-size:72px}
+  .workout-launch.seven-minute .workout-launch-cta{background:var(--rest);color:#071a11}
   .workout-kicker{font-size:12px;font-weight:900;letter-spacing:.17em;text-transform:uppercase;color:var(--work)}
   .workout-number{font-size:88px;line-height:.88;font-weight:950;letter-spacing:-.06em;margin:22px 0 5px}
   .workout-label{font-size:23px;font-weight:900;text-transform:uppercase;letter-spacing:.06em}
@@ -170,8 +176,18 @@
     <header class="workouts-heading">
       <div class="home-title">Garage Fit</div>
       <h1>Workouts</h1>
-      <p>Rep-based challenges. Finish the work, stop the clock.</p>
+      <p>Choose a challenge, from rep-based efforts to guided intervals.</p>
     </header>
+    <div class="workout-list">
+    <button class="workout-launch seven-minute" type="button" onclick="startSevenMinuteWorkout()" aria-label="Start the 7 Minute Workout">
+      <span class="workout-kicker">Timed circuit</span>
+      <span class="workout-number">7</span>
+      <span class="workout-label">Minute Workout</span>
+      <span class="workout-launch-bottom">
+        <span class="workout-launch-meta"><span>12 movements</span><span>30s work · 10s rest</span></span>
+        <span class="workout-launch-cta">Start →</span>
+      </span>
+    </button>
     <button class="workout-launch" type="button" onclick="startWorkout()" aria-label="Start the 300 Workout">
       <span class="workout-kicker">For time</span>
       <span class="workout-number">300</span>
@@ -181,8 +197,9 @@
         <span class="workout-launch-cta">Start →</span>
       </span>
     </button>
-    <div class="best-strip"><span>Personal best</span><strong id="personalBestValue">No time yet</strong></div>
-    <button class="review-toggle" id="reviewToggle" type="button" aria-expanded="false" aria-controls="workoutReview" onclick="toggleWorkoutReview()"><span>Review exercises</span><span class="review-toggle-icon" aria-hidden="true">⌄</span></button>
+    </div>
+    <div class="best-strip"><span>300 personal best</span><strong id="personalBestValue">No time yet</strong></div>
+    <button class="review-toggle" id="reviewToggle" type="button" aria-expanded="false" aria-controls="workoutReview" onclick="toggleWorkoutReview()"><span>Review 300 exercises</span><span class="review-toggle-icon" aria-hidden="true">⌄</span></button>
     <ol class="workout-review hidden" id="workoutReview"></ol>
   </main>
 
@@ -273,6 +290,11 @@ const WORKOUT_300=[
   {name:"Single-arm kettlebell clean and presses",reps:50,note:"25 per side"},
   {name:"Pull-ups",reps:25}
 ];
+const SEVEN_MINUTE_WORKOUT=[
+  "Jumping jacks","Wall sit","Push-ups","Abdominal crunches","Step-ups onto a chair","Squats",
+  "Triceps dips on a chair","Plank","High knees running in place","Lunges","Push-ups with rotation","Side plank"
+].map(name=>({name,work:30,rest:10}));
+SEVEN_MINUTE_WORKOUT[SEVEN_MINUTE_WORKOUT.length-1].rest=0;
 const WORKOUT_TOTAL_REPS=300,PB_KEY='gf_300_pb_seconds';
 let state={key:null,list:[],idx:0,phase:'ready',remaining:0,timer:null,paused:false,equipment:true,wakeLock:null,running:false,doneDestination:'home'};
 let workoutState={idx:0,completed:[],elapsedMs:0,startedAt:0,timer:null,paused:false,running:false};
@@ -295,10 +317,11 @@ let audioCtx=null;function beep(freq=880,dur=.12){try{audioCtx=audioCtx||new(win
 async function requestWake(){try{if('wakeLock'in navigator)state.wakeLock=await navigator.wakeLock.request('screen')}catch(e){}}function releaseWake(){try{if(state.wakeLock){state.wakeLock.release();state.wakeLock=null}}catch(e){}}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&(state.running||workoutState.running))requestWake()});
 function startRoutine(key){let list;if(key==='warmup')list=state.equipment?EX.warmupEquip:EX.warmupNoEquip;else if(key==='cooldown')list=state.equipment?EX.cooldownEquip:EX.cooldownNoEquip;else if(key==='rampup')list=EX.rampUp;state.key=key;state.list=list.slice();state.idx=0;state.paused=false;state.running=true;state.doneDestination='home';document.getElementById('pauseBtn').textContent='Pause';document.getElementById('routineName').textContent=key==='warmup'?'Warm Up':key==='cooldown'?'Cool Down':'Ramp Up';showScreen('player');requestWake();enterReady()}
+function startSevenMinuteWorkout(){state.key='sevenMinute';state.list=SEVEN_MINUTE_WORKOUT.slice();state.idx=0;state.paused=false;state.running=true;state.doneDestination='workouts';document.getElementById('pauseBtn').textContent='Pause';document.getElementById('routineName').textContent='7 Minute Workout';showScreen('player');requestWake();enterReady()}
 function enterReady(){state.phase='ready';state.remaining=3;updateProgressCount();const first=state.list[0];document.getElementById('exerciseName').textContent='Get ready';document.getElementById('nextPreview').textContent='First up: '+first.name;setRingColor('rest');document.getElementById('phaseLabel').textContent='GET READY';document.getElementById('repsNum').classList.add('hidden');speak('Get ready. '+first.name);runTimer(3,()=>enterWork())}
 function enterWork(){state.phase='work';const ex=state.list[state.idx];state.remaining=ex.work;updateProgressCount();document.getElementById('exerciseName').textContent=ex.name;document.getElementById('phaseLabel').textContent=state.key==='rampup'?'GO':'WORK';setRingColor('work');const repsEl=document.getElementById('repsNum');if(state.key==='rampup'){repsEl.classList.remove('hidden');repsEl.textContent=ex.reps?('x'+ex.reps+' reps'):'hold'}else repsEl.classList.add('hidden');const isLast=state.idx===state.list.length-1,next=isLast?null:state.list[state.idx+1];document.getElementById('nextPreview').textContent=next?('Next: '+next.name):'Last one!';beep(880);runTimer(ex.work,()=>enterRestOrNext())}
 function enterRestOrNext(){const ex=state.list[state.idx],isLast=state.idx===state.list.length-1;if(isLast||!ex.rest){finishRoutine();return}state.phase='rest';state.remaining=ex.rest;updateProgressCount();const next=state.list[state.idx+1];document.getElementById('exerciseName').textContent='Get ready';document.getElementById('phaseLabel').textContent='REST';document.getElementById('repsNum').classList.add('hidden');setRingColor('rest');document.getElementById('nextPreview').textContent='Next: '+next.name;beep(440);speak(next.name);runTimer(ex.rest,()=>{state.idx++;enterWork()})}
-function finishRoutine(){stopTimer();state.running=false;state.doneDestination='home';releaseWake();document.getElementById('doneTitle').textContent='Done!';const label=state.key==='warmup'?"Warm-up complete. Let's go.":state.key==='cooldown'?'Cool-down complete. Nice work.':'Ramp-up complete. Time to train.';document.getElementById('doneSub').textContent=label;document.getElementById('doneStats').classList.add('hidden');document.getElementById('doneBest').classList.add('hidden');document.getElementById('doneBtn').textContent='Back to routines';speak(label);showScreen('done')}function updateProgressCount(){document.getElementById('progressCount').textContent=(state.idx+1)+' / '+state.list.length}function setRingColor(kind){const ring=document.getElementById('ringFg'),label=document.getElementById('phaseLabel'),color=kind==='work'?getComputedStyle(document.documentElement).getPropertyValue('--work'):getComputedStyle(document.documentElement).getPropertyValue('--rest');ring.style.stroke=color.trim();label.style.color=color.trim()}
+function finishRoutine(){stopTimer();state.running=false;const isSevenMinute=state.key==='sevenMinute';state.doneDestination=isSevenMinute?'workouts':'home';releaseWake();document.getElementById('doneTitle').textContent=isSevenMinute?'7 Minutes Complete':'Done!';const label=isSevenMinute?'Full-body circuit complete. Great work!':state.key==='warmup'?"Warm-up complete. Let's go.":state.key==='cooldown'?'Cool-down complete. Nice work.':'Ramp-up complete. Time to train.';document.getElementById('doneSub').textContent=label;document.getElementById('doneStats').classList.add('hidden');document.getElementById('doneBest').classList.add('hidden');document.getElementById('doneBtn').textContent=isSevenMinute?'Back to workouts':'Back to routines';speak(label);showScreen('done')}function updateProgressCount(){document.getElementById('progressCount').textContent=(state.idx+1)+' / '+state.list.length}function setRingColor(kind){const ring=document.getElementById('ringFg'),label=document.getElementById('phaseLabel'),color=kind==='work'?getComputedStyle(document.documentElement).getPropertyValue('--work'):getComputedStyle(document.documentElement).getPropertyValue('--rest');ring.style.stroke=color.trim();label.style.color=color.trim()}
 const RING_CIRC=565.48;function runTimer(totalSeconds,onComplete){clearInterval(state.timer);const start=totalSeconds;renderTick(start,start);document.getElementById('timerNum').textContent=start;state.timer=setInterval(()=>{if(state.paused)return;state.remaining-=1;renderTick(state.remaining,start);if(state.remaining<=0){clearInterval(state.timer);onComplete()}},1000);state._onComplete=onComplete;state._start=start}function renderTick(remaining,total){document.getElementById('timerNum').textContent=Math.max(remaining,0);const ring=document.getElementById('ringFg'),frac=Math.max(remaining,0)/total;ring.style.strokeDashoffset=RING_CIRC*(1-frac)}function stopTimer(){clearInterval(state.timer)}
 function togglePause(){state.paused=!state.paused;document.getElementById('pauseBtn').textContent=state.paused?'Resume':'Pause'}function skipPhase(){clearInterval(state.timer);state.paused=false;document.getElementById('pauseBtn').textContent='Pause';if(state.phase==='ready')enterWork();else if(state.phase==='work')enterRestOrNext();else if(state.phase==='rest'){state.idx++;enterWork()}}
 function pickRandom(arr,n){const copy=arr.slice(),out=[];while(copy.length&&out.length<n)out.push(copy.splice(Math.floor(Math.random()*copy.length),1)[0]);return out}let snackChoices=[];function openSnack(){showScreen('snackpick');renderSnackPicker()}function renderSnackPicker(){snackChoices=pickRandom(EX.snackPool,Math.min(3,EX.snackPool.length));const wrap=document.getElementById('snackCards');wrap.innerHTML='';snackChoices.forEach((ex,i)=>{const btn=document.createElement('button');btn.className='snack-card';btn.innerHTML='<span class="name">'+ex.name+'</span><span class="dur">'+ex.work+'s</span>';btn.onclick=()=>startSnack(i);wrap.appendChild(btn)})}function startSnack(i){const ex=snackChoices[i];state.key='snack';state.list=[{name:ex.name,work:ex.work,rest:0}];state.idx=0;state.paused=false;state.running=true;state.doneDestination='home';document.getElementById('pauseBtn').textContent='Pause';document.getElementById('routineName').textContent='Snack';showScreen('player');requestWake();enterReady()}
@@ -308,7 +331,7 @@ function renderWorkoutReview(){
   WORKOUT_300.forEach(ex=>{const li=document.createElement('li'),name=document.createElement('span'),reps=document.createElement('span');name.className='review-name';name.textContent=ex.name;if(ex.note){const note=document.createElement('span');note.className='review-note';note.textContent=ex.note;name.appendChild(note)}reps.className='review-reps';reps.textContent=ex.reps+' reps';li.append(name,reps);list.appendChild(li)});
 }
 function toggleWorkoutReview(){
-  const button=document.getElementById('reviewToggle'),list=document.getElementById('workoutReview'),willOpen=list.classList.contains('hidden');list.classList.toggle('hidden',!willOpen);button.setAttribute('aria-expanded',String(willOpen));button.querySelector('span:first-child').textContent=willOpen?'Hide exercises':'Review exercises';
+  const button=document.getElementById('reviewToggle'),list=document.getElementById('workoutReview'),willOpen=list.classList.contains('hidden');list.classList.toggle('hidden',!willOpen);button.setAttribute('aria-expanded',String(willOpen));button.querySelector('span:first-child').textContent=willOpen?'Hide 300 exercises':'Review 300 exercises';
 }
 function getPersonalBest(){try{const raw=localStorage.getItem(PB_KEY);if(raw===null)return null;const value=Number.parseInt(raw,10);return Number.isFinite(value)&&value>=0?value:null}catch(e){return null}}
 function savePersonalBest(seconds){try{localStorage.setItem(PB_KEY,String(seconds))}catch(e){}}
@@ -360,7 +383,7 @@ function openExitDialog(type){
 }
 function closeExitDialog(){document.getElementById('exitDialog').classList.add('hidden')}
 function cancelExit(){const type=exitState.type,wasPaused=exitState.wasPaused,lastFocus=exitState.lastFocus;closeExitDialog();if(type==='workout'&&!wasPaused)resumeWorkoutClock();if(type==='routine'&&!wasPaused&&state.running&&state.paused)togglePause();exitState.type=null;if(lastFocus&&lastFocus.focus)lastFocus.focus()}
-function confirmExitChoice(){const type=exitState.type;closeExitDialog();exitState.type=null;if(type==='workout')goWorkouts();else goHome()}
+function confirmExitChoice(){const type=exitState.type;closeExitDialog();exitState.type=null;if(type==='workout'||state.doneDestination==='workouts')goWorkouts();else goHome()}
 function handleModalBackdrop(event){if(event.target===document.getElementById('exitDialog'))cancelExit()}
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!document.getElementById('exitDialog').classList.contains('hidden'))cancelExit()});
 loadEquipment();
