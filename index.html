@@ -9,26 +9,251 @@
 <title>Garage Fit</title>
 <style>
   :root{
-    --ink:#14181a; --surface:#1e2624; --surface-2:#242e2b; --work:#f2a93b; --work-dim:#4a3a20;
-    --rest:#4fbf8b; --rest-dim:#20362c; --text:#f5f3ee; --text-muted:#8a9290; --danger:#e2665a;
+    --ink:#14181a; --surface:#1e2624; --surface-2:#2a3532; --work:#f2a93b; --work-dim:#4a3a20;
+    --rest:#4fbf8b; --rest-dim:#20362c; --text:#f5f3ee; --text-muted:#909997; --danger:#e2665a;
   }
-  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-  html,body{margin:0;padding:0;height:100%;background:var(--ink);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none;user-select:none;}
-  #app{position:fixed;inset:0;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);}
-  .screen{flex:1;display:flex;flex-direction:column}.hidden{display:none!important}
-  #home{padding:20px}.home-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px;margin-top:8px}.home-title{font-size:15px;font-weight:800;letter-spacing:.12em;color:var(--text-muted);text-transform:uppercase}.equip-toggle{display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--surface-2);border-radius:999px;padding:8px 14px;font-size:13px;font-weight:700;color:var(--text)}
-  .tiles{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:14px}.tile{border:none;border-radius:20px;background:var(--surface);display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;padding:20px;position:relative;overflow:hidden}.tile:active{transform:scale(.97)}.tile .glyph{font-size:34px;margin-bottom:10px}.tile .label{font-size:20px;font-weight:900;letter-spacing:.02em;text-transform:uppercase;line-height:1.1}.tile .sub{font-size:12px;color:var(--text-muted);margin-top:4px;font-weight:600}#tile-warmup{background:linear-gradient(155deg,var(--surface) 60%,var(--work-dim))}#tile-rampup{background:linear-gradient(155deg,var(--surface) 60%,#3a2020)}#tile-cooldown{background:linear-gradient(155deg,var(--surface) 60%,var(--rest-dim))}#tile-snack{background:linear-gradient(155deg,var(--surface) 60%,#20303a)}
-  #player{align-items:center;justify-content:space-between;padding:20px 20px 30px}.player-top{width:100%;display:flex;justify-content:space-between;align-items:center}.close-btn{background:none;border:none;color:var(--text-muted);font-size:28px;line-height:1;padding:6px 10px}.routine-name{font-size:13px;font-weight:800;letter-spacing:.1em;color:var(--text-muted);text-transform:uppercase}.progress-count{font-size:13px;color:var(--text-muted);font-weight:700}.ring-wrap{position:relative;width:min(70vw,320px);height:min(70vw,320px);margin:10px 0}svg.ring{width:100%;height:100%;transform:rotate(-90deg)}.ring-bg{fill:none;stroke:var(--surface);stroke-width:14}.ring-fg{fill:none;stroke:var(--work);stroke-width:14;stroke-linecap:round;transition:stroke-dashoffset .25s linear,stroke .3s ease}.ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}.phase-label{font-size:13px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--work);margin-bottom:4px}.timer-num{font-size:64px;font-weight:900;font-variant-numeric:tabular-nums;line-height:1}.reps-num{font-size:18px;font-weight:700;color:var(--text-muted);margin-top:6px}.exercise-name{font-size:28px;font-weight:900;text-align:center;text-transform:uppercase;letter-spacing:.01em;margin:6px 20px 0;min-height:70px;display:flex;align-items:center;justify-content:center}.next-preview{font-size:14px;color:var(--text-muted);font-weight:600;margin-top:6px;text-align:center}.controls{width:100%;display:flex;gap:12px;margin-top:20px}.ctrl-btn{flex:1;border:none;border-radius:16px;padding:18px 0;font-size:16px;font-weight:800;letter-spacing:.03em;text-transform:uppercase}.ctrl-secondary{background:var(--surface);color:var(--text)}.ctrl-primary{background:var(--work);color:#1a1200}
-  #snackpick{padding:24px 20px}.snack-header{margin-bottom:20px;margin-top:8px}.snack-header h1{font-size:22px;margin:0 0 4px;font-weight:900;text-transform:uppercase}.snack-header p{margin:0;color:var(--text-muted);font-size:14px}.snack-cards{display:flex;flex-direction:column;gap:12px}.snack-card{background:var(--surface);border:none;border-radius:18px;padding:20px;text-align:left;display:flex;justify-content:space-between;align-items:center}.snack-card .name{font-size:18px;font-weight:800;text-transform:uppercase}.snack-card .dur{font-size:13px;color:var(--text-muted);font-weight:700}.snack-reshuffle{margin-top:16px;background:none;border:1px dashed var(--surface-2);color:var(--text-muted);border-radius:14px;padding:14px;font-weight:700;font-size:14px}
-  #done{align-items:center;justify-content:center;text-align:center;padding:20px}#done .check{font-size:70px;margin-bottom:10px}#done h1{font-size:26px;font-weight:900;text-transform:uppercase;margin:0 0 8px}#done p{color:var(--text-muted);margin:0 0 30px}#done .ctrl-btn{width:70%}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;height:100%;background:var(--ink);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none;user-select:none}
+  button{font:inherit;cursor:pointer}
+  button:focus-visible{outline:3px solid var(--text);outline-offset:3px}
+  #app{position:fixed;inset:0;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top)}
+  .screen{flex:1;min-height:0;display:flex;flex-direction:column}
+  .hidden{display:none!important}
+
+  #home,#workouts{padding:20px 20px 14px;overflow-y:auto}
+  .home-header{display:flex;justify-content:space-between;align-items:center;margin:8px 0 28px}
+  .home-title{font-size:15px;font-weight:800;letter-spacing:.12em;color:var(--text-muted);text-transform:uppercase}
+  .equip-toggle{display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--surface-2);border-radius:999px;padding:8px 14px;font-size:13px;font-weight:700;color:var(--text)}
+  .tiles{flex:1;min-height:420px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:14px}
+  .tile{border:none;border-radius:20px;background:var(--surface);color:var(--text);display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;padding:20px;position:relative;overflow:hidden;transition:transform .12s ease}
+  .tile:active{transform:scale(.97)}
+  .tile .glyph{font-size:34px;margin-bottom:10px}
+  .tile .label{font-size:20px;font-weight:900;letter-spacing:.02em;text-transform:uppercase;line-height:1.1}
+  .tile .sub{font-size:12px;color:var(--text-muted);margin-top:4px;font-weight:600}
+  #tile-warmup{background:linear-gradient(155deg,var(--surface) 60%,var(--work-dim))}
+  #tile-rampup{background:linear-gradient(155deg,var(--surface) 60%,#3a2020)}
+  #tile-cooldown{background:linear-gradient(155deg,var(--surface) 60%,var(--rest-dim))}
+  #tile-snack{background:linear-gradient(155deg,var(--surface) 60%,#20303a)}
+
+  .workouts-heading{margin:8px 0 22px}
+  .workouts-heading .home-title{margin-bottom:8px}
+  .workouts-heading h1{font-size:32px;line-height:1;margin:0 0 8px;font-weight:950;text-transform:uppercase;letter-spacing:-.02em}
+  .workouts-heading p{margin:0;color:var(--text-muted);font-size:14px;line-height:1.45}
+  .workout-launch{width:100%;min-height:260px;border:1px solid #594525;border-radius:24px;padding:24px;background:linear-gradient(150deg,#2a2a24 0%,#26271f 52%,#5a411d 135%);color:var(--text);text-align:left;display:flex;flex-direction:column;align-items:flex-start;position:relative;overflow:hidden;box-shadow:0 18px 42px rgba(0,0,0,.24);transition:transform .12s ease,border-color .2s ease}
+  .workout-launch:active{transform:scale(.985)}
+  .workout-launch::after{content:"";position:absolute;width:220px;height:220px;border:52px solid rgba(242,169,59,.08);border-radius:50%;right:-100px;top:-110px}
+  .workout-kicker{font-size:12px;font-weight:900;letter-spacing:.17em;text-transform:uppercase;color:var(--work)}
+  .workout-number{font-size:88px;line-height:.88;font-weight:950;letter-spacing:-.06em;margin:22px 0 5px}
+  .workout-label{font-size:23px;font-weight:900;text-transform:uppercase;letter-spacing:.06em}
+  .workout-launch-bottom{width:100%;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-top:auto;position:relative;z-index:1}
+  .workout-launch-meta{display:flex;flex-direction:column;gap:3px;color:var(--text-muted);font-size:13px;font-weight:700}
+  .workout-launch-cta{color:#1a1200;background:var(--work);border-radius:999px;padding:11px 15px;font-size:13px;font-weight:900;text-transform:uppercase;white-space:nowrap}
+  .best-strip{margin-top:12px;border:1px solid var(--surface-2);background:var(--surface);border-radius:16px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:16px}
+  .best-strip span:first-child{font-size:13px;color:var(--text-muted);font-weight:700}
+  .best-strip strong{font-size:18px;font-variant-numeric:tabular-nums}
+  .review-toggle{width:100%;margin-top:12px;border:0;background:transparent;color:var(--text);padding:13px 4px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:800}
+  .review-toggle-icon{color:var(--text-muted);font-size:20px;transition:transform .2s ease}
+  .review-toggle[aria-expanded="true"] .review-toggle-icon{transform:rotate(180deg)}
+  .workout-review{list-style:none;padding:4px 0 10px;margin:0;counter-reset:movement}
+  .workout-review li{counter-increment:movement;display:grid;grid-template-columns:30px 1fr auto;gap:10px;align-items:start;padding:12px 4px;border-top:1px solid var(--surface-2)}
+  .workout-review li::before{content:counter(movement,decimal-leading-zero);color:var(--text-muted);font-size:12px;font-weight:800;padding-top:2px}
+  .review-name{font-size:14px;font-weight:750;line-height:1.35}
+  .review-note{display:block;color:var(--text-muted);font-size:12px;font-weight:600;margin-top:2px}
+  .review-reps{color:var(--work);font-size:13px;font-weight:900;white-space:nowrap}
+
+  .bottom-nav{flex:0 0 auto;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 20px calc(10px + env(safe-area-inset-bottom));background:rgba(20,24,26,.97);border-top:1px solid var(--surface-2)}
+  .nav-btn{border:0;border-radius:14px;background:transparent;color:var(--text-muted);padding:10px 8px 9px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+  .nav-icon{font-size:20px;line-height:1}
+  .nav-btn.active{background:var(--surface);color:var(--work)}
+
+  #player{align-items:center;justify-content:space-between;padding:20px 20px calc(30px + env(safe-area-inset-bottom));overflow-y:auto}
+  .player-top{width:100%;display:flex;justify-content:space-between;align-items:center}
+  .close-btn{background:none;border:none;color:var(--text-muted);font-size:28px;line-height:1;padding:6px 10px;min-width:44px;min-height:44px}
+  .routine-name{font-size:13px;font-weight:800;letter-spacing:.1em;color:var(--text-muted);text-transform:uppercase}
+  .progress-count{font-size:13px;color:var(--text-muted);font-weight:700}
+  .ring-wrap{position:relative;width:min(70vw,320px);height:min(70vw,320px);margin:10px 0}
+  svg.ring{width:100%;height:100%;transform:rotate(-90deg)}
+  .ring-bg{fill:none;stroke:var(--surface);stroke-width:14}
+  .ring-fg{fill:none;stroke:var(--work);stroke-width:14;stroke-linecap:round;transition:stroke-dashoffset .25s linear,stroke .3s ease}
+  .ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .phase-label{font-size:13px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--work);margin-bottom:4px}
+  .timer-num{font-size:64px;font-weight:900;font-variant-numeric:tabular-nums;line-height:1}
+  .reps-num{font-size:18px;font-weight:700;color:var(--text-muted);margin-top:6px}
+  .exercise-name{font-size:28px;font-weight:900;text-align:center;text-transform:uppercase;letter-spacing:.01em;margin:6px 20px 0;min-height:70px;display:flex;align-items:center;justify-content:center}
+  .next-preview{font-size:14px;color:var(--text-muted);font-weight:600;margin-top:6px;text-align:center}
+  .controls{width:100%;display:flex;gap:12px;margin-top:20px}
+  .ctrl-btn{flex:1;border:none;border-radius:16px;padding:18px 12px;font-size:16px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--text)}
+  .ctrl-btn:disabled{opacity:.42;cursor:default}
+  .ctrl-secondary{background:var(--surface);color:var(--text)}
+  .ctrl-primary{background:var(--work);color:#1a1200}
+
+  #workoutPlayer{padding:16px 20px calc(24px + env(safe-area-inset-bottom));overflow-y:auto}
+  .workout-player-top{width:100%;display:grid;grid-template-columns:52px 1fr 72px;align-items:center}
+  .workout-player-top .routine-name{text-align:center}
+  .elapsed{font-size:16px;font-weight:900;font-variant-numeric:tabular-nums;text-align:right}
+  .workout-stage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:22px 0 12px}
+  .movement-progress{font-size:12px;font-weight:900;letter-spacing:.15em;text-transform:uppercase;color:var(--work);margin-bottom:18px}
+  .workout-exercise{font-size:clamp(30px,8vw,46px);line-height:1.04;font-weight:950;text-transform:uppercase;letter-spacing:-.025em;margin:0;max-width:600px}
+  .workout-target{font-size:22px;font-weight:900;margin-top:16px;color:var(--work)}
+  .workout-side-note{min-height:20px;margin-top:3px;color:var(--text-muted);font-size:13px;font-weight:700}
+  .workout-paused{min-height:20px;margin-top:14px;color:var(--rest);font-size:12px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}
+  .workout-stats{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:20px}
+  .workout-stat{border:1px solid var(--surface-2);background:var(--surface);border-radius:16px;padding:14px;text-align:left}
+  .workout-stat-label{display:block;color:var(--text-muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px}
+  .workout-stat-value{font-size:20px;font-weight:900;font-variant-numeric:tabular-nums}
+  .overall-progress{width:100%;margin-top:14px}
+  .progress-label{display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);font-size:12px;font-weight:750;margin-bottom:7px}
+  .progress-track{height:10px;background:var(--surface);border-radius:999px;overflow:hidden}
+  .progress-fill{height:100%;width:0;background:linear-gradient(90deg,var(--rest),var(--work));border-radius:999px;transition:width .3s ease}
+  .previous-btn{width:100%;margin:14px 0 0;border:1px solid var(--surface-2);background:transparent;color:var(--text-muted);border-radius:14px;padding:11px 14px;text-align:left;display:flex;align-items:center;gap:10px}
+  .previous-btn:disabled{opacity:.36;cursor:default}
+  .previous-arrow{font-size:20px}
+  .previous-copy{display:flex;flex-direction:column;gap:1px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
+  .previous-copy strong{color:var(--text);font-size:13px;letter-spacing:0;text-transform:none}
+  .workout-controls{margin-top:12px}
+  .complete-btn{flex:1.65}
+
+  #snackpick{padding:24px 20px calc(24px + env(safe-area-inset-bottom))}
+  .snack-header{margin-bottom:20px;margin-top:8px}
+  .snack-header h1{font-size:22px;margin:0 0 4px;font-weight:900;text-transform:uppercase}
+  .snack-header p{margin:0;color:var(--text-muted);font-size:14px}
+  .snack-cards{display:flex;flex-direction:column;gap:12px}
+  .snack-card{background:var(--surface);color:var(--text);border:none;border-radius:18px;padding:20px;text-align:left;display:flex;justify-content:space-between;align-items:center}
+  .snack-card .name{font-size:18px;font-weight:800;text-transform:uppercase}
+  .snack-card .dur{font-size:13px;color:var(--text-muted);font-weight:700}
+  .snack-reshuffle{margin-top:16px;background:none;border:1px dashed var(--surface-2);color:var(--text-muted);border-radius:14px;padding:14px;font-weight:700;font-size:14px}
+
+  #done{align-items:center;justify-content:center;text-align:center;padding:24px 20px calc(24px + env(safe-area-inset-bottom));overflow-y:auto}
+  #done .check{font-size:70px;margin-bottom:10px}
+  #done h1{font-size:30px;font-weight:950;text-transform:uppercase;margin:0 0 8px}
+  #done>p{color:var(--text-muted);margin:0 0 24px}
+  #done .ctrl-btn{width:min(100%,380px);flex:0 0 auto}
+  .done-stats{width:min(100%,380px);display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:2px 0 12px}
+  .done-stat{background:var(--surface);border:1px solid var(--surface-2);border-radius:18px;padding:18px 10px}
+  .done-stat strong{display:block;font-size:28px;font-variant-numeric:tabular-nums;margin-bottom:4px}
+  .done-stat span{color:var(--text-muted);font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+  .done-best{width:min(100%,380px);margin:0 0 24px;color:var(--work);font-size:14px;font-weight:800}
+
+  .modal{position:fixed;inset:0;z-index:20;background:rgba(5,7,7,.78);display:flex;align-items:flex-end;justify-content:center;padding:20px 20px calc(20px + env(safe-area-inset-bottom));backdrop-filter:blur(5px)}
+  .modal-card{width:min(100%,460px);background:var(--surface);border:1px solid var(--surface-2);border-radius:24px;padding:24px;box-shadow:0 22px 60px rgba(0,0,0,.45)}
+  .modal-card h2{margin:0 0 8px;font-size:24px;font-weight:900}
+  .modal-card p{margin:0;color:var(--text-muted);font-size:14px;line-height:1.5}
+  .modal-actions{display:flex;gap:10px;margin-top:22px}
+  .modal-actions button{flex:1;border:0;border-radius:14px;padding:15px 10px;font-size:14px;font-weight:850}
+  .danger-btn{background:var(--danger);color:#190705}
+
+  @media (min-width:720px){
+    #app{width:720px;left:50%;right:auto;transform:translateX(-50%);border-left:1px solid var(--surface-2);border-right:1px solid var(--surface-2)}
+    .modal{width:720px;left:50%;right:auto;transform:translateX(-50%)}
+  }
+  @media (max-height:700px){
+    .tiles{min-height:360px}.home-header{margin-bottom:16px}.workout-stage{padding:10px 0 4px}.workout-exercise{font-size:30px}.workout-target{margin-top:10px}.workout-stats{margin-top:10px}.previous-btn{margin-top:10px}.workout-controls{margin-top:8px}.ctrl-btn{padding-top:14px;padding-bottom:14px}
+  }
 </style>
 </head>
 <body>
 <div id="app">
-<div id="home" class="screen"><div class="home-header"><div class="home-title">Garage Fit</div><button class="equip-toggle" id="equipToggle"></button></div><div class="tiles"><button class="tile" id="tile-warmup" onclick="startRoutine('warmup')"><div class="glyph">🔥</div><div class="label">Warm Up</div><div class="sub" id="warmupSub"></div></button><button class="tile" id="tile-rampup" onclick="startRoutine('rampup')"><div class="glyph">⚡</div><div class="label">Ramp Up</div><div class="sub">7 moves · reps</div></button><button class="tile" id="tile-cooldown" onclick="startRoutine('cooldown')"><div class="glyph">🧘</div><div class="label">Cool Down</div><div class="sub" id="cooldownSub"></div></button><button class="tile" id="tile-snack" onclick="openSnack()"><div class="glyph">🍿</div><div class="label">Snack</div><div class="sub">quick pick</div></button></div></div>
-<div id="snackpick" class="screen hidden"><div class="snack-header"><h1>Pick one</h1><p>A couple of minutes is all it takes</p></div><div class="snack-cards" id="snackCards"></div><button class="snack-reshuffle" onclick="renderSnackPicker()">🔀 Show different options</button><button class="ctrl-btn ctrl-secondary" style="margin-top:14px;" onclick="goHome()">Cancel</button></div>
-<div id="player" class="screen hidden"><div class="player-top"><button class="close-btn" onclick="confirmExit()">✕</button><div class="routine-name" id="routineName"></div><div class="progress-count" id="progressCount"></div></div><div class="ring-wrap"><svg class="ring" viewBox="0 0 200 200"><circle class="ring-bg" cx="100" cy="100" r="90"></circle><circle class="ring-fg" id="ringFg" cx="100" cy="100" r="90" stroke-dasharray="565.48" stroke-dashoffset="0"></circle></svg><div class="ring-center"><div class="phase-label" id="phaseLabel">GET READY</div><div class="timer-num" id="timerNum">3</div><div class="reps-num hidden" id="repsNum"></div></div></div><div class="exercise-name" id="exerciseName">Get ready</div><div class="next-preview" id="nextPreview">&nbsp;</div><div class="controls"><button class="ctrl-btn ctrl-secondary" id="pauseBtn" onclick="togglePause()">Pause</button><button class="ctrl-btn ctrl-primary" onclick="skipPhase()">Skip</button></div></div>
-<div id="done" class="screen hidden"><div class="check">✅</div><h1 id="doneTitle">Done!</h1><p id="doneSub">Nice work.</p><button class="ctrl-btn ctrl-primary" onclick="goHome()">Back to home</button></div>
+  <main id="home" class="screen">
+    <div class="home-header">
+      <div class="home-title">Garage Fit</div>
+      <button class="equip-toggle" id="equipToggle" type="button"></button>
+    </div>
+    <div class="tiles">
+      <button class="tile" id="tile-warmup" type="button" onclick="startRoutine('warmup')"><span class="glyph" aria-hidden="true">🔥</span><span class="label">Warm Up</span><span class="sub" id="warmupSub"></span></button>
+      <button class="tile" id="tile-rampup" type="button" onclick="startRoutine('rampup')"><span class="glyph" aria-hidden="true">⚡</span><span class="label">Ramp Up</span><span class="sub">7 moves · reps</span></button>
+      <button class="tile" id="tile-cooldown" type="button" onclick="startRoutine('cooldown')"><span class="glyph" aria-hidden="true">🧘</span><span class="label">Cool Down</span><span class="sub" id="cooldownSub"></span></button>
+      <button class="tile" id="tile-snack" type="button" onclick="openSnack()"><span class="glyph" aria-hidden="true">🍿</span><span class="label">Snack</span><span class="sub">quick pick</span></button>
+    </div>
+  </main>
+
+  <main id="workouts" class="screen hidden">
+    <header class="workouts-heading">
+      <div class="home-title">Garage Fit</div>
+      <h1>Workouts</h1>
+      <p>Rep-based challenges. Finish the work, stop the clock.</p>
+    </header>
+    <button class="workout-launch" type="button" onclick="startWorkout()" aria-label="Start the 300 Workout">
+      <span class="workout-kicker">For time</span>
+      <span class="workout-number">300</span>
+      <span class="workout-label">Workout</span>
+      <span class="workout-launch-bottom">
+        <span class="workout-launch-meta"><span>7 movements</span><span>300 total reps</span></span>
+        <span class="workout-launch-cta">Start →</span>
+      </span>
+    </button>
+    <div class="best-strip"><span>Personal best</span><strong id="personalBestValue">No time yet</strong></div>
+    <button class="review-toggle" id="reviewToggle" type="button" aria-expanded="false" aria-controls="workoutReview" onclick="toggleWorkoutReview()"><span>Review exercises</span><span class="review-toggle-icon" aria-hidden="true">⌄</span></button>
+    <ol class="workout-review hidden" id="workoutReview"></ol>
+  </main>
+
+  <main id="snackpick" class="screen hidden">
+    <header class="snack-header"><h1>Pick one</h1><p>A couple of minutes is all it takes</p></header>
+    <div class="snack-cards" id="snackCards"></div>
+    <button class="snack-reshuffle" type="button" onclick="renderSnackPicker()">🔀 Show different options</button>
+    <button class="ctrl-btn ctrl-secondary" type="button" style="margin-top:14px;" onclick="goHome()">Cancel</button>
+  </main>
+
+  <main id="player" class="screen hidden">
+    <div class="player-top">
+      <button class="close-btn" type="button" aria-label="Exit routine" onclick="openExitDialog('routine')">✕</button>
+      <div class="routine-name" id="routineName"></div>
+      <div class="progress-count" id="progressCount"></div>
+    </div>
+    <div class="ring-wrap">
+      <svg class="ring" viewBox="0 0 200 200" aria-hidden="true"><circle class="ring-bg" cx="100" cy="100" r="90"></circle><circle class="ring-fg" id="ringFg" cx="100" cy="100" r="90" stroke-dasharray="565.48" stroke-dashoffset="0"></circle></svg>
+      <div class="ring-center"><div class="phase-label" id="phaseLabel">GET READY</div><div class="timer-num" id="timerNum">3</div><div class="reps-num hidden" id="repsNum"></div></div>
+    </div>
+    <div class="exercise-name" id="exerciseName" aria-live="polite">Get ready</div>
+    <div class="next-preview" id="nextPreview">&nbsp;</div>
+    <div class="controls"><button class="ctrl-btn ctrl-secondary" id="pauseBtn" type="button" onclick="togglePause()">Pause</button><button class="ctrl-btn ctrl-primary" type="button" onclick="skipPhase()">Skip</button></div>
+  </main>
+
+  <main id="workoutPlayer" class="screen hidden">
+    <div class="workout-player-top">
+      <button class="close-btn" type="button" aria-label="Exit workout" onclick="openExitDialog('workout')">✕</button>
+      <div class="routine-name">300 Workout</div>
+      <div class="elapsed" id="workoutElapsed">00:00</div>
+    </div>
+    <div class="workout-stage">
+      <div class="movement-progress" id="workoutMovementProgress">Movement 1 of 7</div>
+      <h1 class="workout-exercise" id="workoutExercise" aria-live="polite">Pull-ups</h1>
+      <div class="workout-target" id="workoutTarget">25 reps</div>
+      <div class="workout-side-note" id="workoutSideNote"></div>
+      <div class="workout-paused" id="workoutPausedState" aria-live="polite"></div>
+      <div class="workout-stats">
+        <div class="workout-stat"><span class="workout-stat-label">Exercise progress</span><strong class="workout-stat-value" id="workoutExerciseProgress">1 / 7</strong></div>
+        <div class="workout-stat"><span class="workout-stat-label">Completed reps</span><strong class="workout-stat-value"><span id="workoutCompletedReps">0</span> / 300</strong></div>
+      </div>
+      <div class="overall-progress">
+        <div class="progress-label"><span>Total progress</span><span id="workoutProgressPercent">0%</span></div>
+        <div class="progress-track" role="progressbar" aria-label="Workout progress" aria-valuemin="0" aria-valuemax="300" aria-valuenow="0" id="workoutProgressTrack"><div class="progress-fill" id="workoutProgressFill"></div></div>
+      </div>
+    </div>
+    <button class="previous-btn" id="previousWorkoutBtn" type="button" onclick="previousWorkoutMovement()" disabled><span class="previous-arrow" aria-hidden="true">←</span><span class="previous-copy"><span>Previous movement</span><strong id="previousWorkoutName">None yet</strong></span></button>
+    <div class="controls workout-controls"><button class="ctrl-btn ctrl-secondary" id="workoutPauseBtn" type="button" onclick="toggleWorkoutPause()">Pause</button><button class="ctrl-btn ctrl-primary complete-btn" id="completeMovementBtn" type="button" onclick="completeWorkoutMovement()">Complete 25 reps</button></div>
+  </main>
+
+  <main id="done" class="screen hidden">
+    <div class="check" aria-hidden="true">✅</div>
+    <h1 id="doneTitle">Done!</h1>
+    <p id="doneSub">Nice work.</p>
+    <div class="done-stats hidden" id="doneStats"><div class="done-stat"><strong id="doneTime">00:00</strong><span>Elapsed time</span></div><div class="done-stat"><strong>300</strong><span>Completed reps</span></div></div>
+    <div class="done-best hidden" id="doneBest"></div>
+    <button class="ctrl-btn ctrl-primary" id="doneBtn" type="button" onclick="goDoneHome()">Back to routines</button>
+  </main>
+
+  <nav class="bottom-nav" id="bottomNav" aria-label="Main navigation">
+    <button class="nav-btn active" id="routinesNav" type="button" aria-current="page" onclick="showLanding('home')"><span class="nav-icon" aria-hidden="true">◴</span><span>Routines</span></button>
+    <button class="nav-btn" id="workoutsNav" type="button" onclick="showLanding('workouts')"><span class="nav-icon" aria-hidden="true">◆</span><span>Workouts</span></button>
+  </nav>
+
+  <div class="modal hidden" id="exitDialog" role="dialog" aria-modal="true" aria-labelledby="exitDialogTitle" aria-describedby="exitDialogCopy" onclick="handleModalBackdrop(event)">
+    <div class="modal-card">
+      <h2 id="exitDialogTitle">Exit workout?</h2>
+      <p id="exitDialogCopy">Your current progress and elapsed time won’t be saved.</p>
+      <div class="modal-actions"><button class="ctrl-secondary" id="stayBtn" type="button" onclick="cancelExit()">Keep going</button><button class="danger-btn" type="button" onclick="confirmExitChoice()">Exit</button></div>
+    </div>
+  </div>
 </div>
 <script>
 const WORK_S=15,REST_S=5;
@@ -39,19 +264,105 @@ cooldownEquip:["Toe touch","Inside thigh stretch - Right","Inside thigh stretch 
 cooldownNoEquip:["Toe touch","Inside thigh stretch - Right","Inside thigh stretch - Left","Wide toe touch - Right","Wide toe touch - Left","Hip flexor + arm across pull + overhead tricep - Right","Kneeling hamstring - Right","Hip flexor + arm across pull + overhead tricep - Left","Kneeling hamstring - Left","Frog","Standing quads - Right","Standing quads - Left","Downward dog to upward dog","Plank calf stretch","Pigeon - Right","Pigeon - Left","Runner's stretch - Right","Runner's stretch - Left","Lean back and sink","Chest opener","Side stretch","Glute stretch","Lying torso twist - Right","Lying torso twist - Left","Full body stretch"].map(n=>({name:n,work:WORK_S,rest:REST_S})),
 rampUp:[{name:"Jumping jacks",reps:10,work:30,rest:REST_S},{name:"Air squat",reps:10,work:30,rest:REST_S},{name:"Press ups",reps:10,work:30,rest:REST_S},{name:"Toes to bar",reps:5,work:20,rest:REST_S},{name:"Kettlebell swings",reps:10,work:30,rest:REST_S},{name:"Plank",reps:null,work:30,rest:REST_S},{name:"Burpees",reps:10,work:30,rest:0}],
 snackPool:[{name:"Deadlift",work:30,gear:["barbell"]},{name:"Squat",work:30,gear:["barbell"]},{name:"Chest press",work:30,gear:["bench","dumbbells"]},{name:"Shoulder press",work:30,gear:["dumbbells"]},{name:"Pull up",work:30,gear:["pullup-bar"]},{name:"Kettlebell swings",work:30,gear:["kettlebell"]}]};
-let state={key:null,list:[],idx:0,phase:'ready',remaining:0,timer:null,paused:false,equipment:true,wakeLock:null};
-function loadEquipment(){const v=localStorage.getItem('gf_equipment');state.equipment=v===null?true:v==='true';renderHome()}function toggleEquipment(){state.equipment=!state.equipment;localStorage.setItem('gf_equipment',state.equipment);renderHome()}function renderHome(){document.getElementById('equipToggle').textContent=state.equipment?'🏋️ Equipment':'🧍 No equipment';document.getElementById('warmupSub').textContent=(state.equipment?EX.warmupEquip.length:EX.warmupNoEquip.length)+' moves';document.getElementById('cooldownSub').textContent=(state.equipment?EX.cooldownEquip.length:EX.cooldownNoEquip.length)+' moves'}document.getElementById('equipToggle').addEventListener('click',toggleEquipment);
-function showScreen(id){['home','snackpick','player','done'].forEach(s=>document.getElementById(s).classList.toggle('hidden',s!==id))}function goHome(){stopTimer();releaseWake();showScreen('home')}
-let audioCtx=null;function beep(freq=880,dur=.12){try{audioCtx=audioCtx||new(window.AudioContext||window.webkitAudioContext)();const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.frequency.value=freq;o.type='sine';o.connect(g);g.connect(audioCtx.destination);g.gain.setValueAtTime(.15,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+dur);o.start();o.stop(audioCtx.currentTime+dur)}catch(e){}}function speak(text){try{if(!('speechSynthesis'in window))return;window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.rate=1;u.pitch=1;window.speechSynthesis.speak(u)}catch(e){}}
+const WORKOUT_300=[
+  {name:"Pull-ups",reps:25},
+  {name:"Deadlifts",reps:50},
+  {name:"Push-ups",reps:50},
+  {name:"Box jumps",reps:50},
+  {name:"Floor wipers",reps:50},
+  {name:"Single-arm kettlebell clean and presses",reps:50,note:"25 per side"},
+  {name:"Pull-ups",reps:25}
+];
+const WORKOUT_TOTAL_REPS=300,PB_KEY='gf_300_pb_seconds';
+let state={key:null,list:[],idx:0,phase:'ready',remaining:0,timer:null,paused:false,equipment:true,wakeLock:null,running:false,doneDestination:'home'};
+let workoutState={idx:0,completed:[],elapsedMs:0,startedAt:0,timer:null,paused:false,running:false};
+let exitState={type:null,wasPaused:false,lastFocus:null};
+function loadEquipment(){const v=localStorage.getItem('gf_equipment');state.equipment=v===null?true:v==='true';renderHome();renderWorkoutReview();renderPersonalBest();showScreen('home')}
+function toggleEquipment(){state.equipment=!state.equipment;localStorage.setItem('gf_equipment',state.equipment);renderHome()}
+function renderHome(){document.getElementById('equipToggle').textContent=state.equipment?'🏋️ Equipment':'🧍 No equipment';document.getElementById('warmupSub').textContent=(state.equipment?EX.warmupEquip.length:EX.warmupNoEquip.length)+' moves';document.getElementById('cooldownSub').textContent=(state.equipment?EX.cooldownEquip.length:EX.cooldownNoEquip.length)+' moves'}
+document.getElementById('equipToggle').addEventListener('click',toggleEquipment);
+function showScreen(id){
+  ['home','workouts','snackpick','player','workoutPlayer','done'].forEach(s=>document.getElementById(s).classList.toggle('hidden',s!==id));
+  const landing=id==='home'||id==='workouts',nav=document.getElementById('bottomNav');nav.classList.toggle('hidden',!landing);
+  const routinesActive=id==='home',workoutsActive=id==='workouts',routinesNav=document.getElementById('routinesNav'),workoutsNav=document.getElementById('workoutsNav');routinesNav.classList.toggle('active',routinesActive);workoutsNav.classList.toggle('active',workoutsActive);
+  routinesActive?routinesNav.setAttribute('aria-current','page'):routinesNav.removeAttribute('aria-current');workoutsActive?workoutsNav.setAttribute('aria-current','page'):workoutsNav.removeAttribute('aria-current');
+}
+function showLanding(id){if(id==='workouts')renderPersonalBest();showScreen(id)}
+function goHome(){stopTimer();stopWorkoutClock();state.running=false;workoutState.running=false;state.paused=false;releaseWake();cancelSpeech();showScreen('home')}
+function goWorkouts(){stopTimer();stopWorkoutClock();state.running=false;workoutState.running=false;workoutState.paused=false;releaseWake();cancelSpeech();renderPersonalBest();showScreen('workouts')}
+function goDoneHome(){state.doneDestination==='workouts'?goWorkouts():goHome()}
+let audioCtx=null;function beep(freq=880,dur=.12){try{audioCtx=audioCtx||new(window.AudioContext||window.webkitAudioContext)();const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.frequency.value=freq;o.type='sine';o.connect(g);g.connect(audioCtx.destination);g.gain.setValueAtTime(.15,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+dur);o.start();o.stop(audioCtx.currentTime+dur)}catch(e){}}function speak(text){try{if(!('speechSynthesis'in window))return;window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.rate=1;u.pitch=1;window.speechSynthesis.speak(u)}catch(e){}}function cancelSpeech(){try{if('speechSynthesis'in window)window.speechSynthesis.cancel()}catch(e){}}
 async function requestWake(){try{if('wakeLock'in navigator)state.wakeLock=await navigator.wakeLock.request('screen')}catch(e){}}function releaseWake(){try{if(state.wakeLock){state.wakeLock.release();state.wakeLock=null}}catch(e){}}
-function startRoutine(key){let list;if(key==='warmup')list=state.equipment?EX.warmupEquip:EX.warmupNoEquip;else if(key==='cooldown')list=state.equipment?EX.cooldownEquip:EX.cooldownNoEquip;else if(key==='rampup')list=EX.rampUp;state.key=key;state.list=list.slice();state.idx=0;state.paused=false;document.getElementById('routineName').textContent=key==='warmup'?'Warm Up':key==='cooldown'?'Cool Down':'Ramp Up';showScreen('player');requestWake();enterReady()}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&(state.running||workoutState.running))requestWake()});
+function startRoutine(key){let list;if(key==='warmup')list=state.equipment?EX.warmupEquip:EX.warmupNoEquip;else if(key==='cooldown')list=state.equipment?EX.cooldownEquip:EX.cooldownNoEquip;else if(key==='rampup')list=EX.rampUp;state.key=key;state.list=list.slice();state.idx=0;state.paused=false;state.running=true;state.doneDestination='home';document.getElementById('pauseBtn').textContent='Pause';document.getElementById('routineName').textContent=key==='warmup'?'Warm Up':key==='cooldown'?'Cool Down':'Ramp Up';showScreen('player');requestWake();enterReady()}
 function enterReady(){state.phase='ready';state.remaining=3;updateProgressCount();const first=state.list[0];document.getElementById('exerciseName').textContent='Get ready';document.getElementById('nextPreview').textContent='First up: '+first.name;setRingColor('rest');document.getElementById('phaseLabel').textContent='GET READY';document.getElementById('repsNum').classList.add('hidden');speak('Get ready. '+first.name);runTimer(3,()=>enterWork())}
 function enterWork(){state.phase='work';const ex=state.list[state.idx];state.remaining=ex.work;updateProgressCount();document.getElementById('exerciseName').textContent=ex.name;document.getElementById('phaseLabel').textContent=state.key==='rampup'?'GO':'WORK';setRingColor('work');const repsEl=document.getElementById('repsNum');if(state.key==='rampup'){repsEl.classList.remove('hidden');repsEl.textContent=ex.reps?('x'+ex.reps+' reps'):'hold'}else repsEl.classList.add('hidden');const isLast=state.idx===state.list.length-1,next=isLast?null:state.list[state.idx+1];document.getElementById('nextPreview').textContent=next?('Next: '+next.name):'Last one!';beep(880);runTimer(ex.work,()=>enterRestOrNext())}
 function enterRestOrNext(){const ex=state.list[state.idx],isLast=state.idx===state.list.length-1;if(isLast||!ex.rest){finishRoutine();return}state.phase='rest';state.remaining=ex.rest;updateProgressCount();const next=state.list[state.idx+1];document.getElementById('exerciseName').textContent='Get ready';document.getElementById('phaseLabel').textContent='REST';document.getElementById('repsNum').classList.add('hidden');setRingColor('rest');document.getElementById('nextPreview').textContent='Next: '+next.name;beep(440);speak(next.name);runTimer(ex.rest,()=>{state.idx++;enterWork()})}
-function finishRoutine(){releaseWake();document.getElementById('doneTitle').textContent='Done!';const label=state.key==='warmup'?"Warm-up complete. Let's go.":state.key==='cooldown'?'Cool-down complete. Nice work.':'Ramp-up complete. Time to train.';document.getElementById('doneSub').textContent=label;speak(label);showScreen('done')}function updateProgressCount(){document.getElementById('progressCount').textContent=(state.idx+1)+' / '+state.list.length}function setRingColor(kind){const ring=document.getElementById('ringFg'),label=document.getElementById('phaseLabel'),color=kind==='work'?getComputedStyle(document.documentElement).getPropertyValue('--work'):getComputedStyle(document.documentElement).getPropertyValue('--rest');ring.style.stroke=color.trim();label.style.color=color.trim()}
+function finishRoutine(){stopTimer();state.running=false;state.doneDestination='home';releaseWake();document.getElementById('doneTitle').textContent='Done!';const label=state.key==='warmup'?"Warm-up complete. Let's go.":state.key==='cooldown'?'Cool-down complete. Nice work.':'Ramp-up complete. Time to train.';document.getElementById('doneSub').textContent=label;document.getElementById('doneStats').classList.add('hidden');document.getElementById('doneBest').classList.add('hidden');document.getElementById('doneBtn').textContent='Back to routines';speak(label);showScreen('done')}function updateProgressCount(){document.getElementById('progressCount').textContent=(state.idx+1)+' / '+state.list.length}function setRingColor(kind){const ring=document.getElementById('ringFg'),label=document.getElementById('phaseLabel'),color=kind==='work'?getComputedStyle(document.documentElement).getPropertyValue('--work'):getComputedStyle(document.documentElement).getPropertyValue('--rest');ring.style.stroke=color.trim();label.style.color=color.trim()}
 const RING_CIRC=565.48;function runTimer(totalSeconds,onComplete){clearInterval(state.timer);const start=totalSeconds;renderTick(start,start);document.getElementById('timerNum').textContent=start;state.timer=setInterval(()=>{if(state.paused)return;state.remaining-=1;renderTick(state.remaining,start);if(state.remaining<=0){clearInterval(state.timer);onComplete()}},1000);state._onComplete=onComplete;state._start=start}function renderTick(remaining,total){document.getElementById('timerNum').textContent=Math.max(remaining,0);const ring=document.getElementById('ringFg'),frac=Math.max(remaining,0)/total;ring.style.strokeDashoffset=RING_CIRC*(1-frac)}function stopTimer(){clearInterval(state.timer)}
-function togglePause(){state.paused=!state.paused;document.getElementById('pauseBtn').textContent=state.paused?'Resume':'Pause'}function skipPhase(){clearInterval(state.timer);state.paused=false;document.getElementById('pauseBtn').textContent='Pause';if(state.phase==='ready')enterWork();else if(state.phase==='work')enterRestOrNext();else if(state.phase==='rest'){state.idx++;enterWork()}}function confirmExit(){stopTimer();releaseWake();goHome()}
-function pickRandom(arr,n){const copy=arr.slice(),out=[];while(copy.length&&out.length<n)out.push(copy.splice(Math.floor(Math.random()*copy.length),1)[0]);return out}let snackChoices=[];function openSnack(){showScreen('snackpick');renderSnackPicker()}function renderSnackPicker(){snackChoices=pickRandom(EX.snackPool,Math.min(3,EX.snackPool.length));const wrap=document.getElementById('snackCards');wrap.innerHTML='';snackChoices.forEach((ex,i)=>{const btn=document.createElement('button');btn.className='snack-card';btn.innerHTML='<span class="name">'+ex.name+'</span><span class="dur">'+ex.work+'s</span>';btn.onclick=()=>startSnack(i);wrap.appendChild(btn)})}function startSnack(i){const ex=snackChoices[i];state.key='snack';state.list=[{name:ex.name,work:ex.work,rest:0}];state.idx=0;state.paused=false;document.getElementById('routineName').textContent='Snack';showScreen('player');requestWake();enterReady()}
+function togglePause(){state.paused=!state.paused;document.getElementById('pauseBtn').textContent=state.paused?'Resume':'Pause'}function skipPhase(){clearInterval(state.timer);state.paused=false;document.getElementById('pauseBtn').textContent='Pause';if(state.phase==='ready')enterWork();else if(state.phase==='work')enterRestOrNext();else if(state.phase==='rest'){state.idx++;enterWork()}}
+function pickRandom(arr,n){const copy=arr.slice(),out=[];while(copy.length&&out.length<n)out.push(copy.splice(Math.floor(Math.random()*copy.length),1)[0]);return out}let snackChoices=[];function openSnack(){showScreen('snackpick');renderSnackPicker()}function renderSnackPicker(){snackChoices=pickRandom(EX.snackPool,Math.min(3,EX.snackPool.length));const wrap=document.getElementById('snackCards');wrap.innerHTML='';snackChoices.forEach((ex,i)=>{const btn=document.createElement('button');btn.className='snack-card';btn.innerHTML='<span class="name">'+ex.name+'</span><span class="dur">'+ex.work+'s</span>';btn.onclick=()=>startSnack(i);wrap.appendChild(btn)})}function startSnack(i){const ex=snackChoices[i];state.key='snack';state.list=[{name:ex.name,work:ex.work,rest:0}];state.idx=0;state.paused=false;state.running=true;state.doneDestination='home';document.getElementById('pauseBtn').textContent='Pause';document.getElementById('routineName').textContent='Snack';showScreen('player');requestWake();enterReady()}
+
+function renderWorkoutReview(){
+  const list=document.getElementById('workoutReview');list.innerHTML='';
+  WORKOUT_300.forEach(ex=>{const li=document.createElement('li'),name=document.createElement('span'),reps=document.createElement('span');name.className='review-name';name.textContent=ex.name;if(ex.note){const note=document.createElement('span');note.className='review-note';note.textContent=ex.note;name.appendChild(note)}reps.className='review-reps';reps.textContent=ex.reps+' reps';li.append(name,reps);list.appendChild(li)});
+}
+function toggleWorkoutReview(){
+  const button=document.getElementById('reviewToggle'),list=document.getElementById('workoutReview'),willOpen=list.classList.contains('hidden');list.classList.toggle('hidden',!willOpen);button.setAttribute('aria-expanded',String(willOpen));button.querySelector('span:first-child').textContent=willOpen?'Hide exercises':'Review exercises';
+}
+function getPersonalBest(){try{const raw=localStorage.getItem(PB_KEY);if(raw===null)return null;const value=Number.parseInt(raw,10);return Number.isFinite(value)&&value>=0?value:null}catch(e){return null}}
+function savePersonalBest(seconds){try{localStorage.setItem(PB_KEY,String(seconds))}catch(e){}}
+function renderPersonalBest(){const best=getPersonalBest();document.getElementById('personalBestValue').textContent=best===null?'No time yet':formatTime(best)}
+function formatTime(totalSeconds){
+  const seconds=Math.max(0,Math.floor(totalSeconds)),hours=Math.floor(seconds/3600),minutes=Math.floor((seconds%3600)/60),remainder=seconds%60;
+  return hours>0?hours+':'+String(minutes).padStart(2,'0')+':'+String(remainder).padStart(2,'0'):String(minutes).padStart(2,'0')+':'+String(remainder).padStart(2,'0');
+}
+function formatSpokenTime(totalSeconds){const minutes=Math.floor(totalSeconds/60),seconds=totalSeconds%60;return (minutes?minutes+(minutes===1?' minute ':' minutes '):'')+seconds+(seconds===1?' second':' seconds')}
+function currentWorkoutElapsedMs(){return workoutState.running&&!workoutState.paused?workoutState.elapsedMs+(Date.now()-workoutState.startedAt):workoutState.elapsedMs}
+function renderWorkoutElapsed(){document.getElementById('workoutElapsed').textContent=formatTime(currentWorkoutElapsedMs()/1000)}
+function startWorkoutClock(){clearInterval(workoutState.timer);workoutState.startedAt=Date.now();workoutState.timer=setInterval(renderWorkoutElapsed,250);renderWorkoutElapsed()}
+function pauseWorkoutClock(){if(!workoutState.running||workoutState.paused)return;workoutState.elapsedMs=currentWorkoutElapsedMs();workoutState.paused=true;clearInterval(workoutState.timer);renderWorkoutElapsed();updateWorkoutPauseUI()}
+function resumeWorkoutClock(){if(!workoutState.running||!workoutState.paused)return;workoutState.paused=false;startWorkoutClock();updateWorkoutPauseUI()}
+function stopWorkoutClock(){if(workoutState.running&&!workoutState.paused)workoutState.elapsedMs=currentWorkoutElapsedMs();clearInterval(workoutState.timer);workoutState.timer=null}
+function startWorkout(){
+  stopTimer();stopWorkoutClock();state.running=false;state.doneDestination='workouts';workoutState={idx:0,completed:WORKOUT_300.map(()=>false),elapsedMs:0,startedAt:Date.now(),timer:null,paused:false,running:true};showScreen('workoutPlayer');renderWorkout();startWorkoutClock();requestWake();beep(880);speak('300 workout. 25 pull-ups. Go.');
+}
+function completedWorkoutReps(){return WORKOUT_300.reduce((total,ex,index)=>total+(workoutState.completed[index]?ex.reps:0),0)}
+function renderWorkout(){
+  const ex=WORKOUT_300[workoutState.idx],completed=completedWorkoutReps(),percent=Math.round(completed/WORKOUT_TOTAL_REPS*100),previous=workoutState.idx>0?WORKOUT_300[workoutState.idx-1]:null;
+  document.getElementById('workoutMovementProgress').textContent='Movement '+(workoutState.idx+1)+' of '+WORKOUT_300.length;
+  document.getElementById('workoutExercise').textContent=ex.name;document.getElementById('workoutTarget').textContent=ex.reps+' reps';document.getElementById('workoutSideNote').textContent=ex.note||'';
+  document.getElementById('workoutExerciseProgress').textContent=(workoutState.idx+1)+' / '+WORKOUT_300.length;document.getElementById('workoutCompletedReps').textContent=completed;document.getElementById('workoutProgressPercent').textContent=percent+'%';
+  const track=document.getElementById('workoutProgressTrack');track.setAttribute('aria-valuenow',String(completed));document.getElementById('workoutProgressFill').style.width=(completed/WORKOUT_TOTAL_REPS*100)+'%';
+  const previousButton=document.getElementById('previousWorkoutBtn');previousButton.disabled=!previous;document.getElementById('previousWorkoutName').textContent=previous?previous.name:'None yet';document.getElementById('completeMovementBtn').textContent='Complete '+ex.reps+' reps';updateWorkoutPauseUI();
+}
+function updateWorkoutPauseUI(){
+  document.getElementById('workoutPauseBtn').textContent=workoutState.paused?'Resume':'Pause';document.getElementById('workoutPausedState').textContent=workoutState.paused?'Paused':'';document.getElementById('completeMovementBtn').disabled=workoutState.paused;
+}
+function toggleWorkoutPause(){workoutState.paused?resumeWorkoutClock():pauseWorkoutClock()}
+function completeWorkoutMovement(){
+  if(!workoutState.running||workoutState.paused)return;const index=workoutState.idx;workoutState.completed[index]=true;beep(880);
+  if(index===WORKOUT_300.length-1){finishWorkout();return}
+  workoutState.idx++;renderWorkout();const next=WORKOUT_300[workoutState.idx];speak(next.name+'. '+next.reps+' reps'+(next.note?'. '+next.note:''));
+}
+function previousWorkoutMovement(){
+  if(!workoutState.running||workoutState.idx===0)return;workoutState.idx--;workoutState.completed[workoutState.idx]=false;renderWorkout();const ex=WORKOUT_300[workoutState.idx];speak(ex.name+'. '+ex.reps+' reps'+(ex.note?'. '+ex.note:''));
+}
+function finishWorkout(){
+  workoutState.elapsedMs=currentWorkoutElapsedMs();workoutState.running=false;clearInterval(workoutState.timer);workoutState.timer=null;releaseWake();const elapsedSeconds=Math.max(1,Math.floor(workoutState.elapsedMs/1000)),previousBest=getPersonalBest(),isBest=previousBest===null||elapsedSeconds<previousBest;if(isBest)savePersonalBest(elapsedSeconds);state.doneDestination='workouts';
+  document.getElementById('doneTitle').textContent='300 Complete';document.getElementById('doneSub').textContent='Every rep done. Strong work.';document.getElementById('doneTime').textContent=formatTime(elapsedSeconds);document.getElementById('doneStats').classList.remove('hidden');const best=document.getElementById('doneBest');best.classList.remove('hidden');best.textContent=isBest?'New personal best!':'Personal best: '+formatTime(previousBest);document.getElementById('doneBtn').textContent='Back to workouts';renderPersonalBest();showScreen('done');speak('Workout complete. 300 reps in '+formatSpokenTime(elapsedSeconds)+'.');
+}
+
+function openExitDialog(type){
+  if(type==='routine'&&!state.running||type==='workout'&&!workoutState.running)return;exitState.type=type;exitState.lastFocus=document.activeElement;exitState.wasPaused=type==='workout'?workoutState.paused:state.paused;
+  if(type==='workout'&&!workoutState.paused)pauseWorkoutClock();if(type==='routine'&&!state.paused)togglePause();
+  const isWorkout=type==='workout';document.getElementById('exitDialogTitle').textContent=isWorkout?'Exit workout?':'Exit routine?';document.getElementById('exitDialogCopy').textContent=isWorkout?'Your current progress and elapsed time won’t be saved.':'Your current routine progress won’t be saved.';document.getElementById('exitDialog').classList.remove('hidden');setTimeout(()=>document.getElementById('stayBtn').focus(),0);
+}
+function closeExitDialog(){document.getElementById('exitDialog').classList.add('hidden')}
+function cancelExit(){const type=exitState.type,wasPaused=exitState.wasPaused,lastFocus=exitState.lastFocus;closeExitDialog();if(type==='workout'&&!wasPaused)resumeWorkoutClock();if(type==='routine'&&!wasPaused&&state.running&&state.paused)togglePause();exitState.type=null;if(lastFocus&&lastFocus.focus)lastFocus.focus()}
+function confirmExitChoice(){const type=exitState.type;closeExitDialog();exitState.type=null;if(type==='workout')goWorkouts();else goHome()}
+function handleModalBackdrop(event){if(event.target===document.getElementById('exitDialog'))cancelExit()}
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!document.getElementById('exitDialog').classList.contains('hidden'))cancelExit()});
 loadEquipment();
 </script>
 </body>
