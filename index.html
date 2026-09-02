@@ -6,175 +6,124 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Garage Fit">
+<meta name="theme-color" content="#263238">
 <title>Garage Fit</title>
 <style>
   :root{
-    --ink:#14181a; --surface:#1e2624; --surface-2:#2a3532; --work:#f2a93b; --work-dim:#4a3a20;
-    --rest:#4fbf8b; --rest-dim:#20362c; --text:#f5f3ee; --text-muted:#909997; --danger:#e2665a;
+    --ink:#263238;--surface:#39474d;--surface-2:#516067;--work:#d96b36;--work-dark:#b94f22;--work-light:#f19a72;
+    --rest:#6fa49e;--rest-strong:#4f8a83;--rest-card:#39766f;--card:#f3f5f3;--card-2:#e8ece9;
+    --text:#f3f5f3;--text-muted:#b8c3c1;--card-text:#182328;--card-muted:#627075;--danger:#df6b61;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{margin:0;padding:0;height:100%;background:var(--ink);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none;user-select:none}
+  html,body{margin:0;padding:0;height:100%;background:var(--ink);color:var(--text);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none;user-select:none}
   button{font:inherit;cursor:pointer}
-  button:focus-visible{outline:3px solid var(--text);outline-offset:3px}
-  #app{position:fixed;inset:0;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top)}
+  button:focus-visible{outline:3px solid var(--rest);outline-offset:3px}
+  svg{display:block}
+  #app{position:fixed;inset:0;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top);background:var(--ink)}
   .screen{flex:1;min-height:0;display:flex;flex-direction:column}
-  .hidden{display:none!important}
+  .hidden{display:none!important}.svg-sprite{position:absolute;width:0;height:0;overflow:hidden}
+  .icon{width:1.5em;height:1.5em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .brand{display:flex;align-items:center;gap:9px;color:var(--text)}
+  .brand-mark{width:43px;height:30px;flex:none}.brand-name{font-size:21px;font-weight:850;letter-spacing:-.035em}.brand-name strong{color:var(--work);font-weight:850}
 
   #home,#workouts{padding:20px 20px 14px;overflow-y:auto}
-  .home-header{display:flex;justify-content:space-between;align-items:center;margin:8px 0 28px}
-  .home-title{font-size:15px;font-weight:800;letter-spacing:.12em;color:var(--text-muted);text-transform:uppercase}
-  .equip-toggle{display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--surface-2);border-radius:999px;padding:8px 14px;font-size:13px;font-weight:700;color:var(--text)}
-  .tiles{flex:1;min-height:420px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:14px}
-  .tile{border:none;border-radius:20px;background:var(--surface);color:var(--text);display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;padding:20px;position:relative;overflow:hidden;transition:transform .12s ease}
+  .home-header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:5px 0 24px}
+  .home-intro{margin:0 0 17px}.home-intro h1{margin:0;font-size:28px;line-height:1.1;letter-spacing:-.035em}.home-title{margin-bottom:16px}
+  .equip-toggle{min-height:44px;display:flex;align-items:center;gap:7px;background:transparent;border:1px solid var(--surface-2);border-radius:12px;padding:8px 11px;font-size:12px;font-weight:750;color:var(--text);white-space:nowrap}
+  .equip-toggle .icon{color:var(--rest);width:20px;height:20px}
+  .tiles{flex:1;min-height:420px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:12px}
+  .tile{border:0;border-radius:18px;background:var(--card);color:var(--card-text);display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;padding:18px;position:relative;overflow:hidden;text-align:left;transition:transform .12s ease}
+  .tile::before{position:absolute;left:13px;top:13px;width:32px;height:32px;display:grid;place-items:center;border-radius:8px;background:#f3ded3;color:var(--work-dark);font-size:12px;font-weight:900}
+  #tile-warmup::before{content:"01"}#tile-rampup::before{content:"02"}#tile-cooldown::before{content:"03"}#tile-snack::before{content:"04"}
+  #tile-cooldown::before,#tile-snack::before{background:#dce9e7;color:#39766f}
+  .tile::after{content:"";position:absolute;left:0;right:0;bottom:0;height:5px;background:var(--work)}
+  #tile-cooldown::after,#tile-snack::after{background:var(--rest-strong)}
   .tile:active{transform:scale(.97)}
-  .tile .glyph{font-size:34px;margin-bottom:10px}
-  .tile .label{font-size:20px;font-weight:900;letter-spacing:.02em;text-transform:uppercase;line-height:1.1}
-  .tile .sub{font-size:12px;color:var(--text-muted);margin-top:4px;font-weight:600}
-  #tile-warmup{background:linear-gradient(155deg,var(--surface) 60%,var(--work-dim))}
-  #tile-rampup{background:linear-gradient(155deg,var(--surface) 60%,#3a2020)}
-  #tile-cooldown{background:linear-gradient(155deg,var(--surface) 60%,var(--rest-dim))}
-  #tile-snack{background:linear-gradient(155deg,var(--surface) 60%,#20303a)}
+  .tile .glyph{display:grid;place-items:center;width:54px;height:54px;margin-bottom:16px;color:var(--work)}
+  .tile .glyph .icon{width:48px;height:48px;stroke-width:1.55}#tile-cooldown .glyph,#tile-snack .glyph{color:var(--rest-strong)}
+  .tile .label{font-size:18px;font-weight:900;letter-spacing:.01em;text-transform:uppercase;line-height:1.08}
+  .tile .sub{font-size:13px;color:var(--card-muted);margin-top:6px;font-weight:650}
 
-  .workouts-heading{margin:8px 0 22px}
-  .workouts-heading .home-title{margin-bottom:8px}
-  .workouts-heading h1{font-size:32px;line-height:1;margin:0 0 8px;font-weight:950;text-transform:uppercase;letter-spacing:-.02em}
-  .workouts-heading p{margin:0;color:var(--text-muted);font-size:14px;line-height:1.45}
-  .workout-list{display:flex;flex-direction:column;gap:16px}
-  .workout-launch{width:100%;min-height:260px;border:1px solid #594525;border-radius:24px;padding:24px;background:linear-gradient(150deg,#2a2a24 0%,#26271f 52%,#5a411d 135%);color:var(--text);text-align:left;display:flex;flex-direction:column;align-items:flex-start;position:relative;overflow:hidden;box-shadow:0 18px 42px rgba(0,0,0,.24);transition:transform .12s ease,border-color .2s ease}
+  .workouts-heading{margin:5px 0 18px}.workouts-heading .brand{margin-bottom:25px}
+  .workouts-heading h1{font-size:34px;line-height:1;margin:0 0 9px;font-weight:900;letter-spacing:-.04em}
+  .workouts-heading p{margin:0;color:var(--text-muted);font-size:14px;line-height:1.45;max-width:450px}
+  .workout-list{display:flex;flex-direction:column;gap:12px}
+  .workout-launch{width:100%;min-height:205px;border:0;border-radius:20px;padding:20px;background:var(--card);color:var(--card-text);text-align:left;display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto 1fr auto;column-gap:18px;position:relative;overflow:hidden;transition:transform .12s ease}
   .workout-launch:active{transform:scale(.985)}
-  .workout-launch::after{content:"";position:absolute;width:220px;height:220px;border:52px solid rgba(242,169,59,.08);border-radius:50%;right:-100px;top:-110px}
-  .workout-launch.seven-minute{min-height:230px;border-color:#285742;background:linear-gradient(150deg,#202c29 0%,#202925 52%,#275a43 135%)}
-  .workout-launch.seven-minute::after{border-color:rgba(79,191,139,.09)}
-  .workout-launch.seven-minute .workout-kicker{color:var(--rest)}
-  .workout-launch.seven-minute .workout-number{font-size:72px}
-  .workout-launch.seven-minute .workout-launch-cta{background:var(--rest);color:#071a11}
-  .workout-kicker{font-size:12px;font-weight:900;letter-spacing:.17em;text-transform:uppercase;color:var(--work)}
-  .workout-number{font-size:88px;line-height:.88;font-weight:950;letter-spacing:-.06em;margin:22px 0 5px}
-  .workout-label{font-size:23px;font-weight:900;text-transform:uppercase;letter-spacing:.06em}
-  .workout-launch-bottom{width:100%;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-top:auto;position:relative;z-index:1}
-  .workout-launch-meta{display:flex;flex-direction:column;gap:3px;color:var(--text-muted);font-size:13px;font-weight:700}
-  .workout-launch-cta{color:#1a1200;background:var(--work);border-radius:999px;padding:11px 15px;font-size:13px;font-weight:900;text-transform:uppercase;white-space:nowrap}
-  .best-strip{margin-top:12px;border:1px solid var(--surface-2);background:var(--surface);border-radius:16px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:16px}
-  .best-strip span:first-child{font-size:13px;color:var(--text-muted);font-weight:700}
-  .best-strip strong{font-size:18px;font-variant-numeric:tabular-nums}
-  .review-toggle{width:100%;margin-top:12px;border:0;background:transparent;color:var(--text);padding:13px 4px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:800}
-  .review-toggle-icon{color:var(--text-muted);font-size:20px;transition:transform .2s ease}
-  .review-toggle[aria-expanded="true"] .review-toggle-icon{transform:rotate(180deg)}
-  .workout-review{list-style:none;padding:4px 0 10px;margin:0;counter-reset:movement}
-  .workout-review li{counter-increment:movement;display:grid;grid-template-columns:30px 1fr auto;gap:10px;align-items:start;padding:12px 4px;border-top:1px solid var(--surface-2)}
-  .workout-review li::before{content:counter(movement,decimal-leading-zero);color:var(--text-muted);font-size:12px;font-weight:800;padding-top:2px}
-  .review-name{font-size:14px;font-weight:750;line-height:1.35}
-  .review-note{display:block;color:var(--text-muted);font-size:12px;font-weight:600;margin-top:2px}
-  .review-reps{color:var(--work);font-size:13px;font-weight:900;white-space:nowrap}
+  .workout-kicker{grid-column:1/-1;font-size:11px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--work-dark)}
+  .workout-number{font-size:clamp(58px,18vw,82px);line-height:.9;font-weight:950;letter-spacing:-.06em;margin:20px 0 10px;color:var(--work)}
+  .workout-label{align-self:center;font-size:23px;font-weight:900;text-transform:uppercase;letter-spacing:.015em;line-height:1.03}
+  .workout-launch-bottom{grid-column:1/-1;width:100%;display:flex;justify-content:space-between;align-items:flex-end;gap:12px;border-top:1px solid #cfd5d2;padding-top:13px}
+  .workout-launch-meta{display:flex;flex-direction:column;gap:3px;color:var(--card-muted);font-size:12px;font-weight:700}
+  .workout-launch-cta{color:#101416;background:var(--work);border-radius:10px;padding:11px 16px;font-size:12px;font-weight:900;text-transform:uppercase;white-space:nowrap}
+  .best-strip{margin-top:12px;border:1px solid var(--surface-2);background:transparent;border-radius:14px;padding:13px 15px;display:flex;justify-content:space-between;align-items:center;gap:16px}
+  .best-strip span:first-child{font-size:13px;color:var(--text-muted);font-weight:700}.best-strip strong{font-size:15px;color:var(--rest);font-variant-numeric:tabular-nums}
+  .review-toggle{width:100%;margin-top:7px;border:0;background:transparent;color:var(--text);padding:13px 4px;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:800}
+  .review-toggle-icon{color:var(--text-muted);font-size:20px;transition:transform .2s ease}.review-toggle[aria-expanded="true"] .review-toggle-icon{transform:rotate(180deg)}
+  .workout-review{list-style:none;padding:4px 0 10px;margin:0;counter-reset:movement}.workout-review li{counter-increment:movement;display:grid;grid-template-columns:30px 1fr auto;gap:10px;align-items:start;padding:12px 4px;border-top:1px solid var(--surface-2)}
+  .workout-review li::before{content:counter(movement,decimal-leading-zero);color:var(--rest);font-size:12px;font-weight:800;padding-top:2px}.review-name{font-size:14px;font-weight:750;line-height:1.35}.review-note{display:block;color:var(--text-muted);font-size:12px;font-weight:600;margin-top:2px}.review-reps{color:var(--work-light);font-size:13px;font-weight:900;white-space:nowrap}
 
-  .bottom-nav{flex:0 0 auto;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 20px calc(10px + env(safe-area-inset-bottom));background:rgba(20,24,26,.97);border-top:1px solid var(--surface-2)}
-  .nav-btn{border:0;border-radius:14px;background:transparent;color:var(--text-muted);padding:10px 8px 9px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
-  .nav-icon{font-size:20px;line-height:1}
-  .nav-btn.active{background:var(--surface);color:var(--work)}
+  .bottom-nav{flex:0 0 auto;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px 20px calc(8px + env(safe-area-inset-bottom));background:#202b30;border-top:1px solid var(--surface)}
+  .nav-btn{border:0;border-radius:12px;background:transparent;color:#899694;padding:8px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;font-weight:850;letter-spacing:.05em;text-transform:uppercase}.nav-btn .icon{width:21px;height:21px}
+  .nav-btn.active{color:var(--rest);background:rgba(79,138,131,.12)}
 
-  #player{align-items:center;justify-content:space-between;padding:20px 20px calc(30px + env(safe-area-inset-bottom));overflow-y:auto}
-  .player-top{width:100%;display:flex;justify-content:space-between;align-items:center}
-  .close-btn{background:none;border:none;color:var(--text-muted);font-size:28px;line-height:1;padding:6px 10px;min-width:44px;min-height:44px}
-  .routine-name{font-size:13px;font-weight:800;letter-spacing:.1em;color:var(--text-muted);text-transform:uppercase}
-  .progress-count{font-size:13px;color:var(--text-muted);font-weight:700}
-  .ring-wrap{position:relative;width:min(70vw,320px);height:min(70vw,320px);margin:10px 0}
-  svg.ring{width:100%;height:100%;transform:rotate(-90deg)}
-  .ring-bg{fill:none;stroke:var(--surface);stroke-width:14}
-  .ring-fg{fill:none;stroke:var(--work);stroke-width:14;stroke-linecap:round;transition:stroke-dashoffset .25s linear,stroke .3s ease}
-  .ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
-  .phase-label{font-size:13px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;color:var(--work);margin-bottom:4px}
-  .timer-num{font-size:64px;font-weight:900;font-variant-numeric:tabular-nums;line-height:1}
-  .reps-num{font-size:18px;font-weight:700;color:var(--text-muted);margin-top:6px}
-  .exercise-name{font-size:28px;font-weight:900;text-align:center;text-transform:uppercase;letter-spacing:.01em;margin:6px 20px 0;min-height:70px;display:flex;align-items:center;justify-content:center}
-  .next-preview{font-size:14px;color:var(--text-muted);font-weight:600;margin-top:6px;text-align:center}
-  .controls{width:100%;display:flex;gap:12px;margin-top:20px}
-  .ctrl-btn{flex:1;border:none;border-radius:16px;padding:18px 12px;font-size:16px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--text)}
-  .ctrl-btn:disabled{opacity:.42;cursor:default}
-  .ctrl-secondary{background:var(--surface);color:var(--text)}
-  .ctrl-primary{background:var(--work);color:#1a1200}
+  #player{align-items:center;justify-content:space-between;padding:20px 20px calc(28px + env(safe-area-inset-bottom));overflow-y:auto}
+  .player-top{width:100%;display:grid;grid-template-columns:52px 1fr 52px;align-items:center}.close-btn{display:grid;place-items:center;background:none;border:none;color:var(--text);font-size:28px;line-height:1;padding:4px;min-width:44px;min-height:44px}.routine-name{text-align:center;font-size:13px;font-weight:850;letter-spacing:.1em;color:var(--text);text-transform:uppercase}.progress-count{font-size:14px;color:var(--text);font-weight:800;text-align:right}
+  .ring-wrap{position:relative;width:min(72vw,330px);height:min(72vw,330px);margin:14px 0}.ring-wrap::after{content:"";position:absolute;left:50%;bottom:-25px;width:44px;height:2px;transform:translateX(-50%);background:var(--rest-strong)}
+  svg.ring{width:100%;height:100%;transform:rotate(-90deg)}.ring-bg{fill:none;stroke:var(--surface);stroke-width:12}.ring-fg{fill:none;stroke:var(--work);stroke-width:12;stroke-linecap:round;transition:stroke-dashoffset .25s linear,stroke .3s ease}.ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}.phase-label{font-size:19px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--work);margin-bottom:7px}.timer-num{font-size:82px;font-weight:900;font-variant-numeric:tabular-nums;line-height:.92}.reps-num{font-size:17px;font-weight:750;color:var(--text-muted);margin-top:9px}
+  .exercise-name{font-size:clamp(27px,8vw,40px);font-weight:900;text-align:center;text-transform:uppercase;letter-spacing:-.02em;margin:20px 15px 0;min-height:70px;display:flex;align-items:center;justify-content:center}.next-preview{font-size:14px;color:var(--text-muted);font-weight:650;margin-top:2px;text-align:center}.next-preview::first-letter{color:var(--rest)}
+  .controls{width:100%;display:flex;gap:12px;margin-top:20px}.ctrl-btn{flex:1;border:none;border-radius:13px;padding:17px 12px;min-height:54px;font-size:14px;font-weight:900;letter-spacing:.035em;text-transform:uppercase}.ctrl-btn:disabled{opacity:.42;cursor:default}.ctrl-secondary{background:transparent;border:2px solid var(--card);color:var(--text)}.ctrl-primary{background:var(--work);color:#101416}
 
-  #workoutPlayer{padding:16px 20px calc(24px + env(safe-area-inset-bottom));overflow-y:auto}
-  .workout-player-top{width:100%;display:grid;grid-template-columns:52px 1fr 72px;align-items:center}
-  .workout-player-top .routine-name{text-align:center}
-  .elapsed{font-size:16px;font-weight:900;font-variant-numeric:tabular-nums;text-align:right}
-  .workout-stage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:22px 0 12px}
-  .movement-progress{font-size:12px;font-weight:900;letter-spacing:.15em;text-transform:uppercase;color:var(--work);margin-bottom:18px}
-  .workout-exercise{font-size:clamp(30px,8vw,46px);line-height:1.04;font-weight:950;text-transform:uppercase;letter-spacing:-.025em;margin:0;max-width:600px}
-  .workout-target{font-size:22px;font-weight:900;margin-top:16px;color:var(--work)}
-  .workout-side-note{min-height:20px;margin-top:3px;color:var(--text-muted);font-size:13px;font-weight:700}
-  .workout-paused{min-height:20px;margin-top:14px;color:var(--rest);font-size:12px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}
-  .workout-stats{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:20px}
-  .workout-stat{border:1px solid var(--surface-2);background:var(--surface);border-radius:16px;padding:14px;text-align:left}
-  .workout-stat-label{display:block;color:var(--text-muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px}
-  .workout-stat-value{font-size:20px;font-weight:900;font-variant-numeric:tabular-nums}
-  .overall-progress{width:100%;margin-top:14px}
-  .progress-label{display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);font-size:12px;font-weight:750;margin-bottom:7px}
-  .progress-track{height:10px;background:var(--surface);border-radius:999px;overflow:hidden}
-  .progress-fill{height:100%;width:0;background:linear-gradient(90deg,var(--rest),var(--work));border-radius:999px;transition:width .3s ease}
-  .previous-btn{width:100%;margin:14px 0 0;border:1px solid var(--surface-2);background:transparent;color:var(--text-muted);border-radius:14px;padding:11px 14px;text-align:left;display:flex;align-items:center;gap:10px}
-  .previous-btn:disabled{opacity:.36;cursor:default}
-  .previous-arrow{font-size:20px}
-  .previous-copy{display:flex;flex-direction:column;gap:1px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
-  .previous-copy strong{color:var(--text);font-size:13px;letter-spacing:0;text-transform:none}
-  .workout-controls{margin-top:12px}
-  .complete-btn{flex:1.65}
+  #workoutPlayer{padding:16px 20px calc(24px + env(safe-area-inset-bottom));overflow-y:auto}.workout-player-top{width:100%;display:grid;grid-template-columns:52px 1fr 72px;align-items:center}.workout-player-top .routine-name{text-align:center}.elapsed{font-size:16px;font-weight:900;font-variant-numeric:tabular-nums;text-align:right}.workout-stage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:22px 0 12px}.movement-progress{font-size:12px;font-weight:900;letter-spacing:.13em;text-transform:uppercase;color:var(--rest);margin-bottom:18px}.workout-exercise{font-size:clamp(30px,8vw,46px);line-height:1.04;font-weight:950;text-transform:uppercase;letter-spacing:-.025em;margin:0;max-width:600px}.workout-target{font-size:23px;font-weight:900;margin-top:16px;color:var(--work)}.workout-side-note{min-height:20px;margin-top:3px;color:var(--text-muted);font-size:13px;font-weight:700}.workout-paused{min-height:20px;margin-top:14px;color:var(--rest);font-size:12px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}.workout-stats{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:20px}.workout-stat{border:0;background:var(--card);color:var(--card-text);border-radius:14px;padding:14px;text-align:left}.workout-stat-label{display:block;color:var(--card-muted);font-size:10px;font-weight:850;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px}.workout-stat-value{font-size:20px;font-weight:900;font-variant-numeric:tabular-nums}.overall-progress{width:100%;margin-top:14px}.progress-label{display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);font-size:12px;font-weight:750;margin-bottom:7px}.progress-track{height:9px;background:var(--surface);border-radius:999px;overflow:hidden}.progress-fill{height:100%;width:0;background:var(--work);border-radius:999px;transition:width .3s ease}.previous-btn{width:100%;margin:14px 0 0;border:1px solid var(--surface-2);background:transparent;color:var(--text-muted);border-radius:13px;padding:11px 14px;text-align:left;display:flex;align-items:center;gap:10px}.previous-btn:disabled{opacity:.36;cursor:default}.previous-arrow{font-size:20px}.previous-copy{display:flex;flex-direction:column;gap:1px;font-size:10px;font-weight:850;text-transform:uppercase;letter-spacing:.06em}.previous-copy strong{color:var(--text);font-size:13px;letter-spacing:0;text-transform:none}.workout-controls{margin-top:12px}.complete-btn{flex:1.65}
 
-  #snackpick{padding:24px 20px calc(24px + env(safe-area-inset-bottom))}
-  .snack-header{margin-bottom:20px;margin-top:8px}
-  .snack-header h1{font-size:22px;margin:0 0 4px;font-weight:900;text-transform:uppercase}
-  .snack-header p{margin:0;color:var(--text-muted);font-size:14px}
-  .snack-cards{display:flex;flex-direction:column;gap:12px}
-  .snack-card{background:var(--surface);color:var(--text);border:none;border-radius:18px;padding:20px;text-align:left;display:flex;justify-content:space-between;align-items:center}
-  .snack-card .name{font-size:18px;font-weight:800;text-transform:uppercase}
-  .snack-card .dur{font-size:13px;color:var(--text-muted);font-weight:700}
-  .snack-reshuffle{margin-top:16px;background:none;border:1px dashed var(--surface-2);color:var(--text-muted);border-radius:14px;padding:14px;font-weight:700;font-size:14px}
+  #snackpick{padding:24px 20px calc(24px + env(safe-area-inset-bottom));overflow-y:auto}.snack-header{margin-bottom:20px;margin-top:8px}.snack-header h1{font-size:29px;margin:0 0 5px;font-weight:900;letter-spacing:-.035em}.snack-header p{margin:0;color:var(--text-muted);font-size:14px}.snack-cards{display:flex;flex-direction:column;gap:12px}.snack-card{background:var(--card);color:var(--card-text);border:none;border-radius:16px;padding:20px;text-align:left;display:flex;justify-content:space-between;align-items:center}.snack-card .name{font-size:17px;font-weight:850;text-transform:uppercase}.snack-card .dur{color:var(--rest-card);font-size:13px;font-weight:850}.snack-reshuffle{margin-top:16px;background:none;border:1px solid var(--surface-2);color:var(--text-muted);border-radius:13px;padding:14px;font-weight:750;font-size:14px}
 
-  #done{align-items:center;justify-content:center;text-align:center;padding:24px 20px calc(24px + env(safe-area-inset-bottom));overflow-y:auto}
-  #done .check{font-size:70px;margin-bottom:10px}
-  #done h1{font-size:30px;font-weight:950;text-transform:uppercase;margin:0 0 8px}
-  #done>p{color:var(--text-muted);margin:0 0 24px}
-  #done .ctrl-btn{width:min(100%,380px);flex:0 0 auto}
-  .done-stats{width:min(100%,380px);display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:2px 0 12px}
-  .done-stat{background:var(--surface);border:1px solid var(--surface-2);border-radius:18px;padding:18px 10px}
-  .done-stat strong{display:block;font-size:28px;font-variant-numeric:tabular-nums;margin-bottom:4px}
-  .done-stat span{color:var(--text-muted);font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
-  .done-best{width:min(100%,380px);margin:0 0 24px;color:var(--work);font-size:14px;font-weight:800}
-
-  .modal{position:fixed;inset:0;z-index:20;background:rgba(5,7,7,.78);display:flex;align-items:flex-end;justify-content:center;padding:20px 20px calc(20px + env(safe-area-inset-bottom));backdrop-filter:blur(5px)}
-  .modal-card{width:min(100%,460px);background:var(--surface);border:1px solid var(--surface-2);border-radius:24px;padding:24px;box-shadow:0 22px 60px rgba(0,0,0,.45)}
-  .modal-card h2{margin:0 0 8px;font-size:24px;font-weight:900}
-  .modal-card p{margin:0;color:var(--text-muted);font-size:14px;line-height:1.5}
-  .modal-actions{display:flex;gap:10px;margin-top:22px}
-  .modal-actions button{flex:1;border:0;border-radius:14px;padding:15px 10px;font-size:14px;font-weight:850}
-  .danger-btn{background:var(--danger);color:#190705}
-
-  @media (min-width:720px){
-    #app{width:720px;left:50%;right:auto;transform:translateX(-50%);border-left:1px solid var(--surface-2);border-right:1px solid var(--surface-2)}
-    .modal{width:720px;left:50%;right:auto;transform:translateX(-50%)}
-  }
-  @media (max-height:700px){
-    .tiles{min-height:360px}.home-header{margin-bottom:16px}.workout-stage{padding:10px 0 4px}.workout-exercise{font-size:30px}.workout-target{margin-top:10px}.workout-stats{margin-top:10px}.previous-btn{margin-top:10px}.workout-controls{margin-top:8px}.ctrl-btn{padding-top:14px;padding-bottom:14px}
-  }
+  #done{align-items:center;justify-content:center;text-align:center;padding:24px 20px calc(24px + env(safe-area-inset-bottom));overflow-y:auto}#done .check{display:grid;place-items:center;width:78px;height:78px;margin-bottom:18px;border-radius:50%;background:var(--rest-strong);color:var(--ink)}#done .check .icon{width:42px;height:42px;stroke-width:2.5}#done h1{font-size:34px;font-weight:950;text-transform:uppercase;margin:0 0 8px;letter-spacing:-.03em}#done>p{color:var(--text-muted);margin:0 0 24px}#done .ctrl-btn{width:min(100%,380px);flex:0 0 auto}.done-stats{width:min(100%,380px);display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:2px 0 12px}.done-stat{background:var(--card);color:var(--card-text);border:0;border-radius:15px;padding:18px 10px}.done-stat strong{display:block;font-size:28px;font-variant-numeric:tabular-nums;margin-bottom:4px}.done-stat span{color:var(--card-muted);font-size:10px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}.done-best{width:min(100%,380px);margin:0 0 24px;color:var(--rest);font-size:14px;font-weight:800}
+  .modal{position:fixed;inset:0;z-index:20;background:rgba(10,15,17,.8);display:flex;align-items:flex-end;justify-content:center;padding:20px 20px calc(20px + env(safe-area-inset-bottom));backdrop-filter:blur(4px)}.modal-card{width:min(100%,460px);background:var(--card);color:var(--card-text);border:0;border-radius:20px;padding:24px}.modal-card h2{margin:0 0 8px;font-size:24px;font-weight:900}.modal-card p{margin:0;color:var(--card-muted);font-size:14px;line-height:1.5}.modal-actions{display:flex;gap:10px;margin-top:22px}.modal-actions button{flex:1;border-radius:12px;padding:15px 10px;font-size:14px;font-weight:850}.modal-actions .ctrl-secondary{border:2px solid var(--ink);color:var(--ink)}.danger-btn{border:0;background:var(--danger);color:#25100e}
+  @media (min-width:720px){#app{width:720px;left:50%;right:auto;transform:translateX(-50%);border-left:1px solid var(--surface);border-right:1px solid var(--surface)}.modal{width:720px;left:50%;right:auto;transform:translateX(-50%)}}
+  @media (max-height:700px){.home-header{margin-bottom:14px}.home-intro{margin-bottom:12px}.tiles{min-height:350px}.tile{padding:14px}.tile .glyph{width:42px;height:42px;margin-bottom:8px}.tile .glyph .icon{width:38px;height:38px}.workout-stage{padding:10px 0 4px}.workout-exercise{font-size:30px}.workout-target{margin-top:10px}.workout-stats{margin-top:10px}.previous-btn{margin-top:10px}.workout-controls{margin-top:8px}.ctrl-btn{padding-top:13px;padding-bottom:13px}.ring-wrap{width:min(60vh,280px);height:min(60vh,280px)}}
+  @media (max-width:380px){#home,#workouts{padding-left:14px;padding-right:14px}.brand-name{font-size:18px}.brand-mark{width:37px}.equip-toggle{padding:7px 9px}.tile{padding:14px}.tile .label{font-size:16px}.workout-launch{padding:17px}.workout-label{font-size:20px}}
 </style>
 </head>
 <body>
+<svg class="svg-sprite" aria-hidden="true">
+  <defs>
+    <symbol id="icon-equipment" viewBox="0 0 24 24"><path d="M3 9v6M6 7v10M9 10h6M18 7v10M21 9v6"/></symbol>
+    <symbol id="icon-body" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.2"/><path d="M12 8v6M8 11l4 3 4-3M9 21l3-7 3 7"/></symbol>
+    <symbol id="icon-warmup" viewBox="0 0 48 48"><circle cx="25" cy="8" r="3"/><path d="M22 13l-5 10 6 5-4 13M22 18l8 6 7-5M23 28l10 12"/></symbol>
+    <symbol id="icon-rampup" viewBox="0 0 48 48"><path d="M7 39h34M9 39V29h9v10M18 39V21h10v18M28 39V10h11v29"/></symbol>
+    <symbol id="icon-cooldown" viewBox="0 0 48 48"><circle cx="24" cy="9" r="4"/><path d="M24 14v13M13 22l11 5 11-5M24 27L12 39M24 27l12 12M7 39h34"/></symbol>
+    <symbol id="icon-snack" viewBox="0 0 48 48"><circle cx="24" cy="25" r="14"/><path d="M24 16v9l6 4M20 7h8M24 7v4"/></symbol>
+    <symbol id="icon-routines" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+    <symbol id="icon-workouts" viewBox="0 0 24 24"><path d="M3 9v6M6 7v10M9 10h6M18 7v10M21 9v6"/></symbol>
+    <symbol id="icon-shuffle" viewBox="0 0 24 24"><path d="M3 7h3c5 0 5 10 10 10h5M18 14l3 3-3 3M3 17h3c2 0 3-1 4-3M14 7c1-1 2-1 3-1h4M18 3l3 3-3 3"/></symbol>
+    <symbol id="icon-check" viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></symbol>
+  </defs>
+</svg>
 <div id="app">
   <main id="home" class="screen">
     <div class="home-header">
-      <div class="home-title">Garage Fit</div>
-      <button class="equip-toggle" id="equipToggle" type="button"></button>
+      <div class="brand" aria-label="GarageFit">
+        <svg class="brand-mark" viewBox="0 0 64 44" aria-hidden="true"><path d="M4 24V18L32 7l28 11v6" fill="none" stroke="#f3f5f3" stroke-width="5"/><rect x="17" y="31" width="7" height="8" fill="#d96b36"/><rect x="29" y="27" width="7" height="12" fill="#d96b36"/><rect x="41" y="22" width="7" height="17" fill="#d96b36"/></svg>
+        <span class="brand-name">Garage<strong>Fit</strong></span>
+      </div>
+      <button class="equip-toggle" id="equipToggle" type="button"><svg class="icon" aria-hidden="true"><use id="equipIconUse" href="#icon-equipment"></use></svg><span id="equipToggleText">Equipment</span></button>
     </div>
+    <div class="home-intro"><h1>Choose a routine</h1></div>
     <div class="tiles">
-      <button class="tile" id="tile-warmup" type="button" onclick="startRoutine('warmup')"><span class="glyph" aria-hidden="true">🔥</span><span class="label">Warm Up</span><span class="sub" id="warmupSub"></span></button>
-      <button class="tile" id="tile-rampup" type="button" onclick="startRoutine('rampup')"><span class="glyph" aria-hidden="true">⚡</span><span class="label">Ramp Up</span><span class="sub">7 moves · reps</span></button>
-      <button class="tile" id="tile-cooldown" type="button" onclick="startRoutine('cooldown')"><span class="glyph" aria-hidden="true">🧘</span><span class="label">Cool Down</span><span class="sub" id="cooldownSub"></span></button>
-      <button class="tile" id="tile-snack" type="button" onclick="openSnack()"><span class="glyph" aria-hidden="true">🍿</span><span class="label">Snack</span><span class="sub">quick pick</span></button>
+      <button class="tile" id="tile-warmup" type="button" onclick="startRoutine('warmup')"><span class="glyph" aria-hidden="true"><svg class="icon"><use href="#icon-warmup"></use></svg></span><span class="label">Warm Up</span><span class="sub" id="warmupSub"></span></button>
+      <button class="tile" id="tile-rampup" type="button" onclick="startRoutine('rampup')"><span class="glyph" aria-hidden="true"><svg class="icon"><use href="#icon-rampup"></use></svg></span><span class="label">Ramp Up</span><span class="sub">7 moves · reps</span></button>
+      <button class="tile" id="tile-cooldown" type="button" onclick="startRoutine('cooldown')"><span class="glyph" aria-hidden="true"><svg class="icon"><use href="#icon-cooldown"></use></svg></span><span class="label">Cool Down</span><span class="sub" id="cooldownSub"></span></button>
+      <button class="tile" id="tile-snack" type="button" onclick="openSnack()"><span class="glyph" aria-hidden="true"><svg class="icon"><use href="#icon-snack"></use></svg></span><span class="label">Snack</span><span class="sub">quick pick</span></button>
     </div>
   </main>
 
   <main id="workouts" class="screen hidden">
     <header class="workouts-heading">
-      <div class="home-title">Garage Fit</div>
+      <div class="brand" aria-label="GarageFit">
+        <svg class="brand-mark" viewBox="0 0 64 44" aria-hidden="true"><path d="M4 24V18L32 7l28 11v6" fill="none" stroke="#f3f5f3" stroke-width="5"/><rect x="17" y="31" width="7" height="8" fill="#d96b36"/><rect x="29" y="27" width="7" height="12" fill="#d96b36"/><rect x="41" y="22" width="7" height="17" fill="#d96b36"/></svg>
+        <span class="brand-name">Garage<strong>Fit</strong></span>
+      </div>
       <h1>Workouts</h1>
       <p>Choose a challenge, from rep-based efforts to guided intervals.</p>
     </header>
@@ -206,7 +155,7 @@
   <main id="snackpick" class="screen hidden">
     <header class="snack-header"><h1>Pick one</h1><p>A couple of minutes is all it takes</p></header>
     <div class="snack-cards" id="snackCards"></div>
-    <button class="snack-reshuffle" type="button" onclick="renderSnackPicker()">🔀 Show different options</button>
+    <button class="snack-reshuffle" type="button" onclick="renderSnackPicker()"><svg class="icon" aria-hidden="true" style="display:inline-block;vertical-align:middle;margin-right:7px;width:19px;height:19px"><use href="#icon-shuffle"></use></svg>Show different options</button>
     <button class="ctrl-btn ctrl-secondary" type="button" style="margin-top:14px;" onclick="goHome()">Cancel</button>
   </main>
 
@@ -251,7 +200,7 @@
   </main>
 
   <main id="done" class="screen hidden">
-    <div class="check" aria-hidden="true">✅</div>
+    <div class="check" aria-hidden="true"><svg class="icon"><use href="#icon-check"></use></svg></div>
     <h1 id="doneTitle">Done!</h1>
     <p id="doneSub">Nice work.</p>
     <div class="done-stats hidden" id="doneStats"><div class="done-stat"><strong id="doneTime">00:00</strong><span>Elapsed time</span></div><div class="done-stat"><strong>300</strong><span>Completed reps</span></div></div>
@@ -260,8 +209,8 @@
   </main>
 
   <nav class="bottom-nav" id="bottomNav" aria-label="Main navigation">
-    <button class="nav-btn active" id="routinesNav" type="button" aria-current="page" onclick="showLanding('home')"><span class="nav-icon" aria-hidden="true">◴</span><span>Routines</span></button>
-    <button class="nav-btn" id="workoutsNav" type="button" onclick="showLanding('workouts')"><span class="nav-icon" aria-hidden="true">◆</span><span>Workouts</span></button>
+    <button class="nav-btn active" id="routinesNav" type="button" aria-current="page" onclick="showLanding('home')"><svg class="icon" aria-hidden="true"><use href="#icon-routines"></use></svg><span>Routines</span></button>
+    <button class="nav-btn" id="workoutsNav" type="button" onclick="showLanding('workouts')"><svg class="icon" aria-hidden="true"><use href="#icon-workouts"></use></svg><span>Workouts</span></button>
   </nav>
 
   <div class="modal hidden" id="exitDialog" role="dialog" aria-modal="true" aria-labelledby="exitDialogTitle" aria-describedby="exitDialogCopy" onclick="handleModalBackdrop(event)">
@@ -301,7 +250,7 @@ let workoutState={idx:0,completed:[],elapsedMs:0,startedAt:0,timer:null,paused:f
 let exitState={type:null,wasPaused:false,lastFocus:null};
 function loadEquipment(){const v=localStorage.getItem('gf_equipment');state.equipment=v===null?true:v==='true';renderHome();renderWorkoutReview();renderPersonalBest();showScreen('home')}
 function toggleEquipment(){state.equipment=!state.equipment;localStorage.setItem('gf_equipment',state.equipment);renderHome()}
-function renderHome(){document.getElementById('equipToggle').textContent=state.equipment?'🏋️ Equipment':'🧍 No equipment';document.getElementById('warmupSub').textContent=(state.equipment?EX.warmupEquip.length:EX.warmupNoEquip.length)+' moves';document.getElementById('cooldownSub').textContent=(state.equipment?EX.cooldownEquip.length:EX.cooldownNoEquip.length)+' moves'}
+function renderHome(){document.getElementById('equipIconUse').setAttribute('href',state.equipment?'#icon-equipment':'#icon-body');document.getElementById('equipToggleText').textContent=state.equipment?'Equipment':'No equipment';document.getElementById('warmupSub').textContent=(state.equipment?EX.warmupEquip.length:EX.warmupNoEquip.length)+' moves';document.getElementById('cooldownSub').textContent=(state.equipment?EX.cooldownEquip.length:EX.cooldownNoEquip.length)+' moves'}
 document.getElementById('equipToggle').addEventListener('click',toggleEquipment);
 function showScreen(id){
   ['home','workouts','snackpick','player','workoutPlayer','done'].forEach(s=>document.getElementById(s).classList.toggle('hidden',s!==id));
