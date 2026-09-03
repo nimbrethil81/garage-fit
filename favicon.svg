@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">GarageFit</title>
+  <rect width="512" height="512" fill="#263238"/>
+  <path d="M90 229v-34l166-67 166 67v34" fill="none" stroke="#f3f5f3" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M156 386v-72h48v72zm76 0V273h48v113zm76 0V226h48v160z" fill="#d96b36"/>
+</svg>
