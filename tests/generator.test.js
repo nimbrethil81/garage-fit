@@ -59,6 +59,23 @@ test('Cardio selection avoids consecutive high-impact movements', () => {
   }
 });
 
+test('Strength selection normally separates exercises with overlapping movement patterns', () => {
+  let adjacentOverlaps=0;
+  let adjacentPairs=0;
+  for (let seed=1;seed<=100;seed++) {
+    const exercises=create({duration:15,focus:'strength',equipment:['kettlebell'],random:random(seed)}).blocks[0].exercises;
+    for (let index=1;index<exercises.length;index++) {
+      adjacentPairs++;
+      if (exercises[index].patterns.some(pattern=>exercises[index-1].patterns.includes(pattern))) adjacentOverlaps++;
+    }
+    const ids=exercises.map(exercise=>exercise.id);
+    const cleanAndPress=ids.indexOf('kettlebell-clean-and-press');
+    const shoulderPress=ids.indexOf('kettlebell-shoulder-press');
+    assert.notEqual(Math.abs(cleanAndPress-shoulderPress),1,ids.join(', '));
+  }
+  assert.ok(adjacentOverlaps/adjacentPairs < .1,`${adjacentOverlaps}/${adjacentPairs} adjacent pairs overlap`);
+});
+
 test('recent completed workout receives a strong but non-blocking penalty', () => {
   const first=create({equipment:['dumbbells'],random:random(9)});
   const firstIds=first.blocks[0].exercises.map(exercise=>exercise.id);
