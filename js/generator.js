@@ -40,6 +40,11 @@
     return exercise.equipment && exercise.equipment.length ? exercise.equipment[0][0] : 'bodyweight';
   }
 
+  function sharedPatterns(first, second) {
+    if (!first || !second) return [];
+    return (first.patterns || []).filter(pattern => (second.patterns || []).includes(pattern));
+  }
+
   function scoreCandidate(exercise, desiredPattern, selected, focus, history) {
     let score = 0;
     const previous = selected[selected.length-1];
@@ -53,6 +58,12 @@
     score += overlaps===0 ? 2 : -2.25 * overlaps;
     score -= recentPenalty(exercise.id, history);
     if (previous) {
+      // Normally alternate movement patterns so one area is not fatigued by
+      // back-to-back variations (for example, clean and press then press).
+      // This is deliberately a penalty rather than a ban: a limited equipment
+      // pool can still produce a complete workout, and occasional fatigue
+      // pairings remain possible.
+      score -= sharedPatterns(previous,exercise).length * 12;
       const sameEquipment = primaryEquipment(previous)===primaryEquipment(exercise);
       if (sameEquipment) score += 2.2;
       else if (primaryEquipment(exercise)==='bodyweight') score += .6;
@@ -84,7 +95,10 @@
       const desired = recipe[slot % recipe.length];
       let candidates = eligible.filter(exercise => !selected.some(item => item.id===exercise.id));
       const patternMatches = candidates.filter(exercise => exercise.patterns.includes(desired));
-      if (patternMatches.length) candidates = patternMatches;
+      const previous = selected[selected.length-1];
+      const variedPatternMatches = patternMatches.filter(exercise => !sharedPatterns(previous,exercise).length);
+      if (variedPatternMatches.length) candidates = variedPatternMatches;
+      else if (patternMatches.length && !previous) candidates = patternMatches;
       const scored = candidates.map(exercise => ({exercise,score:scoreCandidate(exercise,desired,selected,focus,history)}));
       const picked = controlledPick(scored,random);
       if (picked) selected.push(picked);
@@ -181,6 +195,7 @@
       if (exercise.impact===current.impact) score += 2;
       if (primaryEquipment(exercise)===primaryEquipment(current)) score += 2;
       const before = block.exercises[exerciseIndex-1], after = block.exercises[exerciseIndex+1];
+      score -= (sharedPatterns(before,exercise).length + sharedPatterns(exercise,after).length) * 12;
       if (exercise.impact==='high' && ((before&&before.impact==='high')||(after&&after.impact==='high'))) score -= 12;
       return {exercise,score};
     });
