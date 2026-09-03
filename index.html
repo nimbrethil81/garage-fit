@@ -23,7 +23,7 @@
   button{font:inherit;cursor:pointer}
   button:focus-visible{outline:3px solid var(--rest);outline-offset:3px}
   svg{display:block}
-  #app{position:fixed;inset:0;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top);background:var(--ink)}
+  #app{position:fixed;inset:0 0 calc(-1 * env(safe-area-inset-bottom)) 0;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top);background:var(--ink)}
   .screen{flex:1;min-height:0;display:flex;flex-direction:column}
   .hidden{display:none!important}.svg-sprite{position:absolute;width:0;height:0;overflow:hidden}
   .icon{width:1.5em;height:1.5em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
