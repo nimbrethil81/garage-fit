@@ -31,8 +31,11 @@ test('Generator preview/player and both fixed players initialise without runtime
   const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(match=>match[1]);
   const elements=Object.fromEntries(ids.map(id=>[id,new Element(id)]));
   const storage=new Map();
+  const spoken=[];
   const context={
     console,
+    SpeechSynthesisUtterance:function(text){this.text=text;},
+    speechSynthesis:{cancel(){},speak(utterance){spoken.push(utterance.text);}},
     Date,
     Math,
     JSON,
@@ -63,6 +66,20 @@ test('Generator preview/player and both fixed players initialise without runtime
   assert.ok(vm.runInContext('generatorState.timeline.length',context)>0);
   const sides=vm.runInContext("generatorState.timeline.filter(phase=>phase.kind==='exercise'&&phase.side).map(phase=>phase.side)",context);
   for (let index=0;index<sides.length;index+=2) assert.equal(sides.slice(index,index+2).join(','),'right,left');
+
+  const timeline=vm.runInContext('generatorState.timeline',context);
+  for(let index=1;index<timeline.length;index++) {
+    const phase=timeline[index],before=spoken.length;
+    context.enterGeneratedPhase(index);
+    if(phase.kind==='exercise') {
+      assert.equal(spoken.length,before+1);
+      assert.ok(spoken.at(-1).includes(phase.exercise.name));
+      assert.ok(spoken.at(-1).includes(phase.timed?'seconds':'reps'));
+      if(phase.side) assert.ok(spoken.at(-1).includes(phase.side));
+    }
+  }
+  context.previousGeneratedPhase();
+  assert.ok(spoken.at(-1).includes(vm.runInContext('currentGeneratedPhase().exercise.name',context)));
 
   context.startWorkout();
   assert.equal(vm.runInContext('workoutState.mode',context),'fixed');

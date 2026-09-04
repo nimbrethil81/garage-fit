@@ -99,3 +99,29 @@ test('catalogue excludes rack-dependent back squats and encodes Right-first unil
   assert.equal(catalogue['barbell-back-squat'],undefined);
   for (const exercise of Object.values(catalogue).filter(item=>item.unilateral)) assert.deepEqual(exercise.sideOrder,['right','left']);
 });
+
+test('30-minute Balanced sessions put weights last in warm-up and separate patterns, including swaps and round boundaries', () => {
+  const equipment=['dumbbells','kettlebell','pullup-bar','trx'];
+  let weightedCount=0;
+  function checkSpacing(exercises) {
+    exercises.forEach((exercise,index)=>{
+      const next=exercises[(index+1)%exercises.length];
+      assert.equal(exercise.patterns.some(pattern=>next.patterns.includes(pattern)),false,`${exercise.id} then ${next.id}`);
+    });
+  }
+  for(let seed=1;seed<=200;seed++) {
+    const workout=create({duration:30,focus:'balanced',equipment,random:random(seed)});
+    let reachedWeights=false;
+    for(const exercise of workout.warmup.exercises) {
+      const weighted=exercise.equipment.some(group=>group.some(id=>['dumbbells','kettlebell','barbell'].includes(id)));
+      if(weighted) { reachedWeights=true;weightedCount++; }
+      else assert.equal(reachedWeights,false);
+    }
+    checkSpacing(workout.blocks[0].exercises);
+    for(let index=0;index<workout.blocks[0].exercises.length;index++) {
+      GarageFitGenerator.swap(workout,index,{catalogue,equipment,random:random(seed+index)});
+      checkSpacing(workout.blocks[0].exercises);
+    }
+  }
+  assert.ok(weightedCount>0);
+});

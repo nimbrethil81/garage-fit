@@ -94,8 +94,11 @@
     for (let slot=0;slot<count;slot++) {
       const desired = recipe[slot % recipe.length];
       let candidates = eligible.filter(exercise => !selected.some(item => item.id===exercise.id));
-      const patternMatches = candidates.filter(exercise => exercise.patterns.includes(desired));
       const previous = selected[selected.length-1];
+      const neighbours = [previous, slot===count-1 ? selected[0] : null];
+      const varied = candidates.filter(exercise => neighbours.every(item => !sharedPatterns(item,exercise).length));
+      if (varied.length) candidates = varied;
+      const patternMatches = candidates.filter(exercise => exercise.patterns.includes(desired));
       const variedPatternMatches = patternMatches.filter(exercise => !sharedPatterns(previous,exercise).length);
       if (variedPatternMatches.length) candidates = variedPatternMatches;
       else if (patternMatches.length && !previous) candidates = patternMatches;
@@ -127,6 +130,11 @@
       picked.push(exercise);
       total += exercise.estimatedSeconds + (picked.length>1?restSeconds:0);
       candidates = candidates.filter(item => item.id!==exercise.id);
+    }
+    // Keep the random selection, but finish the warm-up with external weights.
+    if (kind==='warmup') {
+      const weighted = exercise => exercise.equipment.some(group => group.some(id => ['dumbbells','kettlebell','barbell'].includes(id)));
+      picked.sort((a,b) => Number(weighted(a))-Number(weighted(b)));
     }
     return { exercises:picked, restSeconds, estimatedSeconds:total };
   }
@@ -186,6 +194,10 @@
     const current = block.exercises[exerciseIndex];
     const otherIds = new Set(block.exercises.filter((_,index)=>index!==exerciseIndex).map(exercise=>exercise.id));
     let eligible = Object.values(catalogue).filter(exercise => exercise.generator && exercise.main && requirementsMet(exercise,owned) && !otherIds.has(exercise.id) && exercise.id!==current.id);
+    const before = block.exercises[(exerciseIndex-1+block.exercises.length)%block.exercises.length];
+    const after = block.exercises[(exerciseIndex+1)%block.exercises.length];
+    const varied = eligible.filter(exercise => !sharedPatterns(before,exercise).length && !sharedPatterns(exercise,after).length);
+    if (varied.length) eligible = varied;
     const matching = eligible.filter(exercise => exercise.patterns.some(pattern=>current.patterns.includes(pattern)));
     if (matching.length) eligible = matching;
     const scored = eligible.map(exercise => {
@@ -194,7 +206,6 @@
       score -= Math.abs(exercise.cardio-current.cardio)*1.5;
       if (exercise.impact===current.impact) score += 2;
       if (primaryEquipment(exercise)===primaryEquipment(current)) score += 2;
-      const before = block.exercises[exerciseIndex-1], after = block.exercises[exerciseIndex+1];
       score -= (sharedPatterns(before,exercise).length + sharedPatterns(exercise,after).length) * 12;
       if (exercise.impact==='high' && ((before&&before.impact==='high')||(after&&after.impact==='high'))) score -= 12;
       return {exercise,score};
