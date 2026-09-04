@@ -125,3 +125,18 @@ test('30-minute Balanced sessions put weights last in warm-up and separate patte
   }
   assert.ok(weightedCount>0);
 });
+
+test('cool-down alternatives replace the legacy stretch and never appear together', () => {
+  assert.equal(catalogue['lean-back-sink'],undefined);
+  assert.equal(catalogue['childs-pose'].name,"Child's pose");
+  assert.deepEqual(catalogue['childs-pose'].equipment,[]);
+  const seen=new Set();
+  for(const duration of [10,15,20,30,45]) for(let seed=1;seed<=40;seed++) {
+    const workout=create({duration,equipment:['trx'],random:random(seed)});
+    const groups=workout.cooldown.exercises.map(ex=>ex.alternativeGroup).filter(Boolean);
+    assert.equal(new Set(groups).size,groups.length);
+    workout.cooldown.exercises.forEach(ex=>seen.add(ex.id));
+  }
+  assert.ok(seen.has('childs-pose'));
+  assert.ok(seen.has('trx-lean-back-sink'));
+});

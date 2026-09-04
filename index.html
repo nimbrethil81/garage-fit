@@ -292,7 +292,7 @@ function expandLegacyTimed(ids){
 }
 const EX={
 warmupIds:['knees-up','bum-kicks','open-close-gates','hand-opposite-toe','body-hoops','body-twists','arm-circles-backwards','arm-circles-forwards','arm-side-circles','air-squat','step-back-lunge','walk-plank-push-up','star-jumps','burpees','trx-squat-overhead','trx-lunge-warmup','band-pull-apart','hangout-pullup-bar','kettlebell-figure-eight'],
-cooldownIds:['toe-touch','inside-thigh-stretch','wide-toe-touch','hip-flexor-arm-stretch','kneeling-hamstring','frog-stretch','standing-quads','downward-upward-dog','plank-calf-stretch','pigeon-stretch','runners-stretch','lean-back-sink','chest-opener','side-stretch','glute-stretch','lying-torso-twist','full-body-stretch','trx-lean-back-sink','trx-lunge-calf-chest','trx-glute-standing','trx-side-stretch'],
+cooldownIds:['toe-touch','inside-thigh-stretch','wide-toe-touch','hip-flexor-arm-stretch','kneeling-hamstring','frog-stretch','standing-quads','downward-upward-dog','plank-calf-stretch','pigeon-stretch','runners-stretch','childs-pose','chest-opener','side-stretch','glute-stretch','lying-torso-twist','full-body-stretch','trx-lean-back-sink','trx-lunge-calf-chest','trx-glute-standing','trx-side-stretch'],
 rampUp:[
   exerciseById('jumping-jacks',{name:'Jumping jacks',reps:10,work:30,rest:REST_S}),exerciseById('air-squat',{reps:10,work:30,rest:REST_S}),exerciseById('push-up',{name:'Press ups',reps:10,work:30,rest:REST_S}),
   exerciseById('toes-to-bar',{name:'Toes to bar',reps:5,work:20,rest:REST_S}),exerciseById('kettlebell-swing',{name:'Kettlebell swings',reps:10,work:30,rest:REST_S}),exerciseById('plank',{reps:null,work:30,rest:REST_S}),exerciseById('burpees',{reps:10,work:30,rest:0})
@@ -315,7 +315,11 @@ function loadEquipment(){
   renderHome();renderWorkoutReview();renderPersonalBest();renderGenerator();showScreen('home')
 }
 function saveEquipment(){try{localStorage.setItem('gf_equipment_inventory',JSON.stringify(state.ownedEquipment));localStorage.setItem('gf_equipment_configured',String(state.equipmentConfigured))}catch(e){}}
-function eligibleRoutineIds(kind){return EX[kind+'Ids'].filter(id=>GarageFitGenerator.requirementsMet(CATALOGUE[id],state.ownedEquipment))}
+function eligibleRoutineIds(kind){
+  const eligible=EX[kind+'Ids'].filter(id=>GarageFitGenerator.requirementsMet(CATALOGUE[id],state.ownedEquipment));
+  // Equipment alternatives appear later in the fixed routine and take precedence.
+  return eligible.filter((id,index)=>!CATALOGUE[id].alternativeGroup || !eligible.slice(index+1).some(other=>CATALOGUE[other].alternativeGroup===CATALOGUE[id].alternativeGroup));
+}
 function routineList(kind){return expandLegacyTimed(eligibleRoutineIds(kind))}
 function renderHome(){const count=state.ownedEquipment.length;document.getElementById('equipIconUse').setAttribute('href',count?'#icon-equipment':'#icon-body');document.getElementById('equipToggleText').textContent=count?count+' item'+(count===1?'':'s'):'Bodyweight';document.getElementById('warmupSub').textContent=routineList('warmup').length+' moves';document.getElementById('cooldownSub').textContent=routineList('cooldown').length+' moves'}
 document.getElementById('equipToggle').addEventListener('click',()=>openEquipment('home'));

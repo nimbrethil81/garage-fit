@@ -129,7 +129,7 @@
       const exercise = fitting[index];
       picked.push(exercise);
       total += exercise.estimatedSeconds + (picked.length>1?restSeconds:0);
-      candidates = candidates.filter(item => item.id!==exercise.id);
+      candidates = candidates.filter(item => item.id!==exercise.id && (!exercise.alternativeGroup || item.alternativeGroup!==exercise.alternativeGroup));
     }
     // Keep the random selection, but finish the warm-up with external weights.
     if (kind==='warmup') {

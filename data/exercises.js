@@ -21,6 +21,8 @@
       warmupEstimatedSeconds: null,
       main: false,
       cooldown: false,
+      // Alternatives in a warm-up/cool-down: select at most one per group.
+      alternativeGroup: null,
       instructions: ''
     }, options || {});
   }
@@ -130,12 +132,13 @@
     ['toe-touch','Toe touch'],['inside-thigh-stretch','Inside thigh stretch'],['wide-toe-touch','Wide toe touch'],
     ['hip-flexor-arm-stretch','Hip flexor, arm pull and overhead tricep'],['kneeling-hamstring','Kneeling hamstring'],['frog-stretch','Frog'],
     ['standing-quads','Standing quads'],['downward-upward-dog','Downward dog to upward dog'],['plank-calf-stretch','Plank calf stretch'],
-    ['pigeon-stretch','Pigeon'],['runners-stretch',"Runner's stretch"],['lean-back-sink','Lean back and sink'],['chest-opener','Chest opener'],
+    ['pigeon-stretch','Pigeon'],['runners-stretch',"Runner's stretch"],['childs-pose',"Child's pose"],['chest-opener','Chest opener'],
     ['side-stretch','Side stretch'],['glute-stretch','Glute stretch'],['lying-torso-twist','Lying torso twist'],['full-body-stretch','Full body stretch']
   ];
   const unilateralCooldowns = new Set(['inside-thigh-stretch','wide-toe-touch','hip-flexor-arm-stretch','kneeling-hamstring','standing-quads','pigeon-stretch','runners-stretch','lying-torso-twist']);
   cooldowns.forEach(x=>add(x[0],x[1],{cooldown:true,unilateral:unilateralCooldowns.has(x[0]),prescription:{type:unilateralCooldowns.has(x[0])?'unilateral-timed':'timed',value:15},estimatedSeconds:unilateralCooldowns.has(x[0])?30:15}));
-  add('trx-lean-back-sink', 'TRX lean back and sink', { equipment:[['trx']], cooldown:true, prescription:{type:'timed',value:15}, estimatedSeconds:15 });
+  catalogue['childs-pose'].alternativeGroup='back-lat-stretch';
+  add('trx-lean-back-sink', 'TRX lean back and sink', { alternativeGroup:'back-lat-stretch', equipment:[['trx']], cooldown:true, prescription:{type:'timed',value:15}, estimatedSeconds:15 });
   add('trx-lunge-calf-chest', 'TRX lunge, calf and chest opener', { equipment:[['trx']], cooldown:true, unilateral:true, prescription:{type:'unilateral-timed',value:15}, estimatedSeconds:30 });
   add('trx-glute-standing', 'TRX glute standing', { equipment:[['trx']], cooldown:true, unilateral:true, prescription:{type:'unilateral-timed',value:15}, estimatedSeconds:30 });
   add('trx-side-stretch', 'TRX side stretch', { equipment:[['trx']], cooldown:true, unilateral:true, prescription:{type:'unilateral-timed',value:15}, estimatedSeconds:30 });

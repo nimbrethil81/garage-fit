@@ -54,6 +54,12 @@ test('Generator preview/player and both fixed players initialise without runtime
   const inline=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].at(-1)[1];
   vm.runInContext(inline,context,{filename:'index-inline.js'});
 
+  assert.ok(context.eligibleRoutineIds('cooldown').includes('childs-pose'));
+  assert.equal(context.eligibleRoutineIds('cooldown').includes('lean-back-sink'),false);
+  context.toggleEquipmentItem('trx');
+  assert.ok(context.eligibleRoutineIds('cooldown').includes('trx-lean-back-sink'));
+  assert.equal(context.eligibleRoutineIds('cooldown').includes('childs-pose'),false);
+  context.toggleEquipmentItem('trx');
   context.showLanding('generator');
   context.toggleEquipmentItem('dumbbells');
   context.toggleEquipmentItem('bench');
