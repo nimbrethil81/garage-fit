@@ -23,6 +23,7 @@
     30:{count:6,minCount:5,maxCount:6,minRounds:3,maxRounds:4},
     45:{count:7,minCount:6,maxCount:7,minRounds:4,maxRounds:5}
   };
+  const WARMUP_PHASE_ORDER = { basic:0, dynamic:1, late:2 };
 
   function requirementsMet(exercise, owned) {
     const equipment = new Set(owned || []);
@@ -122,6 +123,16 @@
     });
     const picked = [], restSeconds = 5;
     let total = 0;
+    if (kind==='warmup' && candidates.length) {
+      const firstPhase = Math.min(...candidates.map(exercise => WARMUP_PHASE_ORDER[exercise.warmupPhase] ?? WARMUP_PHASE_ORDER.basic));
+      const starters = candidates.filter(exercise => (WARMUP_PHASE_ORDER[exercise.warmupPhase] ?? WARMUP_PHASE_ORDER.basic)===firstPhase && exercise.estimatedSeconds<=targetSeconds+5);
+      if (starters.length) {
+        const exercise = starters[Math.floor(random()*starters.length)];
+        picked.push(exercise);
+        total += exercise.estimatedSeconds;
+        candidates = candidates.filter(item => item.id!==exercise.id && (!exercise.alternativeGroup || item.alternativeGroup!==exercise.alternativeGroup));
+      }
+    }
     while (candidates.length && total < targetSeconds-10) {
       const fitting = candidates.filter(exercise => total + exercise.estimatedSeconds + (picked.length?restSeconds:0) <= targetSeconds+5);
       if (!fitting.length) break;
@@ -131,10 +142,9 @@
       total += exercise.estimatedSeconds + (picked.length>1?restSeconds:0);
       candidates = candidates.filter(item => item.id!==exercise.id && (!exercise.alternativeGroup || item.alternativeGroup!==exercise.alternativeGroup));
     }
-    // Keep the random selection, but finish the warm-up with external weights.
+    // Keep selection varied while following the catalogue's warm-up progression.
     if (kind==='warmup') {
-      const weighted = exercise => exercise.equipment.some(group => group.some(id => ['dumbbells','kettlebell','barbell'].includes(id)));
-      picked.sort((a,b) => Number(weighted(a))-Number(weighted(b)));
+      picked.sort((a,b) => (WARMUP_PHASE_ORDER[a.warmupPhase] ?? WARMUP_PHASE_ORDER.basic) - (WARMUP_PHASE_ORDER[b.warmupPhase] ?? WARMUP_PHASE_ORDER.basic));
     }
     return { exercises:picked, restSeconds, estimatedSeconds:total };
   }
@@ -218,5 +228,5 @@
     return workout;
   }
 
-  root.GarageFitGenerator = { BUDGETS, RESTS, requirementsMet, estimateMain, generate, swap };
+  root.GarageFitGenerator = { BUDGETS, RESTS, WARMUP_PHASE_ORDER, requirementsMet, estimateMain, generate, swap };
 })(typeof window==='undefined' ? globalThis : window);

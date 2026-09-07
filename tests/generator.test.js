@@ -100,9 +100,9 @@ test('catalogue excludes rack-dependent back squats and encodes Right-first unil
   for (const exercise of Object.values(catalogue).filter(item=>item.unilateral)) assert.deepEqual(exercise.sideOrder,['right','left']);
 });
 
-test('30-minute Balanced sessions put weights last in warm-up and separate patterns, including swaps and round boundaries', () => {
+test('30-minute Balanced sessions progress through warm-up phases and separate patterns, including swaps and round boundaries', () => {
   const equipment=['dumbbells','kettlebell','pullup-bar','trx'];
-  let weightedCount=0;
+  let lateCount=0;
   function checkSpacing(exercises) {
     exercises.forEach((exercise,index)=>{
       const next=exercises[(index+1)%exercises.length];
@@ -111,11 +111,13 @@ test('30-minute Balanced sessions put weights last in warm-up and separate patte
   }
   for(let seed=1;seed<=200;seed++) {
     const workout=create({duration:30,focus:'balanced',equipment,random:random(seed)});
-    let reachedWeights=false;
-    for(const exercise of workout.warmup.exercises) {
-      const weighted=exercise.equipment.some(group=>group.some(id=>['dumbbells','kettlebell','barbell'].includes(id)));
-      if(weighted) { reachedWeights=true;weightedCount++; }
-      else assert.equal(reachedWeights,false);
+    let previousPhase=-1;
+    for(const [index,exercise] of workout.warmup.exercises.entries()) {
+      const phase=GarageFitGenerator.WARMUP_PHASE_ORDER[exercise.warmupPhase];
+      assert.ok(phase>=previousPhase,`${exercise.id} is out of warm-up order`);
+      if(index===0) assert.equal(exercise.warmupPhase,'basic');
+      if(exercise.warmupPhase==='late') lateCount++;
+      previousPhase=phase;
     }
     checkSpacing(workout.blocks[0].exercises);
     for(let index=0;index<workout.blocks[0].exercises.length;index++) {
@@ -123,7 +125,19 @@ test('30-minute Balanced sessions put weights last in warm-up and separate patte
       checkSpacing(workout.blocks[0].exercises);
     }
   }
-  assert.ok(weightedCount>0);
+  assert.ok(lateCount>0);
+});
+
+test('demanding warm-up exercises are catalogue-driven late-phase movements', () => {
+  const validPhases=new Set(Object.keys(GarageFitGenerator.WARMUP_PHASE_ORDER));
+  for(const exercise of Object.values(catalogue).filter(item=>item.warmup)) {
+    assert.ok(validPhases.has(exercise.warmupPhase),`${exercise.id} needs a valid warm-up phase`);
+  }
+  for(const id of ['walk-plank-push-up','burpees','star-jumps','kettlebell-figure-eight','trx-squat-overhead','hangout-pullup-bar']) {
+    assert.equal(catalogue[id].warmupPhase,'late',id);
+  }
+  assert.equal(catalogue['body-twists'].warmupPhase,'basic');
+  assert.equal(catalogue['knees-up'].warmupPhase,'dynamic');
 });
 
 test('cool-down alternatives replace the legacy stretch and never appear together', () => {
