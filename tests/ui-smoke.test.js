@@ -28,6 +28,7 @@ class Element {
 
 test('Generator preview/player and both fixed players initialise without runtime errors', () => {
   const root=path.join(__dirname,'..'),html=fs.readFileSync(path.join(root,'index.html'),'utf8');
+  assert.match(html,/<div class="workout-secondary-controls">\s*<button class="previous-btn" id="previousWorkoutBtn"[\s\S]*?<button class="ctrl-btn ctrl-secondary" id="workoutPauseBtn"[\s\S]*?<\/div>\s*<button class="ctrl-btn ctrl-primary complete-btn" id="completeMovementBtn"/);
   const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(match=>match[1]);
   const elements=Object.fromEntries(ids.map(id=>[id,new Element(id)]));
   const storage=new Map();
