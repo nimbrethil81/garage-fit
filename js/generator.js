@@ -41,6 +41,22 @@
     return exercise.equipment && exercise.equipment.length ? exercise.equipment[0][0] : 'bodyweight';
   }
 
+  function sectionSetupKey(exercise, owned) {
+    const available = new Set(owned || []);
+    const setup = (exercise.equipment || []).map(group => group.find(id => available.has(id)) || group[0]).filter(Boolean).sort();
+    return setup.length ? setup.join('+') : 'bodyweight';
+  }
+
+  function groupSectionBySetup(exercises, owned) {
+    const groups = new Map();
+    for (const exercise of exercises) {
+      const key = sectionSetupKey(exercise,owned);
+      if (!groups.has(key)) groups.set(key,[]);
+      groups.get(key).push(exercise);
+    }
+    return [...groups.values()].flat();
+  }
+
   function sharedPatterns(first, second) {
     if (!first || !second) return [];
     return (first.patterns || []).filter(pattern => (second.patterns || []).includes(pattern));
@@ -146,6 +162,11 @@
     if (kind==='warmup') {
       picked.sort((a,b) => (WARMUP_PHASE_ORDER[a.warmupPhase] ?? WARMUP_PHASE_ORDER.basic) - (WARMUP_PHASE_ORDER[b.warmupPhase] ?? WARMUP_PHASE_ORDER.basic));
     }
+    // Avoid repeatedly moving between equipment stations during recovery work.
+    // The group order and exercises within each group retain their random order.
+    if (kind==='cooldown') {
+      picked.splice(0,picked.length,...groupSectionBySetup(picked,owned));
+    }
     return { exercises:picked, restSeconds, estimatedSeconds:total };
   }
 
@@ -228,5 +249,5 @@
     return workout;
   }
 
-  root.GarageFitGenerator = { BUDGETS, RESTS, WARMUP_PHASE_ORDER, requirementsMet, estimateMain, generate, swap };
+  root.GarageFitGenerator = { BUDGETS, RESTS, WARMUP_PHASE_ORDER, requirementsMet, sectionSetupKey, groupSectionBySetup, estimateMain, generate, swap };
 })(typeof window==='undefined' ? globalThis : window);

@@ -154,3 +154,24 @@ test('cool-down alternatives replace the legacy stretch and never appear togethe
   assert.ok(seen.has('childs-pose'));
   assert.ok(seen.has('trx-lean-back-sink'));
 });
+
+test('section setup keys use existing equipment requirements and owned alternatives', () => {
+  assert.equal(GarageFitGenerator.sectionSetupKey(catalogue['childs-pose'],['trx']),'bodyweight');
+  assert.equal(GarageFitGenerator.sectionSetupKey(catalogue['trx-side-stretch'],['trx']),'trx');
+  assert.equal(GarageFitGenerator.sectionSetupKey(catalogue['step-ups'],['bench']),'bench');
+  assert.equal(GarageFitGenerator.sectionSetupKey(catalogue['step-ups'],['box']),'box');
+  assert.equal(GarageFitGenerator.sectionSetupKey(catalogue['dumbbell-bench-press'],['dumbbells','bench']),'bench+dumbbells');
+});
+
+test('cool-down sequencing groups repeated equipment setups without naming specific exercises', () => {
+  const equipment=['dumbbells','kettlebell','pullup-bar','trx'];
+  let workoutsWithMultipleTrxExercises=0;
+  for(let seed=1;seed<=200;seed++) {
+    const exercises=create({duration:30,focus:'strength',equipment,random:random(seed)}).cooldown.exercises;
+    const setups=exercises.map(exercise=>GarageFitGenerator.sectionSetupKey(exercise,equipment));
+    const runs=setups.filter((setup,index)=>index===0||setup!==setups[index-1]);
+    assert.equal(new Set(runs).size,runs.length,setups.join(', '));
+    if(setups.filter(setup=>setup==='trx').length>=2) workoutsWithMultipleTrxExercises++;
+  }
+  assert.ok(workoutsWithMultipleTrxExercises>0);
+});
