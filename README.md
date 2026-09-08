@@ -1,3 +1,2 @@
-# GarageFit
-
-Minimal workout timer and generator PWA.
+# garage-fit
+https://nimbrethil81.github.io/garage-fit/
