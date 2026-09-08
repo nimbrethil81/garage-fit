@@ -1,3 +1,3 @@
 # GarageFit
 
-A lightweight home workout PWA.
+Minimal workout timer and generator PWA.
