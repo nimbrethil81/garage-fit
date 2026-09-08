@@ -1,10 +1,10 @@
 (function (root) {
   const BUDGETS = {
-    10:{warmup:120,main:420,cooldown:60},
-    15:{warmup:120,main:660,cooldown:120},
-    20:{warmup:180,main:900,cooldown:120},
-    30:{warmup:240,main:1380,cooldown:180},
-    45:{warmup:300,main:2100,cooldown:300}
+    10:{warmup:65,rampup:55,main:420,cooldown:60},
+    15:{warmup:100,rampup:80,main:600,cooldown:120},
+    20:{warmup:115,rampup:95,main:870,cooldown:120},
+    30:{warmup:150,rampup:120,main:1350,cooldown:180},
+    45:{warmup:200,rampup:160,main:2040,cooldown:300}
   };
   const RESTS = {
     strength:{exercise:20,round:60},
@@ -24,6 +24,8 @@
     45:{count:7,minCount:6,maxCount:7,minRounds:4,maxRounds:5}
   };
   const WARMUP_PHASE_ORDER = { basic:0, dynamic:1, late:2 };
+  const VALID_BODY_POSITIONS = new Set(['standing','floor','hanging','supported','mixed']);
+  const VALID_MOVEMENT_PLANES = new Set(['sagittal','frontal','transverse']);
 
   function requirementsMet(exercise, owned) {
     const equipment = new Set(owned || []);
@@ -75,11 +77,6 @@
     score += overlaps===0 ? 2 : -2.25 * overlaps;
     score -= recentPenalty(exercise.id, history);
     if (previous) {
-      // Normally alternate movement patterns so one area is not fatigued by
-      // back-to-back variations (for example, clean and press then press).
-      // This is deliberately a penalty rather than a ban: a limited equipment
-      // pool can still produce a complete workout, and occasional fatigue
-      // pairings remain possible.
       score -= sharedPatterns(previous,exercise).length * 12;
       const sameEquipment = primaryEquipment(previous)===primaryEquipment(exercise);
       if (sameEquipment) score += 2.2;
@@ -94,7 +91,7 @@
   }
 
   function controlledPick(scored, random) {
-    const top = scored.sort((a,b)=>b.score-a.score).slice(0,4);
+    const top = scored.slice().sort((a,b)=>b.score-a.score).slice(0,4);
     if (!top.length) return null;
     const weights = top.map((item,index)=>Math.max(1,4-index) * Math.max(1,item.score-top[top.length-1].score+1));
     let roll = random() * weights.reduce((sum,value)=>sum+value,0);
@@ -139,16 +136,6 @@
     });
     const picked = [], restSeconds = 5;
     let total = 0;
-    if (kind==='warmup' && candidates.length) {
-      const firstPhase = Math.min(...candidates.map(exercise => WARMUP_PHASE_ORDER[exercise.warmupPhase] ?? WARMUP_PHASE_ORDER.basic));
-      const starters = candidates.filter(exercise => (WARMUP_PHASE_ORDER[exercise.warmupPhase] ?? WARMUP_PHASE_ORDER.basic)===firstPhase && exercise.estimatedSeconds<=targetSeconds+5);
-      if (starters.length) {
-        const exercise = starters[Math.floor(random()*starters.length)];
-        picked.push(exercise);
-        total += exercise.estimatedSeconds;
-        candidates = candidates.filter(item => item.id!==exercise.id && (!exercise.alternativeGroup || item.alternativeGroup!==exercise.alternativeGroup));
-      }
-    }
     while (candidates.length && total < targetSeconds-10) {
       const fitting = candidates.filter(exercise => total + exercise.estimatedSeconds + (picked.length?restSeconds:0) <= targetSeconds+5);
       if (!fitting.length) break;
@@ -158,20 +145,198 @@
       total += exercise.estimatedSeconds + (picked.length>1?restSeconds:0);
       candidates = candidates.filter(item => item.id!==exercise.id && (!exercise.alternativeGroup || item.alternativeGroup!==exercise.alternativeGroup));
     }
-    // Keep selection varied while following the catalogue's warm-up progression.
-    if (kind==='warmup') {
-      picked.sort((a,b) => (WARMUP_PHASE_ORDER[a.warmupPhase] ?? WARMUP_PHASE_ORDER.basic) - (WARMUP_PHASE_ORDER[b.warmupPhase] ?? WARMUP_PHASE_ORDER.basic));
-    }
-    // Avoid repeatedly moving between equipment stations during recovery work.
-    // The group order and exercises within each group retain their random order.
-    if (kind==='cooldown') {
-      picked.splice(0,picked.length,...groupSectionBySetup(picked,owned));
-    }
+    if (kind==='cooldown') picked.splice(0,picked.length,...groupSectionBySetup(picked,owned));
     return { exercises:picked, restSeconds, estimatedSeconds:total };
   }
 
+  function preparationMetadataValid(exercise) {
+    const scaleValid = value => Number.isInteger(value) && value>=1 && value<=5;
+    return scaleValid(exercise.prepIntensity) && scaleValid(exercise.prepFatigue) && scaleValid(exercise.prepComplexity) &&
+      VALID_BODY_POSITIONS.has(exercise.bodyPosition) && Array.isArray(exercise.movementPlanes) && exercise.movementPlanes.length>0 &&
+      exercise.movementPlanes.every(plane=>VALID_MOVEMENT_PLANES.has(plane));
+  }
+
+  function validateCatalogue(catalogue) {
+    const errors = [];
+    for (const exercise of Object.values(catalogue)) {
+      if ((exercise.warmup || exercise.rampup) && !preparationMetadataValid(exercise)) errors.push(exercise.id+': invalid preparation metadata');
+      if (exercise.rampup) {
+        const p = exercise.rampupPrescription;
+        if (!p || !p.type || !Number.isFinite(p.value) || !Number.isFinite(exercise.rampupEstimatedSeconds)) errors.push(exercise.id+': invalid ramp-up prescription');
+      }
+    }
+    return errors;
+  }
+
+  function phaseExercise(exercise, kind, seconds) {
+    const source = kind==='rampup' ? exercise.rampupPrescription : exercise.warmupPrescription || exercise.prescription;
+    const prescription = Object.assign({}, source || exercise.prescription);
+    if (prescription.type && prescription.type.includes('timed') && Number.isFinite(seconds)) prescription.value = seconds;
+    return Object.assign({}, exercise, { prescription, estimatedSeconds:Number.isFinite(seconds)?seconds:(kind==='rampup'?exercise.rampupEstimatedSeconds:exercise.warmupEstimatedSeconds)||exercise.estimatedSeconds });
+  }
+
+  function contextSpecificity(exercise, mainExercises) {
+    const weights = [1,.6,.3];
+    return (mainExercises || []).slice(0,3).reduce((score,main,index)=>score + sharedPatterns(exercise,main).length * (weights[index]||0),0);
+  }
+
+  function contextEquipmentScore(exercise, mainExercises, owned) {
+    const first = (mainExercises || [])[0];
+    if (!first) return 0;
+    const a = sectionSetupKey(exercise,owned), b = sectionSetupKey(first,owned);
+    if (a===b) return 2;
+    if (a==='bodyweight') return .5;
+    return -1;
+  }
+
+  function scoreWarmupCandidate(exercise, selected, mainExercises, owned) {
+    const previous = selected[selected.length-1];
+    let score = 12 - exercise.prepIntensity*1.5 - exercise.prepFatigue*2 - exercise.prepComplexity*1.5;
+    const mainPatterns = new Set((mainExercises || []).slice(0,3).flatMap(item=>item.patterns||[]));
+    if ((exercise.patterns||[]).some(pattern=>mainPatterns.has(pattern))) score += 1.5;
+    if (previous) {
+      if (previous.bodyPosition===exercise.bodyPosition) score += 1;
+      else if (previous.bodyPosition!=='mixed' && exercise.bodyPosition!=='mixed') score -= .8;
+      if (sectionSetupKey(previous,owned)===sectionSetupKey(exercise,owned)) score += .6;
+      if (sharedPatterns(previous,exercise).length) score -= 1;
+    }
+    return score;
+  }
+
+  function scoreRampupCandidate(exercise, position, selected, warmup, mainExercises, owned, focus) {
+    const previous = selected[selected.length-1] || warmup[warmup.length-1];
+    const firstMain = mainExercises[0];
+    const targetIntensity = 3 + 2*position;
+    let score = 14 - Math.abs(exercise.prepIntensity-targetIntensity)*3 - exercise.prepFatigue*1.8 - Math.max(0,exercise.prepComplexity-2)*1.5;
+    const specificity = contextSpecificity(exercise,mainExercises);
+    score += specificity * (2 + 5*position);
+    if ((exercise.patterns||[]).includes('conditioning')) score += (1-position)*2 + (focus==='cardio'?2:focus==='strength'?-0.5:0.5);
+    if (focus==='strength' && exercise.impact==='high') score -= 1.5;
+    if (focus==='strength') score += specificity*1.2;
+    if (focus==='cardio') score += exercise.cardio*.35;
+    if (previous) {
+      if (previous.impact==='high' && exercise.impact==='high') score -= 10;
+      const intensityDrop = previous.prepIntensity - exercise.prepIntensity;
+      if (intensityDrop>1) score -= intensityDrop*3;
+      if (previous.bodyPosition===exercise.bodyPosition) score += 1;
+      else if (previous.bodyPosition!=='mixed' && exercise.bodyPosition!=='mixed') score -= 1.2;
+      if (sectionSetupKey(previous,owned)===sectionSetupKey(exercise,owned)) score += .8;
+    }
+    if (exercise.impact==='high') score += position*1.5 - (1-position)*2;
+    if (exercise.unilateral && position<.5) score -= 1;
+    if (warmup.some(item=>item.id===exercise.id)) score -= 3;
+    if (position>.65) {
+      score += contextEquipmentScore(exercise,mainExercises,owned)*2;
+      if (firstMain && exercise.bodyPosition===firstMain.bodyPosition) score += 2;
+      if (firstMain && sharedPatterns(exercise,firstMain).length && exercise.prepFatigue>=3) score -= 5;
+    }
+    return score;
+  }
+
+  function chooseRampCount(targetSeconds) {
+    if (targetSeconds<=60) return 1;
+    if (targetSeconds<=90) return 2;
+    if (targetSeconds<=135) return 3;
+    return 4;
+  }
+
+  function fitTimedDurations(exercises, targetSeconds, restSeconds, kind) {
+    if (!exercises.length) return {exercises:[],estimatedSeconds:0};
+    const available = Math.max(0,targetSeconds - restSeconds*Math.max(0,exercises.length-1));
+    const defaults = exercises.map(ex=>kind==='rampup'?ex.rampupPrescription:ex.warmupPrescription||ex.prescription);
+    const mins = defaults.map(p=>Number.isFinite(p.minValue)?p.minValue:Math.min(p.value,kind==='rampup'?20:15));
+    const maxs = defaults.map(p=>Number.isFinite(p.maxValue)?p.maxValue:Math.max(p.value,kind==='rampup'?45:30));
+    const desired = defaults.map(p=>p.value);
+    let values = desired.slice();
+    let current = values.reduce((a,b)=>a+b,0);
+    const target = Math.min(maxs.reduce((a,b)=>a+b,0),Math.max(mins.reduce((a,b)=>a+b,0),available));
+    let delta = target-current;
+    let guard = 0;
+    while (Math.abs(delta)>=1 && guard++<500) {
+      let changed=false;
+      for (let i=0;i<values.length && Math.abs(delta)>=1;i++) {
+        const step = delta>0 ? 5 : -5;
+        const candidate = values[i]+step;
+        if (candidate>=mins[i] && candidate<=maxs[i]) { values[i]=candidate; delta-=step; changed=true; }
+      }
+      if (!changed) break;
+    }
+    const fitted = exercises.map((exercise,index)=>phaseExercise(exercise,kind,values[index]));
+    return {exercises:fitted,estimatedSeconds:fitted.reduce((sum,ex)=>sum+ex.estimatedSeconds,0)+restSeconds*Math.max(0,fitted.length-1)};
+  }
+
+  function selectWarmup(catalogue, targetSeconds, owned, mainExercises, random) {
+    let candidates = Object.values(catalogue).filter(ex=>ex.warmup && preparationMetadataValid(ex) && requirementsMet(ex,owned));
+    const restSeconds=5, selected=[];
+    const targetCount=Math.max(2,Math.min(candidates.length,Math.round((targetSeconds+5)/25)));
+    for(let slot=0;slot<targetCount && candidates.length;slot++) {
+      const scored=candidates.map(exercise=>({exercise,score:scoreWarmupCandidate(exercise,selected,mainExercises,owned)}));
+      const picked=controlledPick(scored,random); if(!picked) break;
+      selected.push(picked); candidates=candidates.filter(ex=>ex.id!==picked.id && (!picked.alternativeGroup || ex.alternativeGroup!==picked.alternativeGroup));
+    }
+    selected.sort((a,b)=>{
+      const intensity=a.prepIntensity-b.prepIntensity;
+      if (intensity) return intensity;
+      return (WARMUP_PHASE_ORDER[a.warmupPhase]??0)-(WARMUP_PHASE_ORDER[b.warmupPhase]??0);
+    });
+    const fitted=fitTimedDurations(selected,targetSeconds,restSeconds,'warmup');
+    return {exercises:fitted.exercises,restSeconds,estimatedSeconds:fitted.estimatedSeconds};
+  }
+
+  function rampSequenceScore(exercises, warmup, mainExercises, owned, focus) {
+    if (!exercises.length) return -Infinity;
+    let score=0;
+    exercises.forEach((exercise,index)=>{
+      const position=exercises.length===1?1:index/(exercises.length-1);
+      score+=scoreRampupCandidate(exercise,position,exercises.slice(0,index),warmup,mainExercises,owned,focus);
+    });
+    for(let i=1;i<exercises.length;i++) {
+      if (exercises[i].prepIntensity < exercises[i-1].prepIntensity-1) score-=8;
+      if (exercises[i].impact==='high'&&exercises[i-1].impact==='high') score-=12;
+    }
+    return score;
+  }
+
+  function selectRampup(catalogue, targetSeconds, owned, mainExercises, warmup, focus, random) {
+    const eligible = Object.values(catalogue).filter(ex=>ex.rampup && preparationMetadataValid(ex) && ex.prepFatigue<=3 && ex.prepComplexity<=3 && requirementsMet(ex,owned));
+    const restSeconds=5, count=Math.min(chooseRampCount(targetSeconds),eligible.length);
+    let best=null;
+    for(let attempt=0;attempt<8;attempt++) {
+      const selected=[];
+      for(let slot=0;slot<count;slot++) {
+        const position=count===1?1:slot/(count-1);
+        let candidates=eligible.filter(ex=>!selected.some(item=>item.id===ex.id));
+        const scored=candidates.map(exercise=>({exercise,score:scoreRampupCandidate(exercise,position,selected,warmup,mainExercises,owned,focus)}));
+        const picked=controlledPick(scored,random); if(!picked) break; selected.push(picked);
+      }
+      const score=rampSequenceScore(selected,warmup,mainExercises,owned,focus);
+      if(!best||score>best.score) best={exercises:selected,score};
+    }
+    const fitted=fitTimedDurations(best?best.exercises:[],targetSeconds,restSeconds,'rampup');
+    return {exercises:fitted.exercises,restSeconds,estimatedSeconds:fitted.estimatedSeconds};
+  }
+
+  function validatePreparation(warmup, rampup, mainExercises) {
+    const issues=[];
+    for(const ex of warmup.exercises.concat(rampup.exercises)) if(!preparationMetadataValid(ex)) issues.push('metadata:'+ex.id);
+    for(let i=1;i<rampup.exercises.length;i++) {
+      const before=rampup.exercises[i-1], after=rampup.exercises[i];
+      if(before.impact==='high'&&after.impact==='high') issues.push('impact:'+before.id+'>'+after.id);
+      if(after.prepIntensity<before.prepIntensity-1) issues.push('intensity:'+before.id+'>'+after.id);
+    }
+    const last=rampup.exercises[rampup.exercises.length-1], first=mainExercises[0];
+    if(last&&first&&last.prepFatigue>3&&sharedPatterns(last,first).length) issues.push('fatigue:'+last.id+'>'+first.id);
+    return issues;
+  }
+
+  function buildPreparation(catalogue, budget, owned, mainExercises, focus, random) {
+    const warmup=selectWarmup(catalogue,budget.warmup,owned,mainExercises,random);
+    const rampup=selectRampup(catalogue,budget.rampup,owned,mainExercises,warmup.exercises,focus,random);
+    return {warmup,rampup,issues:validatePreparation(warmup,rampup,mainExercises)};
+  }
+
   function copyExercise(exercise) {
-    return Object.assign({},exercise,{patterns:exercise.patterns.slice(),equipment:exercise.equipment.map(group=>group.slice()),prescription:Object.assign({},exercise.prescription)});
+    return Object.assign({},exercise,{patterns:(exercise.patterns||[]).slice(),movementPlanes:(exercise.movementPlanes||[]).slice(),equipment:(exercise.equipment||[]).map(group=>group.slice()),prescription:Object.assign({},exercise.prescription)});
   }
 
   function generate(options) {
@@ -184,6 +349,7 @@
     const budget = BUDGETS[duration] || BUDGETS[20];
     const rest = RESTS[focus] || RESTS.balanced;
     const sizing = SIZE[duration] || SIZE[20];
+    const errors=validateCatalogue(catalogue); if(errors.length) throw new Error('Invalid exercise catalogue: '+errors.join(', '));
     const eligible = Object.values(catalogue).filter(exercise => exercise.generator && exercise.main && requirementsMet(exercise,owned));
     if (!eligible.length) throw new Error('No eligible exercises available.');
 
@@ -203,51 +369,56 @@
     candidates.sort((a,b)=>a.fitness-b.fitness);
     const shortlist = candidates.slice(0,Math.min(3,candidates.length));
     const chosen = shortlist[Math.floor(random()*shortlist.length)] || candidates[0];
-    const warmup = buildSection(catalogue,'warmup',budget.warmup,owned,random);
+    const preparation = buildPreparation(catalogue,budget,owned,chosen.exercises,focus,random);
     const cooldown = buildSection(catalogue,'cooldown',budget.cooldown,owned,random);
-    const estimatedSeconds = warmup.estimatedSeconds + chosen.estimate + cooldown.estimatedSeconds;
+    const estimatedSeconds = preparation.warmup.estimatedSeconds + preparation.rampup.estimatedSeconds + chosen.estimate + cooldown.estimatedSeconds;
     return {
-      id:'generated-'+Date.now(),
-      duration,
-      focus,
-      estimatedSeconds,
-      warmup:{estimatedSeconds:warmup.estimatedSeconds,restSeconds:warmup.restSeconds,exercises:warmup.exercises.map(copyExercise)},
+      id:'generated-'+Date.now(), duration, focus, estimatedSeconds,
+      warmup:{estimatedSeconds:preparation.warmup.estimatedSeconds,restSeconds:preparation.warmup.restSeconds,exercises:preparation.warmup.exercises.map(copyExercise)},
+      rampup:{estimatedSeconds:preparation.rampup.estimatedSeconds,restSeconds:preparation.rampup.restSeconds,exercises:preparation.rampup.exercises.map(copyExercise)},
       blocks:[{id:'main',rounds:chosen.rounds,rest:Object.assign({},rest),estimatedSeconds:chosen.estimate,exercises:chosen.exercises.map(copyExercise)}],
       cooldown:{estimatedSeconds:cooldown.estimatedSeconds,restSeconds:cooldown.restSeconds,exercises:cooldown.exercises.map(copyExercise)}
     };
   }
 
   function swap(workout, exerciseIndex, options) {
-    const catalogue = options.catalogue;
-    const owned = options.equipment || [];
-    const random = options.random || Math.random;
-    const block = workout.blocks[0];
-    const current = block.exercises[exerciseIndex];
+    const catalogue = options.catalogue, owned = options.equipment || [], random = options.random || Math.random;
+    const block = workout.blocks[0], current = block.exercises[exerciseIndex];
     const otherIds = new Set(block.exercises.filter((_,index)=>index!==exerciseIndex).map(exercise=>exercise.id));
     let eligible = Object.values(catalogue).filter(exercise => exercise.generator && exercise.main && requirementsMet(exercise,owned) && !otherIds.has(exercise.id) && exercise.id!==current.id);
-    const before = block.exercises[(exerciseIndex-1+block.exercises.length)%block.exercises.length];
-    const after = block.exercises[(exerciseIndex+1)%block.exercises.length];
-    const varied = eligible.filter(exercise => !sharedPatterns(before,exercise).length && !sharedPatterns(exercise,after).length);
-    if (varied.length) eligible = varied;
-    const matching = eligible.filter(exercise => exercise.patterns.some(pattern=>current.patterns.includes(pattern)));
-    if (matching.length) eligible = matching;
-    const scored = eligible.map(exercise => {
-      let score = exercise.patterns.filter(pattern=>current.patterns.includes(pattern)).length*8;
-      score -= Math.abs(exercise.strength-current.strength)*1.5;
-      score -= Math.abs(exercise.cardio-current.cardio)*1.5;
-      if (exercise.impact===current.impact) score += 2;
-      if (primaryEquipment(exercise)===primaryEquipment(current)) score += 2;
-      score -= (sharedPatterns(before,exercise).length + sharedPatterns(exercise,after).length) * 12;
-      if (exercise.impact==='high' && ((before&&before.impact==='high')||(after&&after.impact==='high'))) score -= 12;
-      return {exercise,score};
-    });
-    const replacement = controlledPick(scored,random);
-    if (!replacement) return workout;
-    block.exercises[exerciseIndex] = copyExercise(replacement);
-    block.estimatedSeconds = estimateMain(block.exercises,block.rounds,block.rest);
-    workout.estimatedSeconds = workout.warmup.estimatedSeconds + block.estimatedSeconds + workout.cooldown.estimatedSeconds;
-    return workout;
+    const before = block.exercises[(exerciseIndex-1+block.exercises.length)%block.exercises.length], after = block.exercises[(exerciseIndex+1)%block.exercises.length];
+    const varied = eligible.filter(exercise => !sharedPatterns(before,exercise).length && !sharedPatterns(exercise,after).length); if (varied.length) eligible = varied;
+    const matching = eligible.filter(exercise => exercise.patterns.some(pattern=>current.patterns.includes(pattern))); if (matching.length) eligible = matching;
+    const scored = eligible.map(exercise => { let score = exercise.patterns.filter(pattern=>current.patterns.includes(pattern)).length*8; score -= Math.abs(exercise.strength-current.strength)*1.5; score -= Math.abs(exercise.cardio-current.cardio)*1.5; if (exercise.impact===current.impact) score += 2; if (primaryEquipment(exercise)===primaryEquipment(current)) score += 2; score -= (sharedPatterns(before,exercise).length + sharedPatterns(exercise,after).length) * 12; if (exercise.impact==='high' && ((before&&before.impact==='high')||(after&&after.impact==='high'))) score -= 12; return {exercise,score}; });
+    const replacement = controlledPick(scored,random); if (!replacement) return workout;
+    block.exercises[exerciseIndex] = copyExercise(replacement); block.estimatedSeconds = estimateMain(block.exercises,block.rounds,block.rest); recalcWorkoutEstimate(workout); return workout;
   }
 
-  root.GarageFitGenerator = { BUDGETS, RESTS, WARMUP_PHASE_ORDER, requirementsMet, sectionSetupKey, groupSectionBySetup, estimateMain, generate, swap };
+  function swapPreparation(workout, section, exerciseIndex, options) {
+    if(!['warmup','rampup'].includes(section)||!workout[section]) return workout;
+    const catalogue=options.catalogue, owned=options.equipment||[], random=options.random||Math.random, current=workout[section].exercises[exerciseIndex], main=workout.blocks[0].exercises;
+    const allPrepIds=new Set(workout.warmup.exercises.concat(workout.rampup.exercises).filter(ex=>ex!==current).map(ex=>ex.id));
+    let eligible=Object.values(catalogue).filter(ex=>ex[section]&&preparationMetadataValid(ex)&&requirementsMet(ex,owned)&&ex.id!==current.id&&!allPrepIds.has(ex.id));
+    if(section==='rampup') eligible=eligible.filter(ex=>ex.prepFatigue<=3&&ex.prepComplexity<=3);
+    const position=workout[section].exercises.length===1?1:exerciseIndex/(workout[section].exercises.length-1);
+    const before=workout[section].exercises[exerciseIndex-1];
+    const scored=eligible.map(exercise=>({exercise,score:section==='rampup'?scoreRampupCandidate(exercise,position,workout[section].exercises.slice(0,exerciseIndex),workout.warmup.exercises,main,owned,workout.focus):scoreWarmupCandidate(exercise,workout.warmup.exercises.slice(0,exerciseIndex),main,owned) - Math.abs(exercise.prepIntensity-current.prepIntensity)*2 + (before&&before.bodyPosition===exercise.bodyPosition?1:0)}));
+    const replacement=controlledPick(scored,random); if(!replacement) return workout;
+    const seconds=current.estimatedSeconds;
+    workout[section].exercises[exerciseIndex]=phaseExercise(replacement,section,seconds);
+    recalcWorkoutEstimate(workout); return workout;
+  }
+
+  function recalcWorkoutEstimate(workout) {
+    workout.warmup.estimatedSeconds=workout.warmup.exercises.reduce((s,e)=>s+e.estimatedSeconds,0)+workout.warmup.restSeconds*Math.max(0,workout.warmup.exercises.length-1);
+    workout.rampup.estimatedSeconds=workout.rampup.exercises.reduce((s,e)=>s+e.estimatedSeconds,0)+workout.rampup.restSeconds*Math.max(0,workout.rampup.exercises.length-1);
+    workout.estimatedSeconds=workout.warmup.estimatedSeconds+workout.rampup.estimatedSeconds+workout.blocks[0].estimatedSeconds+workout.cooldown.estimatedSeconds;
+  }
+
+  root.GarageFitGenerator = { BUDGETS, RESTS, WARMUP_PHASE_ORDER, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, preparationMetadataValid, validateCatalogue, validatePreparation, estimateMain, generate, swap, swapPreparation };
+
+  if (typeof window!=='undefined' && typeof document!=='undefined' && typeof window.addEventListener==='function') window.addEventListener('load',()=>{
+    if (document.querySelector('script[data-garagefit-rampup-ui]')) return;
+    const script=document.createElement('script'); script.src='js/rampup-ui.js'; script.dataset.garagefitRampupUi='true'; document.body.appendChild(script);
+  });
 })(typeof window==='undefined' ? globalThis : window);
