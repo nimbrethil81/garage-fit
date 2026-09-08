@@ -4,7 +4,7 @@
   function injectStyles() {
     if (document.getElementById('rampupUiStyles')) return;
     const style=document.createElement('style'); style.id='rampupUiStyles';
-    style.textContent='.preview-section-title{margin:16px 2px 7px;color:var(--text-muted);font-size:11px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}.preview-prep-list{margin-bottom:8px}.preview-timing{grid-template-columns:repeat(3,1fr)}#rampupSkipBtn{margin-top:-8px}@media(max-width:380px){.preview-timing{grid-template-columns:1fr 1fr}.preview-time-card:last-child{grid-column:1/-1}}';
+    style.textContent='#generatedPreview{overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y}#generatedPreview>*{flex-shrink:0}.preview-section-title{margin:16px 2px 7px;color:var(--text-muted);font-size:11px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}.preview-prep-list{margin-bottom:8px}.preview-timing{grid-template-columns:repeat(3,1fr)}#rampupSkipBtn{margin-top:-8px}@media(max-width:380px){.preview-timing{grid-template-columns:1fr 1fr}.preview-time-card:last-child{grid-column:1/-1}}';
     document.head.appendChild(style);
   }
 
