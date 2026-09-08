@@ -37,7 +37,7 @@
 
   window.renderGeneratedPreview=function(){
     injectStyles();
-    const workout=generatorState.workout, block=workout.blocks[0], focus=workout.focus[0].toUpperCase()+workout.focus.slice(1), mainList=document.getElementById('previewList');
+    const workout=generatorState.workout, block=workout.blocks[0], focus=workout.focus[0].toUpperCase()+workout.focus.slice(1), mainList=document.getElementById('previewList'), timing=document.querySelector('.preview-timing');
     document.getElementById('previewKicker').textContent=workout.duration+' min · '+focus;
     document.getElementById('previewRounds').textContent=block.rounds+' rounds';
 
@@ -45,16 +45,21 @@
     const rampupList=makeSectionList('previewRampupList','Ramp-up',mainList);
     let mainTitle=document.getElementById('previewMainTitle');
     if(!mainTitle){mainTitle=document.createElement('div');mainTitle.id='previewMainTitle';mainTitle.className='preview-section-title';mainTitle.textContent='Main workout';mainList.parentNode.insertBefore(mainTitle,mainList);}
+    let cooldownTitle=document.getElementById('previewCooldownListTitle'), cooldownList=document.getElementById('previewCooldownList');
+    if(!cooldownTitle){cooldownTitle=document.createElement('div');cooldownTitle.id='previewCooldownListTitle';cooldownTitle.className='preview-section-title';cooldownTitle.textContent='Cool-down';mainList.parentNode.insertBefore(cooldownTitle,timing);}
+    if(!cooldownList){cooldownList=document.createElement('ol');cooldownList.id='previewCooldownList';cooldownList.className='preview-list preview-prep-list';mainList.parentNode.insertBefore(cooldownList,timing);}
+
     renderExerciseList(warmupList,workout.warmup.exercises,'warmup',true);
     renderExerciseList(rampupList,workout.rampup.exercises,'rampup',true);
     renderExerciseList(mainList,block.exercises,'main',false);
     [...mainList.children].forEach((li,index)=>{
       const button=document.createElement('button'); button.type='button'; button.className='swap-btn'; button.textContent='Swap'; button.setAttribute('aria-label','Swap '+block.exercises[index].name); button.onclick=()=>swapGeneratedExercise(index); li.appendChild(button);
     });
+    renderExerciseList(cooldownList,workout.cooldown.exercises,'cooldown',false);
 
     document.getElementById('previewWarmup').textContent=Math.round(workout.warmup.estimatedSeconds/60)+' min';
     let rampCard=document.getElementById('previewRampupCard');
-    if(!rampCard){rampCard=document.createElement('div');rampCard.id='previewRampupCard';rampCard.className='preview-time-card';rampCard.innerHTML='<strong id="previewRampup"></strong>Ramp-up';document.querySelector('.preview-timing').insertBefore(rampCard,document.querySelector('.preview-timing').children[1]);}
+    if(!rampCard){rampCard=document.createElement('div');rampCard.id='previewRampupCard';rampCard.className='preview-time-card';rampCard.innerHTML='<strong id="previewRampup"></strong>Ramp-up';timing.insertBefore(rampCard,timing.children[1]);}
     document.getElementById('previewRampup').textContent=Math.round(workout.rampup.estimatedSeconds/60)+' min';
     document.getElementById('previewCooldown').textContent=Math.round(workout.cooldown.estimatedSeconds/60)+' min';
     document.getElementById('previewEstimate').textContent='≈'+Math.round(workout.estimatedSeconds/60)+' min total';
