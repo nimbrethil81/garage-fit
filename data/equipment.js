@@ -20,7 +20,7 @@
     root.addEventListener('load', () => {
       if (root.document.querySelector('script[data-rampup-ui]')) return;
       const script = root.document.createElement('script');
-      script.src = 'js/rampup-ui.js?v=4';
+      script.src = 'js/rampup-ui.js?v=5';
       script.dataset.rampupUi = 'true';
       root.document.body.appendChild(script);
     });
