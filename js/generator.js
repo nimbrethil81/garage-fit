@@ -26,6 +26,7 @@
   const WARMUP_PHASE_ORDER = { basic:0, dynamic:1, late:2 };
   const VALID_BODY_POSITIONS = new Set(['standing','floor','hanging','supported','mixed']);
   const VALID_MOVEMENT_PLANES = new Set(['sagittal','frontal','transverse']);
+  const VALID_SIDEDNESS = new Set(['bilateral','alternating','per-side','none']);
   const MAJOR_REPEAT_PATTERNS = new Set(['squat','hinge','push','pull','lunge','carry']);
   const LOWER_JOINT_AREAS = new Set(['hips','knees','ankles']);
 
@@ -181,6 +182,9 @@
   function validateCatalogue(catalogue) {
     const errors = [];
     for (const exercise of Object.values(catalogue)) {
+      if (!VALID_SIDEDNESS.has(exercise.sidedness)) errors.push(exercise.id+': invalid sidedness');
+      const prescriptionIsPerSide = !!(exercise.prescription && exercise.prescription.type && exercise.prescription.type.includes('unilateral'));
+      if ((exercise.sidedness==='per-side') !== prescriptionIsPerSide) errors.push(exercise.id+': sidedness does not match prescription type');
       if ((exercise.warmup || exercise.rampup) && !preparationMetadataValid(exercise)) errors.push(exercise.id+': invalid preparation metadata');
       if (exercise.rampup) {
         const p = exercise.rampupPrescription;

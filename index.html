@@ -293,7 +293,7 @@ const WORK_S=15,REST_S=5;
 const CATALOGUE=GarageFitData.exercises,EQUIPMENT=GarageFitData.equipment;
 function exerciseById(id,overrides){return Object.assign({},CATALOGUE[id],overrides||{})}
 function expandLegacyTimed(ids){
-  const out=[];ids.forEach(id=>{const exercise=exerciseById(id);if(exercise.unilateral){out.push({name:exercise.name+' - Right',work:WORK_S,rest:REST_S},{name:exercise.name+' - Left',work:WORK_S,rest:REST_S})}else out.push({name:exercise.name,work:WORK_S,rest:REST_S})});return out;
+  const out=[];ids.forEach(id=>{const exercise=exerciseById(id);if(exercise.sidedness==='per-side'){out.push({name:exercise.name+' - Right',work:WORK_S,rest:REST_S},{name:exercise.name+' - Left',work:WORK_S,rest:REST_S})}else out.push({name:exercise.name,work:WORK_S,rest:REST_S})});return out;
 }
 const EX={
 warmupIds:['knees-up','bum-kicks','open-close-gates','hand-opposite-toe','body-hoops','body-twists','arm-circles-backwards','arm-circles-forwards','arm-side-circles','air-squat','step-back-lunge','walk-plank-push-up','star-jumps','burpees','trx-squat-overhead','trx-lunge-warmup','band-pull-apart','hangout-pullup-bar','kettlebell-figure-eight'],
@@ -431,7 +431,7 @@ function finishWorkout(){
 }
 
 function makeGeneratedExercisePhases(exercise,section,round,exerciseIndex){
-  const timed=exercise.prescription.type.includes('timed'),unilateral=exercise.prescription.type.includes('unilateral'),sides=unilateral?(exercise.sideOrder||['right','left']):[null];return sides.map(side=>({kind:'exercise',section,exercise,round,exerciseIndex,side,timed,seconds:timed?exercise.prescription.value:null}));
+  const timed=exercise.prescription.type.includes('timed'),perSide=exercise.sidedness==='per-side',sides=perSide?(exercise.sideOrder||['right','left']):[null];return sides.map(side=>({kind:'exercise',section,exercise,round,exerciseIndex,side,timed,seconds:timed?exercise.prescription.value:null}));
 }
 function buildGeneratedTimeline(workout){
   const timeline=[{kind:'ready',seconds:3}],warmup=workout.warmup.exercises,block=workout.blocks[0],cooldown=workout.cooldown.exercises;

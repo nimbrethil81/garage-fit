@@ -57,9 +57,15 @@ test('Generator preview/player and both fixed players initialise without runtime
 
   assert.ok(context.eligibleRoutineIds('cooldown').includes('childs-pose'));
   assert.equal(context.eligibleRoutineIds('cooldown').includes('lean-back-sink'),false);
+  assert.ok(context.eligibleRoutineIds('cooldown').includes('glute-stretch'));
   context.toggleEquipmentItem('trx');
   assert.ok(context.eligibleRoutineIds('cooldown').includes('trx-lean-back-sink'));
   assert.equal(context.eligibleRoutineIds('cooldown').includes('childs-pose'),false);
+  assert.ok(context.eligibleRoutineIds('cooldown').includes('trx-glute-standing'));
+  assert.equal(context.eligibleRoutineIds('cooldown').includes('glute-stretch'),false);
+  const cooldownRoutine=context.routineList('cooldown');
+  assert.ok(cooldownRoutine.some(item=>item.name==='TRX glute standing - Right'));
+  assert.ok(cooldownRoutine.some(item=>item.name==='TRX glute standing - Left'));
   context.toggleEquipmentItem('trx');
   context.showLanding('generator');
   context.toggleEquipmentItem('dumbbells');
@@ -75,6 +81,10 @@ test('Generator preview/player and both fixed players initialise without runtime
   for (let index=0;index<sides.length;index+=2) assert.equal(sides.slice(index,index+2).join(','),'right,left');
 
   const timeline=vm.runInContext('generatorState.timeline',context);
+  for (const phase of timeline.filter(p=>p.kind==='exercise')) {
+    if (phase.exercise.sidedness==='per-side') assert.ok(phase.side,phase.exercise.id);
+    else assert.equal(phase.side,null,phase.exercise.id+' ('+phase.exercise.sidedness+')');
+  }
   for(let index=1;index<timeline.length;index++) {
     const phase=timeline[index],before=spoken.length;
     context.enterGeneratedPhase(index);

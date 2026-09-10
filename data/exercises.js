@@ -1,7 +1,23 @@
 (function (root) {
   const catalogue = {};
 
+  // Sidedness describes how an exercise engages the body's left/right sides, independent of
+  // phase-specific prescription/timing (which only determines presentation):
+  //  - bilateral: both sides work together in the same movement (e.g. squat, push-up)
+  //  - alternating: sides alternate within a single continuous exercise (e.g. walking lunge)
+  //  - per-side: one side is completed, then the other, as distinct phases (e.g. reverse lunge)
+  //  - none: the movement has no meaningful left/right distinction (e.g. an isometric hold)
+  function resolveSidedness(options) {
+    if (options.sidedness) return options.sidedness;
+    const prescriptionType = (options.prescription && options.prescription.type) || '';
+    if (options.unilateral || prescriptionType.includes('unilateral')) return 'per-side';
+    return 'bilateral';
+  }
+
   function add(id, name, options) {
+    options = options || {};
+    const sidedness = resolveSidedness(options);
+    const unilateral = options.unilateral !== undefined ? options.unilateral : sidedness === 'per-side';
     catalogue[id] = Object.assign({
       id,
       name,
@@ -13,7 +29,6 @@
       cardio: 1,
       prescription: { type: 'timed', value: 30 },
       estimatedSeconds: 30,
-      unilateral: false,
       sideOrder: ['right', 'left'],
       impact: 'low',
       load: null,
@@ -33,7 +48,7 @@
       cooldown: false,
       alternativeGroup: null,
       instructions: ''
-    }, options || {});
+    }, options, { sidedness, unilateral });
   }
 
   function prep(options, intensity, fatigue, complexity, rampupPrescription) {
@@ -50,20 +65,20 @@
 
   add('air-squat', 'Air squat', prep({ patterns:['squat'], warmupAreas:['hips','knees','ankles'], strength:3, cardio:3, prescription:{type:'reps',value:10}, estimatedSeconds:25, impact:'medium', generator:true, warmup:true, warmupPhase:'dynamic', warmupPrescription:{type:'timed',value:20}, warmupEstimatedSeconds:20, main:true },3,2,1,{type:'timed',value:40,minValue:30,maxValue:45}));
   add('reverse-lunge', 'Reverse lunge', { patterns:['lunge'], strength:3, cardio:3, prescription:{type:'unilateral-reps',value:10}, estimatedSeconds:45, unilateral:true, impact:'medium', generator:true, main:true });
-  add('walking-lunge', 'Walking lunge', { patterns:['lunge'], strength:3, cardio:3, prescription:{type:'reps',value:20}, estimatedSeconds:45, unilateral:false, impact:'medium', generator:true, main:true, instructions:'Alternate left and right legs with each walking lunge step.' });
+  add('walking-lunge', 'Walking lunge', { patterns:['lunge'], strength:3, cardio:3, prescription:{type:'reps',value:20}, estimatedSeconds:45, sidedness:'alternating', impact:'medium', generator:true, main:true, instructions:'Alternate left and right legs with each walking lunge step.' });
   add('push-up', 'Push-up', prep({ patterns:['push'], bodyPosition:'floor', strength:4, cardio:2, prescription:{type:'reps',value:10}, estimatedSeconds:25, generator:true, main:true },4,3,2,{type:'timed',value:30,minValue:20,maxValue:40}));
   add('pike-push-up', 'Pike push-up', { patterns:['push'], bodyPosition:'floor', strength:4, cardio:2, prescription:{type:'reps',value:8}, estimatedSeconds:25, generator:true, main:true });
-  add('plank', 'Plank', prep({ patterns:['core'], bodyPosition:'floor', strength:3, cardio:1, prescription:{type:'timed',value:30}, estimatedSeconds:30, generator:true, main:true },2,2,1,{type:'timed',value:30,minValue:20,maxValue:40}));
+  add('plank', 'Plank', prep({ patterns:['core'], bodyPosition:'floor', strength:3, cardio:1, prescription:{type:'timed',value:30}, estimatedSeconds:30, sidedness:'none', generator:true, main:true },2,2,1,{type:'timed',value:30,minValue:20,maxValue:40}));
   add('side-plank', 'Side plank', { patterns:['core'], movementPlanes:['frontal'], bodyPosition:'floor', strength:3, cardio:1, prescription:{type:'unilateral-timed',value:20}, estimatedSeconds:40, unilateral:true, generator:true, main:true });
   add('abdominal-crunch', 'Abdominal crunch', { patterns:['core'], bodyPosition:'floor', strength:2, cardio:2, prescription:{type:'timed',value:30}, estimatedSeconds:30, generator:true, main:true });
-  add('bicycle-crunch', 'Bicycle crunch', { patterns:['core','conditioning'], movementPlanes:['sagittal','transverse'], bodyPosition:'floor', strength:2, cardio:3, prescription:{type:'reps',value:20}, estimatedSeconds:30, generator:true, main:true });
+  add('bicycle-crunch', 'Bicycle crunch', { patterns:['core','conditioning'], movementPlanes:['sagittal','transverse'], bodyPosition:'floor', strength:2, cardio:3, prescription:{type:'reps',value:20}, estimatedSeconds:30, sidedness:'alternating', generator:true, main:true });
   add('leg-raises', 'Leg raises', { patterns:['core'], bodyPosition:'floor', strength:3, cardio:1, prescription:{type:'reps',value:10}, estimatedSeconds:30, generator:true, main:true });
-  add('mountain-climbers', 'Mountain climbers', prep({ patterns:['core','conditioning'], bodyPosition:'floor', strength:2, cardio:5, prescription:{type:'timed',value:30}, estimatedSeconds:30, impact:'medium', generator:true, main:true },4,2,2,{type:'timed',value:35,minValue:25,maxValue:45}));
+  add('mountain-climbers', 'Mountain climbers', prep({ patterns:['core','conditioning'], bodyPosition:'floor', strength:2, cardio:5, prescription:{type:'timed',value:30}, estimatedSeconds:30, impact:'medium', sidedness:'alternating', generator:true, main:true },4,2,2,{type:'timed',value:35,minValue:25,maxValue:45}));
   add('jumping-jacks', 'Jumping jacks', prep({ patterns:['conditioning'], warmupAreas:['hips','knees','ankles'], movementPlanes:['frontal'], strength:1, cardio:5, prescription:{type:'timed',value:30}, estimatedSeconds:30, impact:'high', generator:true, warmup:true, warmupPhase:'dynamic', warmupPrescription:{type:'timed',value:20}, warmupEstimatedSeconds:20, main:true },4,1,1,{type:'timed',value:40,minValue:30,maxValue:45}));
-  add('high-knees', 'High knees', prep({ patterns:['conditioning'], strength:1, cardio:5, prescription:{type:'timed',value:30}, estimatedSeconds:30, impact:'high', generator:true, main:true },5,2,1,{type:'timed',value:35,minValue:25,maxValue:45}));
+  add('high-knees', 'High knees', prep({ patterns:['conditioning'], strength:1, cardio:5, prescription:{type:'timed',value:30}, estimatedSeconds:30, impact:'high', sidedness:'alternating', generator:true, main:true },5,2,1,{type:'timed',value:35,minValue:25,maxValue:45}));
   add('burpees', 'Burpees', prep({ patterns:['push','conditioning'], warmupAreas:['hips','knees','ankles','shoulders'], bodyPosition:'mixed', strength:2, cardio:5, prescription:{type:'reps',value:10}, estimatedSeconds:35, impact:'high', generator:true, warmup:true, warmupPhase:'late', warmupPrescription:{type:'timed',value:15}, warmupEstimatedSeconds:15, main:true },5,3,2,{type:'timed',value:30,minValue:20,maxValue:35}));
   add('squat-jumps', 'Squat jumps', prep({ patterns:['squat','conditioning'], strength:2, cardio:5, prescription:{type:'reps',value:10}, estimatedSeconds:30, impact:'high', generator:true, main:true },5,3,2,{type:'timed',value:30,minValue:20,maxValue:35}));
-  add('skater-jumps', 'Skater jumps', prep({ patterns:['lunge','conditioning'], movementPlanes:['frontal'], strength:2, cardio:5, prescription:{type:'timed',value:30}, estimatedSeconds:30, impact:'high', generator:true, main:true },5,3,2,{type:'timed',value:30,minValue:20,maxValue:35}));
+  add('skater-jumps', 'Skater jumps', prep({ patterns:['lunge','conditioning'], movementPlanes:['frontal'], strength:2, cardio:5, prescription:{type:'timed',value:30}, estimatedSeconds:30, impact:'high', sidedness:'alternating', generator:true, main:true },5,3,2,{type:'timed',value:30,minValue:20,maxValue:35}));
 
   add('goblet-squat', 'Goblet squat', prep({ equipment:[['dumbbells']], patterns:['squat'], strength:5, cardio:2, prescription:{type:'reps',value:10}, estimatedSeconds:25, impact:'medium', load:'Heavy', generator:true, main:true },4,3,2,{type:'timed',value:30,minValue:20,maxValue:35}));
   add('dumbbell-front-squat', 'Dumbbell front squat', { equipment:[['dumbbells']], patterns:['squat'], strength:5, cardio:2, prescription:{type:'reps',value:10}, estimatedSeconds:30, impact:'medium', load:'Heavy', generator:true, main:true });
@@ -86,14 +101,14 @@
   add('kettlebell-clean-and-press', 'Kettlebell clean and press', { equipment:[['kettlebell']], patterns:['hinge','push'], strength:5, cardio:4, prescription:{type:'unilateral-reps',value:8}, estimatedSeconds:55, unilateral:true, impact:'medium', generator:true, main:true });
   add('kettlebell-shoulder-press', 'Kettlebell shoulder press', { equipment:[['kettlebell']], patterns:['push'], strength:5, cardio:2, prescription:{type:'unilateral-reps',value:8}, estimatedSeconds:45, unilateral:true, generator:true, main:true });
   add('single-arm-kettlebell-row', 'Single-arm kettlebell row', { equipment:[['kettlebell']], patterns:['pull'], strength:5, cardio:1, prescription:{type:'unilateral-reps',value:10}, estimatedSeconds:50, unilateral:true, generator:true, main:true });
-  add('kettlebell-figure-eight', 'Kettlebell figure-of-eight', prep({ equipment:[['kettlebell']], patterns:['core','conditioning'], warmupAreas:['hips','trunk'], movementPlanes:['transverse'], strength:3, cardio:4, prescription:{type:'timed',value:30}, estimatedSeconds:30, impact:'medium', generator:true, warmup:true, warmupPhase:'late', warmupPrescription:{type:'timed',value:15}, warmupEstimatedSeconds:15, main:true },4,2,3,{type:'timed',value:35,minValue:25,maxValue:40}));
+  add('kettlebell-figure-eight', 'Kettlebell figure-of-eight', prep({ equipment:[['kettlebell']], patterns:['core','conditioning'], warmupAreas:['hips','trunk'], movementPlanes:['transverse'], strength:3, cardio:4, prescription:{type:'timed',value:30}, estimatedSeconds:30, impact:'medium', sidedness:'alternating', generator:true, warmup:true, warmupPhase:'late', warmupPrescription:{type:'timed',value:15}, warmupEstimatedSeconds:15, main:true },4,2,3,{type:'timed',value:35,minValue:25,maxValue:40}));
   add('kettlebell-farmer-carry', 'Kettlebell farmer carry', prep({ equipment:[['kettlebell']], patterns:['carry','core'], strength:4, cardio:3, prescription:{type:'timed',value:30}, estimatedSeconds:30, generator:true, main:true },3,2,1,{type:'timed',value:35,minValue:25,maxValue:45}));
 
   add('pull-up', 'Pull-up', { equipment:[['pullup-bar']], patterns:['pull'], bodyPosition:'hanging', strength:5, cardio:2, prescription:{type:'reps',value:5}, estimatedSeconds:25, generator:true, main:true });
   add('chin-up', 'Chin-up', { equipment:[['pullup-bar']], patterns:['pull'], bodyPosition:'hanging', strength:5, cardio:2, prescription:{type:'reps',value:5}, estimatedSeconds:25, generator:true, main:true });
   add('hanging-knee-raise', 'Hanging knee raise', { equipment:[['pullup-bar']], patterns:['core','pull'], bodyPosition:'hanging', strength:4, cardio:2, prescription:{type:'reps',value:10}, estimatedSeconds:30, generator:true, main:true });
   add('toes-to-bar', 'Toes-to-bar', { equipment:[['pullup-bar']], patterns:['core','pull'], bodyPosition:'hanging', strength:5, cardio:2, prescription:{type:'reps',value:5}, estimatedSeconds:25, generator:true, main:true });
-  add('dead-hang', 'Dead hang', prep({ equipment:[['pullup-bar']], patterns:['pull'], bodyPosition:'hanging', strength:3, cardio:1, prescription:{type:'timed',value:30}, estimatedSeconds:30, generator:true, main:true },2,1,1,{type:'timed',value:25,minValue:20,maxValue:30}));
+  add('dead-hang', 'Dead hang', prep({ equipment:[['pullup-bar']], patterns:['pull'], bodyPosition:'hanging', strength:3, cardio:1, prescription:{type:'timed',value:30}, estimatedSeconds:30, sidedness:'none', generator:true, main:true },2,1,1,{type:'timed',value:25,minValue:20,maxValue:30}));
 
   [
     ['trx-row','TRX row',['pull'],5,2,{type:'reps',value:10}],['trx-squat','TRX squat',['squat'],3,3,{type:'reps',value:12}],
@@ -105,6 +120,7 @@
   Object.assign(catalogue['trx-row'], prep(catalogue['trx-row'],3,2,2,{type:'timed',value:30,minValue:20,maxValue:40}));
   Object.assign(catalogue['trx-squat'], prep(catalogue['trx-squat'],3,2,1,{type:'timed',value:35,minValue:25,maxValue:45}));
   Object.assign(catalogue['trx-mountain-climber'], prep(catalogue['trx-mountain-climber'],5,3,3,{type:'timed',value:30,minValue:20,maxValue:35}));
+  catalogue['trx-mountain-climber'].sidedness='alternating';
 
   [
     ['barbell-deadlift','Barbell deadlift',['hinge'],5,1,10],['barbell-romanian-deadlift','Barbell Romanian deadlift',['hinge'],5,1,10],
@@ -136,11 +152,11 @@
   catalogue['band-pull-apart'].warmupEstimatedSeconds=20;
   catalogue['band-pull-apart'].warmupAreas=['shoulders'];
 
-  add('wall-sit', 'Wall sit', { patterns:['squat'], bodyPosition:'supported', prescription:{type:'timed',value:30}, estimatedSeconds:30, main:true });
+  add('wall-sit', 'Wall sit', { patterns:['squat'], bodyPosition:'supported', prescription:{type:'timed',value:30}, estimatedSeconds:30, sidedness:'none', main:true });
   add('chair-step-ups', 'Step-ups onto a chair', { patterns:['lunge','conditioning'], prescription:{type:'timed',value:30}, estimatedSeconds:30, main:true });
   add('chair-triceps-dips', 'Triceps dips on a chair', { patterns:['push'], bodyPosition:'supported', prescription:{type:'timed',value:30}, estimatedSeconds:30, main:true });
   add('push-up-rotation', 'Push-ups with rotation', { patterns:['push','core'], movementPlanes:['sagittal','transverse'], bodyPosition:'floor', prescription:{type:'timed',value:30}, estimatedSeconds:30, main:true });
-  add('floor-wipers', 'Floor wipers', { equipment:[['barbell']], patterns:['core'], movementPlanes:['transverse'], bodyPosition:'floor', prescription:{type:'reps',value:50}, estimatedSeconds:90, main:true });
+  add('floor-wipers', 'Floor wipers', { equipment:[['barbell']], patterns:['core'], movementPlanes:['transverse'], bodyPosition:'floor', prescription:{type:'reps',value:50}, estimatedSeconds:90, sidedness:'alternating', main:true });
 
   const warmups = [
     ['knees-up','Knees up','dynamic',3,1,1,['sagittal'],'standing',true,['hips','knees']],['bum-kicks','Bum kicks','dynamic',3,1,1,['sagittal'],'standing',true,['hips','knees']],['open-close-gates','Open gates, close gates','basic',1,1,1,['frontal','transverse'],'standing',false,['hips']],['hand-opposite-toe','Hand to opposite toe','dynamic',2,1,2,['sagittal','transverse'],'standing',false,['hips']],
@@ -164,9 +180,10 @@
   const floorCooldowns = new Set(['kneeling-hamstring','frog-stretch','downward-upward-dog','plank-calf-stretch','pigeon-stretch','childs-pose','glute-stretch','lying-torso-twist','full-body-stretch']);
   cooldowns.forEach(x=>add(x[0],x[1],{cooldown:true,bodyPosition:floorCooldowns.has(x[0])?'floor':'standing',unilateral:unilateralCooldowns.has(x[0]),prescription:{type:unilateralCooldowns.has(x[0])?'unilateral-timed':'timed',value:15},estimatedSeconds:unilateralCooldowns.has(x[0])?30:15}));
   catalogue['childs-pose'].alternativeGroup='back-lat-stretch';
+  catalogue['glute-stretch'].alternativeGroup='glute-stretch-family';
   add('trx-lean-back-sink', 'TRX lean back and sink', { alternativeGroup:'back-lat-stretch', equipment:[['trx']], cooldown:true, prescription:{type:'timed',value:15}, estimatedSeconds:15 });
   add('trx-lunge-calf-chest', 'TRX lunge, calf and chest opener', { equipment:[['trx']], cooldown:true, unilateral:true, prescription:{type:'unilateral-timed',value:15}, estimatedSeconds:30 });
-  add('trx-glute-standing', 'TRX glute standing', { equipment:[['trx']], cooldown:true, unilateral:true, prescription:{type:'unilateral-timed',value:15}, estimatedSeconds:30 });
+  add('trx-glute-standing', 'TRX glute standing', { alternativeGroup:'glute-stretch-family', equipment:[['trx']], cooldown:true, unilateral:true, prescription:{type:'unilateral-timed',value:15}, estimatedSeconds:30 });
   add('trx-side-stretch', 'TRX side stretch', { equipment:[['trx']], movementPlanes:['frontal'], cooldown:true, unilateral:true, prescription:{type:'unilateral-timed',value:15}, estimatedSeconds:30 });
 
   root.GarageFitData = root.GarageFitData || {};

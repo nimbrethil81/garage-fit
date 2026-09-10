@@ -36,9 +36,46 @@ test('30-minute balanced repeated blocks avoid duplicate lunge-family exercises 
 
 test('walking lunge is a single alternating exercise rather than separate left/right work',()=>{
   const exercise=catalogue['walking-lunge'];
+  assert.equal(exercise.sidedness,'alternating');
   assert.equal(exercise.unilateral,false);
   assert.equal(exercise.prescription.type,'reps');
   assert.match(exercise.instructions,/alternate left and right/i);
+});
+
+test('catalogue models sidedness as a distinct, valid concept for every exercise',()=>{
+  const valid=new Set(['bilateral','alternating','per-side','none']);
+  for(const exercise of Object.values(catalogue)) assert.ok(valid.has(exercise.sidedness),`${exercise.id}: ${exercise.sidedness}`);
+  assert.deepEqual(GarageFitGenerator.validateCatalogue(catalogue),[]);
+});
+
+test('per-side exercises are backed by a unilateral prescription, alternating exercises are not',()=>{
+  assert.equal(catalogue['reverse-lunge'].sidedness,'per-side');
+  assert.equal(catalogue['reverse-lunge'].prescription.type,'unilateral-reps');
+  assert.equal(catalogue['trx-glute-standing'].sidedness,'per-side');
+  assert.equal(catalogue['trx-glute-standing'].prescription.type,'unilateral-timed');
+  for(const id of ['walking-lunge','mountain-climbers','high-knees','bicycle-crunch','floor-wipers','skater-jumps','trx-mountain-climber','kettlebell-figure-eight']){
+    assert.equal(catalogue[id].sidedness,'alternating',id);
+    assert.equal(catalogue[id].prescription.type.includes('unilateral'),false,id);
+  }
+});
+
+test('glute stretch and TRX glute standing belong to the same stretch family and never co-occur in cooldown',()=>{
+  assert.ok(catalogue['glute-stretch'].alternativeGroup);
+  assert.equal(catalogue['glute-stretch'].alternativeGroup,catalogue['trx-glute-standing'].alternativeGroup);
+  let sawBoth=false;
+  for(let seed=1;seed<=150;seed++){
+    const ids=create(seed).cooldown.exercises.map(ex=>ex.id);
+    if(ids.includes('glute-stretch')&&ids.includes('trx-glute-standing')) sawBoth=true;
+  }
+  assert.equal(sawBoth,false);
+});
+
+test('cooldown never selects two exercises from the same stretch family, for any family',()=>{
+  for(let seed=1;seed<=150;seed++){
+    const cooldown=create(seed).cooldown.exercises;
+    const groups=cooldown.map(ex=>ex.alternativeGroup).filter(Boolean);
+    assert.equal(new Set(groups).size,groups.length,cooldown.map(ex=>ex.id).join(', '));
+  }
 });
 
 test('abdominal crunch and dumbbell thruster are timed so the player auto-advances without a manual Done press',()=>{
