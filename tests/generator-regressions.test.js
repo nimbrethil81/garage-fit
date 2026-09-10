@@ -40,3 +40,11 @@ test('walking lunge is a single alternating exercise rather than separate left/r
   assert.equal(exercise.prescription.type,'reps');
   assert.match(exercise.instructions,/alternate left and right/i);
 });
+
+test('abdominal crunch and dumbbell thruster are timed so the player auto-advances without a manual Done press',()=>{
+  for(const id of ['abdominal-crunch','dumbbell-thruster']){
+    const exercise=catalogue[id];
+    assert.equal(exercise.prescription.type,'timed',id);
+    assert.equal(exercise.prescription.value,exercise.estimatedSeconds,id);
+  }
+});
