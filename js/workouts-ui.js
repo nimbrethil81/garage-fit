@@ -169,10 +169,12 @@
       rewriteCard(buttons[2], 'workout300', '300 Workout', 'For time');
     }
 
-    ['.workout-detail', '.best-strip', '.review-toggle', '#workoutReview'].forEach(function (selector) {
+    ['.workout-detail', '.review-toggle', '#workoutReview'].forEach(function (selector) {
       var element = document.querySelector(selector);
       if (element) element.remove();
     });
+    var legacyBest = document.querySelector('.best-strip');
+    if (legacyBest) legacyBest.classList.add('hidden');
   }
 
   function patchScreenNavigation() {
