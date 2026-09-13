@@ -27,6 +27,22 @@
       ],
       provenance: 'An established functional-fitness benchmark first published by CrossFit in 2004.'
     },
+    abBlast: {
+      id: 'abBlast',
+      name: '5-Minute Ab Blast',
+      subtitle: '5 min continuous',
+      termination: { type:'timed-sequence', durationSeconds:5*60 },
+      exercises: [
+        { id:'sit-up', name:'Sit-ups', durationSeconds:40 },
+        { id:'side-plank', name:'Side plank - Left', durationSeconds:30, side:'left' },
+        { id:'side-plank', name:'Side plank - Right', durationSeconds:30, side:'right' },
+        { id:'reverse-crunch', name:'Reverse crunch', durationSeconds:40 },
+        { id:'plank', name:'Front plank', durationSeconds:40 },
+        { id:'dead-bug', name:'Dead bug', durationSeconds:40 },
+        { id:'bicycle-crunch', name:'Bicycle crunch', durationSeconds:40 },
+        { id:'flutter-kicks', name:'Flutter kicks', durationSeconds:40 }
+      ]
+    },
     sevenMinute: [
       'jumping-jacks','wall-sit','push-up','abdominal-crunch','chair-step-ups','air-squat',
       'chair-triceps-dips','plank','high-knees','reverse-lunge','push-up-rotation','side-plank'
