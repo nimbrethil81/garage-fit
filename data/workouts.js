@@ -32,4 +32,14 @@
       'chair-triceps-dips','plank','high-knees','reverse-lunge','push-up-rotation','side-plank'
     ]
   };
+
+  // Fixed-workout presentation is kept in its own module. Load it here because
+  // workouts.js is already part of the application shell and precedes the
+  // inline player bootstrap; the UI module installs only after the page loads.
+  if (typeof document !== 'undefined' && document.createElement && document.head && document.head.appendChild) {
+    var workoutUiScript = document.createElement('script');
+    workoutUiScript.src = 'js/workouts-ui.js';
+    workoutUiScript.async = false;
+    document.head.appendChild(workoutUiScript);
+  }
 })(window);
