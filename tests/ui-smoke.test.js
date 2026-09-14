@@ -70,6 +70,7 @@ test('Generator preview/player and both fixed players initialise without runtime
   context.showLanding('generator');
   context.toggleEquipmentItem('dumbbells');
   context.toggleEquipmentItem('bench');
+  context.selectGeneratorDuration(30);
   context.generateWorkout();
   assert.ok(vm.runInContext('generatorState.workout',context));
   assert.ok(elements.previewList.children.length>=3);
@@ -77,6 +78,18 @@ test('Generator preview/player and both fixed players initialise without runtime
   context.startGeneratedWorkout();
   assert.equal(vm.runInContext('workoutState.mode',context),'generated');
   assert.ok(vm.runInContext('generatorState.timeline.length',context)>0);
+  const blockCount=vm.runInContext('generatorState.workout.main.blocks.length',context);
+  assert.ok(blockCount>=2);
+  assert.equal(vm.runInContext("generatorState.timeline.filter(phase=>phase.kind==='block-transition').length",context),blockCount-1);
+  assert.equal(vm.runInContext("generatorState.timeline.filter(phase=>phase.kind==='transition'&&phase.section==='main').length",context),1);
+  const firstSecondBlock=vm.runInContext("generatorState.timeline.findIndex(phase=>phase.kind==='exercise'&&phase.section==='main'&&phase.blockIndex===1)",context);
+  context.enterGeneratedPhase(firstSecondBlock);
+  context.previousGeneratedPhase();
+  assert.equal(vm.runInContext('currentGeneratedPhase().blockIndex',context),0);
+  context.toggleWorkoutPause();
+  assert.equal(vm.runInContext('workoutState.paused',context),true);
+  context.toggleWorkoutPause();
+  assert.equal(vm.runInContext('workoutState.paused',context),false);
   const sides=vm.runInContext("generatorState.timeline.filter(phase=>phase.kind==='exercise'&&phase.side).map(phase=>phase.side)",context);
   for (let index=0;index<sides.length;index+=2) assert.equal(sides.slice(index,index+2).join(','),'right,left');
 

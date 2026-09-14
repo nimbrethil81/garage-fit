@@ -31,6 +31,9 @@
   const LOWER_JOINT_AREAS = new Set(['hips','knees','ankles']);
   const RECENT_EXACT_PENALTIES = [18,10,6,3];
   const RECENT_PATTERN_PENALTIES = [6,3,2,1];
+  const MAIN_PROTOCOLS = new Set(['rounds','paired_sets','timed_intervals']);
+  const MAIN_INTENTS = new Set(['strength','conditioning','accessory','finisher']);
+  const BLOCK_TRANSITION_SECONDS = 3;
 
   function requirementsMet(exercise, owned) {
     const equipment = new Set(owned || []);
@@ -165,6 +168,307 @@
     const work = exercises.reduce((sum,exercise)=>sum+exercise.estimatedSeconds,0);
     const exerciseRests = Math.max(0,exercises.length-1) * rest.exercise;
     return rounds * (work + exerciseRests) + Math.max(0,rounds-1) * rest.round;
+  }
+
+  function mainBlocks(workout) {
+    if (workout && workout.main && Array.isArray(workout.main.blocks)) return workout.main.blocks;
+    if (workout && Array.isArray(workout.blocks)) return workout.blocks;
+    return [];
+  }
+
+  function normaliseWorkout(workout) {
+    if (!workout || typeof workout!=='object') throw new Error('Invalid workout.');
+    let blocks;
+    if (workout.main && Array.isArray(workout.main.blocks)) blocks=workout.main.blocks;
+    else if (Array.isArray(workout.blocks)) blocks=workout.blocks;
+    else if (workout.main && Array.isArray(workout.main.exercises)) blocks=[{
+      id:'main-1',
+      protocol:'rounds',
+      intent:workout.focus==='cardio'?'conditioning':'strength',
+      exercises:workout.main.exercises,
+      prescription:{rounds:workout.main.rounds||1,exerciseRestSeconds:(workout.main.rest&&workout.main.rest.exercise)||0,roundRestSeconds:(workout.main.rest&&workout.main.rest.round)||0}
+    }];
+    else throw new Error('Workout Main has no playable blocks.');
+
+    blocks=blocks.map((source,index)=>{
+      const block=Object.assign({},source);
+      block.id=block.id||'main-'+(index+1);
+      block.protocol=block.protocol||'rounds';
+      block.intent=block.intent||((workout.focus||'balanced')==='cardio'?'conditioning':'strength');
+      block.exercises=(block.exercises||[]).map(copyExercise);
+      block.prescription=Object.assign({},block.prescription||{});
+      if(block.protocol==='rounds'){
+        block.prescription.rounds=block.prescription.rounds||block.rounds||1;
+        block.prescription.exerciseRestSeconds=Number.isFinite(block.prescription.exerciseRestSeconds)?block.prescription.exerciseRestSeconds:(block.rest&&block.rest.exercise)||0;
+        block.prescription.roundRestSeconds=Number.isFinite(block.prescription.roundRestSeconds)?block.prescription.roundRestSeconds:(block.rest&&block.rest.round)||0;
+        block.rounds=block.prescription.rounds;
+        block.rest={exercise:block.prescription.exerciseRestSeconds,round:block.prescription.roundRestSeconds};
+      }
+      const estimate=estimateBlockDuration(block);
+      block.estimatedDurationSeconds=Number.isFinite(block.estimatedDurationSeconds)?block.estimatedDurationSeconds:Number.isFinite(block.estimatedSeconds)?block.estimatedSeconds:estimate;
+      block.estimatedSeconds=block.estimatedDurationSeconds;
+      return block;
+    });
+    const blockSeconds=blocks.reduce((sum,block)=>sum+block.estimatedDurationSeconds,0);
+    workout.schemaVersion=Math.max(2,Number(workout.schemaVersion)||0);
+    workout.main={blocks,transitionSeconds:BLOCK_TRANSITION_SECONDS,estimatedDurationSeconds:blockSeconds+BLOCK_TRANSITION_SECONDS*Math.max(0,blocks.length-1)};
+    workout.blocks=workout.main.blocks;
+    return workout;
+  }
+
+  function protocolCompatible(exercise, protocol) {
+    if (!exercise || !MAIN_PROTOCOLS.has(protocol)) return false;
+    if (Array.isArray(exercise.mainProtocols)) return exercise.mainProtocols.includes(protocol);
+    if (protocol==='timed_intervals') return exercise.sidedness!=='per-side' && !!(exercise.prescription&&exercise.prescription.type&&exercise.prescription.type.includes('timed'));
+    return protocol==='rounds'||protocol==='paired_sets';
+  }
+
+  function weightedPick(items, random) {
+    const viable=items.filter(item=>item.weight>0);
+    if(!viable.length)return null;
+    let roll=random()*viable.reduce((sum,item)=>sum+item.weight,0);
+    for(const item of viable){roll-=item.weight;if(roll<=0)return item.value;}
+    return viable[viable.length-1].value;
+  }
+
+  function chooseBlockCount(duration, eligibleCount, random) {
+    const tendencies={
+      10:[{value:1,weight:9},{value:2,weight:1}],
+      15:[{value:1,weight:8},{value:2,weight:2}],
+      20:[{value:1,weight:4},{value:2,weight:6}],
+      30:[{value:2,weight:8},{value:3,weight:2}],
+      45:[{value:2,weight:4},{value:3,weight:6}]
+    };
+    const choices=tendencies[duration]||tendencies[20];
+    const count=weightedPick(choices,random)||1;
+    return eligibleCount<4?1:count;
+  }
+
+  function chooseIntents(focus, count, random) {
+    if(focus==='strength'){
+      if(count===1)return ['strength'];
+      if(count===2)return ['strength',random()<.25?'finisher':'accessory'];
+      return ['strength','accessory','finisher'];
+    }
+    if(focus==='cardio')return Array.from({length:count},(_,index)=>index===count-1&&count>1&&random()<.35?'finisher':'conditioning');
+    if(count===1)return [random()<.55?'strength':'conditioning'];
+    if(count===2)return ['strength','conditioning'];
+    return ['strength','accessory','conditioning'];
+  }
+
+  function protocolWeights(focus, intent, remainingSeconds, eligible, state) {
+    const base=focus==='strength'
+      ? {rounds:5,paired_sets:9,timed_intervals:2}
+      : focus==='cardio'
+        ? {rounds:8,paired_sets:2,timed_intervals:10}
+        : {rounds:7,paired_sets:7,timed_intervals:7};
+    if(intent==='strength') { base.paired_sets+=4;base.timed_intervals-=1; }
+    if(intent==='conditioning'||intent==='finisher') { base.timed_intervals+=5;base.rounds+=2;base.paired_sets-=1; }
+    if(intent==='accessory') { base.paired_sets+=3;base.rounds+=1; }
+    if(remainingSeconds<300){base.timed_intervals+=3;base.rounds-=1;}
+    const compatible=protocol=>eligible.filter(ex=>protocolCompatible(ex,protocol)).length;
+    const previous=state.blocks[state.blocks.length-1];
+    return [...MAIN_PROTOCOLS].map(protocol=>{
+      let weight=base[protocol]||0;
+      const minimum=protocol==='rounds'?3:2;
+      if(compatible(protocol)<minimum)weight=0;
+      // Variety is deliberately a modest tie-breaker, below focus and viability.
+      if(previous&&previous.protocol!==protocol)weight+=1;
+      return {value:protocol,weight:Math.max(0,weight)};
+    });
+  }
+
+  function scoreIntent(exercise, intent) {
+    if(intent==='strength')return exercise.strength*2-exercise.cardio*.15;
+    if(intent==='conditioning'||intent==='finisher')return exercise.cardio*2+((exercise.patterns||[]).includes('conditioning')?4:0)-exercise.strength*.1;
+    return exercise.strength+exercise.cardio*.45+((exercise.patterns||[]).includes('core')?2:0);
+  }
+
+  function selectBlockExercises(eligible, count, focus, intent, protocol, state, history, random, catalogue) {
+    const selected=[], recipe=RECIPES[focus]||RECIPES.balanced;
+    for(let slot=0;slot<count;slot++){
+      const desired=recipe[(state.exercises.length+slot)%recipe.length];
+      let candidates=eligible.filter(ex=>protocolCompatible(ex,protocol)&&!selected.some(item=>item.id===ex.id));
+      if(!candidates.length)break;
+      const previous=selected[selected.length-1]||state.exercises[state.exercises.length-1];
+      const allSelected=state.exercises.concat(selected);
+      const scored=candidates.map(exercise=>{
+        let score=scoreCandidate(exercise,desired,allSelected,focus,history,catalogue)+scoreIntent(exercise,intent);
+        if(state.usedIds.has(exercise.id))score-=42;
+        if(previous&&sharedPatterns(previous,exercise).some(pattern=>MAJOR_REPEAT_PATTERNS.has(pattern)))score-=8;
+        if(previous&&sectionSetupKey(previous,state.owned)===sectionSetupKey(exercise,state.owned))score+=1.5;
+        if(protocol==='paired_sets'&&selected.length===1&&!sharedPatterns(selected[0],exercise).length)score+=8;
+        if(protocol==='timed_intervals'&&exercise.sidedness==='per-side')score-=30;
+        return {exercise,score};
+      });
+      const picked=controlledPick(scored,random);
+      if(!picked)break;
+      selected.push(picked);
+    }
+    return selected;
+  }
+
+  function estimateBlockDuration(block) {
+    if(!block||!Array.isArray(block.exercises)||!block.exercises.length)return 0;
+    const p=block.prescription||{};
+    if(block.protocol==='timed_intervals'){
+      const cycles=Math.max(1,Number(p.cycles)||1),work=Math.max(0,Number(p.workSeconds)||0),transition=Math.max(0,Number(p.transitionSeconds)||0);
+      const steps=block.exercises.length*cycles;
+      return steps*work+Math.max(0,steps-1)*transition;
+    }
+    const work=block.exercises.reduce((sum,exercise)=>sum+(Number(exercise.estimatedSeconds)||0),0);
+    if(block.protocol==='paired_sets'){
+      const sets=Math.max(1,Number(p.sets)||1),between=Math.max(0,Number(p.betweenExercisesSeconds)||0),setRest=Math.max(0,Number(p.betweenSetsSeconds)||0);
+      return sets*(work+between)+Math.max(0,sets-1)*setRest;
+    }
+    const rounds=Math.max(1,Number(p.rounds)||Number(block.rounds)||1),exerciseRest=Math.max(0,Number(p.exerciseRestSeconds) || (block.rest&&Number(block.rest.exercise)) || 0),roundRest=Math.max(0,Number(p.roundRestSeconds) || (block.rest&&Number(block.rest.round)) || 0);
+    return rounds*(work+Math.max(0,block.exercises.length-1)*exerciseRest)+Math.max(0,rounds-1)*roundRest;
+  }
+
+  function resolveBlockSteps(block) {
+    const steps=[],p=block.prescription||{},exercises=block.exercises||[];
+    if(block.protocol==='rounds'){
+      for(let round=1;round<=p.rounds;round++)exercises.forEach((exercise,index)=>{
+        steps.push({kind:'exercise',exerciseIndex:index,round});
+        if(index<exercises.length-1&&p.exerciseRestSeconds)steps.push({kind:'rest',seconds:p.exerciseRestSeconds,nextExerciseIndex:index+1,round});
+        else if(index===exercises.length-1&&round<p.rounds&&p.roundRestSeconds)steps.push({kind:'round-rest',seconds:p.roundRestSeconds,nextExerciseIndex:0,round});
+      });
+    }else if(block.protocol==='paired_sets'){
+      for(let set=1;set<=p.sets;set++)exercises.forEach((exercise,index)=>{
+        steps.push({kind:'exercise',exerciseIndex:index,set});
+        if(index===0&&p.betweenExercisesSeconds)steps.push({kind:'set-change',seconds:p.betweenExercisesSeconds,nextExerciseIndex:1,set});
+        else if(index===1&&set<p.sets&&p.betweenSetsSeconds)steps.push({kind:'set-rest',seconds:p.betweenSetsSeconds,nextExerciseIndex:0,set});
+      });
+    }else if(block.protocol==='timed_intervals'){
+      for(let cycle=1;cycle<=p.cycles;cycle++)exercises.forEach((exercise,index)=>{
+        steps.push({kind:'exercise',exerciseIndex:index,cycle,seconds:p.workSeconds,timed:true});
+        const final=cycle===p.cycles&&index===exercises.length-1;
+        if(!final&&p.transitionSeconds)steps.push({kind:'interval-rest',seconds:p.transitionSeconds,nextExerciseIndex:index<exercises.length-1?index+1:0,cycle});
+      });
+    }
+    return steps;
+  }
+
+  function chooseClosestPrescription(protocol, exercises, targetSeconds, rest, focus) {
+    let best=null;
+    const consider=p=>{
+      const candidate={protocol,exercises,prescription:p};
+      const estimate=estimateBlockDuration(candidate);
+      const repeatCount=protocol==='rounds'?p.rounds:protocol==='paired_sets'?p.sets:p.cycles;
+      const repetitionPenalty=Math.max(0,repeatCount-4)*25;
+      const fitness=Math.abs(estimate-targetSeconds)+repetitionPenalty;
+      if(!best||fitness<best.fitness)best={prescription:p,estimate,fitness};
+    };
+    if(protocol==='rounds')for(let rounds=1;rounds<=5;rounds++)consider({rounds,exerciseRestSeconds:rest.exercise,roundRestSeconds:rest.round});
+    else if(protocol==='paired_sets')for(let sets=2;sets<=5;sets++)consider({sets,betweenExercisesSeconds:Math.min(10,rest.exercise),betweenSetsSeconds:rest.round});
+    else {
+      const intervals=focus==='strength'?[[30,30],[40,20]]:focus==='cardio'?[[40,20],[45,15],[30,15]]:[[40,20],[30,15]];
+      for(const [workSeconds,transitionSeconds] of intervals)for(let cycles=1;cycles<=5;cycles++)consider({workSeconds,transitionSeconds,cycles});
+    }
+    return best;
+  }
+
+  function buildMainBlock(eligible, index, protocol, intent, targetSeconds, focus, rest, state, history, random, catalogue) {
+    const compatible=eligible.filter(ex=>protocolCompatible(ex,protocol));
+    const desiredCount=protocol==='paired_sets'?2:protocol==='rounds'?(targetSeconds<420?3:4):(targetSeconds<300?2:3);
+    const count=Math.min(desiredCount,compatible.length);
+    const exercises=selectBlockExercises(eligible,count,focus,intent,protocol,state,history,random,catalogue);
+    if(exercises.length<(protocol==='rounds'?Math.min(3,compatible.length):2))return null;
+    const fitted=chooseClosestPrescription(protocol,exercises,targetSeconds,rest,focus);
+    const block={
+      id:'main-'+(index+1),
+      protocol,
+      intent,
+      exercises:exercises.map(copyExercise),
+      prescription:fitted.prescription,
+      estimatedDurationSeconds:fitted.estimate,
+      estimatedSeconds:fitted.estimate
+    };
+    if(protocol==='rounds'){
+      block.rounds=block.prescription.rounds;
+      block.rest={exercise:block.prescription.exerciseRestSeconds,round:block.prescription.roundRestSeconds};
+    }
+    return block;
+  }
+
+  function mainQualityPenalty(blocks) {
+    const exercises=blocks.flatMap(block=>block.exercises),counts=new Map();
+    let penalty=0;
+    for(const exercise of exercises){
+      counts.set(exercise.id,(counts.get(exercise.id)||0)+1);
+      if((counts.get(exercise.id)||0)>1)penalty+=55;
+    }
+    for(let i=1;i<exercises.length;i++){
+      const shared=sharedPatterns(exercises[i-1],exercises[i]).filter(pattern=>MAJOR_REPEAT_PATTERNS.has(pattern));
+      penalty+=shared.length*18;
+      if(exercises[i-1].impact==='high'&&exercises[i].impact==='high')penalty+=25;
+    }
+    return penalty;
+  }
+
+  function validateMain(main, catalogue, owned, targetSeconds) {
+    const issues=[];
+    if(!main||!Array.isArray(main.blocks)||!main.blocks.length)return ['main:no-blocks'];
+    for(const block of main.blocks){
+      if(!MAIN_PROTOCOLS.has(block.protocol)){issues.push(block.id+':invalid-protocol');continue;}
+      if(!MAIN_INTENTS.has(block.intent))issues.push(block.id+':invalid-intent');
+      if(!Array.isArray(block.exercises)||!block.exercises.length)issues.push(block.id+':no-exercises');
+      for(const exercise of block.exercises||[]){
+        if(!catalogue[exercise.id])issues.push(block.id+':unknown-exercise:'+exercise.id);
+        else if(!requirementsMet(catalogue[exercise.id],owned))issues.push(block.id+':equipment:'+exercise.id);
+        else if(!protocolCompatible(catalogue[exercise.id],block.protocol))issues.push(block.id+':incompatible:'+exercise.id);
+      }
+      const p=block.prescription||{};
+      if(block.protocol==='rounds'&&(!Number.isInteger(p.rounds)||p.rounds<1))issues.push(block.id+':invalid-rounds');
+      if(block.protocol==='paired_sets'&&((block.exercises||[]).length!==2||!Number.isInteger(p.sets)||p.sets<1))issues.push(block.id+':invalid-paired-sets');
+      if(block.protocol==='timed_intervals'&&(!Number.isInteger(p.cycles)||p.cycles<1||!Number.isFinite(p.workSeconds)||p.workSeconds<=0||!Number.isFinite(p.transitionSeconds)||p.transitionSeconds<0))issues.push(block.id+':invalid-intervals');
+      const estimate=estimateBlockDuration(block);
+      if(!Number.isFinite(estimate)||estimate<=0)issues.push(block.id+':invalid-duration');
+      if(!resolveBlockSteps(block).some(step=>step.kind==='exercise'))issues.push(block.id+':unplayable');
+    }
+    const estimate=main.blocks.reduce((sum,block)=>sum+estimateBlockDuration(block),0)+BLOCK_TRANSITION_SECONDS*Math.max(0,main.blocks.length-1);
+    if(Number.isFinite(targetSeconds)&&Math.abs(estimate-targetSeconds)>Math.max(240,targetSeconds*.38))issues.push('main:duration-out-of-tolerance');
+    return issues;
+  }
+
+  function composeMain(catalogue, eligible, budget, duration, focus, owned, history, rest, random) {
+    const attempts=[];
+    for(let attempt=0;attempt<10;attempt++){
+      const count=chooseBlockCount(duration,eligible.length,random),intents=chooseIntents(focus,count,random);
+      const state={exercises:[],usedIds:new Set(),blocks:[],owned};
+      let remaining=budget.main;
+      for(let index=0;index<count;index++){
+        const blocksLeft=count-index;
+        const target=Math.max(180,Math.round((remaining-BLOCK_TRANSITION_SECONDS*Math.max(0,blocksLeft-1))/blocksLeft));
+        const weights=protocolWeights(focus,intents[index],target,eligible,state);
+        let protocol=eligible.length<=3?'rounds':weightedPick(weights,random)||'rounds';
+        let block=buildMainBlock(eligible,index,protocol,intents[index],target,focus,rest,state,history,random,catalogue);
+        if(!block){
+          protocol='rounds';
+          block=buildMainBlock(eligible,index,protocol,intents[index],target,focus,rest,state,history,random,catalogue);
+        }
+        if(!block)break;
+        state.blocks.push(block);
+        state.exercises.push(...block.exercises);
+        block.exercises.forEach(ex=>state.usedIds.add(ex.id));
+        remaining-=block.estimatedDurationSeconds+(index<count-1?BLOCK_TRANSITION_SECONDS:0);
+      }
+      if(!state.blocks.length)continue;
+      const estimated=state.blocks.reduce((sum,block)=>sum+block.estimatedDurationSeconds,0)+BLOCK_TRANSITION_SECONDS*Math.max(0,state.blocks.length-1);
+      const protocols=new Set(state.blocks.map(block=>block.protocol));
+      const varietyCredit=protocols.size>1?10:0;
+      const issues=validateMain({blocks:state.blocks},catalogue,owned,budget.main);
+      const malformed=issues.filter(issue=>issue!=='main:duration-out-of-tolerance');
+      if(malformed.length)continue;
+      attempts.push({blocks:state.blocks,estimated,fitness:Math.abs(estimated-budget.main)+mainQualityPenalty(state.blocks)-varietyCredit});
+    }
+    attempts.sort((a,b)=>a.fitness-b.fitness);
+    const chosen=attempts[0];
+    if(chosen)return {blocks:chosen.blocks,transitionSeconds:BLOCK_TRANSITION_SECONDS,estimatedDurationSeconds:chosen.estimated};
+    const fallbackExercises=selectExercises(eligible,Math.min(3,eligible.length),focus,history,random,catalogue);
+    const fitted=chooseClosestPrescription('rounds',fallbackExercises,budget.main,rest,focus);
+    const block={id:'main-1',protocol:'rounds',intent:focus==='cardio'?'conditioning':'strength',exercises:fallbackExercises.map(copyExercise),prescription:fitted.prescription,rounds:fitted.prescription.rounds,rest:{exercise:fitted.prescription.exerciseRestSeconds,round:fitted.prescription.roundRestSeconds},estimatedDurationSeconds:fitted.estimate,estimatedSeconds:fitted.estimate};
+    return {blocks:[block],transitionSeconds:BLOCK_TRANSITION_SECONDS,estimatedDurationSeconds:fitted.estimate};
   }
 
   function buildSection(catalogue, kind, targetSeconds, owned, random) {
@@ -391,60 +695,60 @@
   }
 
   function generate(options) {
-    const catalogue = options.catalogue;
-    const duration = Number(options.duration);
-    const focus = String(options.focus || 'balanced').toLowerCase();
-    const owned = options.equipment || [];
-    const history = options.history || [];
-    const random = options.random || Math.random;
-    const budget = BUDGETS[duration] || BUDGETS[20];
-    const rest = RESTS[focus] || RESTS.balanced;
-    const sizing = SIZE[duration] || SIZE[20];
-    const errors=validateCatalogue(catalogue); if(errors.length) throw new Error('Invalid exercise catalogue: '+errors.join(', '));
-    const eligible = Object.values(catalogue).filter(exercise => exercise.generator && exercise.main && requirementsMet(exercise,owned));
-    if (!eligible.length) throw new Error('No eligible exercises available.');
-
-    const candidates = [];
-    for (let count=sizing.minCount;count<=Math.min(sizing.maxCount,eligible.length);count++) {
-      for (let attempt=0;attempt<4;attempt++) {
-        const exercises = selectExercises(eligible,count,focus,history,random,catalogue);
-        const flexibleMaxRounds=sizing.maxRounds+(duration>=45?3:2);
-        for (let rounds=sizing.minRounds;rounds<=flexibleMaxRounds;rounds++) {
-          const estimate = estimateMain(exercises,rounds,rest);
-          const sizePenalty = Math.abs(count-sizing.count)*20;
-          const extraRoundPenalty=Math.max(0,rounds-sizing.maxRounds)*20;
-          const repetitionPenalty=repeatedBlockPenalty(exercises,rounds);
-          candidates.push({exercises,rounds,estimate,fitness:Math.abs(estimate-budget.main)+sizePenalty+extraRoundPenalty+repetitionPenalty});
-        }
-      }
-    }
-    candidates.sort((a,b)=>a.fitness-b.fitness);
-    const shortlist = candidates.slice(0,Math.min(3,candidates.length));
-    const chosen = shortlist[Math.floor(random()*shortlist.length)] || candidates[0];
-    const preparation = buildPreparation(catalogue,budget,owned,chosen.exercises,focus,random);
-    const cooldown = buildSection(catalogue,'cooldown',budget.cooldown,owned,random);
-    const estimatedSeconds = preparation.warmup.estimatedSeconds + preparation.rampup.estimatedSeconds + chosen.estimate + cooldown.estimatedSeconds;
-    return {
-      id:'generated-'+Date.now(), duration, focus, estimatedSeconds,
+    const catalogue=options.catalogue;
+    const duration=Number(options.duration);
+    const focus=String(options.focus||'balanced').toLowerCase();
+    const owned=options.equipment||[],history=options.history||[],random=options.random||Math.random;
+    const budget=BUDGETS[duration]||BUDGETS[20],rest=RESTS[focus]||RESTS.balanced;
+    const errors=validateCatalogue(catalogue);if(errors.length)throw new Error('Invalid exercise catalogue: '+errors.join(', '));
+    const eligible=Object.values(catalogue).filter(exercise=>exercise.generator&&exercise.main&&requirementsMet(exercise,owned));
+    if(!eligible.length)throw new Error('No eligible exercises available.');
+    const main=composeMain(catalogue,eligible,budget,duration,focus,owned,history,rest,random);
+    const firstMain=main.blocks[0].exercises;
+    const preparation=buildPreparation(catalogue,budget,owned,firstMain,focus,random);
+    const cooldown=buildSection(catalogue,'cooldown',budget.cooldown,owned,random);
+    const estimatedSeconds=preparation.warmup.estimatedSeconds+preparation.rampup.estimatedSeconds+main.estimatedDurationSeconds+cooldown.estimatedSeconds;
+    const workout={
+      schemaVersion:2,id:'generated-'+Date.now(),duration,focus,estimatedSeconds,
       warmup:{estimatedSeconds:preparation.warmup.estimatedSeconds,restSeconds:preparation.warmup.restSeconds,exercises:preparation.warmup.exercises.map(copyExercise)},
       rampup:{estimatedSeconds:preparation.rampup.estimatedSeconds,restSeconds:preparation.rampup.restSeconds,exercises:preparation.rampup.exercises.map(copyExercise)},
-      blocks:[{id:'main',rounds:chosen.rounds,rest:Object.assign({},rest),estimatedSeconds:chosen.estimate,exercises:chosen.exercises.map(copyExercise)}],
+      main,
       cooldown:{estimatedSeconds:cooldown.estimatedSeconds,restSeconds:cooldown.restSeconds,exercises:cooldown.exercises.map(copyExercise)}
     };
+    workout.blocks=workout.main.blocks;
+    const issues=validateMain(workout.main,catalogue,owned,budget.main);
+    const fatal=issues.filter(issue=>issue!=='main:duration-out-of-tolerance');
+    if(fatal.length)throw new Error('Invalid generated Main: '+fatal.join(', '));
+    return workout;
   }
 
-  function swap(workout, exerciseIndex, options) {
-    const catalogue = options.catalogue, owned = options.equipment || [], random = options.random || Math.random;
-    const block = workout.blocks[0], current = block.exercises[exerciseIndex];
-    const otherIds = new Set(block.exercises.filter((_,index)=>index!==exerciseIndex).map(exercise=>exercise.id));
-    let eligible = Object.values(catalogue).filter(exercise => exercise.generator && exercise.main && requirementsMet(exercise,owned) && !otherIds.has(exercise.id) && exercise.id!==current.id);
-    const before = block.exercises[(exerciseIndex-1+block.exercises.length)%block.exercises.length], after = block.exercises[(exerciseIndex+1)%block.exercises.length];
-    const varied = eligible.filter(exercise => !sharedPatterns(before,exercise).length && !sharedPatterns(exercise,after).length); if (varied.length) eligible = varied;
-    const withoutRepeatedMajor=eligible.filter(exercise=>block.exercises.every((item,index)=>index===exerciseIndex||repeatedMajorPatternCount(exercise,[item])===0)); if(withoutRepeatedMajor.length) eligible=withoutRepeatedMajor;
-    const matching = eligible.filter(exercise => exercise.patterns.some(pattern=>current.patterns.includes(pattern))); if (matching.length) eligible = matching;
-    const scored = eligible.map(exercise => { let score = exercise.patterns.filter(pattern=>current.patterns.includes(pattern)).length*8; score -= Math.abs(exercise.strength-current.strength)*1.5; score -= Math.abs(exercise.cardio-current.cardio)*1.5; if (exercise.impact===current.impact) score += 2; if (primaryEquipment(exercise)===primaryEquipment(current)) score += 2; score -= (sharedPatterns(before,exercise).length + sharedPatterns(exercise,after).length) * 12; score -= repeatedMajorPatternCount(exercise,block.exercises.filter((_,index)=>index!==exerciseIndex))*8; if (exercise.impact==='high' && ((before&&before.impact==='high')||(after&&after.impact==='high'))) score -= 12; return {exercise,score}; });
-    const replacement = controlledPick(scored,random); if (!replacement) return workout;
-    block.exercises[exerciseIndex] = copyExercise(replacement); block.estimatedSeconds = estimateMain(block.exercises,block.rounds,block.rest); recalcWorkoutEstimate(workout); return workout;
+  function swap(workout, blockIndex, exerciseIndex, options) {
+    if(typeof exerciseIndex==='object'){options=exerciseIndex;exerciseIndex=blockIndex;blockIndex=0;}
+    options=options||{};normaliseWorkout(workout);
+    const catalogue=options.catalogue,owned=options.equipment||[],random=options.random||Math.random;
+    const blocks=mainBlocks(workout),block=blocks[blockIndex||0],current=block&&block.exercises[exerciseIndex];
+    if(!block||!current)return workout;
+    const otherExercises=blocks.flatMap((item,bIndex)=>item.exercises.filter((_,eIndex)=>bIndex!==(blockIndex||0)||eIndex!==exerciseIndex));
+    const otherIds=new Set(otherExercises.map(exercise=>exercise.id));
+    let eligible=Object.values(catalogue).filter(exercise=>exercise.generator&&exercise.main&&requirementsMet(exercise,owned)&&protocolCompatible(exercise,block.protocol)&&exercise.id!==current.id);
+    const fresh=eligible.filter(exercise=>!otherIds.has(exercise.id));if(fresh.length)eligible=fresh;
+    const before=exerciseIndex>0?block.exercises[exerciseIndex-1]:(blocks[(blockIndex||0)-1]||{exercises:[]}).exercises.at(-1);
+    const after=exerciseIndex<block.exercises.length-1?block.exercises[exerciseIndex+1]:(blocks[(blockIndex||0)+1]||{exercises:[]}).exercises[0];
+    const scored=eligible.map(exercise=>{
+      let score=(exercise.patterns||[]).filter(pattern=>(current.patterns||[]).includes(pattern)).length*8;
+      score-=Math.abs(exercise.strength-current.strength)*1.5+Math.abs(exercise.cardio-current.cardio)*1.5;
+      if(exercise.impact===current.impact)score+=2;
+      if(primaryEquipment(exercise)===primaryEquipment(current))score+=2;
+      score-=(sharedPatterns(before,exercise).length+sharedPatterns(exercise,after).length)*12;
+      score-=repeatedMajorPatternCount(exercise,otherExercises)*8;
+      if(otherIds.has(exercise.id))score-=42;
+      if(exercise.impact==='high'&&((before&&before.impact==='high')||(after&&after.impact==='high')))score-=12;
+      return {exercise,score};
+    });
+    const replacement=controlledPick(scored,random);if(!replacement)return workout;
+    block.exercises[exerciseIndex]=copyExercise(replacement);
+    block.estimatedDurationSeconds=estimateBlockDuration(block);block.estimatedSeconds=block.estimatedDurationSeconds;
+    recalcWorkoutEstimate(workout);return workout;
   }
 
   function swapPreparation(workout, section, exerciseIndex, options) {
@@ -466,12 +770,15 @@
   }
 
   function recalcWorkoutEstimate(workout) {
+    normaliseWorkout(workout);
     workout.warmup.estimatedSeconds=workout.warmup.exercises.reduce((s,e)=>s+e.estimatedSeconds,0)+workout.warmup.restSeconds*Math.max(0,workout.warmup.exercises.length-1);
     workout.rampup.estimatedSeconds=workout.rampup.exercises.reduce((s,e)=>s+e.estimatedSeconds,0)+workout.rampup.restSeconds*Math.max(0,workout.rampup.exercises.length-1);
-    workout.estimatedSeconds=workout.warmup.estimatedSeconds+workout.rampup.estimatedSeconds+workout.blocks[0].estimatedSeconds+workout.cooldown.estimatedSeconds;
+    for(const block of workout.main.blocks){block.estimatedDurationSeconds=estimateBlockDuration(block);block.estimatedSeconds=block.estimatedDurationSeconds;}
+    workout.main.estimatedDurationSeconds=workout.main.blocks.reduce((sum,block)=>sum+block.estimatedDurationSeconds,0)+workout.main.transitionSeconds*Math.max(0,workout.main.blocks.length-1);
+    workout.estimatedSeconds=workout.warmup.estimatedSeconds+workout.rampup.estimatedSeconds+workout.main.estimatedDurationSeconds+workout.cooldown.estimatedSeconds;
   }
 
-  root.GarageFitGenerator = { BUDGETS, RESTS, WARMUP_PHASE_ORDER, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, recentUsePenalty, preparationMetadataValid, validateCatalogue, validatePreparation, estimateMain, generate, swap, swapPreparation };
+  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, recentUsePenalty, preparationMetadataValid, validateCatalogue, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, validateMain, selectBlockExercises, mainBlocks, normaliseWorkout, generate, swap, swapPreparation };
 
   if (typeof window!=='undefined' && typeof document!=='undefined' && typeof window.addEventListener==='function') window.addEventListener('load',()=>{
     if (document.querySelector('script[data-garagefit-rampup-ui]')) return;

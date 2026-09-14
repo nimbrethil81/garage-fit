@@ -47,6 +47,7 @@
       main: false,
       cooldown: false,
       alternativeGroup: null,
+      mainProtocols: null,
       instructions: ''
     }, options, { sidedness, unilateral });
   }
@@ -185,6 +186,25 @@
   add('trx-lunge-calf-chest', 'TRX lunge, calf and chest opener', { equipment:[['trx']], cooldown:true, unilateral:true, prescription:{type:'unilateral-timed',value:15}, estimatedSeconds:30 });
   add('trx-glute-standing', 'TRX glute standing', { alternativeGroup:'glute-stretch-family', equipment:[['trx']], cooldown:true, unilateral:true, prescription:{type:'unilateral-timed',value:15}, estimatedSeconds:30 });
   add('trx-side-stretch', 'TRX side stretch', { equipment:[['trx']], movementPlanes:['frontal'], cooldown:true, unilateral:true, prescription:{type:'unilateral-timed',value:15}, estimatedSeconds:30 });
+
+  // Protocol suitability belongs to the canonical exercise catalogue. Timed intervals
+  // are opt-in because rep-based strength movements are not automatically safe or useful
+  // when converted to a clock.
+  const timedIntervalIds = new Set([
+    'air-squat','walking-lunge','push-up','plank','abdominal-crunch','bicycle-crunch',
+    'mountain-climbers','jumping-jacks','high-knees','burpees','squat-jumps','skater-jumps',
+    'dumbbell-thruster','dumbbell-clean-and-press','dumbbell-farmer-carry',
+    'kettlebell-swing','kettlebell-figure-eight','kettlebell-farmer-carry',
+    'trx-row','trx-squat','trx-chest-press','trx-knee-tuck','trx-mountain-climber',
+    'barbell-clean','barbell-clean-and-press','bench-dips','box-jumps','incline-push-up',
+    'band-row','band-chest-press','banded-squat','banded-lateral-walk'
+  ]);
+  for (const exercise of Object.values(catalogue)) {
+    if (!exercise.main) continue;
+    const protocols = Array.isArray(exercise.mainProtocols) ? exercise.mainProtocols.slice() : ['rounds','paired_sets'];
+    if (timedIntervalIds.has(exercise.id) && !protocols.includes('timed_intervals')) protocols.push('timed_intervals');
+    exercise.mainProtocols = protocols;
+  }
 
   root.GarageFitData = root.GarageFitData || {};
   root.GarageFitData.exercises = catalogue;

@@ -37,7 +37,8 @@ test('generated sessions approximately fit every requested duration and focus an
     assert.ok(Math.abs(minutes-duration)<=Math.max(3,duration*.18),`${duration} ${focus} generated ${minutes.toFixed(1)} minutes`);
     assert.ok(workout.warmup.exercises.length>0);
     assert.ok(workout.rampup.exercises.length>0);
-    assert.equal(workout.blocks.length,1);
+    assert.ok(workout.main.blocks.length>=1&&workout.main.blocks.length<=3);
+    assert.equal(workout.blocks,workout.main.blocks);
   }
 });
 
@@ -100,7 +101,7 @@ test('Strength main selection normally separates overlapping movement patterns',
   for(let seed=1;seed<=100;seed++){
     const exercises=create({duration:15,focus:'strength',equipment:['kettlebell'],random:random(seed)}).blocks[0].exercises;
     for(let index=1;index<exercises.length;index++){adjacentPairs++;if(exercises[index].patterns.some(pattern=>exercises[index-1].patterns.includes(pattern)))adjacentOverlaps++;}
-    const ids=exercises.map(exercise=>exercise.id),a=ids.indexOf('kettlebell-clean-and-press'),b=ids.indexOf('kettlebell-shoulder-press');assert.notEqual(Math.abs(a-b),1,ids.join(', '));
+    const ids=exercises.map(exercise=>exercise.id),a=ids.indexOf('kettlebell-clean-and-press'),b=ids.indexOf('kettlebell-shoulder-press');if(a>=0&&b>=0)assert.notEqual(Math.abs(a-b),1,ids.join(', '));
   }
   assert.ok(adjacentOverlaps/adjacentPairs<.1,`${adjacentOverlaps}/${adjacentPairs}`);
 });
