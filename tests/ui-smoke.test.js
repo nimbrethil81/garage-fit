@@ -15,12 +15,19 @@ class ClassList {
     return force;
   }
 }
+let elementRegistry=null;
 class Element {
-  constructor(id='') { this.id=id;this.classList=new ClassList();this.style={};this.children=[];this.attributes={};this.disabled=false;this.textContent='';this.innerHTML=''; }
+  constructor(id='') {
+    this._id='';this.classList=new ClassList();this.style={};this.children=[];this.attributes={};this.disabled=false;this.textContent='';this._innerHTML='';this.parentNode=null;this.className='';
+    Object.defineProperty(this,'id',{enumerable:true,get:()=>this._id,set:value=>{this._id=value;if(elementRegistry&&value)elementRegistry[value]=this;}});
+    Object.defineProperty(this,'innerHTML',{enumerable:true,get:()=>this._innerHTML,set:value=>{this._innerHTML=String(value);if(value==='')this.children=[];for(const match of this._innerHTML.matchAll(/\\bid="([^"]+)"/g))new Element(match[1]);}});
+    this.id=id;
+  }
   setAttribute(key,value) { this.attributes[key]=String(value); }
   removeAttribute(key) { delete this.attributes[key]; }
-  append(...children) { this.children.push(...children); }
-  appendChild(child) { this.children.push(child);return child; }
+  append(...children) { children.forEach(child=>{child.parentNode=this;this.children.push(child);}); }
+  appendChild(child) { child.parentNode=this;this.children.push(child);return child; }
+  insertBefore(child,before) { child.parentNode=this;const index=this.children.indexOf(before);if(index<0)this.children.push(child);else this.children.splice(index,0,child);return child; }
   querySelector() { return new Element(); }
   addEventListener() {}
   focus() {}
@@ -30,7 +37,11 @@ test('Generator preview/player and both fixed players initialise without runtime
   const root=path.join(__dirname,'..'),html=fs.readFileSync(path.join(root,'index.html'),'utf8');
   assert.match(html,/<div class="workout-secondary-controls">\s*<button class="previous-btn" id="previousWorkoutBtn"[\s\S]*?<button class="ctrl-btn ctrl-secondary" id="workoutPauseBtn"[\s\S]*?<\/div>\s*<button class="ctrl-btn ctrl-primary complete-btn" id="completeMovementBtn"/);
   const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(match=>match[1]);
-  const elements=Object.fromEntries(ids.map(id=>[id,new Element(id)]));
+  elementRegistry={};
+  ids.forEach(id=>new Element(id));
+  const elements=elementRegistry, previewParent=new Element(), previewTiming=new Element(), playerActions=new Element();
+  previewParent.append(elements.previewList,previewTiming);
+  playerActions.append(elements.completeMovementBtn);
   const storage=new Map();
   const spoken=[];
   const context={
@@ -41,7 +52,7 @@ test('Generator preview/player and both fixed players initialise without runtime
     Math,
     JSON,
     Set,
-    document:{getElementById:id=>elements[id]||(elements[id]=new Element(id)),createElement:()=>new Element(),addEventListener(){},querySelector(){return new Element()}},
+    document:{getElementById:id=>elements[id]||null,createElement:()=>new Element(),head:new Element(),addEventListener(){},querySelector(selector){return selector==='.preview-timing'?previewTiming:new Element()}},
     localStorage:{getItem:key=>storage.has(key)?storage.get(key):null,setItem:(key,value)=>storage.set(key,String(value))},
     navigator:{},
     getComputedStyle:()=>({getPropertyValue:()=>'#000'}),
@@ -54,6 +65,7 @@ test('Generator preview/player and both fixed players initialise without runtime
   for (const file of ['data/equipment.js','data/exercises.js','data/workouts.js','js/generator.js']) vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),context,{filename:file});
   const inline=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].at(-1)[1];
   vm.runInContext(inline,context,{filename:'index-inline.js'});
+  vm.runInContext(fs.readFileSync(path.join(root,'js/rampup-ui.js'),'utf8'),context,{filename:'js/rampup-ui.js'});
 
   assert.ok(context.eligibleRoutineIds('cooldown').includes('childs-pose'));
   assert.equal(context.eligibleRoutineIds('cooldown').includes('lean-back-sink'),false);
@@ -73,7 +85,12 @@ test('Generator preview/player and both fixed players initialise without runtime
   context.selectGeneratorDuration(30);
   context.generateWorkout();
   assert.ok(vm.runInContext('generatorState.workout',context));
-  assert.ok(elements.previewList.children.length>=3);
+  const previewBlockCount=vm.runInContext('generatorState.workout.main.blocks.length',context);
+  const previewExerciseCount=vm.runInContext('generatorState.workout.main.blocks.reduce((sum,block)=>sum+block.exercises.length,0)',context);
+  assert.equal(elements.previewRounds.textContent,previewBlockCount+' main blocks');
+  assert.equal(elements.previewMainTitle.textContent,'Main workout · '+previewBlockCount+' blocks');
+  assert.equal(elements.previewList.children.length,previewBlockCount+previewExerciseCount);
+  assert.equal(elements.previewList.children.filter(child=>child.className==='preview-block-heading').length,previewBlockCount);
 
   context.startGeneratedWorkout();
   assert.equal(vm.runInContext('workoutState.mode',context),'generated');
@@ -82,6 +99,7 @@ test('Generator preview/player and both fixed players initialise without runtime
   assert.ok(blockCount>=2);
   assert.equal(vm.runInContext("generatorState.timeline.filter(phase=>phase.kind==='block-transition').length",context),blockCount-1);
   assert.equal(vm.runInContext("generatorState.timeline.filter(phase=>phase.kind==='transition'&&phase.section==='main').length",context),1);
+  assert.ok(vm.runInContext("generatorState.timeline.some(phase=>phase.kind==='exercise'&&phase.section==='rampup')",context));
   const firstSecondBlock=vm.runInContext("generatorState.timeline.findIndex(phase=>phase.kind==='exercise'&&phase.section==='main'&&phase.blockIndex===1)",context);
   context.enterGeneratedPhase(firstSecondBlock);
   context.previousGeneratedPhase();

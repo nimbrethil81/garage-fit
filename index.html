@@ -397,8 +397,12 @@ function renderGeneratedPreview(){
   document.getElementById('previewRounds').textContent=blocks.length+' main block'+(blocks.length===1?'':'s');
   const list=document.getElementById('previewList');list.innerHTML='';
   blocks.forEach((block,blockIndex)=>{
-    const heading=document.createElement('li'),number=document.createElement('span'),copy=document.createElement('span');
-    number.className='preview-index';number.textContent='B'+(blockIndex+1);copy.className='preview-exercise';copy.textContent=protocolLabel(block);heading.append(number,copy);list.appendChild(heading);
+    const heading=document.createElement('li'),number=document.createElement('span'),copy=document.createElement('span'),protocol=document.createElement('span');
+    heading.className='preview-block-heading';
+    number.className='preview-index';number.textContent='B'+(blockIndex+1);
+    copy.className='preview-exercise';copy.textContent='Block '+(blockIndex+1)+' of '+blocks.length;
+    protocol.className='preview-prescription';protocol.textContent=protocolLabel(block);copy.appendChild(protocol);
+    heading.append(number,copy);list.appendChild(heading);
     block.exercises.forEach((exercise,exerciseIndex)=>{
       const li=document.createElement('li'),step=document.createElement('span'),details=document.createElement('span'),button=document.createElement('button');
       step.className='preview-index';step.textContent=(blockIndex+1)+'.'+(exerciseIndex+1);details.className='preview-exercise';details.textContent=exercise.name;
