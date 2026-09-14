@@ -176,7 +176,7 @@
     ['pigeon-stretch','Pigeon'],['runners-stretch',"Runner's stretch"],['childs-pose',"Child's pose"],['chest-opener','Chest opener'],
     ['side-stretch','Side stretch'],['glute-stretch','Glute stretch'],['lying-torso-twist','Lying torso twist'],['full-body-stretch','Full body stretch']
   ];
-  const unilateralCooldowns = new Set(['inside-thigh-stretch','wide-toe-touch','hip-flexor-arm-stretch','kneeling-hamstring','standing-quads','pigeon-stretch','runners-stretch','lying-torso-twist']);
+  const unilateralCooldowns = new Set(['inside-thigh-stretch','wide-toe-touch','hip-flexor-arm-stretch','kneeling-hamstring','standing-quads','pigeon-stretch','runners-stretch','glute-stretch','lying-torso-twist']);
   const floorCooldowns = new Set(['kneeling-hamstring','frog-stretch','downward-upward-dog','plank-calf-stretch','pigeon-stretch','childs-pose','glute-stretch','lying-torso-twist','full-body-stretch']);
   cooldowns.forEach(x=>add(x[0],x[1],{cooldown:true,bodyPosition:floorCooldowns.has(x[0])?'floor':'standing',unilateral:unilateralCooldowns.has(x[0]),prescription:{type:unilateralCooldowns.has(x[0])?'unilateral-timed':'timed',value:15},estimatedSeconds:unilateralCooldowns.has(x[0])?30:15}));
   catalogue['childs-pose'].alternativeGroup='back-lat-stretch';
