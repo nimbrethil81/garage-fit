@@ -29,17 +29,28 @@
   const VALID_SIDEDNESS = new Set(['bilateral','alternating','per-side','none']);
   const MAJOR_REPEAT_PATTERNS = new Set(['squat','hinge','push','pull','lunge','carry']);
   const LOWER_JOINT_AREAS = new Set(['hips','knees','ankles']);
+  const RECENT_EXACT_PENALTIES = [18,10,6,3];
+  const RECENT_PATTERN_PENALTIES = [6,3,2,1];
 
   function requirementsMet(exercise, owned) {
     const equipment = new Set(owned || []);
     return (exercise.equipment || []).every(group => group.some(id => equipment.has(id)));
   }
 
-  function recentPenalty(id, history) {
+  function recentUsePenalty(exercise, history, catalogue) {
+    let exactPenalty = 0, patternPenalty = 0;
     for (let i=0;i<(history || []).length;i++) {
-      if ((history[i] || []).includes(id)) return i===0 ? 12 : i===1 ? 6 : Math.max(1,4-i);
+      const ids = history[i] || [];
+      const exact = RECENT_EXACT_PENALTIES[i] || 1;
+      const family = RECENT_PATTERN_PENALTIES[i] || 1;
+      if (ids.includes(exercise.id)) exactPenalty = Math.max(exactPenalty,exact);
+      const sharesMajorPattern = ids.some(id => {
+        const previous = catalogue && catalogue[id];
+        return previous && sharedPatterns(exercise,previous).some(pattern => MAJOR_REPEAT_PATTERNS.has(pattern));
+      });
+      if (sharesMajorPattern) patternPenalty = Math.max(patternPenalty,family);
     }
-    return 0;
+    return exactPenalty + patternPenalty;
   }
 
   function primaryEquipment(exercise) {
@@ -83,7 +94,7 @@
     return (exercise.warmupAreas || []).filter(area => LOWER_JOINT_AREAS.has(area));
   }
 
-  function scoreCandidate(exercise, desiredPattern, selected, focus, history) {
+  function scoreCandidate(exercise, desiredPattern, selected, focus, history, catalogue) {
     let score = 0;
     const previous = selected[selected.length-1];
     const selectedPatterns = selected.flatMap(item => item.patterns || []);
@@ -96,7 +107,7 @@
     else score += exercise.strength * .85 + exercise.cardio * .85;
     score += overlaps===0 ? 2 : -2.25 * overlaps;
     score -= majorRepeats * 8;
-    score -= recentPenalty(exercise.id, history);
+    score -= recentUsePenalty(exercise,history,catalogue);
     if (previous) {
       score -= sharedPatterns(previous,exercise).length * 12;
       const sameEquipment = primaryEquipment(previous)===primaryEquipment(exercise);
@@ -123,7 +134,7 @@
     return top[0].exercise;
   }
 
-  function selectExercises(eligible, count, focus, history, random) {
+  function selectExercises(eligible, count, focus, history, random, catalogue) {
     const selected = [];
     const recipe = RECIPES[focus];
     for (let slot=0;slot<count;slot++) {
@@ -137,9 +148,13 @@
       if (noMajorRepeats.length) candidates = noMajorRepeats;
       const patternMatches = candidates.filter(exercise => exercise.patterns.includes(desired));
       const variedPatternMatches = patternMatches.filter(exercise => !sharedPatterns(previous,exercise).length);
-      if (variedPatternMatches.length) candidates = variedPatternMatches;
-      else if (patternMatches.length && !previous) candidates = patternMatches;
-      const scored = candidates.map(exercise => ({exercise,score:scoreCandidate(exercise,desired,selected,focus,history)}));
+      const preferredMatches = variedPatternMatches.length ? variedPatternMatches : (!previous ? patternMatches : []);
+      if (preferredMatches.length) {
+        const allPreferredRecentlyUsed = preferredMatches.every(exercise => recentUsePenalty(exercise,history,catalogue)>0);
+        const hasFreshAlternative = candidates.some(exercise => recentUsePenalty(exercise,history,catalogue)===0);
+        if (!(allPreferredRecentlyUsed && hasFreshAlternative)) candidates = preferredMatches;
+      }
+      const scored = candidates.map(exercise => ({exercise,score:scoreCandidate(exercise,desired,selected,focus,history,catalogue)}));
       const picked = controlledPick(scored,random);
       if (picked) selected.push(picked);
     }
@@ -392,7 +407,7 @@
     const candidates = [];
     for (let count=sizing.minCount;count<=Math.min(sizing.maxCount,eligible.length);count++) {
       for (let attempt=0;attempt<4;attempt++) {
-        const exercises = selectExercises(eligible,count,focus,history,random);
+        const exercises = selectExercises(eligible,count,focus,history,random,catalogue);
         const flexibleMaxRounds=sizing.maxRounds+(duration>=45?3:2);
         for (let rounds=sizing.minRounds;rounds<=flexibleMaxRounds;rounds++) {
           const estimate = estimateMain(exercises,rounds,rest);
@@ -456,7 +471,7 @@
     workout.estimatedSeconds=workout.warmup.estimatedSeconds+workout.rampup.estimatedSeconds+workout.blocks[0].estimatedSeconds+workout.cooldown.estimatedSeconds;
   }
 
-  root.GarageFitGenerator = { BUDGETS, RESTS, WARMUP_PHASE_ORDER, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, preparationMetadataValid, validateCatalogue, validatePreparation, estimateMain, generate, swap, swapPreparation };
+  root.GarageFitGenerator = { BUDGETS, RESTS, WARMUP_PHASE_ORDER, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, recentUsePenalty, preparationMetadataValid, validateCatalogue, validatePreparation, estimateMain, generate, swap, swapPreparation };
 
   if (typeof window!=='undefined' && typeof document!=='undefined' && typeof window.addEventListener==='function') window.addEventListener('load',()=>{
     if (document.querySelector('script[data-garagefit-rampup-ui]')) return;
