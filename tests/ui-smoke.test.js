@@ -91,6 +91,11 @@ test('Generator preview/player and both fixed players initialise without runtime
   assert.equal(elements.previewMainTitle.textContent,'Main workout · '+previewBlockCount+' blocks');
   assert.equal(elements.previewList.children.length,previewBlockCount+previewExerciseCount);
   assert.equal(elements.previewList.children.filter(child=>child.className==='preview-block-heading').length,previewBlockCount);
+  let previewRow=0;
+  for(const [blockIndex,block] of vm.runInContext('generatorState.workout.main.blocks',context).entries()){
+    assert.equal(elements.previewList.children[previewRow++].children[0].textContent,'B'+(blockIndex+1));
+    block.exercises.forEach((_,index)=>assert.equal(elements.previewList.children[previewRow++].children[0].textContent,String(index+1).padStart(2,'0')));
+  }
 
   context.startGeneratedWorkout();
   assert.equal(vm.runInContext('workoutState.mode',context),'generated');
