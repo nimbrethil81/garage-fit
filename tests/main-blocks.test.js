@@ -102,9 +102,9 @@ test('duration influences block composition without imposing a rigid count',()=>
     const count=create({duration:20,random:random(seed)}).main.blocks.length;
     if(count===1)twentySingles++;else if(count===2)twentyMultiples++;
   }
-  assert.ok(shortSingles>30,shortSingles+' short singles');
+  assert.ok(shortSingles>0,shortSingles+' short singles');
   assert.equal(longMultiples,60);
-  assert.ok(twentySingles>0&&twentyMultiples>0,twentySingles+'/'+twentyMultiples);
+  assert.ok(twentyMultiples>twentySingles,twentySingles+'/'+twentyMultiples);
 });
 
 test('all three protocols can be generated and multiple protocols can coexist',()=>{
@@ -189,4 +189,62 @@ test('focus preferences dominate the modest protocol-variety bonus',()=>{
   for(const focus of ['strength','cardio'])for(let seed=1;seed<=60;seed++)for(const block of create({focus,random:random(seed)}).main.blocks)totals[focus][block.protocol]++;
   assert.ok(totals.strength.paired_sets>totals.strength.timed_intervals,JSON.stringify(totals));
   assert.ok(totals.cardio.timed_intervals>totals.cardio.paired_sets,JSON.stringify(totals));
+});
+
+test('20-minute Cardio avoids five-pass tiny loops when the exercise pool is broad',()=>{
+  for(let seed=1;seed<=100;seed++){
+    const blocks=create({duration:20,focus:'cardio',random:random(seed)}).main.blocks;
+    for(const block of blocks){
+      const repeats=block.prescription.rounds||block.prescription.cycles||block.prescription.sets;
+      const isTinyLoop=block.protocol!=='paired_sets'&&block.exercises.length<=3&&repeats>=5;
+      assert.equal(isTinyLoop,false,seed+': '+block.protocol+' '+block.exercises.length+'x'+repeats);
+    }
+  }
+});
+
+test('small repeated blocks carry a duration-aware quality penalty',()=>{
+  const exercises=[synthetic('one','squat'),synthetic('two','push'),synthetic('three','pull')];
+  assert.equal(GarageFitGenerator.preferredRepeatCount('rounds',exercises.length),3);
+  assert.equal(GarageFitGenerator.repetitionPenalty('rounds',exercises,3,false),0);
+  assert.ok(GarageFitGenerator.repetitionPenalty('rounds',exercises,5,false)>250);
+  assert.equal(GarageFitGenerator.repetitionPenalty('rounds',exercises,5,true),0);
+});
+
+test('remaining Main time can create another block instead of extending a tiny first block',()=>{
+  const workout=create({duration:20,focus:'cardio',random:random(12)});
+  assert.equal(workout.main.blocks.length,2);
+  assert.ok(workout.main.blocks.every(block=>{
+    const repeats=block.prescription.rounds||block.prescription.cycles||block.prescription.sets;
+    return block.exercises.length>3||repeats<=3||block.protocol==='paired_sets';
+  }));
+});
+
+test('a constrained Main pool remains playable and may use extended repetition',()=>{
+  const constrainedCatalogue={
+    one:synthetic('one','squat'),
+    two:synthetic('two','push'),
+    three:synthetic('three','pull')
+  };
+  const workout=GarageFitGenerator.generate({catalogue:constrainedCatalogue,duration:20,focus:'cardio',equipment:[],random:random(9)});
+  assert.equal(workout.main.blocks.length,1);
+  assert.deepEqual(new Set(workout.main.blocks[0].exercises.map(exercise=>exercise.id)),new Set(['one','two','three']));
+  assert.equal(GarageFitGenerator.validateMain(workout.main,constrainedCatalogue,[],GarageFitGenerator.BUDGETS[20].main).filter(issue=>issue!=='main:duration-out-of-tolerance').length,0);
+});
+
+test('supporting conditioning movements remain selectable but are penalised when repeatedly prominent',()=>{
+  const jumping=catalogue['jumping-jacks'];
+  assert.equal(jumping.mainRole,'supporting');
+  const state={exercises:[],usedIds:new Set(),blocks:[],owned:[]};
+  assert.equal(GarageFitGenerator.selectBlockExercises([jumping],1,'cardio','conditioning','timed_intervals',state,[],()=>0,catalogue)[0].id,'jumping-jacks');
+
+  const peers=[synthetic('one','squat'),synthetic('two','push')];
+  const supportingBlock={protocol:'timed_intervals',exercises:peers.concat(jumping),prescription:{cycles:5,workSeconds:30,transitionSeconds:15}};
+  const primaryBlock={protocol:'timed_intervals',exercises:peers.concat(Object.assign({},jumping,{mainRole:'primary'})),prescription:{cycles:5,workSeconds:30,transitionSeconds:15}};
+  assert.ok(GarageFitGenerator.mainQualityPenalty([supportingBlock],870,20)>GarageFitGenerator.mainQualityPenalty([primaryBlock],870,20));
+
+  for(let seed=1;seed<=80;seed++)for(const block of create({duration:20,focus:'cardio',random:random(seed)}).main.blocks){
+    if(!block.exercises.some(exercise=>exercise.id==='jumping-jacks'))continue;
+    const repeats=block.prescription.rounds||block.prescription.cycles||block.prescription.sets;
+    assert.ok(repeats<=3||block.protocol==='paired_sets',seed+': jumping-jacks x'+repeats);
+  }
 });

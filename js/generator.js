@@ -33,6 +33,7 @@
   const RECENT_PATTERN_PENALTIES = [6,3,2,1];
   const MAIN_PROTOCOLS = new Set(['rounds','paired_sets','timed_intervals']);
   const MAIN_INTENTS = new Set(['strength','conditioning','accessory','finisher']);
+  const MAIN_ROLES = new Set(['primary','supporting']);
   const BLOCK_TRANSITION_SECONDS = 3;
 
   function requirementsMet(exercise, owned) {
@@ -299,6 +300,10 @@
         if(previous&&sectionSetupKey(previous,state.owned)===sectionSetupKey(exercise,state.owned))score+=1.5;
         if(protocol==='paired_sets'&&selected.length===1&&!sharedPatterns(selected[0],exercise).length)score+=8;
         if(protocol==='timed_intervals'&&exercise.sidedness==='per-side')score-=30;
+        if(exercise.mainRole==='supporting'){
+          const supportingAlready=allSelected.filter(item=>item.mainRole==='supporting').length;
+          score-=3+supportingAlready*6;
+        }
         return {exercise,score};
       });
       const picked=controlledPick(scored,random);
@@ -349,14 +354,32 @@
     return steps;
   }
 
-  function chooseClosestPrescription(protocol, exercises, targetSeconds, rest, focus) {
+  function preferredRepeatCount(protocol, exerciseCount) {
+    if(protocol==='paired_sets')return 4;
+    if(exerciseCount<=3)return 3;
+    if(exerciseCount===4)return 4;
+    return 5;
+  }
+
+  function repetitionPenalty(protocol, exercises, repeatCount, allowExtendedRepetition) {
+    if(allowExtendedRepetition)return 0;
+    const preferred=preferredRepeatCount(protocol,exercises.length);
+    const excess=Math.max(0,repeatCount-preferred);
+    if(!excess)return 0;
+    const smallBlock=exercises.length<=3;
+    const unit=protocol==='paired_sets'?55:smallBlock?170:85;
+    return excess*unit;
+  }
+
+  function chooseClosestPrescription(protocol, exercises, targetSeconds, rest, focus, options) {
+    const allowExtendedRepetition=!!(options&&options.allowExtendedRepetition);
     let best=null;
     const consider=p=>{
       const candidate={protocol,exercises,prescription:p};
       const estimate=estimateBlockDuration(candidate);
       const repeatCount=protocol==='rounds'?p.rounds:protocol==='paired_sets'?p.sets:p.cycles;
-      const repetitionPenalty=Math.max(0,repeatCount-4)*25;
-      const fitness=Math.abs(estimate-targetSeconds)+repetitionPenalty;
+      const repeatPenalty=repetitionPenalty(protocol,exercises,repeatCount,allowExtendedRepetition);
+      const fitness=Math.abs(estimate-targetSeconds)+repeatPenalty;
       if(!best||fitness<best.fitness)best={prescription:p,estimate,fitness};
     };
     if(protocol==='rounds')for(let rounds=1;rounds<=5;rounds++)consider({rounds,exerciseRestSeconds:rest.exercise,roundRestSeconds:rest.round});
@@ -374,7 +397,8 @@
     const count=Math.min(desiredCount,compatible.length);
     const exercises=selectBlockExercises(eligible,count,focus,intent,protocol,state,history,random,catalogue);
     if(exercises.length<(protocol==='rounds'?Math.min(3,compatible.length):2))return null;
-    const fitted=chooseClosestPrescription(protocol,exercises,targetSeconds,rest,focus);
+    const constrainedPool=compatible.length<=count;
+    const fitted=chooseClosestPrescription(protocol,exercises,targetSeconds,rest,focus,{allowExtendedRepetition:constrainedPool});
     const block={
       id:'main-'+(index+1),
       protocol,
@@ -391,9 +415,21 @@
     return block;
   }
 
-  function mainQualityPenalty(blocks) {
+  function blockRepeatCount(block) {
+    const p=block.prescription||{};
+    return block.protocol==='rounds'?Number(p.rounds)||1:block.protocol==='paired_sets'?Number(p.sets)||1:Number(p.cycles)||1;
+  }
+
+  function mainQualityPenalty(blocks, targetSeconds, eligibleCount) {
     const exercises=blocks.flatMap(block=>block.exercises),counts=new Map();
     let penalty=0;
+    for(const block of blocks){
+      const repeats=blockRepeatCount(block);
+      penalty+=repetitionPenalty(block.protocol,block.exercises,repeats,false);
+      const repeatedSupporting=block.exercises.filter(exercise=>exercise.mainRole==='supporting').length*Math.max(0,repeats-1);
+      penalty+=repeatedSupporting*24;
+      if(block.exercises.length<=3&&repeats>3)penalty+=(repeats-3)*70;
+    }
     for(const exercise of exercises){
       counts.set(exercise.id,(counts.get(exercise.id)||0)+1);
       if((counts.get(exercise.id)||0)>1)penalty+=55;
@@ -402,6 +438,16 @@
       const shared=sharedPatterns(exercises[i-1],exercises[i]).filter(pattern=>MAJOR_REPEAT_PATTERNS.has(pattern));
       penalty+=shared.length*18;
       if(exercises[i-1].impact==='high'&&exercises[i].impact==='high')penalty+=25;
+    }
+    if(Number.isFinite(targetSeconds)&&Number.isFinite(eligibleCount)){
+      const desiredDistinct=Math.min(eligibleCount,targetSeconds>=720?6:targetSeconds>=480?4:3);
+      const distinctCount=new Set(exercises.map(exercise=>exercise.id)).size;
+      penalty+=Math.max(0,desiredDistinct-distinctCount)*95;
+      const total=blocks.reduce((sum,block)=>sum+estimateBlockDuration(block),0);
+      if(targetSeconds>=720&&eligibleCount>=6&&total>0){
+        const dominant=blocks.reduce((max,block)=>Math.max(max,estimateBlockDuration(block)),0)/total;
+        if(dominant>.72&&blocks.some(block=>block.exercises.length<=3))penalty+=180;
+      }
     }
     return penalty;
   }
@@ -456,17 +502,17 @@
       if(!state.blocks.length)continue;
       const estimated=state.blocks.reduce((sum,block)=>sum+block.estimatedDurationSeconds,0)+BLOCK_TRANSITION_SECONDS*Math.max(0,state.blocks.length-1);
       const protocols=new Set(state.blocks.map(block=>block.protocol));
-      const varietyCredit=protocols.size>1?10:0;
+      const varietyCredit=protocols.size>1?(budget.main>=720?35:budget.main>=480?20:5):0;
       const issues=validateMain({blocks:state.blocks},catalogue,owned,budget.main);
       const malformed=issues.filter(issue=>issue!=='main:duration-out-of-tolerance');
       if(malformed.length)continue;
-      attempts.push({blocks:state.blocks,estimated,fitness:Math.abs(estimated-budget.main)+mainQualityPenalty(state.blocks)-varietyCredit});
+      attempts.push({blocks:state.blocks,estimated,fitness:Math.abs(estimated-budget.main)+mainQualityPenalty(state.blocks,budget.main,eligible.length)-varietyCredit});
     }
     attempts.sort((a,b)=>a.fitness-b.fitness);
     const chosen=attempts[0];
     if(chosen)return {blocks:chosen.blocks,transitionSeconds:BLOCK_TRANSITION_SECONDS,estimatedDurationSeconds:chosen.estimated};
     const fallbackExercises=selectExercises(eligible,Math.min(3,eligible.length),focus,history,random,catalogue);
-    const fitted=chooseClosestPrescription('rounds',fallbackExercises,budget.main,rest,focus);
+    const fitted=chooseClosestPrescription('rounds',fallbackExercises,budget.main,rest,focus,{allowExtendedRepetition:true});
     const block={id:'main-1',protocol:'rounds',intent:focus==='cardio'?'conditioning':'strength',exercises:fallbackExercises.map(copyExercise),prescription:fitted.prescription,rounds:fitted.prescription.rounds,rest:{exercise:fitted.prescription.exerciseRestSeconds,round:fitted.prescription.roundRestSeconds},estimatedDurationSeconds:fitted.estimate,estimatedSeconds:fitted.estimate};
     return {blocks:[block],transitionSeconds:BLOCK_TRANSITION_SECONDS,estimatedDurationSeconds:fitted.estimate};
   }
@@ -502,6 +548,7 @@
     const errors = [];
     for (const exercise of Object.values(catalogue)) {
       if (!VALID_SIDEDNESS.has(exercise.sidedness)) errors.push(exercise.id+': invalid sidedness');
+      if (exercise.mainRole!=null&&!MAIN_ROLES.has(exercise.mainRole)) errors.push(exercise.id+': invalid main role');
       for (const cue of exercise.timedCues || []) {
         const at=cue&&cue.at,validText=typeof cue.text==='string'&&cue.text.trim().length>0;
         const validFraction=at&&at.type==='fraction'&&Number.isFinite(at.value)&&at.value>0&&at.value<1;
@@ -784,7 +831,7 @@
     workout.estimatedSeconds=workout.warmup.estimatedSeconds+workout.rampup.estimatedSeconds+workout.main.estimatedDurationSeconds+workout.cooldown.estimatedSeconds;
   }
 
-  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, recentUsePenalty, preparationMetadataValid, validateCatalogue, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, validateMain, selectBlockExercises, mainBlocks, normaliseWorkout, generate, swap, swapPreparation };
+  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, recentUsePenalty, preparationMetadataValid, validateCatalogue, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, selectBlockExercises, mainBlocks, normaliseWorkout, generate, swap, swapPreparation };
 
   if (typeof window!=='undefined' && typeof document!=='undefined' && typeof window.addEventListener==='function') window.addEventListener('load',()=>{
     if (document.querySelector('script[data-garagefit-rampup-ui]')) return;

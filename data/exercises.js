@@ -48,6 +48,9 @@
       cooldown: false,
       alternativeGroup: null,
       mainProtocols: null,
+      // Supporting movements are useful punctuation in a Main block, but should not
+      // become the backbone of a long, highly repeated block.
+      mainRole: 'primary',
       instructions: '',
       timedCues: []
     }, options, { sidedness, unilateral });
@@ -76,8 +79,8 @@
   add('bicycle-crunch', 'Bicycle crunch', { patterns:['core','conditioning'], movementPlanes:['sagittal','transverse'], bodyPosition:'floor', strength:2, cardio:3, prescription:{type:'reps',value:20}, estimatedSeconds:30, sidedness:'alternating', generator:true, main:true });
   add('leg-raises', 'Leg raises', { patterns:['core'], bodyPosition:'floor', strength:3, cardio:1, prescription:{type:'reps',value:10}, estimatedSeconds:30, generator:true, main:true });
   add('mountain-climbers', 'Mountain climbers', prep({ patterns:['core','conditioning'], bodyPosition:'floor', strength:2, cardio:5, prescription:{type:'timed',value:30}, estimatedSeconds:30, impact:'medium', sidedness:'alternating', generator:true, main:true },4,2,2,{type:'timed',value:35,minValue:25,maxValue:45}));
-  add('jumping-jacks', 'Jumping jacks', prep({ patterns:['conditioning'], warmupAreas:['hips','knees','ankles'], movementPlanes:['frontal'], strength:1, cardio:5, prescription:{type:'timed',value:30}, estimatedSeconds:30, impact:'high', generator:true, warmup:true, warmupPhase:'dynamic', warmupPrescription:{type:'timed',value:20}, warmupEstimatedSeconds:20, main:true },4,1,1,{type:'timed',value:40,minValue:30,maxValue:45}));
-  add('high-knees', 'High knees', prep({ patterns:['conditioning'], strength:1, cardio:5, prescription:{type:'timed',value:30}, estimatedSeconds:30, impact:'high', sidedness:'alternating', generator:true, main:true },5,2,1,{type:'timed',value:35,minValue:25,maxValue:45}));
+  add('jumping-jacks', 'Jumping jacks', prep({ patterns:['conditioning'], warmupAreas:['hips','knees','ankles'], movementPlanes:['frontal'], strength:1, cardio:5, prescription:{type:'timed',value:30}, estimatedSeconds:30, impact:'high', generator:true, warmup:true, warmupPhase:'dynamic', warmupPrescription:{type:'timed',value:20}, warmupEstimatedSeconds:20, main:true, mainRole:'supporting' },4,1,1,{type:'timed',value:40,minValue:30,maxValue:45}));
+  add('high-knees', 'High knees', prep({ patterns:['conditioning'], strength:1, cardio:5, prescription:{type:'timed',value:30}, estimatedSeconds:30, impact:'high', sidedness:'alternating', generator:true, main:true, mainRole:'supporting' },5,2,1,{type:'timed',value:35,minValue:25,maxValue:45}));
   add('burpees', 'Burpees', prep({ patterns:['push','conditioning'], warmupAreas:['hips','knees','ankles','shoulders'], bodyPosition:'mixed', strength:2, cardio:5, prescription:{type:'reps',value:10}, estimatedSeconds:35, impact:'high', generator:true, warmup:true, warmupPhase:'late', warmupPrescription:{type:'timed',value:15}, warmupEstimatedSeconds:15, main:true },5,3,2,{type:'timed',value:30,minValue:20,maxValue:35}));
   add('squat-jumps', 'Squat jumps', prep({ patterns:['squat','conditioning'], strength:2, cardio:5, prescription:{type:'reps',value:10}, estimatedSeconds:30, impact:'high', generator:true, main:true },5,3,2,{type:'timed',value:30,minValue:20,maxValue:35}));
   add('skater-jumps', 'Skater jumps', prep({ patterns:['lunge','conditioning'], movementPlanes:['frontal'], strength:2, cardio:5, prescription:{type:'timed',value:30}, estimatedSeconds:30, impact:'high', sidedness:'alternating', generator:true, main:true },5,3,2,{type:'timed',value:30,minValue:20,maxValue:35}));
