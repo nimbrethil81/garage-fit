@@ -502,6 +502,12 @@
     const errors = [];
     for (const exercise of Object.values(catalogue)) {
       if (!VALID_SIDEDNESS.has(exercise.sidedness)) errors.push(exercise.id+': invalid sidedness');
+      for (const cue of exercise.timedCues || []) {
+        const at=cue&&cue.at,validText=typeof cue.text==='string'&&cue.text.trim().length>0;
+        const validFraction=at&&at.type==='fraction'&&Number.isFinite(at.value)&&at.value>0&&at.value<1;
+        const validSeconds=at&&at.type==='seconds'&&Number.isFinite(at.value)&&at.value>0;
+        if(!validText||(!validFraction&&!validSeconds))errors.push(exercise.id+': invalid timed cue');
+      }
       const prescriptionIsPerSide = !!(exercise.prescription && exercise.prescription.type && exercise.prescription.type.includes('unilateral'));
       if ((exercise.sidedness==='per-side') !== prescriptionIsPerSide) errors.push(exercise.id+': sidedness does not match prescription type');
       if ((exercise.warmup || exercise.rampup) && !preparationMetadataValid(exercise)) errors.push(exercise.id+': invalid preparation metadata');
@@ -691,7 +697,7 @@
   }
 
   function copyExercise(exercise) {
-    return Object.assign({},exercise,{patterns:(exercise.patterns||[]).slice(),movementPlanes:(exercise.movementPlanes||[]).slice(),warmupAreas:(exercise.warmupAreas||[]).slice(),equipment:(exercise.equipment||[]).map(group=>group.slice()),prescription:Object.assign({},exercise.prescription)});
+    return Object.assign({},exercise,{patterns:(exercise.patterns||[]).slice(),movementPlanes:(exercise.movementPlanes||[]).slice(),warmupAreas:(exercise.warmupAreas||[]).slice(),equipment:(exercise.equipment||[]).map(group=>group.slice()),prescription:Object.assign({},exercise.prescription),timedCues:(exercise.timedCues||[]).map(cue=>Object.assign({},cue,{at:Object.assign({},cue.at)}))});
   }
 
   function generate(options) {

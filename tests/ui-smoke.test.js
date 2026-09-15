@@ -20,7 +20,7 @@ class Element {
   constructor(id='') {
     this._id='';this.classList=new ClassList();this.style={};this.children=[];this.attributes={};this.disabled=false;this.textContent='';this._innerHTML='';this.parentNode=null;this.className='';
     Object.defineProperty(this,'id',{enumerable:true,get:()=>this._id,set:value=>{this._id=value;if(elementRegistry&&value)elementRegistry[value]=this;}});
-    Object.defineProperty(this,'innerHTML',{enumerable:true,get:()=>this._innerHTML,set:value=>{this._innerHTML=String(value);if(value==='')this.children=[];for(const match of this._innerHTML.matchAll(/\\bid="([^"]+)"/g))new Element(match[1]);}});
+    Object.defineProperty(this,'innerHTML',{enumerable:true,get:()=>this._innerHTML,set:value=>{this._innerHTML=String(value);if(value==='')this.children=[];for(const match of this._innerHTML.matchAll(/\bid="([^"]+)"/g))new Element(match[1]);}});
     this.id=id;
   }
   setAttribute(key,value) { this.attributes[key]=String(value); }
@@ -44,6 +44,7 @@ test('Generator preview/player and both fixed players initialise without runtime
   playerActions.append(elements.completeMovementBtn);
   const storage=new Map();
   const spoken=[];
+  const intervals=new Map();let nextInterval=1;
   const context={
     console,
     SpeechSynthesisUtterance:function(text){this.text=text;},
@@ -56,13 +57,13 @@ test('Generator preview/player and both fixed players initialise without runtime
     localStorage:{getItem:key=>storage.has(key)?storage.get(key):null,setItem:(key,value)=>storage.set(key,String(value))},
     navigator:{},
     getComputedStyle:()=>({getPropertyValue:()=>'#000'}),
-    setInterval:()=>1,
-    clearInterval:()=>{},
+    setInterval:callback=>{const id=nextInterval++;intervals.set(id,callback);return id;},
+    clearInterval:id=>intervals.delete(id),
     setTimeout:callback=>callback()
   };
   context.window=context;context.globalThis=context;
   vm.createContext(context);
-  for (const file of ['data/equipment.js','data/exercises.js','data/workouts.js','js/generator.js']) vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),context,{filename:file});
+  for (const file of ['data/equipment.js','data/exercises.js','data/workouts.js','js/generator.js','js/timed-cues.js']) vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),context,{filename:file});
   const inline=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].at(-1)[1];
   vm.runInContext(inline,context,{filename:'index-inline.js'});
   vm.runInContext(fs.readFileSync(path.join(root,'js/rampup-ui.js'),'utf8'),context,{filename:'js/rampup-ui.js'});
@@ -133,6 +134,28 @@ test('Generator preview/player and both fixed players initialise without runtime
   }
   context.previousGeneratedPhase();
   assert.ok(spoken.at(-1).includes(vm.runInContext('currentGeneratedPhase().exercise.name',context)));
+
+  const timedIndex=vm.runInContext("generatorState.timeline.findIndex(phase=>phase.kind==='exercise'&&phase.timed)",context);
+  vm.runInContext("generatorState.timeline["+timedIndex+"].exercise.timedCues=[{text:'Test cue',at:{type:'fraction',value:0.5}}]",context);
+  context.enterGeneratedPhase(timedIndex);
+  let phaseTimer=vm.runInContext('generatorState.phaseTimer',context);
+  const phaseSeconds=vm.runInContext('currentGeneratedPhase().seconds',context);
+  for(let second=0;second<Math.ceil(phaseSeconds/2);second++) intervals.get(phaseTimer)();
+  assert.equal(elements.workoutTimedCue.textContent,'Test cue');
+  assert.equal(spoken.at(-1),'Test cue');
+  const cueSpeechCount=spoken.filter(text=>text==='Test cue').length;
+  context.toggleWorkoutPause();
+  intervals.get(phaseTimer)();
+  context.toggleWorkoutPause();
+  intervals.get(phaseTimer)();
+  assert.equal(spoken.filter(text=>text==='Test cue').length,cueSpeechCount);
+  context.enterGeneratedPhase(timedIndex+1);
+  assert.equal(elements.workoutTimedCue.textContent,'');
+  context.enterGeneratedPhase(timedIndex);
+  assert.equal(elements.workoutTimedCue.textContent,'');
+  phaseTimer=vm.runInContext('generatorState.phaseTimer',context);
+  for(let second=0;second<Math.ceil(phaseSeconds/2);second++) intervals.get(phaseTimer)();
+  assert.equal(spoken.filter(text=>text==='Test cue').length,cueSpeechCount+1);
 
   context.startWorkout();
   assert.equal(vm.runInContext('workoutState.mode',context),'fixed');

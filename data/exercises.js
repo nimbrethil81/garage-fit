@@ -48,7 +48,8 @@
       cooldown: false,
       alternativeGroup: null,
       mainProtocols: null,
-      instructions: ''
+      instructions: '',
+      timedCues: []
     }, options, { sidedness, unilateral });
   }
 
@@ -165,6 +166,7 @@
     ['arm-side-circles','Arm side circles','basic',1,1,1,['frontal'],'standing',false,['shoulders']],['walk-plank-push-up','Walk to plank and push up','late',3,2,2,['sagittal'],'mixed',true,['hips','shoulders']],['star-jumps','Star jumps','late',4,1,1,['frontal'],'standing',true,['hips','knees','ankles']]
   ];
   warmups.forEach(x=>add(x[0],x[1],prep({warmup:true,warmupPhase:x[2],prescription:{type:'timed',value:20},warmupPrescription:{type:'timed',value:20},warmupEstimatedSeconds:20,estimatedSeconds:20,impact:['star-jumps','knees-up','bum-kicks'].includes(x[0])?'medium':'low',movementPlanes:x[6],bodyPosition:x[7],warmupAreas:x[9]},x[3],x[4],x[5],x[8]?{type:'timed',value:35,minValue:25,maxValue:45}:null)));
+  catalogue['body-hoops'].timedCues=[{text:'Change direction',at:{type:'fraction',value:0.5}}];
   add('step-back-lunge', 'Step back lunge', prep({ patterns:['lunge'], warmupAreas:['hips','knees','ankles'], warmup:true, warmupPhase:'dynamic', unilateral:true, warmupPrescription:{type:'unilateral-timed',value:15}, prescription:{type:'unilateral-timed',value:15}, warmupEstimatedSeconds:30, estimatedSeconds:30, impact:'medium' },2,2,2,{type:'timed',value:30,minValue:20,maxValue:35}));
   add('trx-squat-overhead', 'TRX squat to overhead press', prep({ equipment:[['trx']], patterns:['squat','push'], warmupAreas:['hips','knees','ankles','shoulders'], warmup:true, warmupPhase:'late', warmupPrescription:{type:'timed',value:20}, prescription:{type:'timed',value:20}, warmupEstimatedSeconds:20, estimatedSeconds:20 },3,2,2,{type:'timed',value:35,minValue:25,maxValue:40}));
   add('trx-lunge-warmup', 'TRX lunge', prep({ equipment:[['trx']], patterns:['lunge'], warmupAreas:['hips','knees','ankles'], warmup:true, warmupPhase:'dynamic', warmupPrescription:{type:'timed',value:20}, prescription:{type:'timed',value:20}, warmupEstimatedSeconds:20, estimatedSeconds:20 },2,2,2,{type:'timed',value:30,minValue:20,maxValue:35}));
