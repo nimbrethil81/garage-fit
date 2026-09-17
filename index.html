@@ -410,6 +410,7 @@ function renderGeneratedPreview(){
       const li=document.createElement('li'),step=document.createElement('span'),details=document.createElement('span'),button=document.createElement('button');
       step.className='preview-index';step.textContent=String(exerciseIndex+1).padStart(2,'0');details.className='preview-exercise';details.textContent=exercise.name;
       const prescription=document.createElement('span');prescription.className='preview-prescription';prescription.textContent=block.protocol==='timed_intervals'?block.prescription.workSeconds+' sec':formatPrescription(exercise);details.appendChild(prescription);
+      if(exercise.timedCues&&exercise.timedCues.length){const cueNote=document.createElement('span');cueNote.className='review-note';cueNote.textContent=exercise.timedCues.map(cue=>cue.text).join(' · ');details.appendChild(cueNote)}
       button.type='button';button.className='swap-btn';button.textContent='Swap';button.setAttribute('aria-label','Swap '+exercise.name);button.onclick=()=>swapGeneratedExercise(blockIndex,exerciseIndex);
       li.append(step,details,button);list.appendChild(li);
     });

@@ -35,10 +35,32 @@
   const MAIN_INTENTS = new Set(['strength','conditioning','accessory','finisher']);
   const MAIN_ROLES = new Set(['primary','supporting']);
   const BLOCK_TRANSITION_SECONDS = 3;
+  const VALID_IMPACT_LEVELS = new Set(['low','medium','high']);
+  const PRESCRIPTION_MODE_BY_TYPE = { 'timed':'time', 'unilateral-timed':'time', 'reps':'reps', 'unilateral-reps':'reps' };
+  // Equipment diversity targets apply only to the Main phase, and only when enough of the
+  // user's selected equipment is actually viable (has eligible candidates) to make variety
+  // meaningful. Bodyweight never counts as an equipment type for this purpose.
+  const EQUIPMENT_DIVERSITY = {
+    10:{minTypes:1,preferredTypes:1},
+    15:{minTypes:1,preferredTypes:1},
+    20:{minTypes:2,preferredTypes:2},
+    30:{minTypes:2,preferredTypes:3},
+    45:{minTypes:2,preferredTypes:3}
+  };
+  const EQUIPMENT_DOMINANCE_CAP = 0.6;
+  const BLOCK_DOMINANCE_CAP = 0.45;
 
   function requirementsMet(exercise, owned) {
     const equipment = new Set(owned || []);
     return (exercise.equipment || []).every(group => group.some(id => equipment.has(id)));
+  }
+
+  function prescriptionMode(type) {
+    return PRESCRIPTION_MODE_BY_TYPE[type] || null;
+  }
+
+  function sameSelectionFamily(first, second) {
+    return !!(first && second && first.selectionFamily && first.selectionFamily===second.selectionFamily);
   }
 
   function recentUsePenalty(exercise, history, catalogue) {
@@ -52,7 +74,8 @@
         const previous = catalogue && catalogue[id];
         return previous && sharedPatterns(exercise,previous).some(pattern => MAJOR_REPEAT_PATTERNS.has(pattern));
       });
-      if (sharesMajorPattern) patternPenalty = Math.max(patternPenalty,family);
+      const sharesSelectionFamily = ids.some(id => sameSelectionFamily(exercise, catalogue && catalogue[id]));
+      if (sharesMajorPattern || sharesSelectionFamily) patternPenalty = Math.max(patternPenalty,family);
     }
     return exactPenalty + patternPenalty;
   }
@@ -143,7 +166,7 @@
     const recipe = RECIPES[focus];
     for (let slot=0;slot<count;slot++) {
       const desired = recipe[slot % recipe.length];
-      let candidates = eligible.filter(exercise => !selected.some(item => item.id===exercise.id));
+      let candidates = eligible.filter(exercise => !selected.some(item => item.id===exercise.id || (item.frequency==='occasional' && sameSelectionFamily(item,exercise))));
       const previous = selected[selected.length-1];
       const neighbours = [previous, slot===count-1 ? selected[0] : null];
       const varied = candidates.filter(exercise => neighbours.every(item => !sharedPatterns(item,exercise).length));
@@ -290,6 +313,11 @@
     for(let slot=0;slot<count;slot++){
       const desired=recipe[(state.exercises.length+slot)%recipe.length];
       let candidates=eligible.filter(ex=>protocolCompatible(ex,protocol)&&!selected.some(item=>item.id===ex.id));
+      // An "occasional" selection family (e.g. farmer carry, across dumbbell/kettlebell variants)
+      // is capped at one exposure across the whole Main phase, not just within a block.
+      candidates=candidates.filter(ex=>!(ex.frequency==='occasional'&&ex.selectionFamily&&(
+        (state.usedFamilies&&state.usedFamilies.has(ex.selectionFamily)) || selected.some(item=>sameSelectionFamily(item,ex))
+      )));
       if(!candidates.length)break;
       const previous=selected[selected.length-1]||state.exercises[state.exercises.length-1];
       const allSelected=state.exercises.concat(selected);
@@ -303,6 +331,23 @@
         if(exercise.mainRole==='supporting'){
           const supportingAlready=allSelected.filter(item=>item.mainRole==='supporting').length;
           score-=3+supportingAlready*6;
+        }
+        // Equipment portfolio bias: nudge toward introducing an under-used viable equipment
+        // type, and away from a type that would come to dominate active Main working time.
+        // This runs during selection (not as a final shuffle) but is a soft preference,
+        // subordinate to the pattern/fatigue/recency scoring above.
+        if(state.diversityTarget&&state.diversityTarget.preferredTypes>1&&state.equipmentUsage){
+          const type=primaryEquipment(exercise);
+          if(type!=='bodyweight'){
+            const usage=state.equipmentUsage;
+            const distinctUsed=[...usage.keys()].filter(t=>usage.get(t)>0).length;
+            const usageTotal=[...usage.values()].reduce((a,b)=>a+b,0);
+            if(!usage.get(type)&&distinctUsed<state.diversityTarget.preferredTypes)score+=5;
+            if(usageTotal>0){
+              const projectedShare=(usage.get(type)||0)/(usageTotal+exercise.estimatedSeconds);
+              if(projectedShare>EQUIPMENT_DOMINANCE_CAP)score-=6;
+            }
+          }
         }
         return {exercise,score};
       });
@@ -452,6 +497,58 @@
     return penalty;
   }
 
+  function equipmentUsageSeconds(blocks) {
+    const usage=new Map();
+    for(const block of blocks){
+      const repeats=blockRepeatCount(block);
+      for(const exercise of block.exercises||[]){
+        const type=primaryEquipment(exercise);
+        if(type==='bodyweight')continue;
+        usage.set(type,(usage.get(type)||0)+exercise.estimatedSeconds*repeats);
+      }
+    }
+    return usage;
+  }
+
+  function viableEquipmentTypes(eligible) {
+    return new Set(eligible.map(primaryEquipment).filter(type=>type!=='bodyweight'));
+  }
+
+  // Main-phase equipment/family/round-variety planning. Kept separate from validateMain
+  // (which stays a pure structural/prescription/safety check with no throw-risk on a
+  // pathologically small candidate pool) so composeMain can use it to filter and rank
+  // attempts while a last-resort fallback Main is never blocked by these preferences.
+  function mainVarietyIssues(blocks, duration, eligible) {
+    const issues=[];
+    const familyCounts=new Map();
+    for(const block of blocks)for(const exercise of block.exercises||[]){
+      if(exercise.frequency==='occasional'&&exercise.selectionFamily)
+        familyCounts.set(exercise.selectionFamily,(familyCounts.get(exercise.selectionFamily)||0)+1);
+    }
+    for(const [family,count] of familyCounts)if(count>1)issues.push('main:family-cap:'+family);
+
+    for(const block of blocks){
+      if(block.protocol!=='rounds')continue;
+      const rounds=Number(block.prescription&&block.prescription.rounds)||0;
+      if(rounds<3)continue;
+      // Left/right entries are one catalogue exercise (one distinct family) that plays back
+      // as two work exposures; distinctness is therefore measured by exercise id, not by
+      // playback step count, so per-side work cannot masquerade as extra block variety.
+      const distinctFamilies=new Set(block.exercises.map(exercise=>exercise.id)).size;
+      const distinctPatterns=new Set(block.exercises.flatMap(exercise=>exercise.patterns||[])).size;
+      if(distinctFamilies<3||distinctPatterns<2)issues.push(block.id+':insufficient-round-variety');
+    }
+
+    const viableTypes=viableEquipmentTypes(eligible);
+    const target=EQUIPMENT_DIVERSITY[duration]||EQUIPMENT_DIVERSITY[20];
+    if(viableTypes.size>=target.minTypes){
+      const usage=equipmentUsageSeconds(blocks);
+      const usedTypes=[...usage.keys()].filter(type=>usage.get(type)>0).length;
+      if(usedTypes<target.minTypes)issues.push('main:equipment-diversity-below-minimum');
+    }
+    return issues;
+  }
+
   function validateMain(main, catalogue, owned, targetSeconds) {
     const issues=[];
     if(!main||!Array.isArray(main.blocks)||!main.blocks.length)return ['main:no-blocks'];
@@ -479,9 +576,11 @@
 
   function composeMain(catalogue, eligible, budget, duration, focus, owned, history, rest, random) {
     const attempts=[];
+    const diversityTarget=EQUIPMENT_DIVERSITY[duration]||EQUIPMENT_DIVERSITY[20];
+    const viableCount=viableEquipmentTypes(eligible).size;
     for(let attempt=0;attempt<10;attempt++){
       const count=chooseBlockCount(duration,eligible.length,random),intents=chooseIntents(focus,count,random);
-      const state={exercises:[],usedIds:new Set(),blocks:[],owned};
+      const state={exercises:[],usedIds:new Set(),usedFamilies:new Set(),equipmentUsage:new Map(),blocks:[],owned,diversityTarget};
       let remaining=budget.main;
       for(let index=0;index<count;index++){
         const blocksLeft=count-index;
@@ -496,7 +595,13 @@
         if(!block)break;
         state.blocks.push(block);
         state.exercises.push(...block.exercises);
-        block.exercises.forEach(ex=>state.usedIds.add(ex.id));
+        const repeats=blockRepeatCount(block);
+        block.exercises.forEach(ex=>{
+          state.usedIds.add(ex.id);
+          if(ex.frequency==='occasional'&&ex.selectionFamily)state.usedFamilies.add(ex.selectionFamily);
+          const type=primaryEquipment(ex);
+          if(type!=='bodyweight')state.equipmentUsage.set(type,(state.equipmentUsage.get(type)||0)+ex.estimatedSeconds*repeats);
+        });
         remaining-=block.estimatedDurationSeconds+(index<count-1?BLOCK_TRANSITION_SECONDS:0);
       }
       if(!state.blocks.length)continue;
@@ -504,9 +609,23 @@
       const protocols=new Set(state.blocks.map(block=>block.protocol));
       const varietyCredit=protocols.size>1?(budget.main>=720?35:budget.main>=480?20:5):0;
       const issues=validateMain({blocks:state.blocks},catalogue,owned,budget.main);
-      const malformed=issues.filter(issue=>issue!=='main:duration-out-of-tolerance');
+      const varietyIssues=mainVarietyIssues(state.blocks,duration,eligible);
+      const malformed=issues.filter(issue=>issue!=='main:duration-out-of-tolerance').concat(varietyIssues);
       if(malformed.length)continue;
-      attempts.push({blocks:state.blocks,estimated,fitness:Math.abs(estimated-budget.main)+mainQualityPenalty(state.blocks,budget.main,eligible.length)-varietyCredit});
+      const usedTypesCount=[...state.equipmentUsage.keys()].filter(type=>state.equipmentUsage.get(type)>0).length;
+      const equipmentCredit=(viableCount>=diversityTarget.preferredTypes&&usedTypesCount>=diversityTarget.preferredTypes)?15:0;
+      let dominancePenalty=0;
+      const usageTotal=[...state.equipmentUsage.values()].reduce((a,b)=>a+b,0);
+      if(usageTotal>0&&viableCount>=3){
+        const dominantShare=Math.max(...state.equipmentUsage.values())/usageTotal;
+        if(dominantShare>EQUIPMENT_DOMINANCE_CAP)dominancePenalty=(dominantShare-EQUIPMENT_DOMINANCE_CAP)*400;
+      }
+      let blockDominancePenalty=0;
+      if(state.blocks.length>1&&estimated>0){
+        const dominantBlockShare=Math.max(...state.blocks.map(block=>block.estimatedDurationSeconds))/estimated;
+        if(dominantBlockShare>BLOCK_DOMINANCE_CAP)blockDominancePenalty=(dominantBlockShare-BLOCK_DOMINANCE_CAP)*300;
+      }
+      attempts.push({blocks:state.blocks,estimated,fitness:Math.abs(estimated-budget.main)+mainQualityPenalty(state.blocks,budget.main,eligible.length)+dominancePenalty+blockDominancePenalty-varietyCredit-equipmentCredit});
     }
     attempts.sort((a,b)=>a.fitness-b.fitness);
     const chosen=attempts[0];
@@ -557,6 +676,11 @@
       }
       const prescriptionIsPerSide = !!(exercise.prescription && exercise.prescription.type && exercise.prescription.type.includes('unilateral'));
       if ((exercise.sidedness==='per-side') !== prescriptionIsPerSide) errors.push(exercise.id+': sidedness does not match prescription type');
+      if (exercise.warmup && !VALID_IMPACT_LEVELS.has(exercise.impact)) errors.push(exercise.id+': warm-up exercise missing a recognised impact classification');
+      if (Array.isArray(exercise.prescriptionModes) && exercise.prescriptionModes.length) {
+        const mode = prescriptionMode(exercise.prescription && exercise.prescription.type);
+        if (!mode || !exercise.prescriptionModes.includes(mode)) errors.push(exercise.id+': prescription mode not permitted');
+      }
       if ((exercise.warmup || exercise.rampup) && !preparationMetadataValid(exercise)) errors.push(exercise.id+': invalid preparation metadata');
       if (exercise.rampup) {
         const p = exercise.rampupPrescription;
@@ -667,7 +791,9 @@
   }
 
   function selectWarmup(catalogue, targetSeconds, owned, mainExercises, random) {
-    let candidates = Object.values(catalogue).filter(ex=>ex.warmup && preparationMetadataValid(ex) && requirementsMet(ex,owned));
+    // High-impact movements are a safety exclusion for warm-ups specifically; they remain
+    // available to a suitable Main phase, which is scored (not hard-filtered) on impact.
+    let candidates = Object.values(catalogue).filter(ex=>ex.warmup && ex.impact!=='high' && preparationMetadataValid(ex) && requirementsMet(ex,owned));
     const restSeconds=5, selected=[];
     const targetCount=Math.max(2,Math.min(candidates.length,Math.round((targetSeconds+5)/25)));
     for(let slot=0;slot<targetCount && candidates.length;slot++) {
@@ -809,6 +935,7 @@
     const catalogue=options.catalogue, owned=options.equipment||[], random=options.random||Math.random, current=workout[section].exercises[exerciseIndex], main=workout.blocks[0].exercises;
     const allPrepIds=new Set(workout.warmup.exercises.concat(workout.rampup.exercises).filter(ex=>ex!==current).map(ex=>ex.id));
     let eligible=Object.values(catalogue).filter(ex=>ex[section]&&preparationMetadataValid(ex)&&requirementsMet(ex,owned)&&ex.id!==current.id&&!allPrepIds.has(ex.id));
+    if(section==='warmup') eligible=eligible.filter(ex=>ex.impact!=='high');
     if(section==='rampup') eligible=eligible.filter(ex=>ex.prepFatigue<=3&&ex.prepComplexity<=3);
     if(section==='warmup' && lowerJointCoverage(current).length>=2 && !workout.warmup.exercises.some((ex,index)=>index!==exerciseIndex&&lowerJointCoverage(ex).length>=2)) {
       const lowerEligible=eligible.filter(ex=>lowerJointCoverage(ex).length>=2); if(lowerEligible.length) eligible=lowerEligible;
@@ -831,7 +958,7 @@
     workout.estimatedSeconds=workout.warmup.estimatedSeconds+workout.rampup.estimatedSeconds+workout.main.estimatedDurationSeconds+workout.cooldown.estimatedSeconds;
   }
 
-  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, recentUsePenalty, preparationMetadataValid, validateCatalogue, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, selectBlockExercises, mainBlocks, normaliseWorkout, generate, swap, swapPreparation };
+  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, sameSelectionFamily, prescriptionMode, recentUsePenalty, preparationMetadataValid, validateCatalogue, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, selectBlockExercises, mainBlocks, normaliseWorkout, generate, swap, swapPreparation };
 
   if (typeof window!=='undefined' && typeof document!=='undefined' && typeof window.addEventListener==='function') window.addEventListener('load',()=>{
     if (document.querySelector('script[data-garagefit-rampup-ui]')) return;
