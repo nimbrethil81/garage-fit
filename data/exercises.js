@@ -76,7 +76,7 @@
   add('plank', 'Plank', prep({ patterns:['core'], bodyPosition:'floor', strength:3, cardio:1, prescription:{type:'timed',value:30}, estimatedSeconds:30, sidedness:'none', generator:true, main:true },2,2,1,{type:'timed',value:30,minValue:20,maxValue:40}));
   add('side-plank', 'Side plank', { patterns:['core'], movementPlanes:['frontal'], bodyPosition:'floor', strength:3, cardio:1, prescription:{type:'unilateral-timed',value:20}, estimatedSeconds:40, unilateral:true, generator:true, main:true });
   add('abdominal-crunch', 'Abdominal crunch', { patterns:['core'], bodyPosition:'floor', strength:2, cardio:2, prescription:{type:'timed',value:30}, estimatedSeconds:30, generator:true, main:true });
-  add('bicycle-crunch', 'Bicycle crunch', { patterns:['core','conditioning'], movementPlanes:['sagittal','transverse'], bodyPosition:'floor', strength:2, cardio:3, prescription:{type:'reps',value:20}, estimatedSeconds:30, sidedness:'alternating', generator:true, main:true });
+  add('bicycle-crunch', 'Bicycle crunch', { patterns:['core','conditioning'], movementPlanes:['sagittal','transverse'], bodyPosition:'floor', strength:2, cardio:3, prescription:{type:'timed',value:30}, estimatedSeconds:30, sidedness:'alternating', generator:true, main:true });
   add('leg-raises', 'Leg raises', { patterns:['core'], bodyPosition:'floor', strength:3, cardio:1, prescription:{type:'reps',value:10}, estimatedSeconds:30, generator:true, main:true });
   add('mountain-climbers', 'Mountain climbers', prep({ patterns:['core','conditioning'], bodyPosition:'floor', strength:2, cardio:5, prescription:{type:'timed',value:30}, estimatedSeconds:30, impact:'medium', sidedness:'alternating', generator:true, main:true },4,2,2,{type:'timed',value:35,minValue:25,maxValue:45}));
   add('jumping-jacks', 'Jumping jacks', prep({ patterns:['conditioning'], warmupAreas:['hips','knees','ankles'], movementPlanes:['frontal'], strength:1, cardio:5, prescription:{type:'timed',value:30}, estimatedSeconds:30, impact:'medium', generator:true, warmup:true, warmupPhase:'dynamic', warmupPrescription:{type:'timed',value:20}, warmupEstimatedSeconds:20, main:true, mainRole:'supporting', repetitionClass:'basic-conditioning' },4,1,1,{type:'timed',value:40,minValue:30,maxValue:45}));
@@ -116,11 +116,16 @@
   add('dead-hang', 'Dead hang', prep({ equipment:[['pullup-bar']], patterns:['pull'], bodyPosition:'hanging', strength:3, cardio:1, prescription:{type:'timed',value:30}, estimatedSeconds:30, sidedness:'none', generator:true, main:true },2,1,1,{type:'timed',value:25,minValue:20,maxValue:30}));
 
   [
-    ['trx-row','TRX row',['pull'],5,2,{type:'reps',value:10}],['trx-squat','TRX squat',['squat'],3,3,{type:'reps',value:12}],
+    // TRX exercises are bodyweight-resisted (no external load), so unlike a loaded strength
+    // lift, running them for time rather than counted reps is comfortable by default. Per-side
+    // (unilateral) TRX exercises stay reps-based: timed_intervals structurally excludes
+    // per-side/unilateral exercises (see protocolCompatible), so they can't safely run on a
+    // shared clock without a separate architecture change.
+    ['trx-row','TRX row',['pull'],5,2,{type:'timed',value:30}],['trx-squat','TRX squat',['squat'],3,3,{type:'timed',value:30}],
     ['trx-reverse-lunge','TRX reverse lunge',['lunge'],4,3,{type:'unilateral-reps',value:8}],['trx-split-squat','TRX split squat',['lunge'],4,2,{type:'unilateral-reps',value:8}],
-    ['trx-chest-press','TRX chest press',['push'],4,2,{type:'reps',value:10}],['trx-triceps-press','TRX triceps press',['push'],4,2,{type:'reps',value:10}],
-    ['trx-biceps-curl','TRX biceps curl',['pull'],4,2,{type:'reps',value:10}],['trx-hamstring-curl','TRX hamstring curl',['hinge','core'],4,2,{type:'reps',value:10}],
-    ['trx-knee-tuck','TRX knee tuck',['core','conditioning'],3,4,{type:'reps',value:10}],['trx-mountain-climber','TRX mountain climber',['core','conditioning'],3,5,{type:'timed',value:30}]
+    ['trx-chest-press','TRX chest press',['push'],4,2,{type:'timed',value:30}],['trx-triceps-press','TRX triceps press',['push'],4,2,{type:'timed',value:30}],
+    ['trx-biceps-curl','TRX biceps curl',['pull'],4,2,{type:'timed',value:30}],['trx-hamstring-curl','TRX hamstring curl',['hinge','core'],4,2,{type:'timed',value:30}],
+    ['trx-knee-tuck','TRX knee tuck',['core','conditioning'],3,4,{type:'timed',value:30}],['trx-mountain-climber','TRX mountain climber',['core','conditioning'],3,5,{type:'timed',value:30}]
   ].forEach(x=>add(x[0],x[1],{equipment:[['trx']],patterns:x[2],strength:x[3],cardio:x[4],prescription:x[5],estimatedSeconds:x[5].type.includes('unilateral')?45:30,unilateral:x[5].type.includes('unilateral'),impact:x[0].includes('mountain')?'medium':'low',bodyPosition:['trx-hamstring-curl','trx-knee-tuck','trx-mountain-climber'].includes(x[0])?'floor':'standing',generator:true,main:true}));
   Object.assign(catalogue['trx-row'], prep(catalogue['trx-row'],3,2,2,{type:'timed',value:30,minValue:20,maxValue:40}));
   Object.assign(catalogue['trx-squat'], prep(catalogue['trx-squat'],3,2,1,{type:'timed',value:35,minValue:25,maxValue:45}));

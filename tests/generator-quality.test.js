@@ -54,6 +54,43 @@ test('dumbbell row retains its repetition prescription', () => {
   assert.equal(row.sidedness,'per-side');
 });
 
+test('bicycle crunch defaults to a timed prescription (floor exercise, no reason to stand up between reps)', () => {
+  const exercise=catalogue['bicycle-crunch'];
+  assert.equal(exercise.prescription.type,'timed');
+  assert.equal(exercise.bodyPosition,'floor');
+});
+
+test('bodyweight-resisted, bilateral TRX exercises default to a timed prescription', () => {
+  for (const id of ['trx-row','trx-squat','trx-chest-press','trx-triceps-press','trx-biceps-curl','trx-hamstring-curl','trx-knee-tuck']) {
+    assert.equal(catalogue[id].prescription.type,'timed',id);
+    assert.equal(catalogue[id].load,null,id);
+  }
+});
+
+test('per-side TRX exercises remain rep-based (timed_intervals structurally excludes per-side work)', () => {
+  for (const id of ['trx-reverse-lunge','trx-split-squat']) {
+    assert.equal(catalogue[id].sidedness,'per-side',id);
+    assert.equal(catalogue[id].prescription.type,'unilateral-reps',id);
+  }
+});
+
+test('a generated workout gives bicycle crunch and default-timed TRX exercises a timed prescription, not reps, under rounds or paired sets', () => {
+  const timedByDefault=new Set(['bicycle-crunch','trx-row','trx-squat','trx-chest-press','trx-triceps-press','trx-biceps-curl','trx-hamstring-curl','trx-knee-tuck']);
+  let sawAny=false;
+  for (let seed=1;seed<=150;seed++) {
+    const workout=create({duration:30,focus:'balanced',equipment:['trx'],random:random(seed)});
+    for (const block of workout.main.blocks) {
+      if (block.protocol==='timed_intervals') continue;
+      for (const exercise of block.exercises) {
+        if (!timedByDefault.has(exercise.id)) continue;
+        sawAny=true;
+        assert.equal(exercise.prescription.type,'timed',`${exercise.id} in a ${block.protocol} block`);
+      }
+    }
+  }
+  assert.ok(sawAny);
+});
+
 test('dumbbell and kettlebell farmer carries share selection history', () => {
   const dumbbell=catalogue['dumbbell-farmer-carry'], kettlebell=catalogue['kettlebell-farmer-carry'];
   assert.equal(dumbbell.selectionFamily,'farmer-carry');
