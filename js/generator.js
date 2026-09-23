@@ -63,6 +63,13 @@
     return !!(first && second && first.selectionFamily && first.selectionFamily===second.selectionFamily);
   }
 
+  // A broad repetition family/class (e.g. basic no-equipment conditioning bounces) that's
+  // independent of `selectionFamily`, which drives Main-only cross-block frequency capping.
+  // This is scoped to Warm-up/Ramp-up phase repetition and never touches Main selection.
+  function sameRepetitionClass(first, second) {
+    return !!(first && second && first.repetitionClass && first.repetitionClass===second.repetitionClass);
+  }
+
   function recentUsePenalty(exercise, history, catalogue) {
     let exactPenalty = 0, patternPenalty = 0;
     for (let i=0;i<(history || []).length;i++) {
@@ -750,6 +757,9 @@
     if (exercise.impact==='high') score += position*1.5 - (1-position)*2;
     if (exercise.unilateral && position<.5) score -= 1;
     if (warmup.some(item=>item.id===exercise.id)) score -= 3;
+    // Discourage (but don't forbid) picking another exercise from the same broad repetition
+    // family/class as one already used in Warm-up or earlier in Ramp-up itself.
+    if (warmup.some(item=>sameRepetitionClass(item,exercise)) || selected.some(item=>sameRepetitionClass(item,exercise))) score -= 5;
     if (position>.65) {
       score += contextEquipmentScore(exercise,mainExercises,owned)*2;
       if (firstMain && exercise.bodyPosition===firstMain.bodyPosition) score += 2;
@@ -839,6 +849,12 @@
       for(let slot=0;slot<count;slot++) {
         const position=count===1?1:slot/(count-1);
         let candidates=eligible.filter(ex=>!selected.some(item=>item.id===ex.id));
+        // An exercise already used in Warm-up shouldn't normally repeat exactly in Ramp-up,
+        // but this stays a soft-mandatory filter: if it would leave no eligible candidate for
+        // this slot (a genuinely constrained catalogue), the exact duplicate remains available
+        // as a last resort rather than breaking generation.
+        const notWarmupDuplicate=candidates.filter(ex=>!warmup.some(item=>item.id===ex.id));
+        if (notWarmupDuplicate.length) candidates=notWarmupDuplicate;
         const scored=candidates.map(exercise=>({exercise,score:scoreRampupCandidate(exercise,position,selected,warmup,mainExercises,owned,focus)}));
         const picked=controlledPick(scored,random); if(!picked) break; selected.push(picked);
       }
@@ -958,7 +974,7 @@
     workout.estimatedSeconds=workout.warmup.estimatedSeconds+workout.rampup.estimatedSeconds+workout.main.estimatedDurationSeconds+workout.cooldown.estimatedSeconds;
   }
 
-  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, sameSelectionFamily, prescriptionMode, recentUsePenalty, preparationMetadataValid, validateCatalogue, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, selectBlockExercises, mainBlocks, normaliseWorkout, generate, swap, swapPreparation };
+  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, sameSelectionFamily, sameRepetitionClass, prescriptionMode, recentUsePenalty, preparationMetadataValid, validateCatalogue, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, selectBlockExercises, selectWarmup, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, generate, swap, swapPreparation };
 
   if (typeof window!=='undefined' && typeof document!=='undefined' && typeof window.addEventListener==='function') window.addEventListener('load',()=>{
     if (document.querySelector('script[data-garagefit-rampup-ui]')) return;
