@@ -162,6 +162,7 @@
   add('chair-triceps-dips', 'Triceps dips on a chair', { patterns:['push'], bodyPosition:'supported', prescription:{type:'timed',value:30}, estimatedSeconds:30, main:true });
   add('push-up-rotation', 'Push-ups with rotation', { patterns:['push','core'], movementPlanes:['sagittal','transverse'], bodyPosition:'floor', prescription:{type:'timed',value:30}, estimatedSeconds:30, main:true });
   add('floor-wipers', 'Floor wipers', { equipment:[['barbell']], patterns:['core'], movementPlanes:['transverse'], bodyPosition:'floor', prescription:{type:'reps',value:50}, estimatedSeconds:90, sidedness:'alternating', main:true });
+  add('wall-angel', 'Wall angel', { patterns:['pull'], bodyPosition:'standing', strength:1, cardio:1, prescription:{type:'timed',value:40}, estimatedSeconds:40, sidedness:'none', impact:'low', main:true, instructions:'Stand with your back against a wall, arms bent in a "W" position. Slide your arms slowly up toward a "Y" and back down under control, keeping your lower back from arching.' });
 
   const warmups = [
     ['knees-up','Knees up','dynamic',3,1,1,['sagittal'],'standing',true,['hips','knees']],['bum-kicks','Bum kicks','dynamic',3,1,1,['sagittal'],'standing',true,['hips','knees']],['open-close-gates','Open gates, close gates','basic',1,1,1,['frontal','transverse'],'standing',false,['hips']],['hand-opposite-toe','Hand to opposite toe','dynamic',2,1,2,['sagittal','transverse'],'standing',false,['hips']],
