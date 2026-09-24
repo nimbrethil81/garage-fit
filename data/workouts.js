@@ -62,6 +62,33 @@
         { id:'glute-bridge', name:'Glute bridge', durationSeconds:40 }
       ]
     },
+    postRunReset: {
+      id: 'postRunReset',
+      name: 'Post-Run Reset',
+      subtitle: 'Top-up + cooldown',
+      description: 'A short upper-body/core top-up followed by a brief downshift and a full post-run stretch sequence.',
+      completionMessage: 'Reset complete. Nice run.',
+      termination: { type:'fixed-sequence' },
+      transitionSeconds: 8,
+      exercises: [
+        { id:'push-up', name:'Press-ups', reps:12, transitionAfter:0 },
+        { id:'pike-push-up', name:'Pike press-ups', reps:8, transitionAfter:0 },
+        { id:'plank-shoulder-taps', name:'Plank shoulder taps', reps:12, transitionAfter:0 },
+        { id:'dead-bug', name:'Dead bug', durationSeconds:25 },
+        { id:'easy-recovery-walk', name:'Downshift - easy recovery', durationSeconds:45 },
+        { id:'runners-stretch', name:'Standing calf stretch - Left', durationSeconds:30, side:'left', transitionAfter:0 },
+        { id:'runners-stretch', name:'Standing calf stretch - Right', durationSeconds:30, side:'right' },
+        { id:'standing-quads', name:'Standing quad stretch - Left', durationSeconds:30, side:'left', transitionAfter:0 },
+        { id:'standing-quads', name:'Standing quad stretch - Right', durationSeconds:30, side:'right' },
+        { id:'hip-flexor-arm-stretch', name:'Hip-flexor lunge stretch - Left', durationSeconds:30, side:'left', transitionAfter:0 },
+        { id:'hip-flexor-arm-stretch', name:'Hip-flexor lunge stretch - Right', durationSeconds:30, side:'right' },
+        { id:'kneeling-hamstring', name:'Hamstring stretch - Left', durationSeconds:30, side:'left', transitionAfter:0 },
+        { id:'kneeling-hamstring', name:'Hamstring stretch - Right', durationSeconds:30, side:'right' },
+        { id:'glute-stretch', name:'Figure-four / glute stretch - Left', durationSeconds:30, side:'left', transitionAfter:0 },
+        { id:'glute-stretch', name:'Figure-four / glute stretch - Right', durationSeconds:30, side:'right' },
+        { id:'chest-opener', name:'Chest / shoulder opener', durationSeconds:35, transitionAfter:0 }
+      ]
+    },
     sevenMinute: [
       'jumping-jacks','wall-sit','push-up','abdominal-crunch','chair-step-ups','air-squat',
       'chair-triceps-dips','plank','high-knees','reverse-lunge','push-up-rotation','side-plank'

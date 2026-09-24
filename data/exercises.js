@@ -75,6 +75,7 @@
   add('pike-push-up', 'Pike push-up', { patterns:['push'], bodyPosition:'floor', strength:4, cardio:2, prescription:{type:'reps',value:8}, estimatedSeconds:25, generator:true, main:true });
   add('plank', 'Plank', prep({ patterns:['core'], bodyPosition:'floor', strength:3, cardio:1, prescription:{type:'timed',value:30}, estimatedSeconds:30, sidedness:'none', generator:true, main:true },2,2,1,{type:'timed',value:30,minValue:20,maxValue:40}));
   add('side-plank', 'Side plank', { patterns:['core'], movementPlanes:['frontal'], bodyPosition:'floor', strength:3, cardio:1, prescription:{type:'unilateral-timed',value:20}, estimatedSeconds:40, unilateral:true, generator:true, main:true });
+  add('plank-shoulder-taps', 'Plank shoulder taps', { patterns:['core','push'], movementPlanes:['sagittal','transverse'], bodyPosition:'floor', strength:2, cardio:2, prescription:{type:'reps',value:12}, estimatedSeconds:30, sidedness:'alternating' });
   add('abdominal-crunch', 'Abdominal crunch', { patterns:['core'], bodyPosition:'floor', strength:2, cardio:2, prescription:{type:'timed',value:30}, estimatedSeconds:30, generator:true, main:true });
   add('bicycle-crunch', 'Bicycle crunch', { patterns:['core','conditioning'], movementPlanes:['sagittal','transverse'], bodyPosition:'floor', strength:2, cardio:3, prescription:{type:'reps',value:20}, estimatedSeconds:30, sidedness:'alternating', generator:true, main:true });
   add('leg-raises', 'Leg raises', { patterns:['core'], bodyPosition:'floor', strength:3, cardio:1, prescription:{type:'reps',value:10}, estimatedSeconds:30, generator:true, main:true });
@@ -195,6 +196,7 @@
   add('trx-lunge-calf-chest', 'TRX lunge, calf and chest opener', { equipment:[['trx']], cooldown:true, unilateral:true, prescription:{type:'unilateral-timed',value:15}, estimatedSeconds:30 });
   add('trx-glute-standing', 'TRX glute standing', { alternativeGroup:'glute-stretch-family', equipment:[['trx']], cooldown:true, unilateral:true, prescription:{type:'unilateral-timed',value:15}, estimatedSeconds:30 });
   add('trx-side-stretch', 'TRX side stretch', { equipment:[['trx']], movementPlanes:['frontal'], cooldown:true, unilateral:true, prescription:{type:'unilateral-timed',value:15}, estimatedSeconds:30 });
+  add('easy-recovery-walk', 'Easy recovery walk', { bodyPosition:'standing', strength:1, cardio:2, prescription:{type:'timed',value:45}, estimatedSeconds:45, sidedness:'none', impact:'low' });
 
   // Protocol suitability belongs to the canonical exercise catalogue. Timed intervals
   // are opt-in because rep-based strength movements are not automatically safe or useful
