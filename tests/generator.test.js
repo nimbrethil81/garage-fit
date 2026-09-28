@@ -121,7 +121,7 @@ test('preparation swap preserves phase eligibility, duration and metadata',()=>{
 });
 
 test('cool-down alternatives replace legacy stretch and never appear together',()=>{
-  assert.equal(catalogue['lean-back-sink'],undefined);assert.equal(catalogue['childs-pose'].name,"Child's pose");const seen=new Set();for(const duration of [10,15,20,30,45])for(let seed=1;seed<=40;seed++){const workout=create({duration,equipment:['trx'],random:random(seed)});const groups=workout.cooldown.exercises.map(ex=>ex.alternativeGroup).filter(Boolean);assert.equal(new Set(groups).size,groups.length);workout.cooldown.exercises.forEach(ex=>seen.add(ex.id));}assert.ok(seen.has('childs-pose'));assert.ok(seen.has('trx-lean-back-sink'));
+  assert.equal(catalogue['lean-back-sink'],undefined);assert.equal(catalogue['childs-pose'].name,"Child's pose");const seen=new Set();for(const duration of [10,15,20,30,45])for(let seed=1;seed<=40;seed++){const workout=create({duration,equipment:['trx'],random:random(seed)});const groups=workout.cooldown.exercises.map(ex=>ex.family).filter(Boolean);assert.equal(new Set(groups).size,groups.length);workout.cooldown.exercises.forEach(ex=>seen.add(ex.id));}assert.ok(seen.has('childs-pose'));assert.ok(seen.has('trx-lean-back-sink'));
 });
 
 test('cool-down sequencing groups repeated equipment setups',()=>{

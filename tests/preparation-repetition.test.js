@@ -16,7 +16,8 @@ function syntheticRampExercise(id, options) {
   return Object.assign({
     id, name:id,
     equipment:[],
-    patterns:['conditioning'],
+    patterns:[],
+    conditioning:true,
     movementPlanes:['sagittal'],
     warmupAreas:[],
     bodyPosition:'standing',

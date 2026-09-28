@@ -11,6 +11,8 @@
     balanced:{exercise:15,round:45},
     cardio:{exercise:10,round:30}
   };
+  // Recipe slots name selection roles: a movement pattern, or the conditioning role
+  // (exercises with `conditioning: true`). See selectionTags().
   const RECIPES = {
     strength:['squat','hinge','push','pull','core','carry','lunge'],
     balanced:['squat','push','pull','hinge','conditioning','core','lunge'],
@@ -29,9 +31,11 @@
   const VALID_SIDEDNESS = new Set(['bilateral','alternating','per-side','none']);
   const MAJOR_REPEAT_PATTERNS = new Set(['squat','hinge','push','pull','lunge','carry']);
   const LOWER_JOINT_AREAS = new Set(['hips','knees','ankles']);
-  // Main patterns that load the hips/knees/ankles. Conditioning only signals lower-body
-  // demand for Cardio, where it is the backbone of higher-output leg-driven work.
+  // Main patterns that load the hips/knees/ankles. For Cardio, on-feet work with medium or
+  // high impact (running, jumping, bounding) also loads the legs; conditioning status alone
+  // never does (e.g. floor-based mountain climbers or knee tucks are core-led).
   const LOWER_DEMAND_PATTERNS = new Set(['squat','hinge','lunge']);
+  const LOWER_DEMAND_POSITIONS = new Set(['standing','mixed']);
   // Share of Main exercises above which lower-body demand is treated as substantial.
   const LOWER_DEMAND_THRESHOLD = { strength:.4, balanced:.5, cardio:.5 };
   const RECENT_EXACT_PENALTIES = [18,10,6,3];
@@ -64,15 +68,37 @@
     return PRESCRIPTION_MODE_BY_TYPE[type] || null;
   }
 
-  function sameSelectionFamily(first, second) {
-    return !!(first && second && first.selectionFamily && first.selectionFamily===second.selectionFamily);
+  // ---- Relationship metadata and the phase policies built on it ----
+  // `family`: direct or near-direct variants of substantially the same exercise.
+  // `repetitionClass`: different exercises that feel repetitive when programmed close together.
+  // The metadata only describes relationships; each phase decides what they mean (below).
+
+  function sameFamily(first, second) {
+    return !!(first && second && first.family && first.family===second.family);
   }
 
-  // A broad repetition family/class (e.g. basic no-equipment conditioning bounces) that's
-  // independent of `selectionFamily`, which drives Main-only cross-block frequency capping.
-  // This is scoped to Warm-up/Ramp-up phase repetition and never touches Main selection.
   function sameRepetitionClass(first, second) {
     return !!(first && second && first.repetitionClass && first.repetitionClass===second.repetitionClass);
+  }
+
+  // The same exercise, or a direct variant of it.
+  function sameExerciseOrFamily(first, second) {
+    return !!(first && second && (first.id===second.id || sameFamily(first,second)));
+  }
+
+  // Main policy: an "occasional" family (e.g. farmer carry across dumbbell/kettlebell
+  // variants) is capped at one exposure across the whole Main phase. Shared by initial
+  // generation and swaps so a swap cannot introduce what generation would have refused.
+  function mainFamilyCapReached(exercise, mainExercises) {
+    return !!(exercise && exercise.frequency==='occasional' && exercise.family && (mainExercises || []).some(item => sameFamily(item,exercise)));
+  }
+
+  // Preparation policy (Warm-up, Ramp-up and their swaps): repeating an exercise or a direct
+  // variant of it counts as a duplicate. Applied as a soft-mandatory filter so a constrained
+  // catalogue still produces a phase.
+  function preferNonDuplicates(candidates, used) {
+    const fresh = candidates.filter(exercise => !(used || []).some(item => sameExerciseOrFamily(item,exercise)));
+    return fresh.length ? fresh : candidates;
   }
 
   function recentUsePenalty(exercise, history, catalogue) {
@@ -86,8 +112,8 @@
         const previous = catalogue && catalogue[id];
         return previous && sharedPatterns(exercise,previous).some(pattern => MAJOR_REPEAT_PATTERNS.has(pattern));
       });
-      const sharesSelectionFamily = ids.some(id => sameSelectionFamily(exercise, catalogue && catalogue[id]));
-      if (sharesMajorPattern || sharesSelectionFamily) patternPenalty = Math.max(patternPenalty,family);
+      const sharesFamily = ids.some(id => sameFamily(exercise, catalogue && catalogue[id]));
+      if (sharesMajorPattern || sharesFamily) patternPenalty = Math.max(patternPenalty,family);
     }
     return exactPenalty + patternPenalty;
   }
@@ -112,9 +138,18 @@
     return [...groups.values()].flat();
   }
 
+  // Selection roles used for recipe slots and similarity: the movement `patterns` plus the
+  // categorical conditioning role. Kept together so separating `conditioning` from
+  // `patterns` in the catalogue does not change how similarity between exercises is judged.
+  function selectionTags(exercise) {
+    const patterns = (exercise && exercise.patterns) || [];
+    return exercise && exercise.conditioning ? patterns.concat('conditioning') : patterns;
+  }
+
   function sharedPatterns(first, second) {
     if (!first || !second) return [];
-    return (first.patterns || []).filter(pattern => (second.patterns || []).includes(pattern));
+    const other = selectionTags(second);
+    return selectionTags(first).filter(pattern => other.includes(pattern));
   }
 
   function repeatedMajorPatternCount(exercise, selected) {
@@ -143,7 +178,8 @@
   function lowerBodyDemand(mainExercises, focus) {
     const list = mainExercises || [];
     if (!list.length) return 0;
-    const lower = list.filter(exercise=>(exercise.patterns||[]).some(pattern=>LOWER_DEMAND_PATTERNS.has(pattern) || (focus==='cardio' && pattern==='conditioning'))).length;
+    const lower = list.filter(exercise=>(exercise.patterns||[]).some(pattern=>LOWER_DEMAND_PATTERNS.has(pattern)) ||
+      (focus==='cardio' && LOWER_DEMAND_POSITIONS.has(exercise.bodyPosition) && (exercise.impact==='medium' || exercise.impact==='high'))).length;
     return lower/list.length;
   }
 
@@ -166,11 +202,14 @@
   function scoreCandidate(exercise, desiredPattern, selected, focus, history, catalogue) {
     let score = 0;
     const previous = selected[selected.length-1];
-    const selectedPatterns = selected.flatMap(item => item.patterns || []);
-    const overlaps = (exercise.patterns || []).filter(pattern => selectedPatterns.includes(pattern)).length;
+    const tags = selectionTags(exercise);
+    const selectedPatterns = selected.flatMap(selectionTags);
+    const overlaps = tags.filter(pattern => selectedPatterns.includes(pattern)).length;
     const majorRepeats = repeatedMajorPatternCount(exercise,selected);
-    if ((exercise.patterns || []).includes(desiredPattern)) score += 8;
-    else if ((exercise.patterns || []).some(pattern => RECIPES[focus].includes(pattern))) score += 2;
+    // Recipe-slot fit is categorical (does the exercise fill this role?); the focus weighting
+    // below adds the degree of strength/cardio demand. Both are intended.
+    if (tags.includes(desiredPattern)) score += 8;
+    else if (tags.some(pattern => RECIPES[focus].includes(pattern))) score += 2;
     if (focus==='strength') score += exercise.strength * 1.7 + exercise.cardio * .15;
     else if (focus==='cardio') score += exercise.cardio * 1.7 + exercise.strength * .2;
     else score += exercise.strength * .85 + exercise.cardio * .85;
@@ -208,14 +247,14 @@
     const recipe = RECIPES[focus];
     for (let slot=0;slot<count;slot++) {
       const desired = recipe[slot % recipe.length];
-      let candidates = eligible.filter(exercise => !selected.some(item => item.id===exercise.id || (item.frequency==='occasional' && sameSelectionFamily(item,exercise))));
+      let candidates = eligible.filter(exercise => !selected.some(item => item.id===exercise.id) && !mainFamilyCapReached(exercise,selected));
       const previous = selected[selected.length-1];
       const neighbours = [previous, slot===count-1 ? selected[0] : null];
       const varied = candidates.filter(exercise => neighbours.every(item => !sharedPatterns(item,exercise).length));
       if (varied.length) candidates = varied;
       const noMajorRepeats = candidates.filter(exercise => repeatedMajorPatternCount(exercise,selected)===0);
       if (noMajorRepeats.length) candidates = noMajorRepeats;
-      const patternMatches = candidates.filter(exercise => exercise.patterns.includes(desired));
+      const patternMatches = candidates.filter(exercise => selectionTags(exercise).includes(desired));
       const variedPatternMatches = patternMatches.filter(exercise => !sharedPatterns(previous,exercise).length);
       const preferredMatches = variedPatternMatches.length ? variedPatternMatches : (!previous ? patternMatches : []);
       if (preferredMatches.length) {
@@ -346,7 +385,10 @@
 
   function scoreIntent(exercise, intent) {
     if(intent==='strength')return exercise.strength*2-exercise.cardio*.15;
-    if(intent==='conditioning'||intent==='finisher')return exercise.cardio*2+((exercise.patterns||[]).includes('conditioning')?4:0)-exercise.strength*.1;
+    // `cardio` grades cardiovascular demand; `conditioning` marks categorical suitability for a
+    // conditioning role (e.g. a heavy farmer carry has cardio 3 but is not conditioning work).
+    // They are deliberately separate contributions, not a double count.
+    if(intent==='conditioning'||intent==='finisher')return exercise.cardio*2+(exercise.conditioning?4:0)-exercise.strength*.1;
     return exercise.strength+exercise.cardio*.45+((exercise.patterns||[]).includes('core')?2:0);
   }
 
@@ -354,12 +396,8 @@
     const selected=[], recipe=RECIPES[focus]||RECIPES.balanced;
     for(let slot=0;slot<count;slot++){
       const desired=recipe[(state.exercises.length+slot)%recipe.length];
-      let candidates=eligible.filter(ex=>protocolCompatible(ex,protocol)&&!selected.some(item=>item.id===ex.id));
-      // An "occasional" selection family (e.g. farmer carry, across dumbbell/kettlebell variants)
-      // is capped at one exposure across the whole Main phase, not just within a block.
-      candidates=candidates.filter(ex=>!(ex.frequency==='occasional'&&ex.selectionFamily&&(
-        (state.usedFamilies&&state.usedFamilies.has(ex.selectionFamily)) || selected.some(item=>sameSelectionFamily(item,ex))
-      )));
+      const mainSoFar=state.exercises.concat(selected);
+      let candidates=eligible.filter(ex=>protocolCompatible(ex,protocol)&&!selected.some(item=>item.id===ex.id)&&!mainFamilyCapReached(ex,mainSoFar));
       if(!candidates.length)break;
       const previous=selected[selected.length-1]||state.exercises[state.exercises.length-1];
       const allSelected=state.exercises.concat(selected);
@@ -564,8 +602,8 @@
     const issues=[];
     const familyCounts=new Map();
     for(const block of blocks)for(const exercise of block.exercises||[]){
-      if(exercise.frequency==='occasional'&&exercise.selectionFamily)
-        familyCounts.set(exercise.selectionFamily,(familyCounts.get(exercise.selectionFamily)||0)+1);
+      if(exercise.frequency==='occasional'&&exercise.family)
+        familyCounts.set(exercise.family,(familyCounts.get(exercise.family)||0)+1);
     }
     for(const [family,count] of familyCounts)if(count>1)issues.push('main:family-cap:'+family);
 
@@ -577,7 +615,7 @@
       // as two work exposures; distinctness is therefore measured by exercise id, not by
       // playback step count, so per-side work cannot masquerade as extra block variety.
       const distinctFamilies=new Set(block.exercises.map(exercise=>exercise.id)).size;
-      const distinctPatterns=new Set(block.exercises.flatMap(exercise=>exercise.patterns||[])).size;
+      const distinctPatterns=new Set(block.exercises.flatMap(selectionTags)).size;
       if(distinctFamilies<3||distinctPatterns<2)issues.push(block.id+':insufficient-round-variety');
     }
 
@@ -622,7 +660,7 @@
     const viableCount=viableEquipmentTypes(eligible).size;
     for(let attempt=0;attempt<10;attempt++){
       const count=chooseBlockCount(duration,eligible.length,random),intents=chooseIntents(focus,count,random);
-      const state={exercises:[],usedIds:new Set(),usedFamilies:new Set(),equipmentUsage:new Map(),blocks:[],owned,diversityTarget};
+      const state={exercises:[],usedIds:new Set(),equipmentUsage:new Map(),blocks:[],owned,diversityTarget};
       let remaining=budget.main;
       for(let index=0;index<count;index++){
         const blocksLeft=count-index;
@@ -640,7 +678,6 @@
         const repeats=blockRepeatCount(block);
         block.exercises.forEach(ex=>{
           state.usedIds.add(ex.id);
-          if(ex.frequency==='occasional'&&ex.selectionFamily)state.usedFamilies.add(ex.selectionFamily);
           const type=primaryEquipment(ex);
           if(type!=='bodyweight')state.equipmentUsage.set(type,(state.equipmentUsage.get(type)||0)+ex.estimatedSeconds*repeats);
         });
@@ -692,7 +729,8 @@
       const exercise = fitting[index];
       picked.push(exercise);
       total += exercise.estimatedSeconds + (picked.length>1?restSeconds:0);
-      candidates = candidates.filter(item => item.id!==exercise.id && (!exercise.alternativeGroup || item.alternativeGroup!==exercise.alternativeGroup));
+      // Cool-down policy: a family's alternatives (e.g. a stretch and its TRX version) never co-occur.
+      candidates = candidates.filter(item => !sameExerciseOrFamily(item,exercise));
     }
     if (kind==='cooldown') picked.splice(0,picked.length,...groupSectionBySetup(picked,owned));
     return { exercises:picked, restSeconds, estimatedSeconds:total };
@@ -705,38 +743,175 @@
       exercise.movementPlanes.every(plane=>VALID_MOVEMENT_PLANES.has(plane)) && Array.isArray(exercise.warmupAreas || []);
   }
 
-  function validateCatalogue(catalogue) {
+  // Canonical metadata vocabularies. Catalogue validation rejects anything outside these,
+  // so a typo cannot silently change generator behaviour.
+  const VALID_PATTERNS = new Set(['squat','hinge','lunge','push','pull','carry','core']);
+  const VALID_WARMUP_AREAS = new Set(['hips','knees','ankles','shoulders','trunk']);
+  const VALID_LOADS = new Set(['Light','Medium','Heavy']);
+  const VALID_FREQUENCIES = new Set(['occasional']);
+  const PRESCRIPTION_TYPES = new Set(Object.keys(PRESCRIPTION_MODE_BY_TYPE));
+  const RELATIONSHIP_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+  const PHASE_FLAGS = ['generator','main','warmup','rampup','cooldown'];
+  const RETIRED_FIELDS = ['alternativeGroup','selectionFamily'];
+
+  function canonicalEquipmentIds(options) {
+    const list = (options && options.equipment) || (root.GarageFitData && root.GarageFitData.equipment);
+    return Array.isArray(list) ? new Set(list.map(item => typeof item==='string' ? item : item && item.id)) : null;
+  }
+
+  // Number of separately performed sides for a prescription: per-side work is performed
+  // once for each side; bilateral, alternating and side-less work is performed once.
+  function sideCount(exercise) {
+    return exercise && exercise.sidedness==='per-side' ? ((exercise.sideOrder && exercise.sideOrder.length) || 2) : 1;
+  }
+
+  function isScale(value) {
+    return Number.isInteger(value) && value>=1 && value<=5;
+  }
+
+  function prescriptionErrors(label, p, exercise, estimatedSeconds, options) {
+    options = options || {};
     const errors = [];
-    for (const exercise of Object.values(catalogue)) {
-      if (!VALID_SIDEDNESS.has(exercise.sidedness)) errors.push(exercise.id+': invalid sidedness');
-      if (exercise.mainRole!=null&&!MAIN_ROLES.has(exercise.mainRole)) errors.push(exercise.id+': invalid main role');
+    if (!p || typeof p!=='object') return [label+' missing'];
+    if (!PRESCRIPTION_TYPES.has(p.type)) return [label+' has invalid type '+JSON.stringify(p.type)];
+    if (!Number.isFinite(p.value) || p.value<=0) errors.push(label+' has invalid value');
+    for (const bound of ['minValue','maxValue']) if (p[bound]!==undefined && (!Number.isFinite(p[bound]) || p[bound]<=0)) errors.push(label+' has invalid '+bound);
+    if (Number.isFinite(p.minValue) && Number.isFinite(p.value) && p.minValue>p.value) errors.push(label+' minValue exceeds value');
+    if (Number.isFinite(p.maxValue) && Number.isFinite(p.value) && p.maxValue<p.value) errors.push(label+' maxValue is below value');
+    if (options.timedOnly && prescriptionMode(p.type)!=='time') errors.push(label+' must be timed');
+    // Per-side prescriptions are always expressed per side ("each side"); every other
+    // sidedness states the whole exercise, so its prescription must not claim to be per side.
+    if ((exercise.sidedness==='per-side') !== p.type.startsWith('unilateral')) errors.push(label+' does not match sidedness '+exercise.sidedness);
+    if (estimatedSeconds!==undefined) {
+      if (!Number.isFinite(estimatedSeconds) || estimatedSeconds<=0) errors.push(label+' has invalid estimated seconds');
+      else if (prescriptionMode(p.type)==='time' && Number.isFinite(p.value) && estimatedSeconds!==p.value*sideCount(exercise)) errors.push(label+' estimated seconds do not budget every side');
+    }
+    return errors;
+  }
+
+  // Structural validation of the exercise catalogue. Accepts the keyed catalogue object or
+  // an array of exercise definitions (so duplicate IDs can be detected before keying).
+  function validateCatalogue(catalogue, options) {
+    const errors = [];
+    const entries = Array.isArray(catalogue) ? catalogue.map(exercise => [exercise && exercise.id, exercise]) : Object.entries(catalogue || {});
+    const seen = new Set();
+    const equipmentIds = canonicalEquipmentIds(options);
+    for (const [key, exercise] of entries) {
+      if (!exercise || typeof exercise!=='object') { errors.push(String(key)+': invalid exercise entry'); continue; }
+      const id = exercise.id;
+      if (typeof id!=='string' || !RELATIONSHIP_ID.test(id)) { errors.push(String(key)+': missing or malformed id'); continue; }
+      if (seen.has(id)) errors.push(id+': duplicate id');
+      seen.add(id);
+      if (!Array.isArray(catalogue) && key!==id) errors.push(id+': catalogue key '+JSON.stringify(key)+' does not match id');
+      if (typeof exercise.name!=='string' || !exercise.name.trim()) errors.push(id+': missing name');
+
+      if (!Array.isArray(exercise.equipment)) errors.push(id+': equipment must be an array of alternative groups');
+      else for (const group of exercise.equipment) {
+        if (!Array.isArray(group) || !group.length) { errors.push(id+': empty or malformed equipment group'); continue; }
+        for (const item of group) if (typeof item!=='string' || (equipmentIds && !equipmentIds.has(item))) errors.push(id+': unknown equipment '+JSON.stringify(item));
+      }
+
+      if (!Array.isArray(exercise.patterns)) errors.push(id+': patterns must be an array');
+      else {
+        for (const pattern of exercise.patterns) if (!VALID_PATTERNS.has(pattern)) errors.push(id+': invalid pattern '+JSON.stringify(pattern));
+        if (new Set(exercise.patterns).size!==exercise.patterns.length) errors.push(id+': duplicate pattern');
+      }
+      if (exercise.conditioning!==undefined && typeof exercise.conditioning!=='boolean') errors.push(id+': conditioning must be boolean');
+      if (!isScale(exercise.strength)) errors.push(id+': strength must be an integer from 1 to 5');
+      if (!isScale(exercise.cardio)) errors.push(id+': cardio must be an integer from 1 to 5');
+      if (!VALID_IMPACT_LEVELS.has(exercise.impact)) errors.push(id+': invalid impact '+JSON.stringify(exercise.impact));
+      if (exercise.load!=null && !VALID_LOADS.has(exercise.load)) errors.push(id+': invalid load '+JSON.stringify(exercise.load));
+      if (!VALID_BODY_POSITIONS.has(exercise.bodyPosition)) errors.push(id+': invalid body position');
+      if (!Array.isArray(exercise.movementPlanes) || !exercise.movementPlanes.length || !exercise.movementPlanes.every(plane=>VALID_MOVEMENT_PLANES.has(plane))) errors.push(id+': invalid movement planes');
+
+      if (!VALID_SIDEDNESS.has(exercise.sidedness)) errors.push(id+': invalid sidedness');
+      if (exercise.unilateral!==undefined && exercise.unilateral!==(exercise.sidedness==='per-side')) errors.push(id+': unilateral flag does not match sidedness');
+      if (exercise.mainRole!=null&&!MAIN_ROLES.has(exercise.mainRole)) errors.push(id+': invalid main role');
       for (const cue of exercise.timedCues || []) {
-        const at=cue&&cue.at,validText=typeof cue.text==='string'&&cue.text.trim().length>0;
+        const at=cue&&cue.at,validText=cue&&typeof cue.text==='string'&&cue.text.trim().length>0;
         const validFraction=at&&at.type==='fraction'&&Number.isFinite(at.value)&&at.value>0&&at.value<1;
         const validSeconds=at&&at.type==='seconds'&&Number.isFinite(at.value)&&at.value>0;
-        if(!validText||(!validFraction&&!validSeconds))errors.push(exercise.id+': invalid timed cue');
+        if(!validText||(!validFraction&&!validSeconds))errors.push(id+': invalid timed cue');
       }
-      const prescriptionIsPerSide = !!(exercise.prescription && exercise.prescription.type && exercise.prescription.type.includes('unilateral'));
-      if ((exercise.sidedness==='per-side') !== prescriptionIsPerSide) errors.push(exercise.id+': sidedness does not match prescription type');
-      if (exercise.warmup && !VALID_IMPACT_LEVELS.has(exercise.impact)) errors.push(exercise.id+': warm-up exercise missing a recognised impact classification');
-      if (Array.isArray(exercise.prescriptionModes) && exercise.prescriptionModes.length) {
-        const mode = prescriptionMode(exercise.prescription && exercise.prescription.type);
-        if (!mode || !exercise.prescriptionModes.includes(mode)) errors.push(exercise.id+': prescription mode not permitted');
+
+      // Phase flags.
+      for (const flag of PHASE_FLAGS) if (exercise[flag]!==undefined && typeof exercise[flag]!=='boolean') errors.push(id+': '+flag+' must be boolean');
+      if (exercise.generator && !exercise.main) errors.push(id+': generator exercises must be Main exercises');
+      if (exercise.cooldown && (exercise.main || exercise.warmup || exercise.rampup)) errors.push(id+': cool-down exercises cannot also be work or preparation exercises');
+
+      // Base (Main / fixed) prescription.
+      if (VALID_SIDEDNESS.has(exercise.sidedness)) {
+        prescriptionErrors('prescription', exercise.prescription, exercise, exercise.estimatedSeconds).forEach(error=>errors.push(id+': '+error));
+        if (Array.isArray(exercise.prescriptionModes) && exercise.prescriptionModes.length) {
+          const mode = prescriptionMode(exercise.prescription && exercise.prescription.type);
+          if (!mode || !exercise.prescriptionModes.includes(mode)) errors.push(id+': prescription mode not permitted');
+        }
       }
-      if ((exercise.warmup || exercise.rampup) && !preparationMetadataValid(exercise)) errors.push(exercise.id+': invalid preparation metadata');
+
+      // Main protocols.
+      if (exercise.mainProtocols!=null) {
+        if (!exercise.main) errors.push(id+': mainProtocols set on a non-Main exercise');
+        if (!Array.isArray(exercise.mainProtocols) || !exercise.mainProtocols.length) errors.push(id+': mainProtocols must be a non-empty array');
+        else {
+          for (const protocol of exercise.mainProtocols) if (!MAIN_PROTOCOLS.has(protocol)) errors.push(id+': invalid main protocol '+JSON.stringify(protocol));
+          // Timed intervals play one fixed work period per exercise; per-side work would need two.
+          if (exercise.sidedness==='per-side' && exercise.mainProtocols.includes('timed_intervals')) errors.push(id+': per-side exercises cannot use timed intervals');
+        }
+      }
+
+      // Preparation metadata.
+      for (const field of ['prepIntensity','prepFatigue','prepComplexity']) {
+        if (exercise[field]!=null && !isScale(exercise[field])) errors.push(id+': '+field+' must be an integer from 1 to 5');
+      }
+      if (exercise.warmupAreas!==undefined && (!Array.isArray(exercise.warmupAreas) || !exercise.warmupAreas.every(area=>VALID_WARMUP_AREAS.has(area)))) errors.push(id+': invalid warm-up areas');
+      if (exercise.warmupPhase!=null && !Object.prototype.hasOwnProperty.call(WARMUP_PHASE_ORDER,exercise.warmupPhase)) errors.push(id+': invalid warm-up phase '+JSON.stringify(exercise.warmupPhase));
+      if ((exercise.warmup || exercise.rampup) && !preparationMetadataValid(exercise)) errors.push(id+': invalid preparation metadata');
+      if (exercise.warmup) {
+        if (exercise.warmupPhase==null) errors.push(id+': warm-up exercise missing warm-up phase');
+        if (exercise.warmupPrescription!=null) prescriptionErrors('warm-up prescription', exercise.warmupPrescription, exercise, exercise.warmupEstimatedSeconds==null?undefined:exercise.warmupEstimatedSeconds, {timedOnly:true}).forEach(error=>errors.push(id+': '+error));
+      } else {
+        if (exercise.warmupPhase!=null || exercise.warmupPrescription!=null) errors.push(id+': warm-up metadata set on a non-warm-up exercise');
+      }
       if (exercise.rampup) {
         const p = exercise.rampupPrescription;
-        if (!p || !p.type || !Number.isFinite(p.value) || !Number.isFinite(exercise.rampupEstimatedSeconds)) errors.push(exercise.id+': invalid ramp-up prescription');
+        if (!p || !p.type || !Number.isFinite(p.value) || !Number.isFinite(exercise.rampupEstimatedSeconds)) errors.push(id+': invalid ramp-up prescription');
+        else prescriptionErrors('ramp-up prescription', p, exercise, exercise.rampupEstimatedSeconds, {timedOnly:true}).forEach(error=>errors.push(id+': '+error));
+      } else if (exercise.rampupPrescription!=null) errors.push(id+': ramp-up prescription set on a non-ramp-up exercise');
+
+      // Relationship metadata.
+      for (const field of ['family','repetitionClass']) {
+        if (exercise[field]!=null && (typeof exercise[field]!=='string' || !RELATIONSHIP_ID.test(exercise[field]))) errors.push(id+': invalid '+field+' '+JSON.stringify(exercise[field]));
+      }
+      for (const field of RETIRED_FIELDS) if (exercise[field]!==undefined) errors.push(id+': '+field+' is retired; use family or repetitionClass');
+      if (exercise.frequency!=null) {
+        if (!VALID_FREQUENCIES.has(exercise.frequency)) errors.push(id+': invalid frequency '+JSON.stringify(exercise.frequency));
+        else if (!exercise.family) errors.push(id+': frequency requires a family');
       }
     }
     return errors;
   }
 
+  // Throws with every problem listed, so authoring mistakes fail loudly.
+  function assertValidCatalogue(catalogue, options) {
+    const errors = validateCatalogue(catalogue, options);
+    if (errors.length) throw new Error('Invalid exercise catalogue: '+errors.join(', '));
+    return catalogue;
+  }
+
+  // `seconds` is the phase prescription value: the whole interval for bilateral, alternating
+  // and side-less work, or the time for each side of per-side work. The estimate budgets
+  // every side, matching the separate-side playback of per-side exercises.
   function phaseExercise(exercise, kind, seconds) {
     const source = kind==='rampup' ? exercise.rampupPrescription : exercise.warmupPrescription || exercise.prescription;
     const prescription = Object.assign({}, source || exercise.prescription);
-    if (prescription.type && prescription.type.includes('timed') && Number.isFinite(seconds)) prescription.value = seconds;
-    return Object.assign({}, exercise, { prescription, estimatedSeconds:Number.isFinite(seconds)?seconds:(kind==='rampup'?exercise.rampupEstimatedSeconds:exercise.warmupEstimatedSeconds)||exercise.estimatedSeconds });
+    const timed = prescriptionMode(prescription.type)==='time';
+    if (timed && Number.isFinite(seconds)) prescription.value = seconds;
+    const fallback = (kind==='rampup'?exercise.rampupEstimatedSeconds:exercise.warmupEstimatedSeconds)||exercise.estimatedSeconds;
+    return Object.assign({}, exercise, { prescription, estimatedSeconds:timed&&Number.isFinite(seconds)?seconds*sideCount(exercise):fallback });
+  }
+
+  function roundToFive(value) {
+    return Math.max(5,Math.round(value/5)*5);
   }
 
   function contextSpecificity(exercise, mainExercises) {
@@ -757,8 +932,8 @@
     const previous = selected[selected.length-1];
     context = context || {};
     let score = 12 - exercise.prepIntensity*1.5 - exercise.prepFatigue*2 - exercise.prepComplexity*1.5;
-    const mainPatterns = new Set((mainExercises || []).slice(0,3).flatMap(item=>item.patterns||[]));
-    if ((exercise.patterns||[]).some(pattern=>mainPatterns.has(pattern))) score += 1.5;
+    const mainPatterns = new Set((mainExercises || []).slice(0,3).flatMap(selectionTags));
+    if (selectionTags(exercise).some(pattern=>mainPatterns.has(pattern))) score += 1.5;
     const lowerCoverage=lowerJointCoverage(exercise).length;
     const lowerSelected=selected.filter(meaningfulLowerPrep).length;
     const lowerTarget=context.lowerTarget||1;
@@ -782,7 +957,9 @@
     let score = 14 - Math.abs(exercise.prepIntensity-targetIntensity)*3 - exercise.prepFatigue*1.8 - Math.max(0,exercise.prepComplexity-2)*1.5;
     const specificity = contextSpecificity(exercise,mainExercises);
     score += specificity * (2 + 5*position);
-    if ((exercise.patterns||[]).includes('conditioning')) score += (1-position)*2 + (focus==='cardio'?2:focus==='strength'?-0.5:0.5);
+    // Conditioning prep suits the early, pulse-raising end of Ramp-up (categorical); the
+    // Cardio-focus `cardio` term below grades how much it raises the pulse.
+    if (exercise.conditioning) score += (1-position)*2 + (focus==='cardio'?2:focus==='strength'?-0.5:0.5);
     if (focus==='strength' && exercise.impact==='high') score -= 1.5;
     if (focus==='strength') score += specificity*1.2;
     if (focus==='cardio') score += exercise.cardio*.35;
@@ -796,7 +973,7 @@
     }
     if (exercise.impact==='high') score += position*1.5 - (1-position)*2;
     if (exercise.unilateral && position<.5) score -= 1;
-    if (warmup.some(item=>item.id===exercise.id)) score -= 3;
+    if (warmup.some(item=>sameExerciseOrFamily(item,exercise))) score -= 3;
     // Discourage (but don't forbid) picking another exercise from the same broad repetition
     // family/class as one already used in Warm-up or earlier in Ramp-up itself.
     if (warmup.some(item=>sameRepetitionClass(item,exercise)) || selected.some(item=>sameRepetitionClass(item,exercise))) score -= 5;
@@ -819,12 +996,17 @@
     if (!exercises.length) return {exercises:[],estimatedSeconds:0};
     const available = Math.max(0,targetSeconds - restSeconds*Math.max(0,exercises.length-1));
     const defaults = exercises.map(ex=>kind==='rampup'?ex.rampupPrescription:ex.warmupPrescription||ex.prescription);
-    const mins = defaults.map(p=>Number.isFinite(p.minValue)?p.minValue:Math.min(p.value,kind==='rampup'?20:15));
-    const maxs = defaults.map(p=>Number.isFinite(p.maxValue)?p.maxValue:Math.max(p.value,kind==='rampup'?45:30));
+    // Values and bounds are prescription values (per side for per-side work); every side
+    // costs time, so budgeting multiplies by the number of sides. Default bounds describe a
+    // whole exercise and are shared between the sides of per-side work.
+    const sides = exercises.map(sideCount);
+    const mins = defaults.map((p,i)=>Number.isFinite(p.minValue)?p.minValue:Math.min(p.value,roundToFive((kind==='rampup'?20:15)/sides[i])));
+    const maxs = defaults.map((p,i)=>Number.isFinite(p.maxValue)?p.maxValue:Math.max(p.value,roundToFive((kind==='rampup'?45:30)/sides[i])));
     const desired = defaults.map(p=>p.value);
+    const cost = list => list.reduce((sum,value,i)=>sum+value*sides[i],0);
     let values = desired.slice();
-    let current = values.reduce((a,b)=>a+b,0);
-    const target = Math.min(maxs.reduce((a,b)=>a+b,0),Math.max(mins.reduce((a,b)=>a+b,0),available));
+    let current = cost(values);
+    const target = Math.min(cost(maxs),Math.max(cost(mins),available));
     let delta = target-current;
     let guard = 0;
     while (Math.abs(delta)>=1 && guard++<500) {
@@ -832,7 +1014,7 @@
       for (let i=0;i<values.length && Math.abs(delta)>=1;i++) {
         const step = delta>0 ? 5 : -5;
         const candidate = values[i]+step;
-        if (candidate>=mins[i] && candidate<=maxs[i]) { values[i]=candidate; delta-=step; changed=true; }
+        if (candidate>=mins[i] && candidate<=maxs[i]) { values[i]=candidate; delta-=step*sides[i]; changed=true; }
       }
       if (!changed) break;
     }
@@ -866,7 +1048,7 @@
       }
       const scored=slotCandidates.map(exercise=>({exercise,score:scoreWarmupCandidate(exercise,selected,mainExercises,owned,context)}));
       const picked=controlledPick(scored,random); if(!picked) break;
-      selected.push(picked); candidates=candidates.filter(ex=>ex.id!==picked.id && (!picked.alternativeGroup || ex.alternativeGroup!==picked.alternativeGroup));
+      selected.push(picked); candidates=candidates.filter(ex=>!sameExerciseOrFamily(ex,picked));
     }
     selected.sort((a,b)=>{
       const intensity=a.prepIntensity-b.prepIntensity;
@@ -900,12 +1082,11 @@
       for(let slot=0;slot<count;slot++) {
         const position=count===1?1:slot/(count-1);
         let candidates=eligible.filter(ex=>!selected.some(item=>item.id===ex.id));
-        // An exercise already used in Warm-up shouldn't normally repeat exactly in Ramp-up,
-        // but this stays a soft-mandatory filter: if it would leave no eligible candidate for
-        // this slot (a genuinely constrained catalogue), the exact duplicate remains available
-        // as a last resort rather than breaking generation.
-        const notWarmupDuplicate=candidates.filter(ex=>!warmup.some(item=>item.id===ex.id));
-        if (notWarmupDuplicate.length) candidates=notWarmupDuplicate;
+        // An exercise (or a direct variant of one) already used earlier in Ramp-up or in Warm-up
+        // shouldn't normally repeat, but this stays soft-mandatory: in a genuinely constrained
+        // catalogue the duplicate remains available as a last resort rather than breaking generation.
+        candidates=preferNonDuplicates(candidates,selected);
+        candidates=preferNonDuplicates(candidates,warmup);
         const scored=candidates.map(exercise=>({exercise,score:scoreRampupCandidate(exercise,position,selected,warmup,mainExercises,owned,focus)}));
         const picked=controlledPick(scored,random); if(!picked) break; selected.push(picked);
       }
@@ -946,7 +1127,7 @@
     const focus=String(options.focus||'balanced').toLowerCase();
     const owned=options.equipment||[],history=options.history||[],random=options.random||Math.random;
     const budget=BUDGETS[duration]||BUDGETS[20],rest=RESTS[focus]||RESTS.balanced;
-    const errors=validateCatalogue(catalogue);if(errors.length)throw new Error('Invalid exercise catalogue: '+errors.join(', '));
+    assertValidCatalogue(catalogue);
     const eligible=Object.values(catalogue).filter(exercise=>exercise.generator&&exercise.main&&requirementsMet(exercise,owned));
     if(!eligible.length)throw new Error('No eligible exercises available.');
     const main=composeMain(catalogue,eligible,budget,duration,focus,owned,history,rest,random);
@@ -976,12 +1157,12 @@
     if(!block||!current)return workout;
     const otherExercises=blocks.flatMap((item,bIndex)=>item.exercises.filter((_,eIndex)=>bIndex!==(blockIndex||0)||eIndex!==exerciseIndex));
     const otherIds=new Set(otherExercises.map(exercise=>exercise.id));
-    let eligible=Object.values(catalogue).filter(exercise=>exercise.generator&&exercise.main&&requirementsMet(exercise,owned)&&protocolCompatible(exercise,block.protocol)&&exercise.id!==current.id);
+    let eligible=Object.values(catalogue).filter(exercise=>exercise.generator&&exercise.main&&requirementsMet(exercise,owned)&&protocolCompatible(exercise,block.protocol)&&exercise.id!==current.id&&!mainFamilyCapReached(exercise,otherExercises));
     const fresh=eligible.filter(exercise=>!otherIds.has(exercise.id));if(fresh.length)eligible=fresh;
     const before=exerciseIndex>0?block.exercises[exerciseIndex-1]:(blocks[(blockIndex||0)-1]||{exercises:[]}).exercises.at(-1);
     const after=exerciseIndex<block.exercises.length-1?block.exercises[exerciseIndex+1]:(blocks[(blockIndex||0)+1]||{exercises:[]}).exercises[0];
     const scored=eligible.map(exercise=>{
-      let score=(exercise.patterns||[]).filter(pattern=>(current.patterns||[]).includes(pattern)).length*8;
+      let score=sharedPatterns(exercise,current).length*8;
       score-=Math.abs(exercise.strength-current.strength)*1.5+Math.abs(exercise.cardio-current.cardio)*1.5;
       if(exercise.impact===current.impact)score+=2;
       if(primaryEquipment(exercise)===primaryEquipment(current))score+=2;
@@ -1000,8 +1181,9 @@
   function swapPreparation(workout, section, exerciseIndex, options) {
     if(!['warmup','rampup'].includes(section)||!workout[section]) return workout;
     const catalogue=options.catalogue, owned=options.equipment||[], random=options.random||Math.random, current=workout[section].exercises[exerciseIndex], main=workout.blocks[0].exercises;
-    const allPrepIds=new Set(workout.warmup.exercises.concat(workout.rampup.exercises).filter(ex=>ex!==current).map(ex=>ex.id));
-    let eligible=Object.values(catalogue).filter(ex=>ex[section]&&preparationMetadataValid(ex)&&requirementsMet(ex,owned)&&ex.id!==current.id&&!allPrepIds.has(ex.id));
+    const otherPrep=workout.warmup.exercises.concat(workout.rampup.exercises).filter(ex=>ex!==current);
+    let eligible=Object.values(catalogue).filter(ex=>ex[section]&&preparationMetadataValid(ex)&&requirementsMet(ex,owned)&&ex.id!==current.id&&!otherPrep.some(item=>item.id===ex.id));
+    eligible=preferNonDuplicates(eligible,otherPrep);
     if(section==='warmup') eligible=eligible.filter(ex=>ex.impact!=='high');
     if(section==='rampup') eligible=eligible.filter(ex=>ex.prepFatigue<=3&&ex.prepComplexity<=3);
     if(section==='warmup') {
@@ -1015,11 +1197,15 @@
         const lowerInvolved=eligible.filter(ex=>lowerJointCoverage(ex).length); if(lowerInvolved.length) eligible=lowerInvolved;
       }
     }
+    // The replacement inherits the slot's total time, so prefer candidates whose sides can
+    // share it evenly in whole 5-second prescription steps.
+    const evenSplit=eligible.filter(ex=>current.estimatedSeconds%(5*sideCount(ex))===0); if(evenSplit.length) eligible=evenSplit;
     const position=workout[section].exercises.length===1?1:exerciseIndex/(workout[section].exercises.length-1);
     const before=workout[section].exercises[exerciseIndex-1];
     const scored=eligible.map(exercise=>({exercise,score:section==='rampup'?scoreRampupCandidate(exercise,position,workout[section].exercises.slice(0,exerciseIndex),workout.warmup.exercises,main,owned,workout.focus):scoreWarmupCandidate(exercise,workout.warmup.exercises.slice(0,exerciseIndex),main,owned) - Math.abs(exercise.prepIntensity-current.prepIntensity)*2 + (before&&before.bodyPosition===exercise.bodyPosition?1:0)}));
     const replacement=controlledPick(scored,random); if(!replacement) return workout;
-    const seconds=current.estimatedSeconds;
+    // Keep the slot's total time: a per-side replacement shares it between its sides.
+    const seconds=roundToFive(current.estimatedSeconds/sideCount(replacement));
     workout[section].exercises[exerciseIndex]=phaseExercise(replacement,section,seconds);
     recalcWorkoutEstimate(workout); return workout;
   }
@@ -1033,7 +1219,7 @@
     workout.estimatedSeconds=workout.warmup.estimatedSeconds+workout.rampup.estimatedSeconds+workout.main.estimatedDurationSeconds+workout.cooldown.estimatedSeconds;
   }
 
-  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, sameSelectionFamily, sameRepetitionClass, prescriptionMode, recentUsePenalty, preparationMetadataValid, validateCatalogue, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, selectBlockExercises, selectWarmup, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, generate, swap, swapPreparation };
+  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_PATTERNS, VALID_WARMUP_AREAS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, selectBlockExercises, selectWarmup, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, generate, swap, swapPreparation };
 
   if (typeof window!=='undefined' && typeof document!=='undefined' && typeof window.addEventListener==='function') window.addEventListener('load',()=>{
     if (document.querySelector('script[data-garagefit-rampup-ui]')) return;

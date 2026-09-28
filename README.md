@@ -8,6 +8,7 @@ Live: https://nimbrethil81.github.io/garage-fit/
 
 - `index.html` — application UI and workout player
 - `data/exercises.js` — canonical exercise catalogue and metadata
+- `data/EXERCISE_METADATA.md` — meaning of every exercise field and how to author new exercises
 - `data/equipment.js` — equipment catalogue
 - `data/workouts.js` — fixed workouts
 - `js/generator.js` — workout generation rules

@@ -353,8 +353,8 @@ function loadEquipment(){
 function saveEquipment(){try{localStorage.setItem('gf_equipment_inventory',JSON.stringify(state.ownedEquipment));localStorage.setItem('gf_equipment_configured',String(state.equipmentConfigured))}catch(e){}}
 function eligibleRoutineIds(kind){
   const eligible=EX[kind+'Ids'].filter(id=>GarageFitGenerator.requirementsMet(CATALOGUE[id],state.ownedEquipment));
-  // Equipment alternatives appear later in the fixed routine and take precedence.
-  return eligible.filter((id,index)=>!CATALOGUE[id].alternativeGroup || !eligible.slice(index+1).some(other=>CATALOGUE[other].alternativeGroup===CATALOGUE[id].alternativeGroup));
+  // Equipment alternatives (same exercise family) appear later in the fixed routine and take precedence.
+  return eligible.filter((id,index)=>!eligible.slice(index+1).some(other=>GarageFitGenerator.sameFamily(CATALOGUE[other],CATALOGUE[id])));
 }
 function routineList(kind){return expandLegacyTimed(eligibleRoutineIds(kind))}
 function renderHome(){const count=state.ownedEquipment.length;document.getElementById('equipIconUse').setAttribute('href',count?'#icon-equipment':'#icon-body');document.getElementById('equipToggleText').textContent=count?count+' item'+(count===1?'':'s'):'Bodyweight';document.getElementById('warmupSub').textContent=routineList('warmup').length+' moves';document.getElementById('cooldownSub').textContent=routineList('cooldown').length+' moves'}
@@ -389,7 +389,7 @@ function getGeneratedHistory(){try{const value=JSON.parse(localStorage.getItem('
 function generateWorkout(){
   generatorState.workout=GarageFitGenerator.generate({catalogue:CATALOGUE,duration:generatorState.duration,focus:generatorState.focus,equipment:state.ownedEquipment,history:getGeneratedHistory()});renderGeneratedPreview();showScreen('generatedPreview');
 }
-function formatPrescription(exercise){const p=exercise.prescription,unit=p.type.includes('timed')?' sec':' reps',each=p.type.includes('unilateral')?' each side':'';return p.value+unit+each+(exercise.load?' · '+exercise.load:'')}
+function formatPrescription(exercise){const p=exercise.prescription,unit=p.type.includes('timed')?' sec':' reps',each=(exercise.sidedness==='per-side'||p.type.includes('unilateral'))?' each side':'';return p.value+unit+each+(exercise.load?' · '+exercise.load:'')}
 function protocolLabel(block){
   if(block.protocol==='paired_sets')return 'Paired sets · '+block.prescription.sets+' sets';
   if(block.protocol==='timed_intervals')return 'Timed intervals · '+block.prescription.workSeconds+' sec work / '+block.prescription.transitionSeconds+' sec change · '+block.prescription.cycles+' cycles';

@@ -60,8 +60,8 @@ test('per-side exercises are backed by a unilateral prescription, alternating ex
 });
 
 test('glute stretch and TRX glute standing belong to the same stretch family and never co-occur in cooldown',()=>{
-  assert.ok(catalogue['glute-stretch'].alternativeGroup);
-  assert.equal(catalogue['glute-stretch'].alternativeGroup,catalogue['trx-glute-standing'].alternativeGroup);
+  assert.ok(catalogue['glute-stretch'].family);
+  assert.equal(catalogue['glute-stretch'].family,catalogue['trx-glute-standing'].family);
   let sawBoth=false;
   for(let seed=1;seed<=150;seed++){
     const ids=create(seed).cooldown.exercises.map(ex=>ex.id);
@@ -73,7 +73,7 @@ test('glute stretch and TRX glute standing belong to the same stretch family and
 test('cooldown never selects two exercises from the same stretch family, for any family',()=>{
   for(let seed=1;seed<=150;seed++){
     const cooldown=create(seed).cooldown.exercises;
-    const groups=cooldown.map(ex=>ex.alternativeGroup).filter(Boolean);
+    const groups=cooldown.map(ex=>ex.family).filter(Boolean);
     assert.equal(new Set(groups).size,groups.length,cooldown.map(ex=>ex.id).join(', '));
   }
 });

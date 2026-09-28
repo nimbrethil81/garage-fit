@@ -54,13 +54,13 @@ test('dumbbell row retains its repetition prescription', () => {
   assert.equal(row.sidedness,'per-side');
 });
 
-test('dumbbell and kettlebell farmer carries share selection history', () => {
+test('dumbbell and kettlebell farmer carries are one occasional exercise family', () => {
   const dumbbell=catalogue['dumbbell-farmer-carry'], kettlebell=catalogue['kettlebell-farmer-carry'];
-  assert.equal(dumbbell.selectionFamily,'farmer-carry');
-  assert.equal(kettlebell.selectionFamily,'farmer-carry');
+  assert.equal(dumbbell.family,'farmer-carry');
+  assert.equal(kettlebell.family,'farmer-carry');
   assert.equal(dumbbell.frequency,'occasional');
   assert.equal(kettlebell.frequency,'occasional');
-  assert.ok(GarageFitGenerator.sameSelectionFamily(dumbbell,kettlebell));
+  assert.ok(GarageFitGenerator.sameFamily(dumbbell,kettlebell));
 });
 
 // ---- Warm-up tests ----
@@ -75,7 +75,7 @@ test('star jumps cannot be selected for a warm-up', () => {
 test('star jumps remain eligible candidates for Main (no global high-impact Main filter)', () => {
   const eligible=Object.values(catalogue).filter(exercise=>exercise.generator&&exercise.main&&GarageFitGenerator.requirementsMet(exercise,[]));
   assert.ok(!eligible.some(ex=>ex.id==='star-jumps'&&false)); // sanity: filter runs without throwing
-  const synthethicHighImpactMain={id:'synthetic-high-impact',name:'synthetic',equipment:[],patterns:['conditioning'],movementPlanes:['sagittal'],warmupAreas:[],bodyPosition:'standing',strength:2,cardio:5,prescription:{type:'timed',value:20},estimatedSeconds:20,impact:'high',generator:true,main:true,warmup:false,rampup:false,cooldown:false,sidedness:'bilateral',unilateral:false,mainProtocols:['rounds']};
+  const synthethicHighImpactMain={id:'synthetic-high-impact',name:'synthetic',equipment:[],patterns:[],conditioning:true,movementPlanes:['sagittal'],warmupAreas:[],bodyPosition:'standing',strength:2,cardio:5,prescription:{type:'timed',value:20},estimatedSeconds:20,impact:'high',generator:true,main:true,warmup:false,rampup:false,cooldown:false,sidedness:'bilateral',unilateral:false,mainProtocols:['rounds']};
   const mixed=Object.assign({},catalogue,{'synthetic-high-impact':synthethicHighImpactMain});
   const eligibleMixed=Object.values(mixed).filter(exercise=>exercise.generator&&exercise.main&&GarageFitGenerator.requirementsMet(exercise,[]));
   assert.ok(eligibleMixed.some(ex=>ex.id==='synthetic-high-impact'));
@@ -285,7 +285,7 @@ test('recent-use suppression of one farmer-carry variant reduces (but does not e
 test('farmer carry cannot appear in more than one Main block', () => {
   for (let seed=1;seed<=150;seed++) {
     const workout=create({duration:45,focus:'strength',equipment:['dumbbells','kettlebell'],random:random(seed)});
-    const carryBlocks=workout.main.blocks.filter(block=>block.exercises.some(ex=>ex.selectionFamily==='farmer-carry'));
+    const carryBlocks=workout.main.blocks.filter(block=>block.exercises.some(ex=>ex.family==='farmer-carry'));
     assert.ok(carryBlocks.length<=1,seed);
   }
 });
