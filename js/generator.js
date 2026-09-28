@@ -3,8 +3,8 @@
     10:{warmup:65,rampup:55,main:420,cooldown:60},
     15:{warmup:100,rampup:80,main:600,cooldown:120},
     20:{warmup:115,rampup:95,main:870,cooldown:120},
-    30:{warmup:150,rampup:120,main:1350,cooldown:180},
-    45:{warmup:200,rampup:160,main:2040,cooldown:300}
+    30:{warmup:175,rampup:120,main:1325,cooldown:180},
+    45:{warmup:225,rampup:160,main:2015,cooldown:300}
   };
   const RESTS = {
     strength:{exercise:20,round:60},
@@ -29,6 +29,11 @@
   const VALID_SIDEDNESS = new Set(['bilateral','alternating','per-side','none']);
   const MAJOR_REPEAT_PATTERNS = new Set(['squat','hinge','push','pull','lunge','carry']);
   const LOWER_JOINT_AREAS = new Set(['hips','knees','ankles']);
+  // Main patterns that load the hips/knees/ankles. Conditioning only signals lower-body
+  // demand for Cardio, where it is the backbone of higher-output leg-driven work.
+  const LOWER_DEMAND_PATTERNS = new Set(['squat','hinge','lunge']);
+  // Share of Main exercises above which lower-body demand is treated as substantial.
+  const LOWER_DEMAND_THRESHOLD = { strength:.4, balanced:.5, cardio:.5 };
   const RECENT_EXACT_PENALTIES = [18,10,6,3];
   const RECENT_PATTERN_PENALTIES = [6,3,2,1];
   const MAIN_PROTOCOLS = new Set(['rounds','paired_sets','timed_intervals']);
@@ -126,6 +131,36 @@
 
   function lowerJointCoverage(exercise) {
     return (exercise.warmupAreas || []).filter(area => LOWER_JOINT_AREAS.has(area));
+  }
+
+  // Meaningful lower-body preparation works at least two of hips/knees/ankles together
+  // (e.g. squat, lunge, knee drive). Hip-only mobility is partial lower-body preparation;
+  // trunk/shoulder-only movements such as body hoops or arm circles are not lower-body prep.
+  function meaningfulLowerPrep(exercise) {
+    return lowerJointCoverage(exercise).length>=2;
+  }
+
+  function lowerBodyDemand(mainExercises, focus) {
+    const list = mainExercises || [];
+    if (!list.length) return 0;
+    const lower = list.filter(exercise=>(exercise.patterns||[]).some(pattern=>LOWER_DEMAND_PATTERNS.has(pattern) || (focus==='cardio' && pattern==='conditioning'))).length;
+    return lower/list.length;
+  }
+
+  // How many meaningful lower-body warm-up exercises a warm-up of this size should contain.
+  // Short warm-ups need one; medium/long warm-ups need two; substantial lower-body Main
+  // demand adds one more once the warm-up is long enough to hold it without regional skew.
+  function lowerPrepTarget(count, demand, focus) {
+    let target = count>=6 ? 2 : 1;
+    if (count>=5 && demand>=(LOWER_DEMAND_THRESHOLD[focus]||LOWER_DEMAND_THRESHOLD.balanced)) target++;
+    return Math.max(1,Math.min(target,Math.floor(count/2)));
+  }
+
+  // Maximum number of warm-up exercises with no lower-joint coverage at all (trunk/shoulder
+  // only). Very short warm-ups may give the odd slot to upper/trunk work; otherwise such
+  // movements may not make up more than half of the warm-up.
+  function upperTrunkOnlyCap(count) {
+    return count<5 ? Math.ceil(count/2) : Math.floor(count/2);
   }
 
   function scoreCandidate(exercise, desiredPattern, selected, focus, history, catalogue) {
@@ -718,14 +753,19 @@
     return -1;
   }
 
-  function scoreWarmupCandidate(exercise, selected, mainExercises, owned) {
+  function scoreWarmupCandidate(exercise, selected, mainExercises, owned, context) {
     const previous = selected[selected.length-1];
+    context = context || {};
     let score = 12 - exercise.prepIntensity*1.5 - exercise.prepFatigue*2 - exercise.prepComplexity*1.5;
     const mainPatterns = new Set((mainExercises || []).slice(0,3).flatMap(item=>item.patterns||[]));
     if ((exercise.patterns||[]).some(pattern=>mainPatterns.has(pattern))) score += 1.5;
     const lowerCoverage=lowerJointCoverage(exercise).length;
-    const lowerAlready=selected.some(item=>lowerJointCoverage(item).length>=2);
-    if (!lowerAlready) score += lowerCoverage*2.5;
+    const lowerSelected=selected.filter(meaningfulLowerPrep).length;
+    const lowerTarget=context.lowerTarget||1;
+    if (lowerSelected<lowerTarget) score += lowerCoverage*2.5;
+    // Beyond the required minimum, further leg-driven prep follows upcoming Main demand
+    // rather than crowding out hip mobility and upper/trunk preparation.
+    else if (meaningfulLowerPrep(exercise)) score += Math.max(-1.5,Math.min(1.5,((context.lowerDemand||0)-(context.lowerDemandThreshold||.5))*4));
     if (previous) {
       if (previous.bodyPosition===exercise.bodyPosition) score += 1;
       else if (previous.bodyPosition!=='mixed' && exercise.bodyPosition!=='mixed') score -= .8;
@@ -800,20 +840,31 @@
     return {exercises:fitted,estimatedSeconds:fitted.reduce((sum,ex)=>sum+ex.estimatedSeconds,0)+restSeconds*Math.max(0,fitted.length-1)};
   }
 
-  function selectWarmup(catalogue, targetSeconds, owned, mainExercises, random) {
+  function selectWarmup(catalogue, targetSeconds, owned, mainExercises, random, options) {
+    options = options || {};
+    const focus = options.focus || 'balanced';
     // High-impact movements are a safety exclusion for warm-ups specifically; they remain
     // available to a suitable Main phase, which is scored (not hard-filtered) on impact.
     let candidates = Object.values(catalogue).filter(ex=>ex.warmup && ex.impact!=='high' && preparationMetadataValid(ex) && requirementsMet(ex,owned));
     const restSeconds=5, selected=[];
     const targetCount=Math.max(2,Math.min(candidates.length,Math.round((targetSeconds+5)/25)));
+    const lowerDemand=lowerBodyDemand(options.mainDemandExercises||mainExercises,focus);
+    const context={lowerDemand,lowerDemandThreshold:LOWER_DEMAND_THRESHOLD[focus]||LOWER_DEMAND_THRESHOLD.balanced,lowerTarget:lowerPrepTarget(targetCount,lowerDemand,focus)};
+    const upperCap=upperTrunkOnlyCap(targetCount);
     for(let slot=0;slot<targetCount && candidates.length;slot++) {
       let slotCandidates=candidates;
-      const lowerAlready=selected.some(ex=>lowerJointCoverage(ex).length>=2);
-      if (!lowerAlready && slot===targetCount-1) {
-        const lowerCandidates=candidates.filter(ex=>lowerJointCoverage(ex).length>=2);
+      // Both coverage rules are soft-mandatory: they narrow the slot only while an eligible
+      // alternative exists, so a constrained catalogue still produces a warm-up.
+      const lowerNeeded=context.lowerTarget-selected.filter(meaningfulLowerPrep).length;
+      if (lowerNeeded>0 && lowerNeeded>=targetCount-slot) {
+        const lowerCandidates=slotCandidates.filter(meaningfulLowerPrep);
         if (lowerCandidates.length) slotCandidates=lowerCandidates;
       }
-      const scored=slotCandidates.map(exercise=>({exercise,score:scoreWarmupCandidate(exercise,selected,mainExercises,owned)}));
+      if (selected.filter(ex=>!lowerJointCoverage(ex).length).length>=upperCap) {
+        const lowerInvolved=slotCandidates.filter(ex=>lowerJointCoverage(ex).length);
+        if (lowerInvolved.length) slotCandidates=lowerInvolved;
+      }
+      const scored=slotCandidates.map(exercise=>({exercise,score:scoreWarmupCandidate(exercise,selected,mainExercises,owned,context)}));
       const picked=controlledPick(scored,random); if(!picked) break;
       selected.push(picked); candidates=candidates.filter(ex=>ex.id!==picked.id && (!picked.alternativeGroup || ex.alternativeGroup!==picked.alternativeGroup));
     }
@@ -879,8 +930,8 @@
     return issues;
   }
 
-  function buildPreparation(catalogue, budget, owned, mainExercises, focus, random) {
-    const warmup=selectWarmup(catalogue,budget.warmup,owned,mainExercises,random);
+  function buildPreparation(catalogue, budget, owned, mainExercises, focus, random, allMainExercises) {
+    const warmup=selectWarmup(catalogue,budget.warmup,owned,mainExercises,random,{focus,mainDemandExercises:allMainExercises});
     const rampup=selectRampup(catalogue,budget.rampup,owned,mainExercises,warmup.exercises,focus,random);
     return {warmup,rampup,issues:validatePreparation(warmup,rampup,mainExercises)};
   }
@@ -900,7 +951,7 @@
     if(!eligible.length)throw new Error('No eligible exercises available.');
     const main=composeMain(catalogue,eligible,budget,duration,focus,owned,history,rest,random);
     const firstMain=main.blocks[0].exercises;
-    const preparation=buildPreparation(catalogue,budget,owned,firstMain,focus,random);
+    const preparation=buildPreparation(catalogue,budget,owned,firstMain,focus,random,main.blocks.flatMap(block=>block.exercises));
     const cooldown=buildSection(catalogue,'cooldown',budget.cooldown,owned,random);
     const estimatedSeconds=preparation.warmup.estimatedSeconds+preparation.rampup.estimatedSeconds+main.estimatedDurationSeconds+cooldown.estimatedSeconds;
     const workout={
@@ -953,8 +1004,16 @@
     let eligible=Object.values(catalogue).filter(ex=>ex[section]&&preparationMetadataValid(ex)&&requirementsMet(ex,owned)&&ex.id!==current.id&&!allPrepIds.has(ex.id));
     if(section==='warmup') eligible=eligible.filter(ex=>ex.impact!=='high');
     if(section==='rampup') eligible=eligible.filter(ex=>ex.prepFatigue<=3&&ex.prepComplexity<=3);
-    if(section==='warmup' && lowerJointCoverage(current).length>=2 && !workout.warmup.exercises.some((ex,index)=>index!==exerciseIndex&&lowerJointCoverage(ex).length>=2)) {
-      const lowerEligible=eligible.filter(ex=>lowerJointCoverage(ex).length>=2); if(lowerEligible.length) eligible=lowerEligible;
+    if(section==='warmup') {
+      // A swap must not undo the warm-up's lower-body coverage or tip it into upper/trunk skew.
+      const others=workout.warmup.exercises.filter((_,index)=>index!==exerciseIndex), count=workout.warmup.exercises.length;
+      const demand=lowerBodyDemand(mainBlocks(workout).flatMap(block=>block.exercises),workout.focus);
+      if (meaningfulLowerPrep(current) && others.filter(meaningfulLowerPrep).length<lowerPrepTarget(count,demand,workout.focus)) {
+        const lowerEligible=eligible.filter(meaningfulLowerPrep); if(lowerEligible.length) eligible=lowerEligible;
+      }
+      if (others.filter(ex=>!lowerJointCoverage(ex).length).length>=upperTrunkOnlyCap(count)) {
+        const lowerInvolved=eligible.filter(ex=>lowerJointCoverage(ex).length); if(lowerInvolved.length) eligible=lowerInvolved;
+      }
     }
     const position=workout[section].exercises.length===1?1:exerciseIndex/(workout[section].exercises.length-1);
     const before=workout[section].exercises[exerciseIndex-1];
@@ -974,7 +1033,7 @@
     workout.estimatedSeconds=workout.warmup.estimatedSeconds+workout.rampup.estimatedSeconds+workout.main.estimatedDurationSeconds+workout.cooldown.estimatedSeconds;
   }
 
-  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, sameSelectionFamily, sameRepetitionClass, prescriptionMode, recentUsePenalty, preparationMetadataValid, validateCatalogue, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, selectBlockExercises, selectWarmup, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, generate, swap, swapPreparation };
+  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, sameSelectionFamily, sameRepetitionClass, prescriptionMode, recentUsePenalty, preparationMetadataValid, validateCatalogue, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, selectBlockExercises, selectWarmup, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, generate, swap, swapPreparation };
 
   if (typeof window!=='undefined' && typeof document!=='undefined' && typeof window.addEventListener==='function') window.addEventListener('load',()=>{
     if (document.querySelector('script[data-garagefit-rampup-ui]')) return;

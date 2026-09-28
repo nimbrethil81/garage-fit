@@ -43,7 +43,7 @@ test('generated sessions approximately fit every requested duration and focus an
 });
 
 test('v1 preparation budgets are focus-independent',()=>{
-  const expected={10:[65,55],15:[100,80],20:[115,95],30:[150,120],45:[200,160]};
+  const expected={10:[65,55],15:[100,80],20:[115,95],30:[175,120],45:[225,160]};
   for(const [duration,[warmup,rampup]] of Object.entries(expected)){
     assert.equal(GarageFitGenerator.BUDGETS[duration].warmup,warmup);
     assert.equal(GarageFitGenerator.BUDGETS[duration].rampup,rampup);
