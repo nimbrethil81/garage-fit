@@ -1,6 +1,41 @@
 (function (root) {
   root.GarageFitData = root.GarageFitData || {};
 
+  // Routines-tab Warm Up and Cool Down: four explicitly authored variants. Each list is
+  // written out in full so membership and order are fixed here and never derived from
+  // the equipment inventory, catalogue tags or generator selection. Ids reference
+  // data/exercises.js; per-side exercises play each side in turn.
+  const freezeVariants = variants => Object.freeze(Object.fromEntries(
+    Object.entries(variants).map(([variant, ids]) => [variant, Object.freeze(ids)])
+  ));
+  root.GarageFitData.fixedRoutines = Object.freeze({
+    warmup: freezeVariants({
+      bodyweight: [
+        'knees-up','bum-kicks','open-close-gates','hand-opposite-toe','body-hoops','body-twists',
+        'arm-circles-backwards','arm-circles-forwards','arm-side-circles','air-squat','step-back-lunge',
+        'walk-plank-push-up','star-jumps','burpees'
+      ],
+      equipment: [
+        'knees-up','bum-kicks','open-close-gates','hand-opposite-toe','body-hoops','body-twists',
+        'arm-circles-backwards','arm-circles-forwards','arm-side-circles','air-squat','step-back-lunge',
+        'walk-plank-push-up','star-jumps','burpees',
+        'trx-squat-overhead','trx-lunge-warmup','band-pull-apart','hangout-pullup-bar','kettlebell-figure-eight'
+      ]
+    }),
+    cooldown: freezeVariants({
+      bodyweight: [
+        'toe-touch','inside-thigh-stretch','wide-toe-touch','hip-flexor-arm-stretch','kneeling-hamstring',
+        'frog-stretch','standing-quads','downward-upward-dog','plank-calf-stretch','pigeon-stretch','runners-stretch',
+        'childs-pose','chest-opener','side-stretch','glute-stretch','lying-torso-twist','full-body-stretch'
+      ],
+      equipment: [
+        'toe-touch','inside-thigh-stretch','wide-toe-touch','hip-flexor-arm-stretch','kneeling-hamstring',
+        'frog-stretch','standing-quads','downward-upward-dog','plank-calf-stretch','pigeon-stretch','runners-stretch',
+        'trx-lean-back-sink','trx-lunge-calf-chest','trx-glute-standing','trx-side-stretch','lying-torso-twist','full-body-stretch'
+      ]
+    })
+  });
+
   root.GarageFitData.fixedWorkouts = {
     workout300: {
       id: 'workout300',

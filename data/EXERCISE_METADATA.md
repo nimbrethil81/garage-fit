@@ -214,6 +214,6 @@ family per workout (farmer carries). It requires a `family`.
 | Warm-up | Never two members. | — |
 | Ramp-up | Avoided (soft-mandatory) against earlier Ramp-up and Warm-up picks, including in swaps. | Soft score penalty against Warm-up and earlier Ramp-up picks. |
 | Cool-down | Never two members. | — |
-| Fixed Warm-up/Cool-down routines | When equipment allows, the later family member (for example the TRX stretch) replaces the earlier one. | — |
+| Fixed Warm-up/Cool-down routines | Not applied. The Routines tab plays explicitly authored Bodyweight / With equipment lists (`fixedRoutines` in `data/workouts.js`); metadata never adds, removes or substitutes their exercises. | — |
 
 `alternativeGroup` and `selectionFamily` are retired. Validation rejects them.

@@ -30,23 +30,22 @@
   .brand{display:flex;align-items:center;gap:9px;color:var(--text)}
   .brand-mark{width:43px;height:30px;flex:none}.brand-name{font-size:21px;font-weight:850;letter-spacing:-.035em}.brand-name strong{color:var(--work);font-weight:850}
 
-  #home,#workouts,#generator,#equipment,#generatedPreview{padding:20px 20px 14px;overflow-y:auto}
+  #home,#workouts,#generator,#equipment,#generatedPreview,#routinepick{padding:20px 20px 14px;overflow-y:auto}
   .home-header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:5px 0 24px}
   .home-intro{margin:0 0 17px}.home-intro h1{margin:0;font-size:28px;line-height:1.1;letter-spacing:-.035em}.home-title{margin-bottom:16px}
-  .equip-toggle{min-height:44px;display:flex;align-items:center;gap:7px;background:transparent;border:1px solid var(--surface-2);border-radius:12px;padding:8px 11px;font-size:12px;font-weight:750;color:var(--text);white-space:nowrap}
-  .equip-toggle .icon{color:var(--rest);width:20px;height:20px}
-  .tiles{flex:1;min-height:420px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:12px}
+  .tiles{flex:1;min-height:360px;display:grid;grid-template-columns:1fr;grid-template-rows:1fr 1fr;gap:12px}
   .tile{border:0;border-radius:18px;background:var(--card);color:var(--card-text);display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;padding:18px;position:relative;overflow:hidden;text-align:left;transition:transform .12s ease}
   .tile::before{position:absolute;left:13px;top:13px;width:32px;height:32px;display:grid;place-items:center;border-radius:8px;background:#f3ded3;color:var(--work-dark);font-size:12px;font-weight:900}
-  #tile-warmup::before{content:"01"}#tile-rampup::before{content:"02"}#tile-cooldown::before{content:"03"}#tile-snack::before{content:"04"}
-  #tile-cooldown::before,#tile-snack::before{background:#dce9e7;color:#39766f}
+  #tile-warmup::before{content:"01"}#tile-cooldown::before{content:"02"}
+  #tile-cooldown::before{background:#dce9e7;color:#39766f}
   .tile::after{content:"";position:absolute;left:0;right:0;bottom:0;height:5px;background:var(--work)}
-  #tile-cooldown::after,#tile-snack::after{background:var(--rest-strong)}
+  #tile-cooldown::after{background:var(--rest-strong)}
   .tile:active{transform:scale(.97)}
   .tile .glyph{display:grid;place-items:center;width:54px;height:54px;margin-bottom:16px;color:var(--work)}
-  .tile .glyph .icon{width:48px;height:48px;stroke-width:1.55}#tile-cooldown .glyph,#tile-snack .glyph{color:var(--rest-strong)}
+  .tile .glyph .icon{width:48px;height:48px;stroke-width:1.55}#tile-cooldown .glyph{color:var(--rest-strong)}
   .tile .label{font-size:18px;font-weight:900;letter-spacing:.01em;text-transform:uppercase;line-height:1.08}
   .tile .sub{font-size:13px;color:var(--card-muted);margin-top:6px;font-weight:650}
+  .variant-cards{display:flex;flex-direction:column;gap:12px}.variant-card{background:var(--card);color:var(--card-text);border:none;border-radius:16px;padding:20px;text-align:left;display:flex;justify-content:space-between;align-items:center;gap:12px}.variant-card .name{font-size:17px;font-weight:850;text-transform:uppercase}.variant-card .dur{color:var(--card-muted);font-size:13px;font-weight:850;white-space:nowrap}
 
   .workouts-heading{margin:5px 0 18px}.workouts-heading .brand{margin-bottom:25px}
   .workouts-heading h1{font-size:34px;line-height:1;margin:0 0 9px;font-weight:900;letter-spacing:-.04em}
@@ -99,7 +98,7 @@
   @media (min-width:720px){#app{width:720px;left:50%;right:auto;transform:translateX(-50%);border-left:1px solid var(--surface);border-right:1px solid var(--surface)}.modal{width:720px;left:50%;right:auto;transform:translateX(-50%)}}
   @media (max-height:700px){.home-header{margin-bottom:14px}.home-intro{margin-bottom:12px}.tiles{min-height:350px}.tile{padding:14px}.tile .glyph{width:42px;height:42px;margin-bottom:8px}.tile .glyph .icon{width:38px;height:38px}.workout-stage{padding:10px 0 4px}.workout-exercise{font-size:30px}.workout-target{margin-top:10px}.workout-stats{margin-top:10px}.workout-actions{gap:14px;margin-top:10px}.ctrl-btn{padding-top:13px;padding-bottom:13px}.ring-wrap{width:min(60vh,280px);height:min(60vh,280px)}}
   @media (max-width:500px){.duration-row{grid-template-columns:repeat(3,1fr)}.equipment-list{grid-template-columns:1fr 1fr}}
-  @media (max-width:380px){#home,#workouts,#generator,#equipment,#generatedPreview{padding-left:14px;padding-right:14px}.brand-name{font-size:18px}.brand-mark{width:37px}.equip-toggle{padding:7px 9px}.tile{padding:14px}.tile .label{font-size:16px}.workout-launch{padding:17px}.workout-label{font-size:20px}.equipment-list{grid-template-columns:1fr}.bottom-nav{padding-left:12px;padding-right:12px}}
+  @media (max-width:380px){#home,#workouts,#generator,#equipment,#generatedPreview,#routinepick{padding-left:14px;padding-right:14px}.brand-name{font-size:18px}.brand-mark{width:37px}.tile{padding:14px}.tile .label{font-size:16px}.workout-launch{padding:17px}.workout-label{font-size:20px}.equipment-list{grid-template-columns:1fr}.bottom-nav{padding-left:12px;padding-right:12px}}
 </style>
 </head>
 <body>
@@ -124,14 +123,11 @@
         <svg class="brand-mark" viewBox="0 0 64 44" aria-hidden="true"><path d="M4 24V18L32 7l28 11v6" fill="none" stroke="#f3f5f3" stroke-width="5"/><rect x="17" y="31" width="7" height="8" fill="#d96b36"/><rect x="29" y="27" width="7" height="12" fill="#d96b36"/><rect x="41" y="22" width="7" height="17" fill="#d96b36"/></svg>
         <span class="brand-name">Garage<strong>Fit</strong></span>
       </div>
-      <button class="equip-toggle" id="equipToggle" type="button"><svg class="icon" aria-hidden="true"><use id="equipIconUse" href="#icon-equipment"></use></svg><span id="equipToggleText">Equipment</span></button>
     </div>
     <div class="home-intro"><h1>Choose a routine</h1></div>
     <div class="tiles">
-      <button class="tile" id="tile-warmup" type="button" onclick="startRoutine('warmup')"><span class="glyph" aria-hidden="true"><svg class="icon"><use href="#icon-warmup"></use></svg></span><span class="label">Warm Up</span><span class="sub" id="warmupSub"></span></button>
-      <button class="tile" id="tile-rampup" type="button" onclick="startRoutine('rampup')"><span class="glyph" aria-hidden="true"><svg class="icon"><use href="#icon-rampup"></use></svg></span><span class="label">Ramp Up</span><span class="sub">7 moves · reps</span></button>
-      <button class="tile" id="tile-cooldown" type="button" onclick="startRoutine('cooldown')"><span class="glyph" aria-hidden="true"><svg class="icon"><use href="#icon-cooldown"></use></svg></span><span class="label">Cool Down</span><span class="sub" id="cooldownSub"></span></button>
-      <button class="tile" id="tile-snack" type="button" onclick="openSnack()"><span class="glyph" aria-hidden="true"><svg class="icon"><use href="#icon-snack"></use></svg></span><span class="label">Snack</span><span class="sub">quick pick</span></button>
+      <button class="tile" id="tile-warmup" type="button" onclick="openRoutineVariants('warmup')"><span class="glyph" aria-hidden="true"><svg class="icon"><use href="#icon-warmup"></use></svg></span><span class="label">Warm Up</span><span class="sub" id="warmupSub"></span></button>
+      <button class="tile" id="tile-cooldown" type="button" onclick="openRoutineVariants('cooldown')"><span class="glyph" aria-hidden="true"><svg class="icon"><use href="#icon-cooldown"></use></svg></span><span class="label">Cool Down</span><span class="sub" id="cooldownSub"></span></button>
     </div>
   </main>
 
@@ -221,6 +217,14 @@
     <div class="preview-timing"><div class="preview-time-card"><strong id="previewWarmup">3 min</strong>Warm-up</div><div class="preview-time-card"><strong id="previewCooldown">2 min</strong>Cool-down</div></div>
     <div class="preview-estimate" id="previewEstimate">≈20 min total</div>
     <div class="preview-actions"><button class="preview-regenerate" type="button" onclick="generateWorkout()">Regenerate</button><button class="preview-start" type="button" onclick="startGeneratedWorkout()">Start workout</button></div>
+  </main>
+
+  <main id="routinepick" class="screen hidden">
+    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to routines" onclick="showLanding('home')">←</button><h1 id="routinePickTitle">Warm Up</h1><span class="header-spacer"></span></header>
+    <div class="variant-cards">
+      <button class="variant-card" id="variant-bodyweight" type="button" onclick="startRoutine(routinePickKey,'bodyweight')"><span class="name">Bodyweight</span><span class="dur" id="variantBodyweightSub"></span></button>
+      <button class="variant-card" id="variant-equipment" type="button" onclick="startRoutine(routinePickKey,'equipment')"><span class="name">With equipment</span><span class="dur" id="variantEquipmentSub"></span></button>
+    </div>
   </main>
 
   <main id="snackpick" class="screen hidden">
@@ -325,13 +329,12 @@ function expandLegacyTimed(ids){
   const out=[];ids.forEach(id=>{const exercise=exerciseById(id),base={id:exercise.id,work:WORK_S,rest:REST_S,timedCues:exercise.timedCues};if(exercise.sidedness==='per-side'){out.push(Object.assign({},base,{name:exercise.name+' - Right'}),Object.assign({},base,{name:exercise.name+' - Left'}))}else out.push(Object.assign({},base,{name:exercise.name}))});return out;
 }
 const EX={
-warmupIds:['knees-up','bum-kicks','open-close-gates','hand-opposite-toe','body-hoops','body-twists','arm-circles-backwards','arm-circles-forwards','arm-side-circles','air-squat','step-back-lunge','walk-plank-push-up','star-jumps','burpees','trx-squat-overhead','trx-lunge-warmup','band-pull-apart','hangout-pullup-bar','kettlebell-figure-eight'],
-cooldownIds:['toe-touch','inside-thigh-stretch','wide-toe-touch','hip-flexor-arm-stretch','kneeling-hamstring','frog-stretch','standing-quads','downward-upward-dog','plank-calf-stretch','pigeon-stretch','runners-stretch','childs-pose','chest-opener','side-stretch','glute-stretch','lying-torso-twist','full-body-stretch','trx-lean-back-sink','trx-lunge-calf-chest','trx-glute-standing','trx-side-stretch'],
 rampUp:[
   exerciseById('jumping-jacks',{name:'Jumping jacks',reps:10,work:30,rest:REST_S}),exerciseById('air-squat',{reps:10,work:30,rest:REST_S}),exerciseById('push-up',{name:'Press ups',reps:10,work:30,rest:REST_S}),
   exerciseById('toes-to-bar',{name:'Toes to bar',reps:5,work:20,rest:REST_S}),exerciseById('kettlebell-swing',{name:'Kettlebell swings',reps:10,work:30,rest:REST_S}),exerciseById('plank',{reps:null,work:30,rest:REST_S}),exerciseById('burpees',{reps:10,work:30,rest:0})
 ],
 snackIds:['barbell-deadlift','barbell-front-squat','dumbbell-bench-press','dumbbell-shoulder-press','pull-up','kettlebell-swing']};
+const FIXED_ROUTINES=GarageFitData.fixedRoutines,ROUTINE_TITLES={warmup:'Warm Up',cooldown:'Cool Down',rampup:'Ramp Up'};
 const FIXED_WORKOUTS=GarageFitData.fixedWorkouts;
 function fixedWorkoutExercises(workout){return workout.exercises.map(item=>exerciseById(item.id,item))}
 const WORKOUT_300=fixedWorkoutExercises(FIXED_WORKOUTS.workout300);
@@ -351,16 +354,14 @@ function loadEquipment(){
   renderHome();renderWorkoutReview();renderCindyDetail();renderPersonalBest();renderGenerator();showScreen('home')
 }
 function saveEquipment(){try{localStorage.setItem('gf_equipment_inventory',JSON.stringify(state.ownedEquipment));localStorage.setItem('gf_equipment_configured',String(state.equipmentConfigured))}catch(e){}}
-function eligibleRoutineIds(kind){
-  const eligible=EX[kind+'Ids'].filter(id=>GarageFitGenerator.requirementsMet(CATALOGUE[id],state.ownedEquipment));
-  // Equipment alternatives (same exercise family) appear later in the fixed routine and take precedence.
-  return eligible.filter((id,index)=>!eligible.slice(index+1).some(other=>GarageFitGenerator.sameFamily(CATALOGUE[other],CATALOGUE[id])));
-}
-function routineList(kind){return expandLegacyTimed(eligibleRoutineIds(kind))}
-function renderHome(){const count=state.ownedEquipment.length;document.getElementById('equipIconUse').setAttribute('href',count?'#icon-equipment':'#icon-body');document.getElementById('equipToggleText').textContent=count?count+' item'+(count===1?'':'s'):'Bodyweight';document.getElementById('warmupSub').textContent=routineList('warmup').length+' moves';document.getElementById('cooldownSub').textContent=routineList('cooldown').length+' moves'}
-document.getElementById('equipToggle').addEventListener('click',()=>openEquipment('home'));
+// Fixed Warm Up / Cool Down play an authored variant exactly as listed; the equipment inventory is not consulted.
+function routineIds(kind,variant){return FIXED_ROUTINES[kind][variant].slice()}
+function routineList(kind,variant){return expandLegacyTimed(routineIds(kind,variant))}
+function renderHome(){document.getElementById('warmupSub').textContent='Bodyweight or with equipment';document.getElementById('cooldownSub').textContent='Bodyweight or with equipment'}
+let routinePickKey='warmup';
+function openRoutineVariants(kind){routinePickKey=kind;document.getElementById('routinePickTitle').textContent=ROUTINE_TITLES[kind];document.getElementById('variantBodyweightSub').textContent=routineList(kind,'bodyweight').length+' moves';document.getElementById('variantEquipmentSub').textContent=routineList(kind,'equipment').length+' moves';showScreen('routinepick')}
 function showScreen(id){
-  ['home','workouts','generator','equipment','generatedPreview','snackpick','player','workoutPlayer','done'].forEach(s=>document.getElementById(s).classList.toggle('hidden',s!==id));
+  ['home','workouts','generator','equipment','generatedPreview','routinepick','snackpick','player','workoutPlayer','done'].forEach(s=>document.getElementById(s).classList.toggle('hidden',s!==id));
   const landing=['home','workouts','generator'].includes(id),nav=document.getElementById('bottomNav');nav.classList.toggle('hidden',!landing);
   [['home','routinesNav'],['workouts','workoutsNav'],['generator','generatorNav']].forEach(pair=>{const active=id===pair[0],button=document.getElementById(pair[1]);button.classList.toggle('active',active);active?button.setAttribute('aria-current','page'):button.removeAttribute('aria-current')});
 }
@@ -426,7 +427,7 @@ function clearTimedCue(elementId){const element=document.getElementById(elementI
 function showDueTimedCues(tracker,elapsedSeconds,elementId){GarageFitTimedCues.takeDueCues(tracker,elapsedSeconds).forEach(cue=>{const element=document.getElementById(elementId);element.textContent=cue.text;element.classList.remove('hidden');speak(cue.text)})}
 async function requestWake(){try{if('wakeLock'in navigator)state.wakeLock=await navigator.wakeLock.request('screen')}catch(e){}}function releaseWake(){try{if(state.wakeLock){state.wakeLock.release();state.wakeLock=null}}catch(e){}}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&(state.running||workoutState.running))requestWake()});
-function startRoutine(key){let list;if(key==='warmup')list=routineList('warmup');else if(key==='cooldown')list=routineList('cooldown');else if(key==='rampup')list=EX.rampUp;state.key=key;state.list=list.slice();state.idx=0;state.paused=false;state.running=true;state.doneDestination='home';document.getElementById('pauseBtn').textContent='Pause';document.getElementById('routineName').textContent=key==='warmup'?'Warm Up':key==='cooldown'?'Cool Down':'Ramp Up';showScreen('player');requestWake();enterReady()}
+function startRoutine(key,variant){let list;if(key==='warmup'||key==='cooldown')list=routineList(key,variant);else if(key==='rampup')list=EX.rampUp;state.key=key;state.list=list.slice();state.idx=0;state.paused=false;state.running=true;state.doneDestination='home';document.getElementById('pauseBtn').textContent='Pause';document.getElementById('routineName').textContent=ROUTINE_TITLES[key];showScreen('player');requestWake();enterReady()}
 function startSevenMinuteWorkout(){state.key='sevenMinute';state.list=SEVEN_MINUTE_WORKOUT.slice();state.idx=0;state.paused=false;state.running=true;state.doneDestination='workouts';document.getElementById('pauseBtn').textContent='Pause';document.getElementById('routineName').textContent='7 Minute Workout';showScreen('player');requestWake();enterReady()}
 function enterReady(){state.phase='ready';state.remaining=3;state.cueTracker=null;clearTimedCue('routineTimedCue');updateProgressCount();const first=state.list[0];document.getElementById('exerciseName').textContent='Get ready';document.getElementById('nextPreview').textContent='First up: '+first.name;setRingColor('rest');document.getElementById('phaseLabel').textContent='GET READY';document.getElementById('repsNum').classList.add('hidden');speak('Get ready. '+first.name);runTimer(3,()=>enterWork())}
 function enterWork(){state.phase='work';const ex=state.list[state.idx];state.remaining=ex.work;state.cueTracker=GarageFitTimedCues.createTracker(ex.timedCues,ex.work);clearTimedCue('routineTimedCue');updateProgressCount();document.getElementById('exerciseName').textContent=ex.name;document.getElementById('phaseLabel').textContent=state.key==='rampup'?'GO':'WORK';setRingColor('work');const repsEl=document.getElementById('repsNum');if(state.key==='rampup'){repsEl.classList.remove('hidden');repsEl.textContent=ex.reps?('x'+ex.reps+' reps'):'hold'}else repsEl.classList.add('hidden');const isLast=state.idx===state.list.length-1,next=isLast?null:state.list[state.idx+1];document.getElementById('nextPreview').textContent=next?('Next: '+next.name):'Last one!';playCompletionChime();runTimer(ex.work,()=>enterRestOrNext(),elapsed=>showDueTimedCues(state.cueTracker,elapsed,'routineTimedCue'))}
