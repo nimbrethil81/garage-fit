@@ -1,5 +1,25 @@
 (function (root) {
   root.GarageFitData = root.GarageFitData || {};
+
+  // The fixed Cool Down has authored bodyweight/TRX substitutions. Keep these
+  // pairs explicit so selecting TRX replaces the corresponding bodyweight
+  // stretch instead of appending an additional stretch to the routine.
+  const fixedCooldownAlternativeGroups = {
+    'back-lat-stretch': ['childs-pose','trx-lean-back-sink'],
+    'chest-stretch-family': ['chest-opener','trx-lunge-calf-chest'],
+    'glute-stretch-family': ['glute-stretch','trx-glute-standing'],
+    'side-stretch-family': ['side-stretch','trx-side-stretch']
+  };
+  const catalogue = root.GarageFitData.exercises;
+  if (catalogue) {
+    Object.entries(fixedCooldownAlternativeGroups).forEach(([group, ids]) => {
+      ids.forEach(id => {
+        if (catalogue[id]) catalogue[id].alternativeGroup = group;
+      });
+    });
+  }
+  root.GarageFitData.fixedCooldownAlternativeGroups = fixedCooldownAlternativeGroups;
+
   root.GarageFitData.fixedWorkouts = {
     workout300: {
       id: 'workout300',
