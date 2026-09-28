@@ -11,6 +11,8 @@
     balanced:{exercise:15,round:45},
     cardio:{exercise:10,round:30}
   };
+  // Recipe slots name selection roles: a movement pattern, or the conditioning role
+  // (exercises with `conditioning: true`). See selectionTags().
   const RECIPES = {
     strength:['squat','hinge','push','pull','core','carry','lunge'],
     balanced:['squat','push','pull','hinge','conditioning','core','lunge'],
@@ -29,9 +31,11 @@
   const VALID_SIDEDNESS = new Set(['bilateral','alternating','per-side','none']);
   const MAJOR_REPEAT_PATTERNS = new Set(['squat','hinge','push','pull','lunge','carry']);
   const LOWER_JOINT_AREAS = new Set(['hips','knees','ankles']);
-  // Main patterns that load the hips/knees/ankles. Conditioning only signals lower-body
-  // demand for Cardio, where it is the backbone of higher-output leg-driven work.
+  // Main patterns that load the hips/knees/ankles. For Cardio, on-feet work with medium or
+  // high impact (running, jumping, bounding) also loads the legs; conditioning status alone
+  // never does (e.g. floor-based mountain climbers or knee tucks are core-led).
   const LOWER_DEMAND_PATTERNS = new Set(['squat','hinge','lunge']);
+  const LOWER_DEMAND_POSITIONS = new Set(['standing','mixed']);
   // Share of Main exercises above which lower-body demand is treated as substantial.
   const LOWER_DEMAND_THRESHOLD = { strength:.4, balanced:.5, cardio:.5 };
   const RECENT_EXACT_PENALTIES = [18,10,6,3];
@@ -134,9 +138,18 @@
     return [...groups.values()].flat();
   }
 
+  // Selection roles used for recipe slots and similarity: the movement `patterns` plus the
+  // categorical conditioning role. Kept together so separating `conditioning` from
+  // `patterns` in the catalogue does not change how similarity between exercises is judged.
+  function selectionTags(exercise) {
+    const patterns = (exercise && exercise.patterns) || [];
+    return exercise && exercise.conditioning ? patterns.concat('conditioning') : patterns;
+  }
+
   function sharedPatterns(first, second) {
     if (!first || !second) return [];
-    return (first.patterns || []).filter(pattern => (second.patterns || []).includes(pattern));
+    const other = selectionTags(second);
+    return selectionTags(first).filter(pattern => other.includes(pattern));
   }
 
   function repeatedMajorPatternCount(exercise, selected) {
@@ -165,7 +178,8 @@
   function lowerBodyDemand(mainExercises, focus) {
     const list = mainExercises || [];
     if (!list.length) return 0;
-    const lower = list.filter(exercise=>(exercise.patterns||[]).some(pattern=>LOWER_DEMAND_PATTERNS.has(pattern) || (focus==='cardio' && pattern==='conditioning'))).length;
+    const lower = list.filter(exercise=>(exercise.patterns||[]).some(pattern=>LOWER_DEMAND_PATTERNS.has(pattern)) ||
+      (focus==='cardio' && LOWER_DEMAND_POSITIONS.has(exercise.bodyPosition) && (exercise.impact==='medium' || exercise.impact==='high'))).length;
     return lower/list.length;
   }
 
@@ -188,11 +202,14 @@
   function scoreCandidate(exercise, desiredPattern, selected, focus, history, catalogue) {
     let score = 0;
     const previous = selected[selected.length-1];
-    const selectedPatterns = selected.flatMap(item => item.patterns || []);
-    const overlaps = (exercise.patterns || []).filter(pattern => selectedPatterns.includes(pattern)).length;
+    const tags = selectionTags(exercise);
+    const selectedPatterns = selected.flatMap(selectionTags);
+    const overlaps = tags.filter(pattern => selectedPatterns.includes(pattern)).length;
     const majorRepeats = repeatedMajorPatternCount(exercise,selected);
-    if ((exercise.patterns || []).includes(desiredPattern)) score += 8;
-    else if ((exercise.patterns || []).some(pattern => RECIPES[focus].includes(pattern))) score += 2;
+    // Recipe-slot fit is categorical (does the exercise fill this role?); the focus weighting
+    // below adds the degree of strength/cardio demand. Both are intended.
+    if (tags.includes(desiredPattern)) score += 8;
+    else if (tags.some(pattern => RECIPES[focus].includes(pattern))) score += 2;
     if (focus==='strength') score += exercise.strength * 1.7 + exercise.cardio * .15;
     else if (focus==='cardio') score += exercise.cardio * 1.7 + exercise.strength * .2;
     else score += exercise.strength * .85 + exercise.cardio * .85;
@@ -237,7 +254,7 @@
       if (varied.length) candidates = varied;
       const noMajorRepeats = candidates.filter(exercise => repeatedMajorPatternCount(exercise,selected)===0);
       if (noMajorRepeats.length) candidates = noMajorRepeats;
-      const patternMatches = candidates.filter(exercise => exercise.patterns.includes(desired));
+      const patternMatches = candidates.filter(exercise => selectionTags(exercise).includes(desired));
       const variedPatternMatches = patternMatches.filter(exercise => !sharedPatterns(previous,exercise).length);
       const preferredMatches = variedPatternMatches.length ? variedPatternMatches : (!previous ? patternMatches : []);
       if (preferredMatches.length) {
@@ -368,7 +385,10 @@
 
   function scoreIntent(exercise, intent) {
     if(intent==='strength')return exercise.strength*2-exercise.cardio*.15;
-    if(intent==='conditioning'||intent==='finisher')return exercise.cardio*2+((exercise.patterns||[]).includes('conditioning')?4:0)-exercise.strength*.1;
+    // `cardio` grades cardiovascular demand; `conditioning` marks categorical suitability for a
+    // conditioning role (e.g. a heavy farmer carry has cardio 3 but is not conditioning work).
+    // They are deliberately separate contributions, not a double count.
+    if(intent==='conditioning'||intent==='finisher')return exercise.cardio*2+(exercise.conditioning?4:0)-exercise.strength*.1;
     return exercise.strength+exercise.cardio*.45+((exercise.patterns||[]).includes('core')?2:0);
   }
 
@@ -595,7 +615,7 @@
       // as two work exposures; distinctness is therefore measured by exercise id, not by
       // playback step count, so per-side work cannot masquerade as extra block variety.
       const distinctFamilies=new Set(block.exercises.map(exercise=>exercise.id)).size;
-      const distinctPatterns=new Set(block.exercises.flatMap(exercise=>exercise.patterns||[])).size;
+      const distinctPatterns=new Set(block.exercises.flatMap(selectionTags)).size;
       if(distinctFamilies<3||distinctPatterns<2)issues.push(block.id+':insufficient-round-variety');
     }
 
@@ -725,7 +745,7 @@
 
   // Canonical metadata vocabularies. Catalogue validation rejects anything outside these,
   // so a typo cannot silently change generator behaviour.
-  const VALID_PATTERNS = new Set(['squat','hinge','lunge','push','pull','carry','core','conditioning']);
+  const VALID_PATTERNS = new Set(['squat','hinge','lunge','push','pull','carry','core']);
   const VALID_WARMUP_AREAS = new Set(['hips','knees','ankles','shoulders','trunk']);
   const VALID_LOADS = new Set(['Light','Medium','Heavy']);
   const VALID_FREQUENCIES = new Set(['occasional']);
@@ -796,6 +816,7 @@
         for (const pattern of exercise.patterns) if (!VALID_PATTERNS.has(pattern)) errors.push(id+': invalid pattern '+JSON.stringify(pattern));
         if (new Set(exercise.patterns).size!==exercise.patterns.length) errors.push(id+': duplicate pattern');
       }
+      if (exercise.conditioning!==undefined && typeof exercise.conditioning!=='boolean') errors.push(id+': conditioning must be boolean');
       if (!isScale(exercise.strength)) errors.push(id+': strength must be an integer from 1 to 5');
       if (!isScale(exercise.cardio)) errors.push(id+': cardio must be an integer from 1 to 5');
       if (!VALID_IMPACT_LEVELS.has(exercise.impact)) errors.push(id+': invalid impact '+JSON.stringify(exercise.impact));
@@ -911,8 +932,8 @@
     const previous = selected[selected.length-1];
     context = context || {};
     let score = 12 - exercise.prepIntensity*1.5 - exercise.prepFatigue*2 - exercise.prepComplexity*1.5;
-    const mainPatterns = new Set((mainExercises || []).slice(0,3).flatMap(item=>item.patterns||[]));
-    if ((exercise.patterns||[]).some(pattern=>mainPatterns.has(pattern))) score += 1.5;
+    const mainPatterns = new Set((mainExercises || []).slice(0,3).flatMap(selectionTags));
+    if (selectionTags(exercise).some(pattern=>mainPatterns.has(pattern))) score += 1.5;
     const lowerCoverage=lowerJointCoverage(exercise).length;
     const lowerSelected=selected.filter(meaningfulLowerPrep).length;
     const lowerTarget=context.lowerTarget||1;
@@ -936,7 +957,9 @@
     let score = 14 - Math.abs(exercise.prepIntensity-targetIntensity)*3 - exercise.prepFatigue*1.8 - Math.max(0,exercise.prepComplexity-2)*1.5;
     const specificity = contextSpecificity(exercise,mainExercises);
     score += specificity * (2 + 5*position);
-    if ((exercise.patterns||[]).includes('conditioning')) score += (1-position)*2 + (focus==='cardio'?2:focus==='strength'?-0.5:0.5);
+    // Conditioning prep suits the early, pulse-raising end of Ramp-up (categorical); the
+    // Cardio-focus `cardio` term below grades how much it raises the pulse.
+    if (exercise.conditioning) score += (1-position)*2 + (focus==='cardio'?2:focus==='strength'?-0.5:0.5);
     if (focus==='strength' && exercise.impact==='high') score -= 1.5;
     if (focus==='strength') score += specificity*1.2;
     if (focus==='cardio') score += exercise.cardio*.35;
@@ -1139,7 +1162,7 @@
     const before=exerciseIndex>0?block.exercises[exerciseIndex-1]:(blocks[(blockIndex||0)-1]||{exercises:[]}).exercises.at(-1);
     const after=exerciseIndex<block.exercises.length-1?block.exercises[exerciseIndex+1]:(blocks[(blockIndex||0)+1]||{exercises:[]}).exercises[0];
     const scored=eligible.map(exercise=>{
-      let score=(exercise.patterns||[]).filter(pattern=>(current.patterns||[]).includes(pattern)).length*8;
+      let score=sharedPatterns(exercise,current).length*8;
       score-=Math.abs(exercise.strength-current.strength)*1.5+Math.abs(exercise.cardio-current.cardio)*1.5;
       if(exercise.impact===current.impact)score+=2;
       if(primaryEquipment(exercise)===primaryEquipment(current))score+=2;
@@ -1196,7 +1219,7 @@
     workout.estimatedSeconds=workout.warmup.estimatedSeconds+workout.rampup.estimatedSeconds+workout.main.estimatedDurationSeconds+workout.cooldown.estimatedSeconds;
   }
 
-  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_PATTERNS, VALID_WARMUP_AREAS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, selectBlockExercises, selectWarmup, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, generate, swap, swapPreparation };
+  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_PATTERNS, VALID_WARMUP_AREAS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, selectBlockExercises, selectWarmup, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, generate, swap, swapPreparation };
 
   if (typeof window!=='undefined' && typeof document!=='undefined' && typeof window.addEventListener==='function') window.addEventListener('load',()=>{
     if (document.querySelector('script[data-garagefit-rampup-ui]')) return;

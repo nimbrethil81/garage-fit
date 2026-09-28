@@ -75,7 +75,7 @@ test('star jumps cannot be selected for a warm-up', () => {
 test('star jumps remain eligible candidates for Main (no global high-impact Main filter)', () => {
   const eligible=Object.values(catalogue).filter(exercise=>exercise.generator&&exercise.main&&GarageFitGenerator.requirementsMet(exercise,[]));
   assert.ok(!eligible.some(ex=>ex.id==='star-jumps'&&false)); // sanity: filter runs without throwing
-  const synthethicHighImpactMain={id:'synthetic-high-impact',name:'synthetic',equipment:[],patterns:['conditioning'],movementPlanes:['sagittal'],warmupAreas:[],bodyPosition:'standing',strength:2,cardio:5,prescription:{type:'timed',value:20},estimatedSeconds:20,impact:'high',generator:true,main:true,warmup:false,rampup:false,cooldown:false,sidedness:'bilateral',unilateral:false,mainProtocols:['rounds']};
+  const synthethicHighImpactMain={id:'synthetic-high-impact',name:'synthetic',equipment:[],patterns:[],conditioning:true,movementPlanes:['sagittal'],warmupAreas:[],bodyPosition:'standing',strength:2,cardio:5,prescription:{type:'timed',value:20},estimatedSeconds:20,impact:'high',generator:true,main:true,warmup:false,rampup:false,cooldown:false,sidedness:'bilateral',unilateral:false,mainProtocols:['rounds']};
   const mixed=Object.assign({},catalogue,{'synthetic-high-impact':synthethicHighImpactMain});
   const eligibleMixed=Object.values(mixed).filter(exercise=>exercise.generator&&exercise.main&&GarageFitGenerator.requirementsMet(exercise,[]));
   assert.ok(eligibleMixed.some(ex=>ex.id==='synthetic-high-impact'));
