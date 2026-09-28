@@ -5,7 +5,7 @@ GarageFit is a dependency-free browser PWA for fixed and generated workouts.
 ## Before changing code
 
 1. Inspect the relevant implementation and tests.
-2. Treat `data/exercises.js` as the canonical exercise catalogue.
+2. Treat `data/exercises.js` as the canonical exercise catalogue; `data/EXERCISE_METADATA.md` defines its fields.
 3. Treat tests as the executable specification of established generator behaviour.
 4. Run all tests after changes: `node --test tests/*.test.js`
 
