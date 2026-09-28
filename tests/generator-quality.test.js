@@ -54,13 +54,13 @@ test('dumbbell row retains its repetition prescription', () => {
   assert.equal(row.sidedness,'per-side');
 });
 
-test('dumbbell and kettlebell farmer carries share selection history', () => {
+test('dumbbell and kettlebell farmer carries are one occasional exercise family', () => {
   const dumbbell=catalogue['dumbbell-farmer-carry'], kettlebell=catalogue['kettlebell-farmer-carry'];
-  assert.equal(dumbbell.selectionFamily,'farmer-carry');
-  assert.equal(kettlebell.selectionFamily,'farmer-carry');
+  assert.equal(dumbbell.family,'farmer-carry');
+  assert.equal(kettlebell.family,'farmer-carry');
   assert.equal(dumbbell.frequency,'occasional');
   assert.equal(kettlebell.frequency,'occasional');
-  assert.ok(GarageFitGenerator.sameSelectionFamily(dumbbell,kettlebell));
+  assert.ok(GarageFitGenerator.sameFamily(dumbbell,kettlebell));
 });
 
 // ---- Warm-up tests ----
@@ -285,7 +285,7 @@ test('recent-use suppression of one farmer-carry variant reduces (but does not e
 test('farmer carry cannot appear in more than one Main block', () => {
   for (let seed=1;seed<=150;seed++) {
     const workout=create({duration:45,focus:'strength',equipment:['dumbbells','kettlebell'],random:random(seed)});
-    const carryBlocks=workout.main.blocks.filter(block=>block.exercises.some(ex=>ex.selectionFamily==='farmer-carry'));
+    const carryBlocks=workout.main.blocks.filter(block=>block.exercises.some(ex=>ex.family==='farmer-carry'));
     assert.ok(carryBlocks.length<=1,seed);
   }
 });

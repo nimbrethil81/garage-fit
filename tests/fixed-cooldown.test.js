@@ -18,22 +18,24 @@ const cooldownIds = [
 function eligibleCooldownIds(equipment) {
   const eligible = cooldownIds.filter(id => GarageFitGenerator.requirementsMet(catalogue[id], equipment));
   return eligible.filter((id, index) =>
-    !catalogue[id].alternativeGroup ||
-    !eligible.slice(index + 1).some(other => catalogue[other].alternativeGroup === catalogue[id].alternativeGroup)
+    !eligible.slice(index + 1).some(other => GarageFitGenerator.sameFamily(catalogue[other], catalogue[id]))
   );
 }
 
-test('fixed Cool Down records four explicit bodyweight/TRX substitution groups', () => {
-  assert.deepEqual(GarageFitData.fixedCooldownAlternativeGroups, {
+test('fixed Cool Down substitutions are the four bodyweight/TRX stretch families', () => {
+  const families = {};
+  for (const id of cooldownIds) if (catalogue[id].family) (families[catalogue[id].family] = families[catalogue[id].family] || []).push(id);
+  assert.deepEqual(families, {
     'back-lat-stretch': ['childs-pose','trx-lean-back-sink'],
-    'chest-stretch-family': ['chest-opener','trx-lunge-calf-chest'],
-    'glute-stretch-family': ['glute-stretch','trx-glute-standing'],
-    'side-stretch-family': ['side-stretch','trx-side-stretch']
+    'chest-opener': ['chest-opener','trx-lunge-calf-chest'],
+    'glute-stretch': ['glute-stretch','trx-glute-standing'],
+    'side-stretch': ['side-stretch','trx-side-stretch']
   });
+});
 
-  for (const [group, ids] of Object.entries(GarageFitData.fixedCooldownAlternativeGroups)) {
-    for (const id of ids) assert.equal(catalogue[id].alternativeGroup, group, id);
-  }
+test('fixed-workout data no longer mutates catalogue relationship metadata', () => {
+  assert.equal(GarageFitData.fixedCooldownAlternativeGroups, undefined);
+  for (const exercise of Object.values(catalogue)) assert.equal(exercise.alternativeGroup, undefined, exercise.id);
 });
 
 test('fixed Cool Down uses bodyweight substitutions when TRX is unavailable', () => {
@@ -53,6 +55,6 @@ test('fixed Cool Down replaces bodyweight substitutes with TRX versions instead 
   for (const id of expectedTrx) assert.ok(ids.includes(id), id);
   for (const id of replacedBodyweight) assert.equal(ids.includes(id), false, id);
 
-  const groups = ids.map(id => catalogue[id].alternativeGroup).filter(Boolean);
+  const groups = ids.map(id => catalogue[id].family).filter(Boolean);
   assert.equal(new Set(groups).size, groups.length);
 });

@@ -353,8 +353,8 @@ function loadEquipment(){
 function saveEquipment(){try{localStorage.setItem('gf_equipment_inventory',JSON.stringify(state.ownedEquipment));localStorage.setItem('gf_equipment_configured',String(state.equipmentConfigured))}catch(e){}}
 function eligibleRoutineIds(kind){
   const eligible=EX[kind+'Ids'].filter(id=>GarageFitGenerator.requirementsMet(CATALOGUE[id],state.ownedEquipment));
-  // Equipment alternatives appear later in the fixed routine and take precedence.
-  return eligible.filter((id,index)=>!CATALOGUE[id].alternativeGroup || !eligible.slice(index+1).some(other=>CATALOGUE[other].alternativeGroup===CATALOGUE[id].alternativeGroup));
+  // Equipment alternatives (same exercise family) appear later in the fixed routine and take precedence.
+  return eligible.filter((id,index)=>!eligible.slice(index+1).some(other=>GarageFitGenerator.sameFamily(CATALOGUE[other],CATALOGUE[id])));
 }
 function routineList(kind){return expandLegacyTimed(eligibleRoutineIds(kind))}
 function renderHome(){const count=state.ownedEquipment.length;document.getElementById('equipIconUse').setAttribute('href',count?'#icon-equipment':'#icon-body');document.getElementById('equipToggleText').textContent=count?count+' item'+(count===1?'':'s'):'Bodyweight';document.getElementById('warmupSub').textContent=routineList('warmup').length+' moves';document.getElementById('cooldownSub').textContent=routineList('cooldown').length+' moves'}

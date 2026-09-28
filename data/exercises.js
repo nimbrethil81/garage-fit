@@ -55,7 +55,7 @@
       prepComplexity: null,
       main: false,
       cooldown: false,
-      alternativeGroup: null,
+      family: null,
       mainProtocols: null,
       // Supporting movements are useful punctuation in a Main block, but should not
       // become the backbone of a long, highly repeated block.
@@ -107,7 +107,7 @@
   add('single-arm-dumbbell-row', 'Single-arm dumbbell row', { equipment:[['dumbbells']], patterns:['pull'], strength:5, cardio:1, prescription:{type:'unilateral-reps',value:10}, estimatedSeconds:50, unilateral:true, load:'Medium', generator:true, main:true });
   add('dumbbell-thruster', 'Dumbbell thruster', { equipment:[['dumbbells']], patterns:['squat','push','conditioning'], strength:4, cardio:5, prescription:{type:'timed',value:35}, estimatedSeconds:35, impact:'medium', load:'Medium', generator:true, main:true });
   add('dumbbell-clean-and-press', 'Dumbbell clean and press', { equipment:[['dumbbells']], patterns:['hinge','push','conditioning'], strength:4, cardio:4, prescription:{type:'reps',value:10}, estimatedSeconds:40, impact:'medium', load:'Medium', generator:true, main:true });
-  add('dumbbell-farmer-carry', 'Dumbbell farmer carry', prep({ equipment:[['dumbbells']], patterns:['carry','core'], strength:4, cardio:3, prescription:{type:'timed',value:30}, estimatedSeconds:30, load:'Heavy', generator:true, main:true, selectionFamily:'farmer-carry', frequency:'occasional' },3,2,1,{type:'timed',value:35,minValue:25,maxValue:45}));
+  add('dumbbell-farmer-carry', 'Dumbbell farmer carry', prep({ equipment:[['dumbbells']], patterns:['carry','core'], strength:4, cardio:3, prescription:{type:'timed',value:30}, estimatedSeconds:30, load:'Heavy', generator:true, main:true, family:'farmer-carry', frequency:'occasional' },3,2,1,{type:'timed',value:35,minValue:25,maxValue:45}));
 
   add('kettlebell-goblet-squat', 'Kettlebell goblet squat', prep({ equipment:[['kettlebell']], patterns:['squat'], strength:5, cardio:2, prescription:{type:'reps',value:10}, estimatedSeconds:25, impact:'medium', generator:true, main:true },4,3,2,{type:'timed',value:30,minValue:20,maxValue:35}));
   add('kettlebell-deadlift', 'Kettlebell deadlift', prep({ equipment:[['kettlebell']], patterns:['hinge'], strength:5, cardio:2, prescription:{type:'reps',value:10}, estimatedSeconds:30, generator:true, main:true },3,2,2,{type:'timed',value:30,minValue:20,maxValue:35}));
@@ -118,7 +118,7 @@
   add('kettlebell-shoulder-press', 'Kettlebell shoulder press', { equipment:[['kettlebell']], patterns:['push'], strength:5, cardio:2, prescription:{type:'unilateral-reps',value:8}, estimatedSeconds:45, unilateral:true, generator:true, main:true });
   add('single-arm-kettlebell-row', 'Single-arm kettlebell row', { equipment:[['kettlebell']], patterns:['pull'], strength:5, cardio:1, sidedness:'alternating', prescription:{type:'timed',value:40}, estimatedSeconds:40, prescriptionModes:['time'], generator:true, main:true, timedCues:[{text:'Change side',at:{type:'fraction',value:0.5}}] });
   add('kettlebell-figure-eight', 'Kettlebell figure-of-eight', prep({ equipment:[['kettlebell']], patterns:['core','conditioning'], warmupAreas:['hips','trunk'], movementPlanes:['transverse'], strength:3, cardio:4, prescription:{type:'timed',value:30}, estimatedSeconds:30, impact:'medium', sidedness:'alternating', generator:true, warmup:true, warmupPhase:'late', warmupPrescription:{type:'timed',value:15}, warmupEstimatedSeconds:15, main:true },4,2,3,{type:'timed',value:35,minValue:25,maxValue:40}));
-  add('kettlebell-farmer-carry', 'Kettlebell farmer carry', prep({ equipment:[['kettlebell']], patterns:['carry','core'], strength:4, cardio:3, prescription:{type:'timed',value:30}, estimatedSeconds:30, generator:true, main:true, selectionFamily:'farmer-carry', frequency:'occasional' },3,2,1,{type:'timed',value:35,minValue:25,maxValue:45}));
+  add('kettlebell-farmer-carry', 'Kettlebell farmer carry', prep({ equipment:[['kettlebell']], patterns:['carry','core'], strength:4, cardio:3, prescription:{type:'timed',value:30}, estimatedSeconds:30, generator:true, main:true, family:'farmer-carry', frequency:'occasional' },3,2,1,{type:'timed',value:35,minValue:25,maxValue:45}));
 
   add('pull-up', 'Pull-up', { equipment:[['pullup-bar']], patterns:['pull'], bodyPosition:'hanging', strength:5, cardio:2, prescription:{type:'reps',value:5}, estimatedSeconds:25, generator:true, main:true });
   add('chin-up', 'Chin-up', { equipment:[['pullup-bar']], patterns:['pull'], bodyPosition:'hanging', strength:5, cardio:2, prescription:{type:'reps',value:5}, estimatedSeconds:25, generator:true, main:true });
@@ -200,13 +200,38 @@
   const unilateralCooldowns = new Set(['inside-thigh-stretch','wide-toe-touch','hip-flexor-arm-stretch','kneeling-hamstring','standing-quads','pigeon-stretch','runners-stretch','glute-stretch','lying-torso-twist']);
   const floorCooldowns = new Set(['kneeling-hamstring','frog-stretch','downward-upward-dog','plank-calf-stretch','pigeon-stretch','childs-pose','glute-stretch','lying-torso-twist','full-body-stretch']);
   cooldowns.forEach(x=>add(x[0],x[1],{cooldown:true,bodyPosition:floorCooldowns.has(x[0])?'floor':'standing',unilateral:unilateralCooldowns.has(x[0]),prescription:{type:unilateralCooldowns.has(x[0])?'unilateral-timed':'timed',value:15},estimatedSeconds:unilateralCooldowns.has(x[0])?30:15}));
-  catalogue['childs-pose'].alternativeGroup='back-lat-stretch';
-  catalogue['glute-stretch'].alternativeGroup='glute-stretch-family';
-  add('trx-lean-back-sink', 'TRX lean back and sink', { alternativeGroup:'back-lat-stretch', equipment:[['trx']], cooldown:true, prescription:{type:'timed',value:15}, estimatedSeconds:15 });
+  add('trx-lean-back-sink', 'TRX lean back and sink', { equipment:[['trx']], cooldown:true, prescription:{type:'timed',value:15}, estimatedSeconds:15 });
   add('trx-lunge-calf-chest', 'TRX lunge, calf and chest opener', { equipment:[['trx']], cooldown:true, unilateral:true, prescription:{type:'unilateral-timed',value:15}, estimatedSeconds:30 });
-  add('trx-glute-standing', 'TRX glute standing', { alternativeGroup:'glute-stretch-family', equipment:[['trx']], cooldown:true, unilateral:true, prescription:{type:'unilateral-timed',value:15}, estimatedSeconds:30 });
+  add('trx-glute-standing', 'TRX glute standing', { equipment:[['trx']], cooldown:true, unilateral:true, prescription:{type:'unilateral-timed',value:15}, estimatedSeconds:30 });
   add('trx-side-stretch', 'TRX side stretch', { equipment:[['trx']], movementPlanes:['frontal'], cooldown:true, unilateral:true, prescription:{type:'unilateral-timed',value:15}, estimatedSeconds:30 });
   add('easy-recovery-walk', 'Easy recovery walk', { bodyPosition:'standing', strength:1, cardio:2, prescription:{type:'timed',value:45}, estimatedSeconds:45, sidedness:'none', impact:'low' });
+
+  // Families: direct or near-direct variants of substantially the same exercise
+  // (equipment variants of the same named lift, phase-specific duplicates).
+  const families = {
+    'farmer-carry':['dumbbell-farmer-carry','kettlebell-farmer-carry'],
+    'dead-hang':['dead-hang','hangout-pullup-bar'],
+    'reverse-lunge':['reverse-lunge','step-back-lunge','dumbbell-reverse-lunge','kettlebell-reverse-lunge','trx-reverse-lunge'],
+    'step-up':['step-ups','box-step-ups','chair-step-ups'],
+    'goblet-squat':['goblet-squat','kettlebell-goblet-squat'],
+    'front-squat':['dumbbell-front-squat','barbell-front-squat'],
+    'deadlift':['dumbbell-deadlift','kettlebell-deadlift','barbell-deadlift'],
+    'romanian-deadlift':['dumbbell-romanian-deadlift','barbell-romanian-deadlift','band-romanian-deadlift'],
+    'clean':['kettlebell-clean','barbell-clean'],
+    'clean-and-press':['dumbbell-clean-and-press','kettlebell-clean-and-press','barbell-clean-and-press'],
+    'bent-over-row':['dumbbell-bent-over-row','barbell-bent-over-row'],
+    'single-arm-row':['single-arm-dumbbell-row','single-arm-kettlebell-row','dumbbell-bench-row'],
+    'overhead-press':['dumbbell-shoulder-press','kettlebell-shoulder-press','barbell-overhead-press','band-shoulder-press'],
+    'floor-press':['dumbbell-floor-press','barbell-floor-press'],
+    'triceps-dip':['bench-dips','chair-triceps-dips'],
+    'mountain-climber':['mountain-climbers','trx-mountain-climber'],
+    'biceps-curl':['trx-biceps-curl','band-biceps-curl'],
+    'back-lat-stretch':['childs-pose','trx-lean-back-sink'],
+    'chest-opener':['chest-opener','trx-lunge-calf-chest'],
+    'glute-stretch':['glute-stretch','trx-glute-standing'],
+    'side-stretch':['side-stretch','trx-side-stretch']
+  };
+  Object.entries(families).forEach(([family, ids]) => ids.forEach(id => { catalogue[id].family = family; }));
 
   // Protocol suitability belongs to the canonical exercise catalogue. Timed intervals
   // are opt-in because rep-based strength movements are not automatically safe or useful

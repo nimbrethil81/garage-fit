@@ -64,15 +64,37 @@
     return PRESCRIPTION_MODE_BY_TYPE[type] || null;
   }
 
-  function sameSelectionFamily(first, second) {
-    return !!(first && second && first.selectionFamily && first.selectionFamily===second.selectionFamily);
+  // ---- Relationship metadata and the phase policies built on it ----
+  // `family`: direct or near-direct variants of substantially the same exercise.
+  // `repetitionClass`: different exercises that feel repetitive when programmed close together.
+  // The metadata only describes relationships; each phase decides what they mean (below).
+
+  function sameFamily(first, second) {
+    return !!(first && second && first.family && first.family===second.family);
   }
 
-  // A broad repetition family/class (e.g. basic no-equipment conditioning bounces) that's
-  // independent of `selectionFamily`, which drives Main-only cross-block frequency capping.
-  // This is scoped to Warm-up/Ramp-up phase repetition and never touches Main selection.
   function sameRepetitionClass(first, second) {
     return !!(first && second && first.repetitionClass && first.repetitionClass===second.repetitionClass);
+  }
+
+  // The same exercise, or a direct variant of it.
+  function sameExerciseOrFamily(first, second) {
+    return !!(first && second && (first.id===second.id || sameFamily(first,second)));
+  }
+
+  // Main policy: an "occasional" family (e.g. farmer carry across dumbbell/kettlebell
+  // variants) is capped at one exposure across the whole Main phase. Shared by initial
+  // generation and swaps so a swap cannot introduce what generation would have refused.
+  function mainFamilyCapReached(exercise, mainExercises) {
+    return !!(exercise && exercise.frequency==='occasional' && exercise.family && (mainExercises || []).some(item => sameFamily(item,exercise)));
+  }
+
+  // Preparation policy (Warm-up, Ramp-up and their swaps): repeating an exercise or a direct
+  // variant of it counts as a duplicate. Applied as a soft-mandatory filter so a constrained
+  // catalogue still produces a phase.
+  function preferNonDuplicates(candidates, used) {
+    const fresh = candidates.filter(exercise => !(used || []).some(item => sameExerciseOrFamily(item,exercise)));
+    return fresh.length ? fresh : candidates;
   }
 
   function recentUsePenalty(exercise, history, catalogue) {
@@ -86,8 +108,8 @@
         const previous = catalogue && catalogue[id];
         return previous && sharedPatterns(exercise,previous).some(pattern => MAJOR_REPEAT_PATTERNS.has(pattern));
       });
-      const sharesSelectionFamily = ids.some(id => sameSelectionFamily(exercise, catalogue && catalogue[id]));
-      if (sharesMajorPattern || sharesSelectionFamily) patternPenalty = Math.max(patternPenalty,family);
+      const sharesFamily = ids.some(id => sameFamily(exercise, catalogue && catalogue[id]));
+      if (sharesMajorPattern || sharesFamily) patternPenalty = Math.max(patternPenalty,family);
     }
     return exactPenalty + patternPenalty;
   }
@@ -208,7 +230,7 @@
     const recipe = RECIPES[focus];
     for (let slot=0;slot<count;slot++) {
       const desired = recipe[slot % recipe.length];
-      let candidates = eligible.filter(exercise => !selected.some(item => item.id===exercise.id || (item.frequency==='occasional' && sameSelectionFamily(item,exercise))));
+      let candidates = eligible.filter(exercise => !selected.some(item => item.id===exercise.id) && !mainFamilyCapReached(exercise,selected));
       const previous = selected[selected.length-1];
       const neighbours = [previous, slot===count-1 ? selected[0] : null];
       const varied = candidates.filter(exercise => neighbours.every(item => !sharedPatterns(item,exercise).length));
@@ -354,12 +376,8 @@
     const selected=[], recipe=RECIPES[focus]||RECIPES.balanced;
     for(let slot=0;slot<count;slot++){
       const desired=recipe[(state.exercises.length+slot)%recipe.length];
-      let candidates=eligible.filter(ex=>protocolCompatible(ex,protocol)&&!selected.some(item=>item.id===ex.id));
-      // An "occasional" selection family (e.g. farmer carry, across dumbbell/kettlebell variants)
-      // is capped at one exposure across the whole Main phase, not just within a block.
-      candidates=candidates.filter(ex=>!(ex.frequency==='occasional'&&ex.selectionFamily&&(
-        (state.usedFamilies&&state.usedFamilies.has(ex.selectionFamily)) || selected.some(item=>sameSelectionFamily(item,ex))
-      )));
+      const mainSoFar=state.exercises.concat(selected);
+      let candidates=eligible.filter(ex=>protocolCompatible(ex,protocol)&&!selected.some(item=>item.id===ex.id)&&!mainFamilyCapReached(ex,mainSoFar));
       if(!candidates.length)break;
       const previous=selected[selected.length-1]||state.exercises[state.exercises.length-1];
       const allSelected=state.exercises.concat(selected);
@@ -564,8 +582,8 @@
     const issues=[];
     const familyCounts=new Map();
     for(const block of blocks)for(const exercise of block.exercises||[]){
-      if(exercise.frequency==='occasional'&&exercise.selectionFamily)
-        familyCounts.set(exercise.selectionFamily,(familyCounts.get(exercise.selectionFamily)||0)+1);
+      if(exercise.frequency==='occasional'&&exercise.family)
+        familyCounts.set(exercise.family,(familyCounts.get(exercise.family)||0)+1);
     }
     for(const [family,count] of familyCounts)if(count>1)issues.push('main:family-cap:'+family);
 
@@ -622,7 +640,7 @@
     const viableCount=viableEquipmentTypes(eligible).size;
     for(let attempt=0;attempt<10;attempt++){
       const count=chooseBlockCount(duration,eligible.length,random),intents=chooseIntents(focus,count,random);
-      const state={exercises:[],usedIds:new Set(),usedFamilies:new Set(),equipmentUsage:new Map(),blocks:[],owned,diversityTarget};
+      const state={exercises:[],usedIds:new Set(),equipmentUsage:new Map(),blocks:[],owned,diversityTarget};
       let remaining=budget.main;
       for(let index=0;index<count;index++){
         const blocksLeft=count-index;
@@ -640,7 +658,6 @@
         const repeats=blockRepeatCount(block);
         block.exercises.forEach(ex=>{
           state.usedIds.add(ex.id);
-          if(ex.frequency==='occasional'&&ex.selectionFamily)state.usedFamilies.add(ex.selectionFamily);
           const type=primaryEquipment(ex);
           if(type!=='bodyweight')state.equipmentUsage.set(type,(state.equipmentUsage.get(type)||0)+ex.estimatedSeconds*repeats);
         });
@@ -692,7 +709,8 @@
       const exercise = fitting[index];
       picked.push(exercise);
       total += exercise.estimatedSeconds + (picked.length>1?restSeconds:0);
-      candidates = candidates.filter(item => item.id!==exercise.id && (!exercise.alternativeGroup || item.alternativeGroup!==exercise.alternativeGroup));
+      // Cool-down policy: a family's alternatives (e.g. a stretch and its TRX version) never co-occur.
+      candidates = candidates.filter(item => !sameExerciseOrFamily(item,exercise));
     }
     if (kind==='cooldown') picked.splice(0,picked.length,...groupSectionBySetup(picked,owned));
     return { exercises:picked, restSeconds, estimatedSeconds:total };
@@ -714,6 +732,7 @@
   const PRESCRIPTION_TYPES = new Set(Object.keys(PRESCRIPTION_MODE_BY_TYPE));
   const RELATIONSHIP_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
   const PHASE_FLAGS = ['generator','main','warmup','rampup','cooldown'];
+  const RETIRED_FIELDS = ['alternativeGroup','selectionFamily'];
 
   function canonicalEquipmentIds(options) {
     const list = (options && options.equipment) || (root.GarageFitData && root.GarageFitData.equipment);
@@ -838,13 +857,14 @@
         else prescriptionErrors('ramp-up prescription', p, exercise, exercise.rampupEstimatedSeconds, {timedOnly:true}).forEach(error=>errors.push(id+': '+error));
       } else if (exercise.rampupPrescription!=null) errors.push(id+': ramp-up prescription set on a non-ramp-up exercise');
 
-      // Relationship metadata (pre-migration fields).
-      for (const field of ['alternativeGroup','selectionFamily','repetitionClass']) {
+      // Relationship metadata.
+      for (const field of ['family','repetitionClass']) {
         if (exercise[field]!=null && (typeof exercise[field]!=='string' || !RELATIONSHIP_ID.test(exercise[field]))) errors.push(id+': invalid '+field+' '+JSON.stringify(exercise[field]));
       }
+      for (const field of RETIRED_FIELDS) if (exercise[field]!==undefined) errors.push(id+': '+field+' is retired; use family or repetitionClass');
       if (exercise.frequency!=null) {
         if (!VALID_FREQUENCIES.has(exercise.frequency)) errors.push(id+': invalid frequency '+JSON.stringify(exercise.frequency));
-        else if (!exercise.selectionFamily) errors.push(id+': frequency requires a selection family');
+        else if (!exercise.family) errors.push(id+': frequency requires a family');
       }
     }
     return errors;
@@ -930,7 +950,7 @@
     }
     if (exercise.impact==='high') score += position*1.5 - (1-position)*2;
     if (exercise.unilateral && position<.5) score -= 1;
-    if (warmup.some(item=>item.id===exercise.id)) score -= 3;
+    if (warmup.some(item=>sameExerciseOrFamily(item,exercise))) score -= 3;
     // Discourage (but don't forbid) picking another exercise from the same broad repetition
     // family/class as one already used in Warm-up or earlier in Ramp-up itself.
     if (warmup.some(item=>sameRepetitionClass(item,exercise)) || selected.some(item=>sameRepetitionClass(item,exercise))) score -= 5;
@@ -1005,7 +1025,7 @@
       }
       const scored=slotCandidates.map(exercise=>({exercise,score:scoreWarmupCandidate(exercise,selected,mainExercises,owned,context)}));
       const picked=controlledPick(scored,random); if(!picked) break;
-      selected.push(picked); candidates=candidates.filter(ex=>ex.id!==picked.id && (!picked.alternativeGroup || ex.alternativeGroup!==picked.alternativeGroup));
+      selected.push(picked); candidates=candidates.filter(ex=>!sameExerciseOrFamily(ex,picked));
     }
     selected.sort((a,b)=>{
       const intensity=a.prepIntensity-b.prepIntensity;
@@ -1039,12 +1059,11 @@
       for(let slot=0;slot<count;slot++) {
         const position=count===1?1:slot/(count-1);
         let candidates=eligible.filter(ex=>!selected.some(item=>item.id===ex.id));
-        // An exercise already used in Warm-up shouldn't normally repeat exactly in Ramp-up,
-        // but this stays a soft-mandatory filter: if it would leave no eligible candidate for
-        // this slot (a genuinely constrained catalogue), the exact duplicate remains available
-        // as a last resort rather than breaking generation.
-        const notWarmupDuplicate=candidates.filter(ex=>!warmup.some(item=>item.id===ex.id));
-        if (notWarmupDuplicate.length) candidates=notWarmupDuplicate;
+        // An exercise (or a direct variant of one) already used earlier in Ramp-up or in Warm-up
+        // shouldn't normally repeat, but this stays soft-mandatory: in a genuinely constrained
+        // catalogue the duplicate remains available as a last resort rather than breaking generation.
+        candidates=preferNonDuplicates(candidates,selected);
+        candidates=preferNonDuplicates(candidates,warmup);
         const scored=candidates.map(exercise=>({exercise,score:scoreRampupCandidate(exercise,position,selected,warmup,mainExercises,owned,focus)}));
         const picked=controlledPick(scored,random); if(!picked) break; selected.push(picked);
       }
@@ -1115,7 +1134,7 @@
     if(!block||!current)return workout;
     const otherExercises=blocks.flatMap((item,bIndex)=>item.exercises.filter((_,eIndex)=>bIndex!==(blockIndex||0)||eIndex!==exerciseIndex));
     const otherIds=new Set(otherExercises.map(exercise=>exercise.id));
-    let eligible=Object.values(catalogue).filter(exercise=>exercise.generator&&exercise.main&&requirementsMet(exercise,owned)&&protocolCompatible(exercise,block.protocol)&&exercise.id!==current.id);
+    let eligible=Object.values(catalogue).filter(exercise=>exercise.generator&&exercise.main&&requirementsMet(exercise,owned)&&protocolCompatible(exercise,block.protocol)&&exercise.id!==current.id&&!mainFamilyCapReached(exercise,otherExercises));
     const fresh=eligible.filter(exercise=>!otherIds.has(exercise.id));if(fresh.length)eligible=fresh;
     const before=exerciseIndex>0?block.exercises[exerciseIndex-1]:(blocks[(blockIndex||0)-1]||{exercises:[]}).exercises.at(-1);
     const after=exerciseIndex<block.exercises.length-1?block.exercises[exerciseIndex+1]:(blocks[(blockIndex||0)+1]||{exercises:[]}).exercises[0];
@@ -1139,8 +1158,9 @@
   function swapPreparation(workout, section, exerciseIndex, options) {
     if(!['warmup','rampup'].includes(section)||!workout[section]) return workout;
     const catalogue=options.catalogue, owned=options.equipment||[], random=options.random||Math.random, current=workout[section].exercises[exerciseIndex], main=workout.blocks[0].exercises;
-    const allPrepIds=new Set(workout.warmup.exercises.concat(workout.rampup.exercises).filter(ex=>ex!==current).map(ex=>ex.id));
-    let eligible=Object.values(catalogue).filter(ex=>ex[section]&&preparationMetadataValid(ex)&&requirementsMet(ex,owned)&&ex.id!==current.id&&!allPrepIds.has(ex.id));
+    const otherPrep=workout.warmup.exercises.concat(workout.rampup.exercises).filter(ex=>ex!==current);
+    let eligible=Object.values(catalogue).filter(ex=>ex[section]&&preparationMetadataValid(ex)&&requirementsMet(ex,owned)&&ex.id!==current.id&&!otherPrep.some(item=>item.id===ex.id));
+    eligible=preferNonDuplicates(eligible,otherPrep);
     if(section==='warmup') eligible=eligible.filter(ex=>ex.impact!=='high');
     if(section==='rampup') eligible=eligible.filter(ex=>ex.prepFatigue<=3&&ex.prepComplexity<=3);
     if(section==='warmup') {
@@ -1176,7 +1196,7 @@
     workout.estimatedSeconds=workout.warmup.estimatedSeconds+workout.rampup.estimatedSeconds+workout.main.estimatedDurationSeconds+workout.cooldown.estimatedSeconds;
   }
 
-  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, sameSelectionFamily, sameRepetitionClass, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_PATTERNS, VALID_WARMUP_AREAS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, selectBlockExercises, selectWarmup, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, generate, swap, swapPreparation };
+  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_PATTERNS, VALID_WARMUP_AREAS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, selectBlockExercises, selectWarmup, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, generate, swap, swapPreparation };
 
   if (typeof window!=='undefined' && typeof document!=='undefined' && typeof window.addEventListener==='function') window.addEventListener('load',()=>{
     if (document.querySelector('script[data-garagefit-rampup-ui]')) return;
