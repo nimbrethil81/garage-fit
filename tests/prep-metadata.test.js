@@ -1,8 +1,5 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const vm = require('node:vm');
-const path = require('node:path');
 
 global.window = global;
 require('../data/equipment.js');
@@ -17,12 +14,10 @@ function withGenericDefaults(exercise) {
   return Object.assign({}, exercise, { strength:1, cardio:1, patterns:[] });
 }
 
-test('preparation exercises must declare strength, cardio and patterns when authored', () => {
-  const source = fs.readFileSync(path.join(__dirname, '..', 'data/exercises.js'), 'utf8')
-    .replace("root.GarageFitData = root.GarageFitData || {};", "add('mystery-prep', 'Mystery prep', { warmup:true, warmupPhase:'basic', warmupAreas:['hips'] });\n  root.GarageFitData = root.GarageFitData || {};");
-  const context = {}; context.window = context;
-  vm.createContext(context);
-  assert.throws(() => vm.runInContext(source, context), /mystery-prep: preparation exercise must declare strength, cardio, patterns/);
+test('preparation exercises must declare strength, cardio, patterns and conditioning when authored', () => {
+  assert.throws(() => GarageFitData.buildExerciseCatalogue([
+    { id:'mystery-prep', name:'Mystery prep', prescription:{ type:'timed', value:20 }, warmup:true, warmupPhase:'basic', warmupPrescription:{ type:'timed', value:20 }, warmupAreas:['hips'] }
+  ]), /mystery-prep: generator and preparation exercises must declare patterns, conditioning, strength, cardio/);
 });
 
 test('reviewed prep exercises carry explicit scored metadata', () => {

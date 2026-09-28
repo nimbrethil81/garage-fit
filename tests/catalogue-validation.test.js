@@ -1,8 +1,5 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const vm = require('node:vm');
-const path = require('node:path');
 
 global.window = global;
 require('../data/equipment.js');
@@ -40,12 +37,28 @@ test('duplicate exercise ids are rejected', () => {
 });
 
 test('duplicate ids fail loudly during catalogue authoring instead of overwriting', () => {
-  const root = path.join(__dirname, '..');
-  const source = fs.readFileSync(path.join(root, 'data/exercises.js'), 'utf8')
-    .replace("root.GarageFitData = root.GarageFitData || {};", "add('plank', 'Plank again', { patterns:['core'], strength:1, cardio:1 });\n  root.GarageFitData = root.GarageFitData || {};");
-  const context = {}; context.window = context;
-  vm.createContext(context);
-  assert.throws(() => vm.runInContext(source, context), /Duplicate exercise id: plank/);
+  const definition = { id:'plank', name:'Plank', prescription:{ type:'timed', value:30 } };
+  assert.throws(() => GarageFitData.buildExerciseCatalogue([definition, Object.assign({}, definition, { name:'Plank again' })]), /Duplicate exercise id: plank/);
+});
+
+test('catalogue authoring rejects unknown fields and incomplete definitions', () => {
+  const build = definition => GarageFitData.buildExerciseCatalogue([definition]);
+  assert.throws(() => build({ id:'typo', name:'Typo', prescription:{ type:'timed', value:30 }, warmupAreass:['hips'] }), /typo: unknown exercise field\(s\) warmupAreass/);
+  assert.throws(() => build({ id:'no-prescription', name:'No prescription' }), /missing prescription/);
+  assert.throws(() => build({ id:'reps-only', name:'Reps', prescription:{ type:'reps', value:10 } }), /rep-based prescriptions need estimatedSeconds/);
+  assert.throws(() => build({ id:'unscored', name:'Unscored', generator:true, main:true, prescription:{ type:'timed', value:30 } }), /must declare patterns, conditioning, strength, cardio/);
+});
+
+test('authoring derives estimates that budget every side', () => {
+  const built = GarageFitData.buildExerciseCatalogue([
+    { id:'one-side', name:'One side', sidedness:'per-side', prescription:{ type:'unilateral-timed', value:20 },
+      patterns:['lunge'], conditioning:false, strength:2, cardio:2, warmup:true, warmupPhase:'dynamic', warmupPrescription:{ type:'unilateral-timed', value:15 },
+      rampup:true, rampupPrescription:{ type:'unilateral-timed', value:20, minValue:15, maxValue:25 }, prepIntensity:2, prepFatigue:2, prepComplexity:2 }
+  ])['one-side'];
+  assert.equal(built.estimatedSeconds, 40);
+  assert.equal(built.warmupEstimatedSeconds, 30);
+  assert.equal(built.rampupEstimatedSeconds, 40);
+  assert.equal(built.unilateral, true);
 });
 
 test('missing ids, mismatched keys and missing names are rejected', () => {
