@@ -389,7 +389,7 @@ function getGeneratedHistory(){try{const value=JSON.parse(localStorage.getItem('
 function generateWorkout(){
   generatorState.workout=GarageFitGenerator.generate({catalogue:CATALOGUE,duration:generatorState.duration,focus:generatorState.focus,equipment:state.ownedEquipment,history:getGeneratedHistory()});renderGeneratedPreview();showScreen('generatedPreview');
 }
-function formatPrescription(exercise){const p=exercise.prescription,unit=p.type.includes('timed')?' sec':' reps',each=p.type.includes('unilateral')?' each side':'';return p.value+unit+each+(exercise.load?' · '+exercise.load:'')}
+function formatPrescription(exercise){const p=exercise.prescription,unit=p.type.includes('timed')?' sec':' reps',each=(exercise.sidedness==='per-side'||p.type.includes('unilateral'))?' each side':'';return p.value+unit+each+(exercise.load?' · '+exercise.load:'')}
 function protocolLabel(block){
   if(block.protocol==='paired_sets')return 'Paired sets · '+block.prescription.sets+' sets';
   if(block.protocol==='timed_intervals')return 'Timed intervals · '+block.prescription.workSeconds+' sec work / '+block.prescription.transitionSeconds+' sec change · '+block.prescription.cycles+' cycles';

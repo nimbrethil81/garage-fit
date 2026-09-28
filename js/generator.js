@@ -705,38 +705,172 @@
       exercise.movementPlanes.every(plane=>VALID_MOVEMENT_PLANES.has(plane)) && Array.isArray(exercise.warmupAreas || []);
   }
 
-  function validateCatalogue(catalogue) {
+  // Canonical metadata vocabularies. Catalogue validation rejects anything outside these,
+  // so a typo cannot silently change generator behaviour.
+  const VALID_PATTERNS = new Set(['squat','hinge','lunge','push','pull','carry','core','conditioning']);
+  const VALID_WARMUP_AREAS = new Set(['hips','knees','ankles','shoulders','trunk']);
+  const VALID_LOADS = new Set(['Light','Medium','Heavy']);
+  const VALID_FREQUENCIES = new Set(['occasional']);
+  const PRESCRIPTION_TYPES = new Set(Object.keys(PRESCRIPTION_MODE_BY_TYPE));
+  const RELATIONSHIP_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+  const PHASE_FLAGS = ['generator','main','warmup','rampup','cooldown'];
+
+  function canonicalEquipmentIds(options) {
+    const list = (options && options.equipment) || (root.GarageFitData && root.GarageFitData.equipment);
+    return Array.isArray(list) ? new Set(list.map(item => typeof item==='string' ? item : item && item.id)) : null;
+  }
+
+  // Number of separately performed sides for a prescription: per-side work is performed
+  // once for each side; bilateral, alternating and side-less work is performed once.
+  function sideCount(exercise) {
+    return exercise && exercise.sidedness==='per-side' ? ((exercise.sideOrder && exercise.sideOrder.length) || 2) : 1;
+  }
+
+  function isScale(value) {
+    return Number.isInteger(value) && value>=1 && value<=5;
+  }
+
+  function prescriptionErrors(label, p, exercise, estimatedSeconds, options) {
+    options = options || {};
     const errors = [];
-    for (const exercise of Object.values(catalogue)) {
-      if (!VALID_SIDEDNESS.has(exercise.sidedness)) errors.push(exercise.id+': invalid sidedness');
-      if (exercise.mainRole!=null&&!MAIN_ROLES.has(exercise.mainRole)) errors.push(exercise.id+': invalid main role');
+    if (!p || typeof p!=='object') return [label+' missing'];
+    if (!PRESCRIPTION_TYPES.has(p.type)) return [label+' has invalid type '+JSON.stringify(p.type)];
+    if (!Number.isFinite(p.value) || p.value<=0) errors.push(label+' has invalid value');
+    for (const bound of ['minValue','maxValue']) if (p[bound]!==undefined && (!Number.isFinite(p[bound]) || p[bound]<=0)) errors.push(label+' has invalid '+bound);
+    if (Number.isFinite(p.minValue) && Number.isFinite(p.value) && p.minValue>p.value) errors.push(label+' minValue exceeds value');
+    if (Number.isFinite(p.maxValue) && Number.isFinite(p.value) && p.maxValue<p.value) errors.push(label+' maxValue is below value');
+    if (options.timedOnly && prescriptionMode(p.type)!=='time') errors.push(label+' must be timed');
+    // Per-side prescriptions are always expressed per side ("each side"); every other
+    // sidedness states the whole exercise, so its prescription must not claim to be per side.
+    if ((exercise.sidedness==='per-side') !== p.type.startsWith('unilateral')) errors.push(label+' does not match sidedness '+exercise.sidedness);
+    if (estimatedSeconds!==undefined) {
+      if (!Number.isFinite(estimatedSeconds) || estimatedSeconds<=0) errors.push(label+' has invalid estimated seconds');
+      else if (prescriptionMode(p.type)==='time' && Number.isFinite(p.value) && estimatedSeconds!==p.value*sideCount(exercise)) errors.push(label+' estimated seconds do not budget every side');
+    }
+    return errors;
+  }
+
+  // Structural validation of the exercise catalogue. Accepts the keyed catalogue object or
+  // an array of exercise definitions (so duplicate IDs can be detected before keying).
+  function validateCatalogue(catalogue, options) {
+    const errors = [];
+    const entries = Array.isArray(catalogue) ? catalogue.map(exercise => [exercise && exercise.id, exercise]) : Object.entries(catalogue || {});
+    const seen = new Set();
+    const equipmentIds = canonicalEquipmentIds(options);
+    for (const [key, exercise] of entries) {
+      if (!exercise || typeof exercise!=='object') { errors.push(String(key)+': invalid exercise entry'); continue; }
+      const id = exercise.id;
+      if (typeof id!=='string' || !RELATIONSHIP_ID.test(id)) { errors.push(String(key)+': missing or malformed id'); continue; }
+      if (seen.has(id)) errors.push(id+': duplicate id');
+      seen.add(id);
+      if (!Array.isArray(catalogue) && key!==id) errors.push(id+': catalogue key '+JSON.stringify(key)+' does not match id');
+      if (typeof exercise.name!=='string' || !exercise.name.trim()) errors.push(id+': missing name');
+
+      if (!Array.isArray(exercise.equipment)) errors.push(id+': equipment must be an array of alternative groups');
+      else for (const group of exercise.equipment) {
+        if (!Array.isArray(group) || !group.length) { errors.push(id+': empty or malformed equipment group'); continue; }
+        for (const item of group) if (typeof item!=='string' || (equipmentIds && !equipmentIds.has(item))) errors.push(id+': unknown equipment '+JSON.stringify(item));
+      }
+
+      if (!Array.isArray(exercise.patterns)) errors.push(id+': patterns must be an array');
+      else {
+        for (const pattern of exercise.patterns) if (!VALID_PATTERNS.has(pattern)) errors.push(id+': invalid pattern '+JSON.stringify(pattern));
+        if (new Set(exercise.patterns).size!==exercise.patterns.length) errors.push(id+': duplicate pattern');
+      }
+      if (!isScale(exercise.strength)) errors.push(id+': strength must be an integer from 1 to 5');
+      if (!isScale(exercise.cardio)) errors.push(id+': cardio must be an integer from 1 to 5');
+      if (!VALID_IMPACT_LEVELS.has(exercise.impact)) errors.push(id+': invalid impact '+JSON.stringify(exercise.impact));
+      if (exercise.load!=null && !VALID_LOADS.has(exercise.load)) errors.push(id+': invalid load '+JSON.stringify(exercise.load));
+      if (!VALID_BODY_POSITIONS.has(exercise.bodyPosition)) errors.push(id+': invalid body position');
+      if (!Array.isArray(exercise.movementPlanes) || !exercise.movementPlanes.length || !exercise.movementPlanes.every(plane=>VALID_MOVEMENT_PLANES.has(plane))) errors.push(id+': invalid movement planes');
+
+      if (!VALID_SIDEDNESS.has(exercise.sidedness)) errors.push(id+': invalid sidedness');
+      if (exercise.unilateral!==undefined && exercise.unilateral!==(exercise.sidedness==='per-side')) errors.push(id+': unilateral flag does not match sidedness');
+      if (exercise.mainRole!=null&&!MAIN_ROLES.has(exercise.mainRole)) errors.push(id+': invalid main role');
       for (const cue of exercise.timedCues || []) {
-        const at=cue&&cue.at,validText=typeof cue.text==='string'&&cue.text.trim().length>0;
+        const at=cue&&cue.at,validText=cue&&typeof cue.text==='string'&&cue.text.trim().length>0;
         const validFraction=at&&at.type==='fraction'&&Number.isFinite(at.value)&&at.value>0&&at.value<1;
         const validSeconds=at&&at.type==='seconds'&&Number.isFinite(at.value)&&at.value>0;
-        if(!validText||(!validFraction&&!validSeconds))errors.push(exercise.id+': invalid timed cue');
+        if(!validText||(!validFraction&&!validSeconds))errors.push(id+': invalid timed cue');
       }
-      const prescriptionIsPerSide = !!(exercise.prescription && exercise.prescription.type && exercise.prescription.type.includes('unilateral'));
-      if ((exercise.sidedness==='per-side') !== prescriptionIsPerSide) errors.push(exercise.id+': sidedness does not match prescription type');
-      if (exercise.warmup && !VALID_IMPACT_LEVELS.has(exercise.impact)) errors.push(exercise.id+': warm-up exercise missing a recognised impact classification');
-      if (Array.isArray(exercise.prescriptionModes) && exercise.prescriptionModes.length) {
-        const mode = prescriptionMode(exercise.prescription && exercise.prescription.type);
-        if (!mode || !exercise.prescriptionModes.includes(mode)) errors.push(exercise.id+': prescription mode not permitted');
+
+      // Phase flags.
+      for (const flag of PHASE_FLAGS) if (exercise[flag]!==undefined && typeof exercise[flag]!=='boolean') errors.push(id+': '+flag+' must be boolean');
+      if (exercise.generator && !exercise.main) errors.push(id+': generator exercises must be Main exercises');
+      if (exercise.cooldown && (exercise.main || exercise.warmup || exercise.rampup)) errors.push(id+': cool-down exercises cannot also be work or preparation exercises');
+
+      // Base (Main / fixed) prescription.
+      if (VALID_SIDEDNESS.has(exercise.sidedness)) {
+        prescriptionErrors('prescription', exercise.prescription, exercise, exercise.estimatedSeconds).forEach(error=>errors.push(id+': '+error));
+        if (Array.isArray(exercise.prescriptionModes) && exercise.prescriptionModes.length) {
+          const mode = prescriptionMode(exercise.prescription && exercise.prescription.type);
+          if (!mode || !exercise.prescriptionModes.includes(mode)) errors.push(id+': prescription mode not permitted');
+        }
       }
-      if ((exercise.warmup || exercise.rampup) && !preparationMetadataValid(exercise)) errors.push(exercise.id+': invalid preparation metadata');
+
+      // Main protocols.
+      if (exercise.mainProtocols!=null) {
+        if (!exercise.main) errors.push(id+': mainProtocols set on a non-Main exercise');
+        if (!Array.isArray(exercise.mainProtocols) || !exercise.mainProtocols.length) errors.push(id+': mainProtocols must be a non-empty array');
+        else {
+          for (const protocol of exercise.mainProtocols) if (!MAIN_PROTOCOLS.has(protocol)) errors.push(id+': invalid main protocol '+JSON.stringify(protocol));
+          // Timed intervals play one fixed work period per exercise; per-side work would need two.
+          if (exercise.sidedness==='per-side' && exercise.mainProtocols.includes('timed_intervals')) errors.push(id+': per-side exercises cannot use timed intervals');
+        }
+      }
+
+      // Preparation metadata.
+      for (const field of ['prepIntensity','prepFatigue','prepComplexity']) {
+        if (exercise[field]!=null && !isScale(exercise[field])) errors.push(id+': '+field+' must be an integer from 1 to 5');
+      }
+      if (exercise.warmupAreas!==undefined && (!Array.isArray(exercise.warmupAreas) || !exercise.warmupAreas.every(area=>VALID_WARMUP_AREAS.has(area)))) errors.push(id+': invalid warm-up areas');
+      if (exercise.warmupPhase!=null && !Object.prototype.hasOwnProperty.call(WARMUP_PHASE_ORDER,exercise.warmupPhase)) errors.push(id+': invalid warm-up phase '+JSON.stringify(exercise.warmupPhase));
+      if ((exercise.warmup || exercise.rampup) && !preparationMetadataValid(exercise)) errors.push(id+': invalid preparation metadata');
+      if (exercise.warmup) {
+        if (exercise.warmupPhase==null) errors.push(id+': warm-up exercise missing warm-up phase');
+        if (exercise.warmupPrescription!=null) prescriptionErrors('warm-up prescription', exercise.warmupPrescription, exercise, exercise.warmupEstimatedSeconds==null?undefined:exercise.warmupEstimatedSeconds, {timedOnly:true}).forEach(error=>errors.push(id+': '+error));
+      } else {
+        if (exercise.warmupPhase!=null || exercise.warmupPrescription!=null) errors.push(id+': warm-up metadata set on a non-warm-up exercise');
+      }
       if (exercise.rampup) {
         const p = exercise.rampupPrescription;
-        if (!p || !p.type || !Number.isFinite(p.value) || !Number.isFinite(exercise.rampupEstimatedSeconds)) errors.push(exercise.id+': invalid ramp-up prescription');
+        if (!p || !p.type || !Number.isFinite(p.value) || !Number.isFinite(exercise.rampupEstimatedSeconds)) errors.push(id+': invalid ramp-up prescription');
+        else prescriptionErrors('ramp-up prescription', p, exercise, exercise.rampupEstimatedSeconds, {timedOnly:true}).forEach(error=>errors.push(id+': '+error));
+      } else if (exercise.rampupPrescription!=null) errors.push(id+': ramp-up prescription set on a non-ramp-up exercise');
+
+      // Relationship metadata (pre-migration fields).
+      for (const field of ['alternativeGroup','selectionFamily','repetitionClass']) {
+        if (exercise[field]!=null && (typeof exercise[field]!=='string' || !RELATIONSHIP_ID.test(exercise[field]))) errors.push(id+': invalid '+field+' '+JSON.stringify(exercise[field]));
+      }
+      if (exercise.frequency!=null) {
+        if (!VALID_FREQUENCIES.has(exercise.frequency)) errors.push(id+': invalid frequency '+JSON.stringify(exercise.frequency));
+        else if (!exercise.selectionFamily) errors.push(id+': frequency requires a selection family');
       }
     }
     return errors;
   }
 
+  // Throws with every problem listed, so authoring mistakes fail loudly.
+  function assertValidCatalogue(catalogue, options) {
+    const errors = validateCatalogue(catalogue, options);
+    if (errors.length) throw new Error('Invalid exercise catalogue: '+errors.join(', '));
+    return catalogue;
+  }
+
+  // `seconds` is the phase prescription value: the whole interval for bilateral, alternating
+  // and side-less work, or the time for each side of per-side work. The estimate budgets
+  // every side, matching the separate-side playback of per-side exercises.
   function phaseExercise(exercise, kind, seconds) {
     const source = kind==='rampup' ? exercise.rampupPrescription : exercise.warmupPrescription || exercise.prescription;
     const prescription = Object.assign({}, source || exercise.prescription);
-    if (prescription.type && prescription.type.includes('timed') && Number.isFinite(seconds)) prescription.value = seconds;
-    return Object.assign({}, exercise, { prescription, estimatedSeconds:Number.isFinite(seconds)?seconds:(kind==='rampup'?exercise.rampupEstimatedSeconds:exercise.warmupEstimatedSeconds)||exercise.estimatedSeconds });
+    const timed = prescriptionMode(prescription.type)==='time';
+    if (timed && Number.isFinite(seconds)) prescription.value = seconds;
+    const fallback = (kind==='rampup'?exercise.rampupEstimatedSeconds:exercise.warmupEstimatedSeconds)||exercise.estimatedSeconds;
+    return Object.assign({}, exercise, { prescription, estimatedSeconds:timed&&Number.isFinite(seconds)?seconds*sideCount(exercise):fallback });
+  }
+
+  function roundToFive(value) {
+    return Math.max(5,Math.round(value/5)*5);
   }
 
   function contextSpecificity(exercise, mainExercises) {
@@ -819,12 +953,17 @@
     if (!exercises.length) return {exercises:[],estimatedSeconds:0};
     const available = Math.max(0,targetSeconds - restSeconds*Math.max(0,exercises.length-1));
     const defaults = exercises.map(ex=>kind==='rampup'?ex.rampupPrescription:ex.warmupPrescription||ex.prescription);
-    const mins = defaults.map(p=>Number.isFinite(p.minValue)?p.minValue:Math.min(p.value,kind==='rampup'?20:15));
-    const maxs = defaults.map(p=>Number.isFinite(p.maxValue)?p.maxValue:Math.max(p.value,kind==='rampup'?45:30));
+    // Values and bounds are prescription values (per side for per-side work); every side
+    // costs time, so budgeting multiplies by the number of sides. Default bounds describe a
+    // whole exercise and are shared between the sides of per-side work.
+    const sides = exercises.map(sideCount);
+    const mins = defaults.map((p,i)=>Number.isFinite(p.minValue)?p.minValue:Math.min(p.value,roundToFive((kind==='rampup'?20:15)/sides[i])));
+    const maxs = defaults.map((p,i)=>Number.isFinite(p.maxValue)?p.maxValue:Math.max(p.value,roundToFive((kind==='rampup'?45:30)/sides[i])));
     const desired = defaults.map(p=>p.value);
+    const cost = list => list.reduce((sum,value,i)=>sum+value*sides[i],0);
     let values = desired.slice();
-    let current = values.reduce((a,b)=>a+b,0);
-    const target = Math.min(maxs.reduce((a,b)=>a+b,0),Math.max(mins.reduce((a,b)=>a+b,0),available));
+    let current = cost(values);
+    const target = Math.min(cost(maxs),Math.max(cost(mins),available));
     let delta = target-current;
     let guard = 0;
     while (Math.abs(delta)>=1 && guard++<500) {
@@ -832,7 +971,7 @@
       for (let i=0;i<values.length && Math.abs(delta)>=1;i++) {
         const step = delta>0 ? 5 : -5;
         const candidate = values[i]+step;
-        if (candidate>=mins[i] && candidate<=maxs[i]) { values[i]=candidate; delta-=step; changed=true; }
+        if (candidate>=mins[i] && candidate<=maxs[i]) { values[i]=candidate; delta-=step*sides[i]; changed=true; }
       }
       if (!changed) break;
     }
@@ -946,7 +1085,7 @@
     const focus=String(options.focus||'balanced').toLowerCase();
     const owned=options.equipment||[],history=options.history||[],random=options.random||Math.random;
     const budget=BUDGETS[duration]||BUDGETS[20],rest=RESTS[focus]||RESTS.balanced;
-    const errors=validateCatalogue(catalogue);if(errors.length)throw new Error('Invalid exercise catalogue: '+errors.join(', '));
+    assertValidCatalogue(catalogue);
     const eligible=Object.values(catalogue).filter(exercise=>exercise.generator&&exercise.main&&requirementsMet(exercise,owned));
     if(!eligible.length)throw new Error('No eligible exercises available.');
     const main=composeMain(catalogue,eligible,budget,duration,focus,owned,history,rest,random);
@@ -1015,11 +1154,15 @@
         const lowerInvolved=eligible.filter(ex=>lowerJointCoverage(ex).length); if(lowerInvolved.length) eligible=lowerInvolved;
       }
     }
+    // The replacement inherits the slot's total time, so prefer candidates whose sides can
+    // share it evenly in whole 5-second prescription steps.
+    const evenSplit=eligible.filter(ex=>current.estimatedSeconds%(5*sideCount(ex))===0); if(evenSplit.length) eligible=evenSplit;
     const position=workout[section].exercises.length===1?1:exerciseIndex/(workout[section].exercises.length-1);
     const before=workout[section].exercises[exerciseIndex-1];
     const scored=eligible.map(exercise=>({exercise,score:section==='rampup'?scoreRampupCandidate(exercise,position,workout[section].exercises.slice(0,exerciseIndex),workout.warmup.exercises,main,owned,workout.focus):scoreWarmupCandidate(exercise,workout.warmup.exercises.slice(0,exerciseIndex),main,owned) - Math.abs(exercise.prepIntensity-current.prepIntensity)*2 + (before&&before.bodyPosition===exercise.bodyPosition?1:0)}));
     const replacement=controlledPick(scored,random); if(!replacement) return workout;
-    const seconds=current.estimatedSeconds;
+    // Keep the slot's total time: a per-side replacement shares it between its sides.
+    const seconds=roundToFive(current.estimatedSeconds/sideCount(replacement));
     workout[section].exercises[exerciseIndex]=phaseExercise(replacement,section,seconds);
     recalcWorkoutEstimate(workout); return workout;
   }
@@ -1033,7 +1176,7 @@
     workout.estimatedSeconds=workout.warmup.estimatedSeconds+workout.rampup.estimatedSeconds+workout.main.estimatedDurationSeconds+workout.cooldown.estimatedSeconds;
   }
 
-  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, sameSelectionFamily, sameRepetitionClass, prescriptionMode, recentUsePenalty, preparationMetadataValid, validateCatalogue, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, selectBlockExercises, selectWarmup, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, generate, swap, swapPreparation };
+  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, sameSelectionFamily, sameRepetitionClass, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_PATTERNS, VALID_WARMUP_AREAS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, selectBlockExercises, selectWarmup, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, generate, swap, swapPreparation };
 
   if (typeof window!=='undefined' && typeof document!=='undefined' && typeof window.addEventListener==='function') window.addEventListener('load',()=>{
     if (document.querySelector('script[data-garagefit-rampup-ui]')) return;

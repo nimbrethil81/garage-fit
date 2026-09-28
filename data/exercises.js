@@ -14,8 +14,17 @@
     return 'bilateral';
   }
 
+  // Ramp-up and Warm-up scoring consume these fields, so preparation exercises must state
+  // them rather than inherit generic defaults.
+  const PREP_SCORED_FIELDS = ['strength','cardio','patterns'];
+
   function add(id, name, options) {
     options = options || {};
+    if (Object.prototype.hasOwnProperty.call(catalogue, id)) throw new Error('Duplicate exercise id: '+id);
+    if (options.warmup || options.rampup || options.rampupPrescription) {
+      const missing = PREP_SCORED_FIELDS.filter(field => options[field]===undefined);
+      if (missing.length) throw new Error(id+': preparation exercise must declare '+missing.join(', '));
+    }
     const sidedness = resolveSidedness(options);
     const unilateral = options.unilateral !== undefined ? options.unilateral : sidedness === 'per-side';
     catalogue[id] = Object.assign({
@@ -64,7 +73,8 @@
     }, rampupPrescription ? {
       rampup: true,
       rampupPrescription,
-      rampupEstimatedSeconds: rampupPrescription.value
+      // Estimates budget every side of per-side work ("30 sec each side" takes 60 sec).
+      rampupEstimatedSeconds: rampupPrescription.value * (rampupPrescription.type.startsWith('unilateral') ? 2 : 1)
     } : {});
   }
 
@@ -139,7 +149,7 @@
   add('dumbbell-bench-row', 'Dumbbell bench row', { equipment:[['dumbbells'],['bench']], patterns:['pull'], bodyPosition:'supported', strength:5, cardio:1, prescription:{type:'unilateral-reps',value:10}, estimatedSeconds:50, unilateral:true, load:'Medium', generator:true, main:true });
   add('bulgarian-split-squat', 'Bulgarian split squat', { equipment:[['bench','box']], patterns:['lunge'], strength:5, cardio:2, prescription:{type:'unilateral-reps',value:8}, estimatedSeconds:50, unilateral:true, impact:'medium', generator:true, main:true });
   add('bench-dips', 'Bench dips', { equipment:[['bench']], patterns:['push'], bodyPosition:'supported', strength:4, cardio:2, prescription:{type:'reps',value:10}, estimatedSeconds:25, generator:true, main:true });
-  add('step-ups', 'Step-ups', prep({ equipment:[['bench','box']], patterns:['lunge','conditioning'], strength:3, cardio:4, prescription:{type:'unilateral-reps',value:10}, estimatedSeconds:45, unilateral:true, impact:'medium', generator:true, main:true },4,2,2,{type:'timed',value:35,minValue:25,maxValue:45}));
+  add('step-ups', 'Step-ups', prep({ equipment:[['bench','box']], patterns:['lunge','conditioning'], strength:3, cardio:4, prescription:{type:'unilateral-reps',value:10}, estimatedSeconds:45, unilateral:true, impact:'medium', generator:true, main:true },4,2,2,{type:'unilateral-timed',value:20,minValue:15,maxValue:25}));
   add('box-jumps', 'Box jumps', { equipment:[['box']], patterns:['squat','conditioning'], strength:3, cardio:5, prescription:{type:'reps',value:10}, estimatedSeconds:35, impact:'high', generator:true, main:true });
   add('box-step-ups', 'Box step-ups', { equipment:[['box']], patterns:['lunge','conditioning'], strength:3, cardio:4, prescription:{type:'unilateral-reps',value:10}, estimatedSeconds:45, unilateral:true, impact:'medium', generator:true, main:true });
   add('box-squat', 'Box squat', { equipment:[['box']], patterns:['squat'], strength:4, cardio:2, prescription:{type:'reps',value:10}, estimatedSeconds:30, impact:'medium', generator:true, main:true });
@@ -166,19 +176,19 @@
   add('wall-angel', 'Wall angel', { patterns:['pull'], bodyPosition:'standing', strength:1, cardio:1, prescription:{type:'timed',value:40}, estimatedSeconds:40, sidedness:'none', impact:'low', main:true, instructions:'Stand with your back against a wall, arms bent in a "W" position. Slide your arms slowly up toward a "Y" and back down under control, keeping your lower back from arching.' });
 
   const warmups = [
-    ['knees-up','Knees up','dynamic',3,1,1,['sagittal'],'standing',true,['hips','knees']],['bum-kicks','Bum kicks','dynamic',3,1,1,['sagittal'],'standing',true,['hips','knees']],['open-close-gates','Open gates, close gates','basic',1,1,1,['frontal','transverse'],'standing',false,['hips']],['hand-opposite-toe','Hand to opposite toe','dynamic',2,1,2,['sagittal','transverse'],'standing',false,['hips']],
-    ['body-hoops','Body hoops','basic',1,1,1,['transverse'],'standing',false,['trunk']],['body-twists','Body twists','basic',1,1,1,['transverse'],'standing',false,['trunk']],['arm-circles-backwards','Arm circles backwards','basic',1,1,1,['frontal'],'standing',false,['shoulders']],['arm-circles-forwards','Arm circles forwards','basic',1,1,1,['frontal'],'standing',false,['shoulders']],
-    ['arm-side-circles','Arm side circles','basic',1,1,1,['frontal'],'standing',false,['shoulders']],['walk-plank-push-up','Walk to plank and push up','late',3,2,2,['sagittal'],'mixed',true,['hips','shoulders']],['star-jumps','Star jumps','late',4,1,1,['frontal'],'standing',true,['hips','knees','ankles']]
+    ['knees-up','Knees up','dynamic',3,1,1,['sagittal'],'standing',true,['hips','knees'],['conditioning'],1,3],['bum-kicks','Bum kicks','dynamic',3,1,1,['sagittal'],'standing',true,['hips','knees'],['conditioning'],1,3],['open-close-gates','Open gates, close gates','basic',1,1,1,['frontal','transverse'],'standing',false,['hips'],[],1,1],['hand-opposite-toe','Hand to opposite toe','dynamic',2,1,2,['sagittal','transverse'],'standing',false,['hips'],[],1,1],
+    ['body-hoops','Body hoops','basic',1,1,1,['transverse'],'standing',false,['trunk'],[],1,1],['body-twists','Body twists','basic',1,1,1,['transverse'],'standing',false,['trunk'],[],1,1],['arm-circles-backwards','Arm circles backwards','basic',1,1,1,['frontal'],'standing',false,['shoulders'],[],1,1],['arm-circles-forwards','Arm circles forwards','basic',1,1,1,['frontal'],'standing',false,['shoulders'],[],1,1],
+    ['arm-side-circles','Arm side circles','basic',1,1,1,['frontal'],'standing',false,['shoulders'],[],1,1],['walk-plank-push-up','Walk to plank and push up','late',3,2,2,['sagittal'],'mixed',true,['hips','shoulders'],['push','core'],2,2],['star-jumps','Star jumps','late',4,1,1,['frontal'],'standing',true,['hips','knees','ankles'],['conditioning'],1,5]
   ];
-  warmups.forEach(x=>add(x[0],x[1],prep({warmup:true,warmupPhase:x[2],prescription:{type:'timed',value:20},warmupPrescription:{type:'timed',value:20},warmupEstimatedSeconds:20,estimatedSeconds:20,impact:x[0]==='star-jumps'?'high':['knees-up','bum-kicks'].includes(x[0])?'medium':'low',movementPlanes:x[6],bodyPosition:x[7],warmupAreas:x[9]},x[3],x[4],x[5],x[8]?{type:'timed',value:35,minValue:25,maxValue:45}:null)));
+  warmups.forEach(x=>add(x[0],x[1],prep({warmup:true,warmupPhase:x[2],prescription:{type:'timed',value:20},warmupPrescription:{type:'timed',value:20},warmupEstimatedSeconds:20,estimatedSeconds:20,impact:x[0]==='star-jumps'?'high':['knees-up','bum-kicks'].includes(x[0])?'medium':'low',movementPlanes:x[6],bodyPosition:x[7],warmupAreas:x[9],patterns:x[10],strength:x[11],cardio:x[12]},x[3],x[4],x[5],x[8]?{type:'timed',value:35,minValue:25,maxValue:45}:null)));
   catalogue['body-hoops'].timedCues=[{text:'Change direction',at:{type:'fraction',value:0.5}}];
   // Star jumps and jumping jacks are both basic, no-equipment full-body conditioning bounces,
   // so selecting one after the other already appeared in Warm-up is still repetitive.
   catalogue['star-jumps'].repetitionClass='basic-conditioning';
-  add('step-back-lunge', 'Step back lunge', prep({ patterns:['lunge'], warmupAreas:['hips','knees','ankles'], warmup:true, warmupPhase:'dynamic', unilateral:true, warmupPrescription:{type:'unilateral-timed',value:15}, prescription:{type:'unilateral-timed',value:15}, warmupEstimatedSeconds:30, estimatedSeconds:30, impact:'medium' },2,2,2,{type:'timed',value:30,minValue:20,maxValue:35}));
-  add('trx-squat-overhead', 'TRX squat to overhead press', prep({ equipment:[['trx']], patterns:['squat','push'], warmupAreas:['hips','knees','ankles','shoulders'], warmup:true, warmupPhase:'late', warmupPrescription:{type:'timed',value:20}, prescription:{type:'timed',value:20}, warmupEstimatedSeconds:20, estimatedSeconds:20 },3,2,2,{type:'timed',value:35,minValue:25,maxValue:40}));
-  add('trx-lunge-warmup', 'TRX lunge', prep({ equipment:[['trx']], patterns:['lunge'], warmupAreas:['hips','knees','ankles'], warmup:true, warmupPhase:'dynamic', warmupPrescription:{type:'timed',value:20}, prescription:{type:'timed',value:20}, warmupEstimatedSeconds:20, estimatedSeconds:20 },2,2,2,{type:'timed',value:30,minValue:20,maxValue:35}));
-  add('hangout-pullup-bar', 'Hangout on a pull-up bar', prep({ equipment:[['pullup-bar']], patterns:['pull'], warmupAreas:['shoulders'], bodyPosition:'hanging', warmup:true, warmupPhase:'late', warmupPrescription:{type:'timed',value:20}, prescription:{type:'timed',value:20}, warmupEstimatedSeconds:20, estimatedSeconds:20 },2,1,1,{type:'timed',value:25,minValue:20,maxValue:30}));
+  add('step-back-lunge', 'Step back lunge', prep({ patterns:['lunge'], strength:2, cardio:2, warmupAreas:['hips','knees','ankles'], warmup:true, warmupPhase:'dynamic', unilateral:true, warmupPrescription:{type:'unilateral-timed',value:15}, prescription:{type:'unilateral-timed',value:15}, warmupEstimatedSeconds:30, estimatedSeconds:30, impact:'medium' },2,2,2,{type:'unilateral-timed',value:15,minValue:10,maxValue:20}));
+  add('trx-squat-overhead', 'TRX squat to overhead press', prep({ equipment:[['trx']], patterns:['squat','push'], strength:2, cardio:2, warmupAreas:['hips','knees','ankles','shoulders'], warmup:true, warmupPhase:'late', warmupPrescription:{type:'timed',value:20}, prescription:{type:'timed',value:20}, warmupEstimatedSeconds:20, estimatedSeconds:20 },3,2,2,{type:'timed',value:35,minValue:25,maxValue:40}));
+  add('trx-lunge-warmup', 'TRX lunge', prep({ equipment:[['trx']], patterns:['lunge'], strength:2, cardio:2, warmupAreas:['hips','knees','ankles'], warmup:true, warmupPhase:'dynamic', warmupPrescription:{type:'timed',value:20}, prescription:{type:'timed',value:20}, warmupEstimatedSeconds:20, estimatedSeconds:20 },2,2,2,{type:'timed',value:30,minValue:20,maxValue:35}));
+  add('hangout-pullup-bar', 'Hangout on a pull-up bar', prep({ equipment:[['pullup-bar']], patterns:['pull'], strength:2, cardio:1, warmupAreas:['shoulders'], bodyPosition:'hanging', warmup:true, warmupPhase:'late', warmupPrescription:{type:'timed',value:20}, prescription:{type:'timed',value:20}, warmupEstimatedSeconds:20, estimatedSeconds:20 },2,1,1,{type:'timed',value:25,minValue:20,maxValue:30}));
 
   const cooldowns = [
     ['toe-touch','Toe touch'],['inside-thigh-stretch','Inside thigh stretch'],['wide-toe-touch','Wide toe touch'],
