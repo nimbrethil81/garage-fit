@@ -39,7 +39,7 @@ test('walking lunge is a single alternating exercise rather than separate left/r
   assert.equal(exercise.sidedness,'alternating');
   assert.equal(exercise.unilateral,false);
   assert.equal(exercise.prescription.type,'reps');
-  assert.match(exercise.instructions,/alternate left and right/i);
+  assert.match(exercise.instruction,/alternating left and right/i);
 });
 
 test('catalogue models sidedness as a distinct, valid concept for every exercise',()=>{

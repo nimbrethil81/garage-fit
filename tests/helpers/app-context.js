@@ -6,7 +6,8 @@ const path = require('node:path');
 
 class Element {
   constructor() {
-    this.classList = { add(){}, remove(){}, contains(){ return false; }, toggle(){ return false; } };
+    const classes = new Set();
+    this.classList = { add(value){ classes.add(value); }, remove(value){ classes.delete(value); }, contains(value){ return classes.has(value); }, toggle(value,force){ const enable=force===undefined?!classes.has(value):force;enable?classes.add(value):classes.delete(value);return enable; } };
     this.style = {}; this.children = []; this.attributes = {}; this.textContent = ''; this.innerHTML = ''; this.className = '';
   }
   setAttribute(key, value) { this.attributes[key] = String(value); }
@@ -28,6 +29,7 @@ function loadAppContext() {
     console, Date, Math, JSON, Set, Map,
     SpeechSynthesisUtterance: function (text) { this.text = text; },
     speechSynthesis: { cancel(){}, speak(){} },
+    addEventListener(){},
     document: { getElementById: element, createElement: () => new Element(), head: new Element(), body: new Element(), addEventListener(){}, querySelector: () => new Element() },
     localStorage: { getItem: () => null, setItem(){} },
     navigator: {},
