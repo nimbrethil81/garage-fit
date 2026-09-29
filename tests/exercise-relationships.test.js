@@ -11,6 +11,12 @@ const G = GarageFitGenerator;
 const allEquipment = GarageFitData.equipment.map(item => item.id);
 function random(seed) { return () => { seed=(seed*1664525+1013904223)>>>0; return seed/4294967296; }; }
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
+const major = new Set(['squat','hinge','lunge','push','pull','carry']);
+function overlaps(a,b) { return G.sharedPatterns(a,b).some(pattern => major.has(pattern)); }
+function adjacentPatterns(workout) {
+  const prep=workout.warmup.exercises.concat(workout.rampup.exercises);
+  return prep.slice(1).filter((ex,index)=>overlaps(prep[index],ex));
+}
 
 // ---- Metadata semantics ----
 
@@ -81,6 +87,43 @@ test('Warm-up never contains two members of the same family', () => {
     const warmup = G.generate({ catalogue, duration:45, focus, equipment:allEquipment, random:random(seed) }).warmup.exercises;
     const families = warmup.map(ex => ex.family).filter(Boolean);
     assert.equal(new Set(families).size, families.length, warmup.map(ex => ex.id).join(', '));
+  }
+});
+
+test('generated preparation separates major patterns within and across phases', () => {
+  for (const duration of [20,30,45]) for (const focus of ['strength','balanced','cardio'])
+    for (const equipment of [[],['trx'],allEquipment]) for (let seed=1;seed<=30;seed++) {
+      const workout=G.generate({catalogue,duration,focus,equipment,random:random(seed)});
+      const prep=workout.warmup.exercises.concat(workout.rampup.exercises);
+      assert.deepEqual(adjacentPatterns(workout),[],`${duration}/${focus}/${equipment.join(',')}/${seed}: ${prep.map(ex=>ex.id).join(' > ')}`);
+      const ids=workout.warmup.exercises.map(ex=>ex.id);
+      assert.ok(!ids.some((id,i)=>i && ((id==='trx-lunge-warmup' && ids[i-1]==='step-back-lunge') ||
+        (id==='step-back-lunge' && ids[i-1]==='trx-lunge-warmup'))));
+    }
+});
+
+test('major-pattern overlap uses intersection and distant repetition remains allowed', () => {
+  const squatPush={patterns:['squat','push']}, squat={patterns:['squat']}, pull={patterns:['pull']};
+  assert.ok(overlaps(squatPush,squat));
+  assert.equal(overlaps(squatPush,pull),false);
+  const constrained={a:clone(catalogue['step-back-lunge']),b:clone(catalogue['trx-lunge-warmup'])};
+  constrained.b.equipment=[];
+  const warmup=G.selectWarmup(constrained,65,[],[],random(1));
+  assert.equal(warmup.exercises.length,2);
+  assert.ok(overlaps(...warmup.exercises)); // No different-pattern option: preserve the phase.
+  const rampup=G.selectRampup({a:constrained.a},55,[],[],[constrained.b],'balanced',random(1));
+  assert.equal(rampup.exercises.length,1);
+  assert.ok(overlaps(constrained.b,rampup.exercises[0]));
+});
+
+test('preparation swaps avoid major-pattern adjacency at both phase boundaries', () => {
+  for (const section of ['warmup','rampup']) for (let seed=1;seed<=20;seed++) {
+    const workout=G.generate({catalogue,duration:30,focus:'cardio',equipment:allEquipment,random:random(seed)});
+    for(let index=0;index<workout[section].exercises.length;index++) {
+      const copy=clone(workout);
+      G.swapPreparation(copy,section,index,{catalogue,equipment:allEquipment,random:random(seed+index)});
+      assert.deepEqual(adjacentPatterns(copy),[],`${section}/${seed}/${index}: ${copy.warmup.exercises.concat(copy.rampup.exercises).map(ex=>ex.id).join(' > ')}`);
+    }
   }
 });
 

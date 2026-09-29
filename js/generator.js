@@ -152,6 +152,21 @@
     return selectionTags(first).filter(pattern => other.includes(pattern));
   }
 
+  function sharesMajorPattern(first, second) {
+    return sharedPatterns(first,second).some(pattern=>MAJOR_REPEAT_PATTERNS.has(pattern));
+  }
+
+  // A proximity preference, applied after stronger eligibility and coverage rules.
+  function preferDifferentPattern(candidates, previous) {
+    if (!previous) return candidates;
+    const different=candidates.filter(ex=>!sharesMajorPattern(previous,ex));
+    return different.length ? different : candidates;
+  }
+
+  function preparationPatternPenalty(exercise, earlier) {
+    return earlier.filter(item=>sharesMajorPattern(item,exercise)).length * 2;
+  }
+
   function repeatedMajorPatternCount(exercise, selected) {
     return (exercise.patterns || []).filter(pattern => MAJOR_REPEAT_PATTERNS.has(pattern) && selected.some(item => (item.patterns || []).includes(pattern))).length;
   }
@@ -947,6 +962,7 @@
       if (sectionSetupKey(previous,owned)===sectionSetupKey(exercise,owned)) score += .6;
       if (sharedPatterns(previous,exercise).length) score -= 1;
     }
+    score -= preparationPatternPenalty(exercise,selected);
     return score;
   }
 
@@ -977,6 +993,10 @@
     // Discourage (but don't forbid) picking another exercise from the same broad repetition
     // family/class as one already used in Warm-up or earlier in Ramp-up itself.
     if (warmup.some(item=>sameRepetitionClass(item,exercise)) || selected.some(item=>sameRepetitionClass(item,exercise))) score -= 5;
+    score -= preparationPatternPenalty(exercise,selected);
+    // The boundary is one continuous preparation sequence, but distant Warm-up
+    // patterns must not outweigh the Ramp-up's handoff into Main.
+    if (previous && sharesMajorPattern(previous,exercise)) score -= 12;
     if (position>.65) {
       score += contextEquipmentScore(exercise,mainExercises,owned)*2;
       if (firstMain && exercise.bodyPosition===firstMain.bodyPosition) score += 2;
@@ -1055,6 +1075,26 @@
       if (intensity) return intensity;
       return (WARMUP_PHASE_ORDER[a.warmupPhase]??0)-(WARMUP_PHASE_ORDER[b.warmupPhase]??0);
     });
+    // Selection precedes intensity ordering. Repair adjacencies created by that ordering
+    // with an unused, eligible exercise in the same intensity window when possible.
+    for(let pass=0;pass<2;pass++) for(let index=1;index<selected.length;index++) {
+      if (!sharesMajorPattern(selected[index-1],selected[index])) continue;
+      const before=selected[index-1], after=selected[index+1], current=selected[index];
+      const alternatives=candidates.filter(ex=>ex.prepIntensity>=before.prepIntensity &&
+        (!after || ex.prepIntensity<=after.prepIntensity) &&
+        !selected.some(item=>sameExerciseOrFamily(item,ex)) &&
+        !sharesMajorPattern(before,ex) && (!after || !sharesMajorPattern(ex,after)));
+      const coverage=selected.filter(meaningfulLowerPrep).length;
+      const upperOnly=selected.filter(ex=>!lowerJointCoverage(ex).length).length;
+      const viable=alternatives.filter(ex=>coverage-(meaningfulLowerPrep(current)?1:0)+(meaningfulLowerPrep(ex)?1:0)>=context.lowerTarget &&
+        upperOnly-(!lowerJointCoverage(current).length?1:0)+(!lowerJointCoverage(ex).length?1:0)<=upperCap);
+      if (viable.length) {
+        viable.sort((a,b)=>Math.abs(a.prepIntensity-current.prepIntensity)-Math.abs(b.prepIntensity-current.prepIntensity) ||
+          scoreWarmupCandidate(b,selected.slice(0,index),mainExercises,owned,context)-scoreWarmupCandidate(a,selected.slice(0,index),mainExercises,owned,context));
+        selected[index]=viable[0];
+        candidates=candidates.filter(ex=>!sameExerciseOrFamily(ex,viable[0]));
+      }
+    }
     const fitted=fitTimedDurations(selected,targetSeconds,restSeconds,'warmup');
     return {exercises:fitted.exercises,restSeconds,estimatedSeconds:fitted.estimatedSeconds};
   }
@@ -1087,6 +1127,7 @@
         // catalogue the duplicate remains available as a last resort rather than breaking generation.
         candidates=preferNonDuplicates(candidates,selected);
         candidates=preferNonDuplicates(candidates,warmup);
+        candidates=preferDifferentPattern(candidates,selected[selected.length-1] || warmup[warmup.length-1]);
         const scored=candidates.map(exercise=>({exercise,score:scoreRampupCandidate(exercise,position,selected,warmup,mainExercises,owned,focus)}));
         const picked=controlledPick(scored,random); if(!picked) break; selected.push(picked);
       }
@@ -1201,8 +1242,17 @@
     // share it evenly in whole 5-second prescription steps.
     const evenSplit=eligible.filter(ex=>current.estimatedSeconds%(5*sideCount(ex))===0); if(evenSplit.length) eligible=evenSplit;
     const position=workout[section].exercises.length===1?1:exerciseIndex/(workout[section].exercises.length-1);
-    const before=workout[section].exercises[exerciseIndex-1];
-    const scored=eligible.map(exercise=>({exercise,score:section==='rampup'?scoreRampupCandidate(exercise,position,workout[section].exercises.slice(0,exerciseIndex),workout.warmup.exercises,main,owned,workout.focus):scoreWarmupCandidate(exercise,workout.warmup.exercises.slice(0,exerciseIndex),main,owned) - Math.abs(exercise.prepIntensity-current.prepIntensity)*2 + (before&&before.bodyPosition===exercise.bodyPosition?1:0)}));
+    const before=workout[section].exercises[exerciseIndex-1] || (section==='rampup'?workout.warmup.exercises.at(-1):null);
+    const after=workout[section].exercises[exerciseIndex+1] || (section==='warmup'?workout.rampup.exercises[0]:null);
+    if(section==='warmup') {
+      const ordered=eligible.filter(ex=>(!before || ex.prepIntensity>=before.prepIntensity) &&
+        (!workout.warmup.exercises[exerciseIndex+1] || ex.prepIntensity<=workout.warmup.exercises[exerciseIndex+1].prepIntensity));
+      if(ordered.length) eligible=ordered;
+    }
+    const separated=eligible.filter(ex=>(!before || !sharesMajorPattern(before,ex)) && (!after || !sharesMajorPattern(ex,after)));
+    if(separated.length) eligible=separated;
+    else if ((!before || !sharesMajorPattern(before,current)) && (!after || !sharesMajorPattern(current,after))) return workout;
+    const scored=eligible.map(exercise=>({exercise,score:(section==='rampup'?scoreRampupCandidate(exercise,position,workout[section].exercises.slice(0,exerciseIndex),workout.warmup.exercises,main,owned,workout.focus):scoreWarmupCandidate(exercise,workout.warmup.exercises.slice(0,exerciseIndex),main,owned) - Math.abs(exercise.prepIntensity-current.prepIntensity)*2 + (before&&before.bodyPosition===exercise.bodyPosition?1:0)) - (after&&sharesMajorPattern(exercise,after)?12:0)}));
     const replacement=controlledPick(scored,random); if(!replacement) return workout;
     // Keep the slot's total time: a per-side replacement shares it between its sides.
     const seconds=roundToFive(current.estimatedSeconds/sideCount(replacement));

@@ -217,3 +217,10 @@ family per workout (farmer carries). It requires a `family`.
 | Fixed Warm-up/Cool-down routines | Not applied. The Routines tab plays explicitly authored Bodyweight / With equipment lists (`fixedRoutines` in `data/workouts.js`); metadata never adds, removes or substitutes their exercises. | — |
 
 `alternativeGroup` and `selectionFamily` are retired. Validation rejects them.
+
+Generated preparation also uses the existing major `patterns` as a sequencing signal:
+consecutive Warm-up and Ramp-up exercises, including their shared boundary, prefer
+different major patterns. More distant repetition receives a small score penalty, not
+a global ban. A constrained catalogue may repeat a pattern to complete the phase;
+swaps leave an already suitable slot alone if every replacement would introduce an
+avoidable adjacency. This is generator policy, not another metadata relationship.
