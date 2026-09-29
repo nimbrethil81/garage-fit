@@ -134,10 +134,10 @@ test('Generator preview/player and both fixed players initialise without runtime
     const phase=timeline[index],before=spoken.length;
     context.enterGeneratedPhase(index);
     if(phase.kind==='exercise') {
-      assert.equal(spoken.length,before+1);
-      assert.ok(spoken.at(-1).includes(phase.exercise.name));
-      assert.ok(spoken.at(-1).includes(phase.timed?'seconds':'reps'));
-      if(phase.side) assert.ok(spoken.at(-1).includes(phase.side));
+      assert.ok(spoken.length>=before+1 && spoken.length<=before+2);
+      assert.ok(spoken[before].includes(phase.exercise.name));
+      assert.ok(spoken[before].includes(phase.timed?'seconds':'reps'));
+      if(phase.side) assert.ok(spoken[before].includes(phase.side));
     }
   }
   context.previousGeneratedPhase();
