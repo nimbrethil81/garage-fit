@@ -30,7 +30,10 @@
   .brand{display:flex;align-items:center;gap:9px;color:var(--text)}
   .brand-mark{width:43px;height:30px;flex:none}.brand-name{font-size:21px;font-weight:850;letter-spacing:-.035em}.brand-name strong{color:var(--work);font-weight:850}
 
-  #home,#workouts,#generator,#equipment,#generatedPreview,#routinepick{padding:20px 20px 14px;overflow-y:auto}
+  #home,#workouts,#generator,#equipment,#generatedPreview,#routinepick,#more,#exerciseLibrary,#exerciseDetail{padding:20px 20px 14px;overflow-y:auto}
+  #exerciseDetail .page-header h1{min-width:0;overflow-wrap:anywhere;font-size:clamp(22px,7vw,32px);line-height:1.15}.library-entry{width:100%;min-height:58px;border:0;border-radius:14px;background:var(--card);color:var(--card-text);padding:16px;text-align:left;font-weight:850;font-size:16px}
+  .library-controls{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-bottom:16px}.library-controls label{display:flex;flex-direction:column;gap:6px;color:var(--text-muted);font-size:12px;font-weight:750}.library-controls input,.library-controls select{width:100%;min-width:0;border:1px solid var(--surface-2);border-radius:10px;background:var(--surface);color:var(--text);padding:12px;font:inherit;font-size:16px}
+  .library-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}.library-row{width:100%;min-height:58px;border:0;border-radius:12px;background:var(--card);color:var(--card-text);padding:12px 15px;text-align:left;display:flex;flex-direction:column;justify-content:center;gap:3px}.library-row strong{font-size:15px;line-height:1.3}.library-row small{color:var(--card-muted);font-size:12px}.library-empty{color:var(--text-muted)}.library-detail-section{margin:0 0 22px}.library-detail-section h2{font-size:14px;color:var(--rest);margin:0 0 7px}.library-detail-section p{line-height:1.5;margin:0;overflow-wrap:anywhere}
   .home-header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:5px 0 24px}
   .home-intro{margin:0 0 17px}.home-intro h1{margin:0;font-size:28px;line-height:1.1;letter-spacing:-.035em}.home-title{margin-bottom:16px}
   .tiles{flex:1;min-height:360px;display:grid;grid-template-columns:1fr;grid-template-rows:1fr 1fr;gap:12px}
@@ -67,7 +70,7 @@
   .workout-review li::before{content:counter(movement,decimal-leading-zero);color:var(--rest);font-size:12px;font-weight:800;padding-top:2px}.review-name{font-size:14px;font-weight:750;line-height:1.35}.review-note{display:block;color:var(--text-muted);font-size:12px;font-weight:600;margin-top:2px}.review-reps{color:var(--work-light);font-size:13px;font-weight:900;white-space:nowrap}
   .workout-detail{border:1px solid var(--surface-2);border-radius:14px;padding:14px 15px}.workout-detail h2{margin:0 0 10px;font-size:15px}.workout-detail ul{margin:0;padding-left:20px;color:var(--text-muted);font-size:13px;line-height:1.6}.workout-detail .provenance{margin:11px 0 0;color:var(--text-muted);font-size:11px;line-height:1.45}
 
-  .bottom-nav{flex:0 0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:8px 20px calc(8px + env(safe-area-inset-bottom));background:#202b30;border-top:1px solid var(--surface)}
+  .bottom-nav{flex:0 0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:8px 20px calc(8px + env(safe-area-inset-bottom));background:#202b30;border-top:1px solid var(--surface)}
   .nav-btn{border:0;border-radius:12px;background:transparent;color:#899694;padding:8px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;font-weight:850;letter-spacing:.05em;text-transform:uppercase}.nav-btn .icon{width:21px;height:21px}
   .nav-btn.active{color:var(--rest);background:rgba(79,138,131,.12)}
 
@@ -296,10 +299,27 @@
     <button class="ctrl-btn ctrl-primary" id="doneBtn" type="button" onclick="goDoneHome()">Back to routines</button>
   </main>
 
+  <main id="more" class="screen hidden">
+    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to previous screen" onclick="closeMore()">←</button><h1>More</h1><span class="header-spacer"></span></header>
+    <button class="library-entry" type="button" onclick="openExerciseLibrary()">Exercise Library →</button>
+  </main>
+  <main id="exerciseLibrary" class="screen hidden">
+    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to More" onclick="showScreen('more')">←</button><h1>Exercise Library</h1><span class="header-spacer"></span></header>
+    <div class="library-controls"><label for="librarySearch">Search exercises<input id="librarySearch" type="search" oninput="renderExerciseLibrary()" autocomplete="off"></label><label for="libraryEquipment">Equipment<select id="libraryEquipment" onchange="renderExerciseLibrary()"></select></label></div>
+    <ul class="library-list" id="libraryList"></ul><p class="library-empty hidden" id="libraryEmpty">No exercises match your search.</p>
+  </main>
+  <main id="exerciseDetail" class="screen hidden">
+    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Exercise Library" onclick="showScreen('exerciseLibrary')">←</button><h1 id="libraryDetailName"></h1><span class="header-spacer"></span></header>
+    <section class="library-detail-section hidden" id="libraryInstructionSection"><h2>Instruction</h2><p id="libraryDetailInstruction"></p></section>
+    <section class="library-detail-section"><h2>Equipment</h2><p id="libraryDetailEquipment"></p></section>
+    <section class="library-detail-section"><h2>Where it may appear</h2><p id="libraryDetailContexts"></p></section>
+  </main>
+
   <nav class="bottom-nav" id="bottomNav" aria-label="Main navigation">
     <button class="nav-btn active" id="routinesNav" type="button" aria-current="page" onclick="showLanding('home')"><svg class="icon" aria-hidden="true"><use href="#icon-routines"></use></svg><span>Routines</span></button>
     <button class="nav-btn" id="workoutsNav" type="button" onclick="showLanding('workouts')"><svg class="icon" aria-hidden="true"><use href="#icon-workouts"></use></svg><span>Workouts</span></button>
     <button class="nav-btn" id="generatorNav" type="button" onclick="showLanding('generator')"><svg class="icon" aria-hidden="true"><use href="#icon-shuffle"></use></svg><span>Generator</span></button>
+    <button class="nav-btn" id="moreNav" type="button" onclick="openMore()"><span aria-hidden="true" style="font-size:21px;line-height:21px">⋯</span><span>More</span></button>
   </nav>
 
   <div class="modal hidden" id="exitDialog" role="dialog" aria-modal="true" aria-labelledby="exitDialogTitle" aria-describedby="exitDialogCopy" onclick="handleModalBackdrop(event)">
@@ -368,8 +388,50 @@ function routineList(kind,variant){return expandLegacyTimed(routineIds(kind,vari
 function renderHome(){document.getElementById('warmupSub').textContent='Bodyweight or with equipment';document.getElementById('cooldownSub').textContent='Bodyweight or with equipment'}
 let routinePickKey='warmup';
 function openRoutineVariants(kind){routinePickKey=kind;document.getElementById('routinePickTitle').textContent=ROUTINE_TITLES[kind];document.getElementById('variantBodyweightSub').textContent=routineList(kind,'bodyweight').length+' moves';document.getElementById('variantEquipmentSub').textContent=routineList(kind,'equipment').length+' moves';showScreen('routinepick')}
+let moreReturnScreen='home';
+function openMore(){moreReturnScreen=['home','workouts','generator'].find(id=>!document.getElementById(id).classList.contains('hidden'))||'home';showScreen('more')}
+function closeMore(){showLanding(moreReturnScreen)}
+function libraryEquipmentLabel(exercise){
+  if(!exercise.equipment.length)return 'Bodyweight';
+  return exercise.equipment.map(group=>group.map(id=>EQUIPMENT.find(item=>item.id===id).name).join(' or ')).join(' and ');
+}
+function libraryFixedIds(){
+  const ids=new Set();
+  function visit(value){if(typeof value==='string'){if(CATALOGUE[value])ids.add(value)}else if(Array.isArray(value))value.forEach(visit);else if(value&&typeof value==='object'){if(typeof value.id==='string'&&CATALOGUE[value.id])ids.add(value.id);Object.values(value).forEach(visit)}}
+  visit(FIXED_ROUTINES);visit(FIXED_WORKOUTS);visit(EX);return ids;
+}
+function libraryContexts(exercise){
+  const contexts=[];
+  if(exercise.main)contexts.push('Main workout');
+  if(exercise.warmup)contexts.push('Warm-up');
+  if(exercise.rampup)contexts.push('Ramp-up');
+  if(exercise.cooldown)contexts.push('Cool-down');
+  if(libraryFixedIds().has(exercise.id))contexts.push('Fixed workouts');
+  return contexts.length?contexts.join(' · '):'Exercise reference';
+}
+function openExerciseLibrary(){
+  const select=document.getElementById('libraryEquipment');select.innerHTML='';
+  [['','All equipment'],['bodyweight','Bodyweight'],...EQUIPMENT.map(item=>[item.id,item.name])].forEach(([id,name])=>{const option=document.createElement('option');option.value=id;option.textContent=name;select.appendChild(option)});
+  select.value='';document.getElementById('librarySearch').value='';renderExerciseLibrary();showScreen('exerciseLibrary');
+}
+function renderExerciseLibrary(){
+  const query=document.getElementById('librarySearch').value.trim().toLocaleLowerCase(),equipment=document.getElementById('libraryEquipment').value;
+  const items=Object.values(CATALOGUE).filter(exercise=>exercise.name.toLocaleLowerCase().includes(query)&&(!equipment||(equipment==='bodyweight'?!exercise.equipment.length:exercise.equipment.some(group=>group.includes(equipment))))).sort((a,b)=>a.name.localeCompare(b.name));
+  const list=document.getElementById('libraryList');list.innerHTML='';
+  items.forEach(exercise=>{const li=document.createElement('li'),button=document.createElement('button'),name=document.createElement('strong'),equipmentLabel=document.createElement('small');button.type='button';button.className='library-row';name.textContent=exercise.name;equipmentLabel.textContent=libraryEquipmentLabel(exercise);button.append(name,equipmentLabel);button.onclick=()=>openExerciseDetail(exercise.id);li.appendChild(button);list.appendChild(li)});
+  document.getElementById('libraryEmpty').classList.toggle('hidden',items.length!==0);
+}
+function openExerciseDetail(id){
+  const exercise=CATALOGUE[id];if(!exercise)return;
+  document.getElementById('libraryDetailName').textContent=exercise.name;
+  document.getElementById('libraryDetailInstruction').textContent=exercise.instruction||'';
+  document.getElementById('libraryInstructionSection').classList.toggle('hidden',!exercise.instruction);
+  document.getElementById('libraryDetailEquipment').textContent=libraryEquipmentLabel(exercise);
+  document.getElementById('libraryDetailContexts').textContent=libraryContexts(exercise);
+  showScreen('exerciseDetail');
+}
 function showScreen(id){
-  ['home','workouts','generator','equipment','generatedPreview','routinepick','snackpick','player','workoutPlayer','done'].forEach(s=>document.getElementById(s).classList.toggle('hidden',s!==id));
+  ['home','workouts','generator','equipment','generatedPreview','routinepick','snackpick','player','workoutPlayer','done','more','exerciseLibrary','exerciseDetail'].forEach(s=>document.getElementById(s).classList.toggle('hidden',s!==id));
   const landing=['home','workouts','generator'].includes(id),nav=document.getElementById('bottomNav');nav.classList.toggle('hidden',!landing);
   [['home','routinesNav'],['workouts','workoutsNav'],['generator','generatorNav']].forEach(pair=>{const active=id===pair[0],button=document.getElementById(pair[1]);button.classList.toggle('active',active);active?button.setAttribute('aria-current','page'):button.removeAttribute('aria-current')});
 }
