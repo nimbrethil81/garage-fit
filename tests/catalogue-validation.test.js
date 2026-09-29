@@ -28,6 +28,24 @@ test('the shipped catalogue validates cleanly without generating a workout', () 
   assert.doesNotThrow(() => assertValidCatalogue(catalogue));
 });
 
+test('instruction metadata defaults to quiet and accepts a concise sentence', () => {
+  assert.equal(catalogue['air-squat'].voiceInstruction, false);
+  assert.equal(catalogue['air-squat'].instruction, undefined);
+  assert.equal(catalogue['trx-knee-tuck'].voiceInstruction, true);
+  assert.match(catalogue['trx-knee-tuck'].instruction, /feet in the TRX straps/);
+  assert.deepEqual(errorsWith('air-squat', { instruction:'Stand tall and bend your knees into a squat.' }), []);
+});
+
+test('instructions must be short, non-empty, single-line text and voice requires one', () => {
+  for (const instruction of [null, 7, '', '  ', 'First line\nSecond line', 'x'.repeat(181)]) {
+    assertRejected(errorsWith('air-squat', { instruction }), /instruction must be a non-empty, single-line string/);
+  }
+  assertRejected(errorsWith('air-squat', { voiceInstruction:true }), /voiceInstruction requires a valid instruction/);
+  assertRejected(errorsWith('air-squat', { voiceInstruction:'yes' }), /voiceInstruction must be boolean/);
+  assertRejected(errorsWith('air-squat', { instruction:' ', voiceInstruction:true }), /voiceInstruction requires a valid instruction/);
+  assert.throws(() => GarageFitData.buildExerciseCatalogue([{ id:'sample', name:'Sample', prescription:{type:'timed',value:20}, instructionn:'Typo' }]), /unknown exercise field/);
+});
+
 // ---- Identity ----
 
 test('duplicate exercise ids are rejected', () => {

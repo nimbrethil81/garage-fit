@@ -819,6 +819,10 @@
       seen.add(id);
       if (!Array.isArray(catalogue) && key!==id) errors.push(id+': catalogue key '+JSON.stringify(key)+' does not match id');
       if (typeof exercise.name!=='string' || !exercise.name.trim()) errors.push(id+': missing name');
+      const validInstruction=typeof exercise.instruction==='string' && !!exercise.instruction.trim() && exercise.instruction.length<=180 && !/[\r\n]/.test(exercise.instruction);
+      if (exercise.instruction!==undefined && !validInstruction) errors.push(id+': instruction must be a non-empty, single-line string of at most 180 characters');
+      if (exercise.voiceInstruction!==undefined && typeof exercise.voiceInstruction!=='boolean') errors.push(id+': voiceInstruction must be boolean');
+      if (exercise.voiceInstruction===true && !validInstruction) errors.push(id+': voiceInstruction requires a valid instruction');
 
       if (!Array.isArray(exercise.equipment)) errors.push(id+': equipment must be an array of alternative groups');
       else for (const group of exercise.equipment) {

@@ -21,7 +21,28 @@ given phase (Main, Warm-up, Ramp-up, Cool-down) is generator policy in
    `strength` and `cardio`; choose them with the anchors below, not by copying a
    neighbour.
 5. Add `family` / `repetitionClass` only if the definitions below are met.
-6. Run `node --test tests/*.test.js`.
+6. Consider a short `instruction` if the name may be unfamiliar; follow the editorial standard below.
+7. Run `node --test tests/*.test.js`.
+
+## Exercise instructions
+
+`instruction` is optional. Add it when the exercise name alone may not tell an
+unfamiliar user what to do. Write **one concise sentence** describing essential
+setup and movement. It must sound natural both on screen and spoken aloud, and fit
+within 180 characters on one line. Do not turn it into a coaching essay: omit
+benefits, motivational copy, alternatives, generic safety boilerplate and lengthy
+technique notes. Keep it separate from `timedCues`, which direct a change during
+the movement rather than explain how to perform it.
+
+`voiceInstruction` defaults to `false`. Set it to `true` only when automatic
+explanation is materially useful; it requires a valid `instruction`. The app
+speaks it once per exercise id in each workout session when timing allows. The
+written instruction remains available even when automatic speech is skipped.
+
+| Exercise | Good | Avoid |
+| --- | --- | --- |
+| TRX knee tuck | “From a plank with feet in the TRX straps, draw both knees towards your chest, then extend.” | “Do your best with TRX knee tucks for stronger abs!” |
+| Wall angel | “With your back against a wall and arms bent in a W, slide your arms up into a Y and back down.” | “Stand against a wall. Move your arms up. Keep your back flat. Repeat carefully.” |
 
 ## Identity and equipment
 
