@@ -2,6 +2,9 @@
 
 Simple dependency-free PWA for fixed and generated garage workouts.
 
+The More menu contains an Exercise Library for searching and browsing the full
+canonical catalogue by equipment, including exercises without instructions.
+
 Live: https://nimbrethil81.github.io/garage-fit/
 
 ## Structure

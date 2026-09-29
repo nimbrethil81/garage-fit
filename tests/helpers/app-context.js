@@ -8,7 +8,9 @@ class Element {
   constructor() {
     const classes = new Set();
     this.classList = { add(value){ classes.add(value); }, remove(value){ classes.delete(value); }, contains(value){ return classes.has(value); }, toggle(value,force){ const enable=force===undefined?!classes.has(value):force;enable?classes.add(value):classes.delete(value);return enable; } };
-    this.style = {}; this.children = []; this.attributes = {}; this.textContent = ''; this.innerHTML = ''; this.className = '';
+    this.style = {}; this.children = []; this.attributes = {}; this.textContent = ''; this.className = '';
+    this._innerHTML = '';
+    Object.defineProperty(this,'innerHTML',{get:()=>this._innerHTML,set:value=>{this._innerHTML=String(value);if(value==='')this.children=[];}});
   }
   setAttribute(key, value) { this.attributes[key] = String(value); }
   removeAttribute(key) { delete this.attributes[key]; }
