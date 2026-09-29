@@ -12,10 +12,12 @@ GarageFit is a dependency-free browser PWA for fixed and generated workouts.
 ## Development principles
 
 - Prefer general generator rules and exercise metadata over exercise-specific hard coding.
+- Keep exercise metadata minimal and orthogonal. Before adding a new metadata field, prefer reusing an existing field or expressing phase-specific behaviour as generator policy. Add metadata only when it describes an intrinsic property of the exercise and cannot be represented cleanly by the existing model.
 - Preserve established behaviour unless the requested change requires otherwise.
 - Add or update regression tests for generator behaviour changes.
 - Keep the implementation dependency-free unless explicitly authorised.
 - Do not introduce new product decisions merely to complete a task.
+- When adding or editing exercises, follow the catalogue and editorial rules in data/EXERCISE_METADATA.md, including the exercise-instruction standard.
 
 ## Architecture
 
