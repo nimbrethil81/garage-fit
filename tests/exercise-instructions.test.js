@@ -106,5 +106,5 @@ test('fixed timed and mixed sequences retain exercise ids for the shared player'
   assert.match(el('routineInstructionText').textContent,/back against a wall/);
   context.GarageFitWorkoutUI.startFixedSequenceWorkout('postRunReset');
   assert.equal(vm.runInContext('state.list[0].id',context),'push-up');
-  assert.equal(vm.runInContext('state.list[0].reps',context),12);
+  assert.equal(vm.runInContext('state.list[0].work',context),30);
 });
