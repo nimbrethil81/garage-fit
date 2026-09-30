@@ -631,7 +631,8 @@
     // ---- Fixed-workout recovery ----
     { id:'easy-recovery-walk', name:'Easy recovery walk',
       cardio:2, sidedness:'none',
-      prescription:{type:'timed',value:45} }
+      prescription:{type:'timed',value:45},
+      instruction:'Walk at an easy pace and let your breathing settle before starting the stretches.' }
   ];
 
   root.GarageFitData = root.GarageFitData || {};

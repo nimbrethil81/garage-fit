@@ -47,14 +47,12 @@ test('the upper-body/core block occurs exactly once (no repeated round)', () => 
   }
 });
 
-test('press-ups, pike press-ups and plank shoulder taps are all included as rep-based movements', () => {
-  const pressUp = workout.exercises.find(exercise => exercise.id === 'push-up');
-  const pikePressUp = workout.exercises.find(exercise => exercise.id === 'pike-push-up');
-  const shoulderTaps = workout.exercises.find(exercise => exercise.id === 'plank-shoulder-taps');
-  assert.ok(pressUp && pressUp.reps >= 10 && pressUp.reps <= 15, 'press-ups should be 10-15 reps');
-  assert.ok(pikePressUp && pikePressUp.reps >= 6 && pikePressUp.reps <= 10, 'pike press-ups should be 6-10 reps');
-  assert.ok(shoulderTaps && shoulderTaps.reps >= 10 && shoulderTaps.reps <= 16, 'plank shoulder taps should be 10-16 total taps');
-  assert.equal(shoulderTaps.durationSeconds, undefined, 'plank shoulder taps should be rep-based, not timed');
+test('every Post-Run Reset step runs for time, including the upper-body top-up', () => {
+  for (const exercise of workout.exercises) {
+    assert.ok(exercise.durationSeconds > 0, exercise.name + ' needs a duration');
+    assert.equal(exercise.reps, undefined, exercise.name + ' should have no rep target');
+  }
+  assert.deepEqual(workout.exercises.slice(0, 4).map(exercise => exercise.durationSeconds), [30, 25, 30, 25]);
 });
 
 test('the core movement is a single bodyweight, no-equipment, timed hold distinct from the other upper-body movements', () => {
@@ -121,9 +119,7 @@ test('the estimated duration is roughly 7-8 minutes', () => {
     const gap = exercise.transitionAfter != null ? exercise.transitionAfter : (workout.transitionSeconds || 0);
     return sum + gap;
   }, 0);
-  const repsTotal = workout.exercises.reduce((sum, exercise) => sum + (exercise.reps || 0), 0);
-  // Rep-based movements are user-paced; assume roughly 2.5 seconds per rep for a rough estimate.
-  const estimatedSeconds = timedTotal + transitionTotal + repsTotal * 2.5;
+  const estimatedSeconds = timedTotal + transitionTotal;
   assert.ok(estimatedSeconds >= 300 && estimatedSeconds <= 560, 'expected roughly 7-8 minutes, got ' + Math.round(estimatedSeconds) + 's');
 });
 
@@ -147,7 +143,7 @@ test('detail model presents Post-Run Reset via the reusable fixed-sequence UI', 
   const definition = ui.detailDefinition('postRunReset');
   assert.equal(definition.name, 'Post-Run Reset');
   assert.equal(definition.exercises.length, workout.exercises.length);
-  assert.equal(definition.exercises[0].target, '12 reps');
+  assert.equal(definition.exercises[0].target, '30 sec');
   assert.equal(definition.exercises[3].target, '25 sec');
   assert.ok(ui.cardMeta.postRunReset, 'expected a Workouts-catalogue card for Post-Run Reset');
 });
@@ -212,7 +208,7 @@ function tick(intervals, timerId, times) {
   for (let i=0;i<times;i++) intervals.get(timerId)();
 }
 
-test('playback moves through the mixed reps/timed sequence linearly with no looping or rounds', () => {
+test('playback moves through the timed sequence linearly with no looping or rounds', () => {
   const { context, elements, intervals } = loadApp();
   context.GarageFitWorkoutUI.startFixedSequenceWorkout('postRunReset');
 
@@ -223,16 +219,15 @@ test('playback moves through the mixed reps/timed sequence linearly with no loop
   // "Get ready" (3s)
   tick(intervals, vm.runInContext('state.timer', context), 3);
   assert.equal(elements.exerciseName.textContent, 'Press-ups');
-  assert.equal(vm.runInContext('state.phase', context), 'reps');
-  assert.equal(elements.repsNum.textContent, 'x12 reps');
+  assert.equal(vm.runInContext('state.phase', context), 'work');
+  assert.equal(elements.skipPhaseBtn.textContent, 'Skip');
 
-  // Reps-based steps do not auto-advance: tapping "complete" moves forward, one movement at a time.
-  context.GarageFitWorkoutUI.skipFixedSequence();
+  // Upper-body steps auto-advance on their timers.
+  tick(intervals, vm.runInContext('state.timer', context), 30);
   assert.equal(elements.exerciseName.textContent, 'Pike press-ups');
-  assert.equal(vm.runInContext('state.phase', context), 'reps');
-  context.GarageFitWorkoutUI.skipFixedSequence();
+  tick(intervals, vm.runInContext('state.timer', context), 25);
   assert.equal(elements.exerciseName.textContent, 'Plank shoulder taps');
-  context.GarageFitWorkoutUI.skipFixedSequence();
+  tick(intervals, vm.runInContext('state.timer', context), 30);
 
   // Dead bug is timed and must count down automatically.
   assert.equal(elements.exerciseName.textContent, 'Dead bug');
@@ -240,7 +235,7 @@ test('playback moves through the mixed reps/timed sequence linearly with no loop
   tick(intervals, vm.runInContext('state.timer', context), 25);
   tick(intervals, vm.runInContext('state.timer', context), 8); // transition into the downshift
 
-  assert.equal(elements.exerciseName.textContent, 'Downshift - easy recovery');
+  assert.equal(elements.exerciseName.textContent, 'Walk slowly and breathe');
   assert.equal(vm.runInContext('state.phase', context), 'work');
   tick(intervals, vm.runInContext('state.timer', context), 45);
   tick(intervals, vm.runInContext('state.timer', context), 8);
@@ -269,6 +264,21 @@ test('playback moves through the mixed reps/timed sequence linearly with no loop
   assert.equal(vm.runInContext('state.running', context), false);
   assert.equal(elements.doneTitle.textContent, 'Post-Run Reset Complete');
   assert.equal(elements.doneSub.textContent, 'Reset complete. Nice run.');
+});
+
+test('a rep-based fixed sequence shows a real Complete button and advances on it', () => {
+  const { context, elements, intervals } = loadApp();
+  context.GarageFitData.fixedWorkouts.repExample = {
+    name:'Rep example', termination:{type:'fixed-sequence'},
+    exercises:[{id:'push-up',name:'Press-ups',reps:5,transitionAfter:0},{id:'dead-bug',name:'Dead bug',durationSeconds:10}]
+  };
+  context.GarageFitWorkoutUI.startFixedSequenceWorkout('repExample');
+  tick(intervals, vm.runInContext('state.timer', context), 3);
+  assert.equal(elements.phaseLabel.textContent, 'REPS');
+  assert.equal(elements.skipPhaseBtn.textContent, 'Complete');
+  context.GarageFitWorkoutUI.skipFixedSequence();
+  assert.equal(elements.exerciseName.textContent, 'Dead bug');
+  assert.equal(elements.skipPhaseBtn.textContent, 'Skip');
 });
 
 test('existing fixed workouts remain unaffected by the new fixed-sequence engine', () => {
