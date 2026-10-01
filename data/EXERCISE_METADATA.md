@@ -28,11 +28,13 @@ given phase (Main, Warm-up, Ramp-up, Cool-down) is generator policy in
 
 `instruction` is optional. Add it when the exercise name alone may not tell an
 unfamiliar user what to do. Write **one concise sentence** describing essential
-setup and movement. It must sound natural both on screen and spoken aloud, and fit
-within 180 characters on one line. Do not turn it into a coaching essay: omit
-benefits, motivational copy, alternatives, generic safety boilerplate and lengthy
-technique notes. Keep it separate from `timedCues`, which direct a change during
-the movement rather than explain how to perform it.
+setup and movement. For genuinely complex multi-step exercises where one sentence
+would reduce clarity, a second concise sentence is permitted as a strict exception.
+It must sound natural both on screen and spoken aloud, and fit within 180 characters
+on one line. Do not turn it into a coaching essay: omit benefits, motivational copy,
+alternatives, generic safety boilerplate and lengthy technique notes. Keep it
+separate from `timedCues`, which direct a change during the movement rather than
+explain how to perform it.
 
 `voiceInstruction` defaults to `false`. Set it to `true` only when automatic
 explanation is materially useful; it requires a valid `instruction`. The app
