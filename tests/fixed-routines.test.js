@@ -170,3 +170,13 @@ test('generated workouts still contain Warm-up, Ramp-up, Main and Cool-down', ()
     assert.ok(workout.cooldown.exercises.length > 0, 'cool-down ' + duration);
   }
 });
+
+test('Routines cards use the Workouts card language: no numbering or stick-figure art', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const home = html.match(/<main id="home"[\s\S]*?<\/main>/)[0];
+  assert.equal((home.match(/class="routine-card"/g) || []).length, 2);
+  assert.match(home, /class="routine-kicker"/);
+  assert.match(home, /class="routine-cta"/);
+  assert.doesNotMatch(home, /class="glyph"|icon-warmup|icon-cooldown/);
+  assert.doesNotMatch(html, /content:"0[12]"|icon-warmup|icon-cooldown/);
+});
