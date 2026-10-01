@@ -210,12 +210,33 @@ test('saved/generated workout data preserves the timed prescription and cue thro
 
 // ---- Family and block-variety tests ----
 
-test('right and left kettlebell reverse lunges are one catalogue exercise (one distinct family), two work exposures', () => {
+test('kettlebell reverse lunge is a timed alternating exercise whose instruction says to alternate legs', () => {
   const exercise=catalogue['kettlebell-reverse-lunge'];
-  assert.equal(exercise.sidedness,'per-side');
-  // Per-side exercises are a single catalogue entry (one distinct family/id) that expands to
-  // two playback steps (right, left) — this is the existing mechanism that already prevents
-  // left/right entries from being counted as separate exercises for variety purposes.
+  assert.equal(exercise.sidedness,'alternating');
+  assert.equal(exercise.prescription.type,'timed');
+  assert.match(exercise.instruction,/alternating legs/);
+  assert.equal(catalogue['reverse-lunge'].prescription.type,'unilateral-reps');
+  assert.equal(catalogue['dumbbell-reverse-lunge'].prescription.type,'unilateral-reps');
+});
+
+test('generated kettlebell reverse lunges are time-based', () => {
+  let saw=false;
+  for (let seed=1;seed<=150;seed++) {
+    const workout=create({duration:20,focus:'balanced',equipment:['kettlebell'],random:random(seed)});
+    for (const block of workout.main.blocks) for (const exercise of block.exercises) {
+      if (exercise.id!=='kettlebell-reverse-lunge') continue;
+      saw=true;
+      assert.equal(exercise.prescription.type,'timed');
+    }
+  }
+  assert.ok(saw);
+});
+
+test('Leg raises is renamed Lying leg raise with a floor-based instruction, keeping its id and prescription', () => {
+  const exercise=catalogue['leg-raises'];
+  assert.equal(exercise.name,'Lying leg raise');
+  assert.match(exercise.instruction,/^Lie on your back/);
+  assert.deepEqual(exercise.prescription,{type:'reps',value:10});
 });
 
 test('a four-round mini-circuit of a per-side exercise plus a single other exercise fails validation', () => {
