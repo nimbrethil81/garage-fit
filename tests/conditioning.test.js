@@ -27,7 +27,7 @@ test('conditioning is a separate attribute and no longer a pattern', () => {
 
 test('the migrated conditioning set matches the previous pattern-based set', () => {
   const expected = ['bicycle-crunch','mountain-climbers','jumping-jacks','high-knees','burpees','squat-jumps','skater-jumps',
-    'dumbbell-thruster','dumbbell-clean-and-press','kettlebell-swing','kettlebell-clean','kettlebell-figure-eight',
+    'dumbbell-thruster','dumbbell-clean-and-press','kettlebell-swing','kettlebell-single-arm-swing','kettlebell-clean','kettlebell-figure-eight',
     'trx-knee-tuck','trx-mountain-climber','barbell-clean','barbell-clean-and-press','step-ups','box-jumps','box-step-ups',
     'chair-step-ups','knees-up','bum-kicks','star-jumps'];
   const actual = Object.values(catalogue).filter(exercise => exercise.conditioning).map(exercise => exercise.id);
