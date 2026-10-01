@@ -46,9 +46,9 @@ function generatedIds(sourceCatalogue, seed, history) {
 }
 
 test('recent exact exercises and their major movement family receive soft recency penalties',()=>{
-  const exact = GarageFitGenerator.recentUsePenalty(catalogue['dumbbell-farmer-carry'],[['dumbbell-farmer-carry']],catalogue);
-  const family = GarageFitGenerator.recentUsePenalty(catalogue['kettlebell-farmer-carry'],[['dumbbell-farmer-carry']],catalogue);
-  const unrelated = GarageFitGenerator.recentUsePenalty(catalogue['pull-up'],[['dumbbell-farmer-carry']],catalogue);
+  const exact = GarageFitGenerator.recentUsePenalty(catalogue['dumbbell-clean-and-press'],[['dumbbell-clean-and-press']],catalogue);
+  const family = GarageFitGenerator.recentUsePenalty(catalogue['kettlebell-clean-and-press'],[['dumbbell-clean-and-press']],catalogue);
+  const unrelated = GarageFitGenerator.recentUsePenalty(catalogue['pull-up'],[['dumbbell-clean-and-press']],catalogue);
   assert.ok(exact>family,`exact=${exact}, family=${family}`);
   assert.ok(family>0,`family=${family}`);
   assert.equal(unrelated,0);

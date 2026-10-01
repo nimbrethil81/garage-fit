@@ -91,3 +91,14 @@ test('every canonical equipment id and bodyweight has a reusable icon; unknown i
   const used=new Set(Object.values(app.GarageFitData.exercises).flatMap(e=>e.equipment.flat()));
   for(const id of used)assert.ok(icons.has(id),id);
 });
+
+test('the retired kettlebell farmer carry is absent from the library, search and equipment filter; the dumbbell one remains',()=>{
+  const app=loadAppContext();app.openExerciseLibrary();
+  const search=app.document.getElementById('librarySearch'),filter=app.document.getElementById('libraryEquipment'),list=app.document.getElementById('libraryList');
+  const names=()=>list.children.map(li=>li.children[0].children.find(c=>c.className==='library-name').textContent);
+  assert.ok(!names().includes('Kettlebell farmer carry'));
+  search.value='farmer';app.renderExerciseLibrary();
+  assert.deepEqual(names(),['Dumbbell farmer carry']);
+  filter.value='kettlebell';app.renderExerciseLibrary();
+  assert.equal(list.children.length,0);
+});

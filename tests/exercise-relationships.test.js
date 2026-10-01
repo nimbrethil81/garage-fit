@@ -22,7 +22,7 @@ function adjacentPatterns(workout) {
 
 test('family is recognised across different exercise ids', () => {
   assert.ok(G.sameFamily(catalogue['dead-hang'], catalogue['hangout-pullup-bar']));
-  assert.ok(G.sameFamily(catalogue['dumbbell-farmer-carry'], catalogue['kettlebell-farmer-carry']));
+  assert.ok(G.sameFamily(catalogue['dumbbell-clean-and-press'], catalogue['kettlebell-clean-and-press']));
   assert.ok(G.sameFamily(catalogue['reverse-lunge'], catalogue['step-back-lunge']));
   assert.ok(G.sameExerciseOrFamily(catalogue['goblet-squat'], catalogue['kettlebell-goblet-squat']));
   // Sharing a movement pattern is not enough.
@@ -34,7 +34,7 @@ test('repetitionClass stays independent of family', () => {
   const jacks = catalogue['jumping-jacks'], stars = catalogue['star-jumps'];
   assert.ok(G.sameRepetitionClass(jacks, stars));
   assert.equal(G.sameFamily(jacks, stars), false);
-  const carries = [catalogue['dumbbell-farmer-carry'], catalogue['kettlebell-farmer-carry']];
+  const carries = [catalogue['dumbbell-farmer-carry'], Object.assign(clone(catalogue['dumbbell-farmer-carry']), { id:'test-farmer-carry' })];
   assert.ok(G.sameFamily(...carries));
   assert.equal(G.sameRepetitionClass(...carries), false);
 });
@@ -153,8 +153,9 @@ function carryWorkout() {
 
 test('a Main swap cannot add a second farmer carry the generator would have refused', () => {
   const owned = ['dumbbells','kettlebell','pullup-bar'];
-  // Offer the kettlebell carry as the obvious like-for-like replacement for a plank.
-  const pool = { plank:catalogue.plank, 'kettlebell-farmer-carry':catalogue['kettlebell-farmer-carry'], 'dead-hang':catalogue['dead-hang'] };
+  // Offer a second carry variant (a synthetic one, since only one real carry remains) as the obvious replacement for a plank.
+  const variant = Object.assign(clone(catalogue['dumbbell-farmer-carry']), { id:'test-farmer-carry', name:'Test farmer carry' });
+  const pool = { plank:catalogue.plank, 'test-farmer-carry':variant, 'dead-hang':catalogue['dead-hang'] };
   for (const id of ['dumbbell-farmer-carry','goblet-squat','push-up','kettlebell-deadlift','pull-up']) pool[id] = catalogue[id];
   for (let seed = 1; seed <= 40; seed++) {
     const workout = G.swap(carryWorkout(), 1, 0, { catalogue:pool, equipment:owned, random:random(seed) });
@@ -165,7 +166,7 @@ test('a Main swap cannot add a second farmer carry the generator would have refu
   let variantSeen = false;
   for (let seed = 1; seed <= 40 && !variantSeen; seed++) {
     const workout = G.swap(carryWorkout(), 0, 0, { catalogue:pool, equipment:owned, random:random(seed) });
-    variantSeen = workout.main.blocks[0].exercises[0].id==='kettlebell-farmer-carry';
+    variantSeen = workout.main.blocks[0].exercises[0].id==='test-farmer-carry';
   }
   assert.ok(variantSeen);
 });

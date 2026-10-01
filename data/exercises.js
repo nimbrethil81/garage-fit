@@ -279,13 +279,6 @@
       patterns:['hinge'], conditioning:true, strength:4, cardio:5, impact:'medium', sidedness:'per-side',
       prescription:{type:'unilateral-reps',value:10}, estimatedSeconds:50, generator:true, main:true,
       instruction:'Hinge to swing the kettlebell between your legs with one hand, then drive your hips forward to swing it to chest height.', voiceInstruction:true },
-    { id:'kettlebell-farmer-carry', name:'Kettlebell farmer carry', equipment:[['kettlebell']], family:'farmer-carry', frequency:'occasional',
-      patterns:['carry','core'], conditioning:false, strength:4, cardio:3,
-      prescription:{type:'timed',value:30}, generator:true, main:true, mainProtocols:WITH_TIMED_INTERVALS,
-      rampup:true, rampupPrescription:{type:'timed',value:35,minValue:25,maxValue:45}, prepIntensity:3, prepFatigue:2, prepComplexity:1,
-      instruction:'Hold the kettlebell at your side and walk while keeping your torso upright.' },
-
-    // ---- Pull-up bar ----
     { id:'pull-up', name:'Pull-up', equipment:[['pullup-bar']],
       patterns:['pull'], conditioning:false, strength:5, cardio:2, bodyPosition:'hanging',
       prescription:{type:'reps',value:5}, estimatedSeconds:25, generator:true, main:true },

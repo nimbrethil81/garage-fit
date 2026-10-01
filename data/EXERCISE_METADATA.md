@@ -202,7 +202,7 @@ descriptive. A redesign is deferred.
 variants of substantially the same exercise:
 
 - equipment variants of the same named lift (dumbbell/kettlebell/barbell clean and
-  press, dumbbell/kettlebell farmer carry);
+  press, dumbbell/kettlebell swing);
 - phase-specific duplicates (step back lunge and reverse lunge, dead hang and hangout
   on a pull-up bar);
 - a stretch and its TRX version.

@@ -54,13 +54,12 @@ test('dumbbell row retains its repetition prescription', () => {
   assert.equal(row.sidedness,'per-side');
 });
 
-test('dumbbell and kettlebell farmer carries are one occasional exercise family', () => {
-  const dumbbell=catalogue['dumbbell-farmer-carry'], kettlebell=catalogue['kettlebell-farmer-carry'];
+test('the dumbbell farmer carry remains an occasional family member; the kettlebell farmer carry is retired', () => {
+  const dumbbell=catalogue['dumbbell-farmer-carry'];
   assert.equal(dumbbell.family,'farmer-carry');
-  assert.equal(kettlebell.family,'farmer-carry');
   assert.equal(dumbbell.frequency,'occasional');
-  assert.equal(kettlebell.frequency,'occasional');
-  assert.ok(GarageFitGenerator.sameFamily(dumbbell,kettlebell));
+  assert.equal(catalogue['kettlebell-farmer-carry'],undefined);
+  assert.ok(!Object.values(catalogue).some(ex=>/kettlebell farmer carry/i.test(ex.name)));
 });
 
 // ---- Warm-up tests ----
@@ -242,7 +241,7 @@ test('Leg raises is renamed Lying leg raise with a floor-based instruction, keep
 test('a four-round mini-circuit of a per-side exercise plus a single other exercise fails validation', () => {
   const block={
     id:'main-1',protocol:'rounds',intent:'strength',
-    exercises:[catalogue['kettlebell-reverse-lunge'],catalogue['kettlebell-farmer-carry']],
+    exercises:[catalogue['kettlebell-reverse-lunge'],catalogue['kettlebell-goblet-squat']],
     prescription:{rounds:4,exerciseRestSeconds:15,roundRestSeconds:45}
   };
   const issues=GarageFitGenerator.mainVarietyIssues([block],30,Object.values(catalogue));
@@ -288,19 +287,16 @@ test('multi-block workouts respect the block-duration share rule in typical cond
 
 // ---- Farmer-carry tests ----
 
-test('a workout cannot contain both dumbbell and kettlebell farmer carries', () => {
-  for (let seed=1;seed<=150;seed++) {
-    const workout=create({duration:30,focus:'strength',equipment:['dumbbells','kettlebell'],random:random(seed)});
-    const ids=mainIds(workout);
-    assert.ok(!(ids.includes('dumbbell-farmer-carry')&&ids.includes('kettlebell-farmer-carry')),seed);
+test('generation ignores a retired kettlebell farmer carry in saved history and never offers it', () => {
+  const history=[['kettlebell-farmer-carry','plank'],['kettlebell-farmer-carry']];
+  for (let seed=1;seed<=60;seed++) for (const focus of ['strength','balanced','cardio']) {
+    const workout=create({duration:30,focus,equipment:allEquipment,history,random:random(seed)});
+    for (const section of [workout.warmup,workout.rampup,...workout.main.blocks,workout.cooldown])
+      assert.ok(!section.exercises.some(ex=>ex.id==='kettlebell-farmer-carry'),seed);
   }
-});
-
-test('recent-use suppression of one farmer-carry variant reduces (but does not eliminate) the other', () => {
-  const dumbbell=catalogue['dumbbell-farmer-carry'], kettlebell=catalogue['kettlebell-farmer-carry'];
-  const suppressed=GarageFitGenerator.recentUsePenalty(kettlebell,[['dumbbell-farmer-carry']],catalogue);
-  const fresh=GarageFitGenerator.recentUsePenalty(kettlebell,[],catalogue);
-  assert.ok(suppressed>fresh,`suppressed=${suppressed}, fresh=${fresh}`);
+  const penalty=GarageFitGenerator.recentUsePenalty(catalogue['dumbbell-farmer-carry'],history,catalogue);
+  assert.equal(typeof penalty,'number');
+  assert.ok(Number.isFinite(penalty));
 });
 
 test('farmer carry cannot appear in more than one Main block', () => {
