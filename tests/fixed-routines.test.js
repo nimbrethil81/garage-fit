@@ -135,29 +135,64 @@ test('fixed-workout data no longer mutates catalogue relationship metadata', () 
   for (const exercise of Object.values(data.exercises)) assert.equal(exercise.alternativeGroup, undefined, exercise.id);
 });
 
-test('Routines landing exposes only Warm Up and Cool Down, each offering Bodyweight or With equipment', () => {
+test('Routines landing exposes only Warm Up and Cool Down with one-tap start and no variant picker screen', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   const home = html.match(/<main id="home"[\s\S]*?<\/main>/)[0];
   const labels = [...home.matchAll(/<span class="label">([^<]+)<\/span>/g)].map(match => match[1]);
   assert.deepEqual(labels, ['Warm Up','Cool Down']);
   assert.doesNotMatch(home, /Ramp Up|Snack|tile-rampup|tile-snack|openSnack|startRoutine\('rampup'\)/);
   assert.doesNotMatch(home, /equipToggle|openEquipment/);
-  assert.match(home, /openRoutineVariants\('warmup'\)/);
-  assert.match(home, /openRoutineVariants\('cooldown'\)/);
+  assert.match(home, /startPreferredRoutine\('warmup'\)/);
+  assert.match(home, /startPreferredRoutine\('cooldown'\)/);
+  assert.deepEqual([...home.matchAll(/id="routineMode\w+"[^>]*>([^<]+)</g)].map(match => match[1]), ['Bodyweight','With equipment']);
+  assert.doesNotMatch(html, /id="routinepick"|openRoutineVariants/);
+});
 
-  const picker = html.match(/<main id="routinepick"[\s\S]*?<\/main>/)[0];
-  const choices = [...picker.matchAll(/<span class="name">([^<]+)<\/span>/g)].map(match => match[1]);
-  assert.deepEqual(choices, ['Bodyweight','With equipment']);
+test('routine variant preference: deterministic default, shared switching, persistence and one-tap launch', () => {
+  const storage = new Map();
+  const context = loadAppContext(storage);
+  const doc = context.document;
+  const state = () => vm.runInContext('state', context);
+  const sub = kind => doc.getElementById(kind + 'Sub').textContent;
+  const pressed = id => doc.getElementById(id).attributes['aria-pressed'];
 
-  const context = loadAppContext();
-  context.openRoutineVariants('cooldown');
-  assert.equal(vm.runInContext('routinePickKey', context), 'cooldown');
-  assert.equal(context.document.getElementById('routinePickTitle').textContent, 'Cool Down');
-  assert.equal(context.document.getElementById('variantBodyweightSub').textContent, context.routineList('cooldown','bodyweight').length + ' moves');
-  assert.equal(context.document.getElementById('variantEquipmentSub').textContent, context.routineList('cooldown','equipment').length + ' moves');
-  context.startRoutine(vm.runInContext('routinePickKey', context), 'equipment');
-  assert.equal(context.document.getElementById('routineName').textContent, 'Cool Down');
-  assert.equal(vm.runInContext('state.key', context), 'cooldown');
+  // Default is Bodyweight, even when the Generator inventory owns everything.
+  context.loadRoutineVariant();
+  state().ownedEquipment = context.GarageFitData.equipment.map(item => item.id);
+  context.renderHome();
+  assert.equal(vm.runInContext('routineVariant', context), 'bodyweight');
+  assert.match(sub('warmup'), /^Bodyweight · ~\d+ min$/);
+  assert.match(sub('cooldown'), /^Bodyweight · ~\d+ min$/);
+  assert.equal(pressed('routineModeBodyweight'), 'true');
+  assert.equal(pressed('routineModeEquipment'), 'false');
+
+  // Switching is shared by both cards, does not start a routine, and persists.
+  context.setRoutineVariant('equipment');
+  assert.match(sub('warmup'), /^With equipment · ~\d+ min$/);
+  assert.match(sub('cooldown'), /^With equipment · ~\d+ min$/);
+  assert.equal(pressed('routineModeEquipment'), 'true');
+  assert.equal(vm.runInContext('state.running', context), false);
+  assert.equal(storage.get('gf_routine_variant'), 'equipment');
+  context.setRoutineVariant('bogus');
+  assert.equal(vm.runInContext('routineVariant', context), 'equipment');
+
+  // A fresh app load restores the saved variant; garbage falls back to the default.
+  const reloaded = loadAppContext(storage);
+  reloaded.loadRoutineVariant();
+  assert.equal(vm.runInContext('routineVariant', reloaded), 'equipment');
+  storage.set('gf_routine_variant', 'nonsense');
+  reloaded.loadRoutineVariant();
+  assert.equal(vm.runInContext('routineVariant', reloaded), 'bodyweight');
+
+  // One tap launches the authored list for the current variant, for both routines.
+  for (const variant of ['bodyweight', 'equipment']) for (const kind of ['warmup', 'cooldown']) {
+    context.setRoutineVariant(variant);
+    context.startPreferredRoutine(kind);
+    assert.equal(vm.runInContext('state.key', context), kind);
+    assert.equal(doc.getElementById('routineName').textContent, kind === 'warmup' ? 'Warm Up' : 'Cool Down');
+    assert.deepEqual(vm.runInContext('state.list', context).map(item => item.name), context.routineList(kind, variant).map(item => item.name));
+    vm.runInContext('state.running=false', context);
+  }
 });
 
 test('generated workouts still contain Warm-up, Ramp-up, Main and Cool-down', () => {

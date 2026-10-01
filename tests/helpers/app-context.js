@@ -22,7 +22,7 @@ class Element {
   focus() {}
 }
 
-function loadAppContext() {
+function loadAppContext(storage = new Map()) {
   const root = path.join(__dirname, '..', '..');
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   const elements = {};
@@ -33,7 +33,7 @@ function loadAppContext() {
     speechSynthesis: { cancel(){}, speak(){} },
     addEventListener(){},
     document: { getElementById: element, createElement: () => new Element(), head: new Element(), body: new Element(), addEventListener(){}, querySelector: () => new Element() },
-    localStorage: { getItem: () => null, setItem(){} },
+    localStorage: { getItem: key => storage.has(key) ? storage.get(key) : null, setItem: (key, value) => storage.set(key, String(value)) },
     navigator: {},
     getComputedStyle: () => ({ getPropertyValue: () => '#000' }),
     setInterval: () => 0, clearInterval(){}, setTimeout: callback => callback()

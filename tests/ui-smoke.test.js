@@ -68,23 +68,20 @@ test('Generator preview/player and both fixed players initialise without runtime
   vm.runInContext(inline,context,{filename:'index-inline.js'});
   vm.runInContext(fs.readFileSync(path.join(root,'js/rampup-ui.js'),'utf8'),context,{filename:'js/rampup-ui.js'});
 
-  context.openRoutineVariants('cooldown');
-  assert.equal(elements.routinepick.classList.contains('hidden'),false);
-  assert.equal(elements.home.classList.contains('hidden'),true);
-  context.startRoutine('cooldown','bodyweight');
+  context.setRoutineVariant('bodyweight');
+  context.startPreferredRoutine('cooldown');
   assert.equal(elements.player.classList.contains('hidden'),false);
   assert.ok(vm.runInContext('state.list',context).some(item=>item.id==='childs-pose'));
   assert.equal(vm.runInContext('state.list',context).some(item=>item.id.startsWith('trx-')),false);
   context.goHome();
-  context.openRoutineVariants('cooldown');
-  context.startRoutine('cooldown','equipment');
+  context.setRoutineVariant('equipment');
+  context.startPreferredRoutine('cooldown');
   const cooldownRoutine=vm.runInContext('state.list',context);
   assert.ok(cooldownRoutine.some(item=>item.name==='TRX glute standing - Right'));
   assert.ok(cooldownRoutine.some(item=>item.name==='TRX glute standing - Left'));
   assert.equal(cooldownRoutine.some(item=>item.id==='glute-stretch'),false);
   context.goHome();
-  context.openRoutineVariants('warmup');
-  context.startRoutine('warmup','equipment');
+  context.startPreferredRoutine('warmup');
   assert.equal(elements.routineName.textContent,'Warm Up');
   assert.ok(vm.runInContext('state.list',context).some(item=>item.id==='kettlebell-figure-eight'));
   context.goHome();
