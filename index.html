@@ -33,7 +33,7 @@
   #home,#workouts,#generator,#equipment,#generatedPreview,#routinepick,#more,#exerciseLibrary,#exerciseDetail{padding:20px 20px 14px;overflow-y:auto}
   #exerciseDetail .page-header h1{min-width:0;overflow-wrap:anywhere;font-size:clamp(22px,7vw,32px);line-height:1.15}.library-entry{width:100%;min-height:58px;border:0;border-radius:14px;background:var(--card);color:var(--card-text);padding:16px;text-align:left;font-weight:850;font-size:16px}
   .library-controls{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-bottom:16px}.library-controls label{display:flex;flex-direction:column;gap:6px;color:var(--text-muted);font-size:12px;font-weight:750}.library-controls input,.library-controls select{width:100%;min-width:0;border:1px solid var(--surface-2);border-radius:10px;background:var(--surface);color:var(--text);padding:12px;font:inherit;font-size:16px}
-  .library-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}.library-row{width:100%;min-height:58px;border:0;border-radius:12px;background:var(--card);color:var(--card-text);padding:12px 15px;text-align:left;display:flex;flex-direction:column;justify-content:center;gap:3px}.library-row strong{font-size:15px;line-height:1.3}.library-row small{color:var(--card-muted);font-size:12px}.library-empty{color:var(--text-muted)}.library-detail-section{margin:0 0 22px}.library-detail-section h2{font-size:14px;color:var(--rest);margin:0 0 7px}.library-detail-section p{line-height:1.5;margin:0;overflow-wrap:anywhere}
+  .library-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}.library-row{width:100%;min-height:58px;border:0;border-radius:12px;background:var(--card);color:var(--card-text);padding:12px 15px;text-align:left;display:flex;flex-direction:row;align-items:center;gap:12px}.library-row strong{font-size:15px;line-height:1.3;min-width:0;overflow-wrap:anywhere}.equipment-icon{flex:0 0 32px;width:32px;display:inline-flex;align-items:center;justify-content:center}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.library-empty{color:var(--text-muted)}.library-detail-section{margin:0 0 22px}.library-detail-section h2{font-size:14px;color:var(--rest);margin:0 0 7px}.library-detail-section p{line-height:1.5;margin:0;overflow-wrap:anywhere}
   .home-header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:5px 0 24px}
   .home-intro{margin:0 0 17px}.home-intro h1{margin:0;font-size:28px;line-height:1.1;letter-spacing:-.035em}.home-title{margin-bottom:16px}
   .tiles{flex:1;min-height:360px;display:grid;grid-template-columns:1fr;grid-template-rows:1fr 1fr;gap:12px}
@@ -339,6 +339,7 @@
   </div>
 </div>
 <script src="data/equipment.js"></script>
+<script src="js/equipment-icons.js"></script>
 <script src="data/exercises.js"></script>
 <script src="data/workouts.js"></script>
 <script src="js/generator.js"></script>
@@ -418,7 +419,7 @@ function renderExerciseLibrary(){
   const query=document.getElementById('librarySearch').value.trim().toLocaleLowerCase(),equipment=document.getElementById('libraryEquipment').value;
   const items=Object.values(CATALOGUE).filter(exercise=>exercise.name.toLocaleLowerCase().includes(query)&&(!equipment||(equipment==='bodyweight'?!exercise.equipment.length:exercise.equipment.some(group=>group.includes(equipment))))).sort((a,b)=>a.name.localeCompare(b.name));
   const list=document.getElementById('libraryList');list.innerHTML='';
-  items.forEach(exercise=>{const li=document.createElement('li'),button=document.createElement('button'),name=document.createElement('strong'),equipmentLabel=document.createElement('small');button.type='button';button.className='library-row';name.textContent=exercise.name;equipmentLabel.textContent=libraryEquipmentLabel(exercise);button.append(name,equipmentLabel);button.onclick=()=>openExerciseDetail(exercise.id);li.appendChild(button);list.appendChild(li)});
+  items.forEach(exercise=>{const li=document.createElement('li'),button=document.createElement('button'),icon=document.createElement('span'),name=document.createElement('strong'),equipmentLabel=document.createElement('span');button.type='button';button.className='library-row';icon.className='equipment-icon';icon.setAttribute('aria-hidden','true');icon.innerHTML=GarageFitEquipmentIcons.svg(GarageFitEquipmentIcons.primaryEquipmentId(exercise));name.className='library-name';name.textContent=exercise.name;equipmentLabel.className='sr-only';equipmentLabel.textContent=', '+libraryEquipmentLabel(exercise);button.append(icon,name,equipmentLabel);button.onclick=()=>openExerciseDetail(exercise.id);li.appendChild(button);list.appendChild(li)});
   document.getElementById('libraryEmpty').classList.toggle('hidden',items.length!==0);
 }
 function openExerciseDetail(id){

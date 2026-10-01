@@ -15,7 +15,7 @@ test('More opens the complete canonical Exercise Library and returns to its orig
   app.openExerciseLibrary();
   const list=app.document.getElementById('libraryList');
   assert.equal(list.children.length,Object.keys(catalogue).length);
-  const names=list.children.map(li=>li.children[0].children[0].textContent);
+  const names=list.children.map(li=>li.children[0].children.find(c=>c.className==='library-name').textContent);
   assert.deepEqual(names,names.slice().sort((a,b)=>a.localeCompare(b)));
   assert.ok(names.includes('Air squat'));
   app.showScreen('more');app.closeMore();
@@ -25,14 +25,14 @@ test('More opens the complete canonical Exercise Library and returns to its orig
 test('name search, equipment alternatives, bodyweight and combined filters',()=>{
   const app=loadAppContext();app.openExerciseLibrary();
   const search=app.document.getElementById('librarySearch'),filter=app.document.getElementById('libraryEquipment'),list=app.document.getElementById('libraryList');
-  const visible=()=>list.children.map(li=>li.children[0].children[0].textContent);
+  const visible=()=>list.children.map(li=>li.children[0].children.find(c=>c.className==='library-name').textContent);
   search.value='RoW';app.renderExerciseLibrary();
   assert.ok(visible().length>0);assert.ok(visible().every(name=>name.toLowerCase().includes('row')));
   filter.value='trx';app.renderExerciseLibrary();
   assert.ok(visible().length>0);assert.ok(visible().every(name=>name.toLowerCase().includes('row')&&name.toLowerCase().includes('trx')));
   search.value='';filter.value='bodyweight';app.renderExerciseLibrary();
   assert.ok(visible().includes('Air squat'));
-  assert.ok(list.children.every(li=>li.children[0].children[1].textContent==='Bodyweight'));
+  assert.ok(list.children.every(li=>li.children[0].children[2].textContent===', Bodyweight'));
   search.value='does not exist';app.renderExerciseLibrary();
   assert.equal(list.children.length,0);
   assert.equal(app.document.getElementById('libraryEmpty').classList.contains('hidden'),false);
@@ -57,4 +57,37 @@ test('detail shows canonical instruction and readable equipment and contexts, in
   assert.equal(app.document.getElementById('libraryDetailEquipment').textContent,app.libraryEquipmentLabel(loaded));
   assert.doesNotMatch(app.document.getElementById('libraryDetailEquipment').textContent,/\[|\]|voiceInstruction|family|strength/);
   assert.match(app.libraryContexts(catalogue['childs-pose']),/Fixed workouts|Cool-down/);
+});
+
+test('library rows show a primary equipment icon and keep full equipment meaning accessible',()=>{
+  const app=loadAppContext(),catalogue=app.GarageFitData.exercises,icons=app.GarageFitEquipmentIcons;
+  app.openExerciseLibrary();
+  const rows=app.document.getElementById('libraryList').children.map(li=>li.children[0]);
+  assert.equal(rows.length,Object.keys(catalogue).length);
+  for(const row of rows){
+    assert.deepEqual(row.children.map(c=>c.className),['equipment-icon','library-name','sr-only']);
+    assert.match(row.children[0].innerHTML,/^<svg /);
+    assert.equal(row.children[0].attributes['aria-hidden'],'true');
+  }
+  const byName=name=>rows.find(r=>r.children[1].textContent===name);
+  assert.match(byName('Air squat').children[0].innerHTML,/<circle cx="12" cy="5"/);
+  assert.match(byName('Air squat').children[2].textContent,/Bodyweight/);
+  assert.equal(rows.some(r=>r.children.some(c=>c.tagName==='SMALL')),false);
+  const multi=Object.values(catalogue).find(e=>e.equipment.length>1||e.equipment.some(g=>g.length>1));
+  const row=rows.find(r=>r.children[1].textContent===multi.name);
+  assert.equal((row.children[0].innerHTML.match(/<svg /g)||[]).length,1);
+  assert.equal(row.children[2].textContent,', '+app.libraryEquipmentLabel(multi));
+  assert.equal(icons.primaryEquipmentId({equipment:[['dumbbells'],['bench']]}),'dumbbells');
+  assert.equal(icons.primaryEquipmentId({equipment:[['bench','box']]}),'bench');
+});
+
+test('every canonical equipment id and bodyweight has a reusable icon; unknown ids have none',()=>{
+  const app=loadAppContext(),icons=app.GarageFitEquipmentIcons;
+  for(const id of ['bodyweight',...app.GarageFitData.equipment.map(e=>e.id)]){
+    assert.ok(icons.has(id),id);
+    assert.match(icons.svg(id),/viewBox="0 0 24 24".*stroke="currentColor"/);
+  }
+  assert.equal(icons.svg('nope'),'');
+  const used=new Set(Object.values(app.GarageFitData.exercises).flatMap(e=>e.equipment.flat()));
+  for(const id of used)assert.ok(icons.has(id),id);
 });
