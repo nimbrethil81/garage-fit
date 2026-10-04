@@ -45,6 +45,8 @@
   const SHORTLIST_SIZE = 4;
   const SHORTLIST_MARGIN = 5;
   const SCORE_TIE_EPSILON = 1e-9;
+  // Main score penalty when the previous Main exercise shares a non-null repetitionClass (soft, never an exclusion).
+  const MAIN_REPETITION_CLASS_PENALTY = 10;
   const RECENT_EXACT_PENALTIES = [18,10,6,3];
   const RECENT_PATTERN_PENALTIES = [6,3,2,1];
   const MAIN_PROTOCOLS = new Set(['rounds','paired_sets','timed_intervals']);
@@ -439,6 +441,8 @@
         let score=scoreCandidate(exercise,desired,allSelected,focus,history,catalogue)+scoreIntent(exercise,intent);
         if(state.usedIds.has(exercise.id))score-=42;
         if(previous&&sharedPatterns(previous,exercise).some(pattern=>MAJOR_REPEAT_PATTERNS.has(pattern)))score-=8;
+        // Soft relationship rule: different exercises that feel alike should not run back to back.
+        if(sameRepetitionClass(previous,exercise))score-=MAIN_REPETITION_CLASS_PENALTY;
         if(previous&&sectionSetupKey(previous,state.owned)===sectionSetupKey(exercise,state.owned))score+=1.5;
         if(protocol==='paired_sets'&&selected.length===1&&!sharedPatterns(selected[0],exercise).length)score+=8;
         if(protocol==='timed_intervals'&&exercise.sidedness==='per-side')score-=30;
