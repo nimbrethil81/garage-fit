@@ -41,6 +41,23 @@ Also run the full audit after material generator selection or scoring changes, a
 changing relationship or phase metadata rules, and when investigating observed overuse
 or absence. It is not part of the ordinary test run.
 
+Each failure and rare warning is followed by diagnostic evidence from the generator's own
+selection trace (`--no-diagnostics` skips it; `--json` includes it as `diagnostics`):
+
+- `eligible` / `selected`: configurations where the exercise is eligible (and what excludes
+  it elsewhere), where it was selected and its best configuration.
+- `funnel`: the share of its selection slots that pass the pre-score filters, reach the
+  shortlist window, are drawn, and survive later attempt or sequence choice, each against
+  the phase median, with the rules or outcomes that removed it.
+- `rank` / `score`: its best and median rank against the window, how far its score falls
+  short of the window boundary, and the generator's labelled score components: its own
+  largest penalties and where the candidate ranked directly above it leads (means over a
+  deterministic sample of slots).
+- `above`: the exercises most often ranked directly above it.
+- `diagnosis`: a general classification of the stage furthest below the phase median and
+  its main cause. It is guidance for review, not a decision; never change metadata just to
+  move a classification or a frequency.
+
 ## Exercise instructions
 
 `instruction` is optional. Add it when the exercise name alone may not tell an
