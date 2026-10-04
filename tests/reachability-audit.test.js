@@ -110,3 +110,41 @@ test('the audit is deterministic for a fixed sample configuration with the real 
   assert.equal(audit.workoutSeed(2,1,30,5),audit.workoutSeed(2,1,30,5));
   assert.notEqual(audit.workoutSeed(2,1,30,5),audit.workoutSeed(2,1,30,6));
 });
+
+test('equipment pairs are every unordered combination of distinct ids, derived only from the list',()=>{
+  assert.deepEqual(audit.equipmentPairs([]),[]);
+  assert.deepEqual(audit.equipmentPairs(['a']),[]);
+  assert.deepEqual(audit.equipmentPairs(['c','a','b','a']),[['a','b'],['a','c'],['b','c']]);
+  for(const n of [2,4,8]){
+    const ids=Array.from({length:n},(_,i)=>'e'+i);
+    assert.equal(audit.equipmentPairs(ids).length,n*(n-1)/2);
+  }
+});
+
+test('the audit matrix adds every two-equipment combination to the existing configurations',()=>{
+  const ids=GarageFitData.equipment.map(item=>item.id);
+  const withoutPairs=new Map([['bodyweight',[]]]);
+  for(const exercise of Object.values(GarageFitData.exercises)){
+    const set=[...new Set((exercise.equipment||[]).map(group=>group[0]))].sort();
+    if(set.length)withoutPairs.set(set.join('+'),set);
+  }
+  withoutPairs.set('all-equipment',ids.slice().sort());
+  const configs=audit.representativeConfigs(GarageFitData.exercises,ids);
+  const byKey=new Map(configs.map(config=>[config.key,config.equipment]));
+  assert.equal(byKey.size,configs.length,'no duplicate configurations');
+  // Existing configurations are kept, in their original order, ahead of the additions.
+  assert.deepEqual(configs.slice(0,withoutPairs.size).map(config=>config.key),[...withoutPairs.keys()]);
+  for(const [key,equipment] of withoutPairs)assert.deepEqual(byKey.get(key),equipment,key);
+  // Every pair of distinct equipment ids is present exactly once.
+  for(const pair of audit.equipmentPairs(ids))assert.deepEqual(byKey.get(pair.join('+')),pair,pair.join('+'));
+  const expected=new Set([...withoutPairs.keys(),...audit.equipmentPairs(ids).map(pair=>pair.join('+'))]);
+  assert.equal(configs.length,expected.size);
+  assert.deepEqual(new Set(byKey.keys()),expected);
+  assert.ok(configs.length>=withoutPairs.size+ids.length*(ids.length-1)/2-withoutPairs.size,'pairs add configurations');
+});
+
+test('a catalogue and equipment list with no overlap adds exactly the pairs',()=>{
+  const configs=audit.representativeConfigs({x:{id:'x',equipment:[]}},['p','q','r']);
+  assert.deepEqual(configs.map(config=>config.key),['bodyweight','all-equipment','p+q','p+r','q+r']);
+  assert.deepEqual(configs.find(config=>config.key==='q+r').equipment,['q','r']);
+});

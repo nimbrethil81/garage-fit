@@ -32,7 +32,8 @@ given phase (Main, Warm-up, Ramp-up, Cool-down) is generator policy in
    peers or appear in every workout.
 10. For a batch of exercises, run `node scripts/audit-exercise-reachability.js`. It fails
     if any exercise eligible for a generated phase is never selected across its
-    representative configurations, and warns about rare and dominant ones. Review the
+    representative configurations, and warns about rare and dominant ones. Its configuration matrix covers bodyweight, each
+    catalogue requirement set, all equipment and every two-equipment combination. Review the
     warnings against each exercise's intended role rather than equalising frequencies,
     and include the relevant results in the PR summary.
 

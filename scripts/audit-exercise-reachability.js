@@ -13,9 +13,10 @@
 //
 // Sample: every supported duration x focus x representative equipment configuration, with
 // DEFAULT_SEEDS seeded workouts per combination. Configurations are bodyweight only, the
-// minimal equipment set of each distinct catalogue requirement, and all equipment. With the
-// current catalogue that is 5 x 3 x 11 x 24 = 3,960 workouts (about 30 seconds locally),
-// enough for an exercise that is legitimately selectable in its configurations to appear.
+// minimal equipment set of each distinct catalogue requirement, all equipment, and every
+// two-equipment combination (so exercises that need a particular mix are exercised without
+// naming any). The configuration count is derived from the catalogue and equipment list; the
+// report prints the total workout count and runtime.
 //
 // Exit status is 1 when an exercise eligible for a generated phase has zero appearances across
 // every configuration it is eligible in. Rare and dominant exercises are warnings for human
@@ -44,8 +45,18 @@ function phaseExercises(workout, phase) {
   return (workout[phase] && workout[phase].exercises) || [];
 }
 
+// Every unordered pair of distinct equipment ids, sorted and keyed "a+b". Systematic by
+// construction: no pair is named for any particular exercise.
+function equipmentPairs(equipmentIds) {
+  const ids = [...new Set(equipmentIds || [])].sort();
+  const pairs = [];
+  for (let i=0;i<ids.length;i++) for (let j=i+1;j<ids.length;j++) pairs.push([ids[i],ids[j]]);
+  return pairs;
+}
+
 // Bodyweight, the minimal set for each distinct catalogue requirement (first option of every
-// alternative group), and all equipment.
+// alternative group), all equipment, and every two-equipment combination. Combinations already
+// present (for example a catalogue requirement set of exactly two items) are not repeated.
 function representativeConfigs(catalogue, equipmentIds) {
   const configs = new Map([['bodyweight',[]]]);
   for (const exercise of Object.values(catalogue)) {
@@ -53,6 +64,7 @@ function representativeConfigs(catalogue, equipmentIds) {
     if (set.length) configs.set(set.join('+'),set);
   }
   if (equipmentIds && equipmentIds.length) configs.set('all-equipment',equipmentIds.slice().sort());
+  for (const pair of equipmentPairs(equipmentIds)) if (!configs.has(pair.join('+'))) configs.set(pair.join('+'),pair);
   return [...configs].map(([key,equipment]) => ({key,equipment}));
 }
 
@@ -202,6 +214,6 @@ function main(argv) {
   return result.failures.length ? 1 : 0;
 }
 
-module.exports = { DEFAULT_SEEDS, PHASES, RARE_RATIO, DOMINANT_RATIO, representativeConfigs, runAudit, formatReport, workoutSeed, main };
+module.exports = { DEFAULT_SEEDS, PHASES, RARE_RATIO, DOMINANT_RATIO, equipmentPairs, representativeConfigs, runAudit, formatReport, workoutSeed, main };
 
 if (require.main===module) process.exitCode = main(process.argv.slice(2));
