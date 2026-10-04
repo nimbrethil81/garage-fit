@@ -121,7 +121,10 @@ test('generated preparation phases keep estimate, prescription and playback in a
 });
 
 test('swapping into a per-side preparation exercise keeps the slot total and splits it by side', () => {
-  const workout = GarageFitGenerator.generate({ catalogue, duration:30, focus:'balanced', equipment:allEquipment, random:random(3) });
+  // The swap target must not already be in the warm-up, so use the first seed without it.
+  let workout;
+  for (let seed = 3; !workout || workout.warmup.exercises.some(ex => ex.id==='step-back-lunge'); seed++)
+    workout = GarageFitGenerator.generate({ catalogue, duration:30, focus:'balanced', equipment:allEquipment, random:random(seed) });
   const slot = workout.warmup.exercises.findIndex(ex => ex.sidedness!=='per-side' && ex.estimatedSeconds % 10 === 0);
   assert.ok(slot >= 0);
   const before = workout.warmup.estimatedSeconds, total = workout.warmup.exercises[slot].estimatedSeconds;
