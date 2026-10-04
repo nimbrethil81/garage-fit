@@ -4,7 +4,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const {loadAppContext}=require('./helpers/app-context');
 
-test('More opens the complete canonical Exercise Library and returns to its originating tab',()=>{
+test('More opens the complete canonical Exercise Library and keeps the bottom navigation with More selected',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
   assert.match(html,/id="moreNav"[^>]*onclick="openMore\(\)"/);
   assert.match(html,/id="librarySearch"[^>]*type="search"/);
@@ -18,8 +18,12 @@ test('More opens the complete canonical Exercise Library and returns to its orig
   const names=list.children.map(li=>li.children[0].children.find(c=>c.className==='library-name').textContent);
   assert.deepEqual(names,names.slice().sort((a,b)=>a.localeCompare(b)));
   assert.ok(names.includes('Air squat'));
-  app.showScreen('more');app.closeMore();
-  assert.equal(app.document.getElementById('workouts').classList.contains('hidden'),false);
+  app.showScreen('more');
+  assert.equal(app.document.getElementById('bottomNav').classList.contains('hidden'),false);
+  assert.equal(app.document.getElementById('moreNav').classList.contains('active'),true);
+  assert.equal(app.document.getElementById('workoutsNav').classList.contains('active'),false);
+  assert.doesNotMatch(html,/closeMore/);
+  assert.equal((html.match(/<h1 class="screen-title">/g)||[]).length,4);
 });
 
 test('name search, equipment alternatives, bodyweight and combined filters',()=>{
