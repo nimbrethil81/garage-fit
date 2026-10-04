@@ -129,14 +129,16 @@ function createCollector(selectionRanks, shortlistSize, detail) {
     const window = event.window;
     if (!window) return;
     const { sorted, threshold } = window;
-    const shortlist = { size:shortlistSize, margin:window.band };
+    // Score ranks this slot admitted (generated Main scales them with the pool) and the margin.
+    const size = window.ranks || shortlistSize, margin = window.band;
     const ranks = selectionRanks(sorted);
     sorted.forEach((item, index) => {
       const entry = stat(phase,item.exercise.id), rank = ranks[index];
       // Positive deficit: points short of the lowest score the shortlist window admits.
       const deficit = threshold-item.score, chosen = item.exercise===picked;
       const above = chosen || rank===1 ? null : sorted[rank-2].exercise; // nearest strictly higher score
-      entry.slots++; entry.scored++; entry.sizes += sorted.length; entry.window = shortlist;
+      entry.slots++; entry.scored++; entry.sizes += sorted.length;
+      entry.window = entry.window ? { size:Math.min(entry.window.size,size), maxSize:Math.max(entry.window.maxSize,size), margin } : { size, maxSize:size, margin };
       add(entry.ranks,rank);
       add(entry.deficits,Math.round(deficit*10)/10);
       if (item.score>threshold) entry.inWindow++;
@@ -460,7 +462,7 @@ function formatDiagnosis(diagnosis) {
   lines.push('funnel     '+slots.total+' slots: past filters '+versus('filters')+(slots.filteredBy.length ? ' [removed by '+counts(slots.filteredBy,2)+']' : ''));
   if (slots.scored) lines.push('           in window '+versus('window')+'; drawn '+versus('draw')+'; kept '+versus('kept')+' of '+slots.builtInto+' workouts'+(slots.discarded.length ? ' [lost to '+counts(slots.discarded,2)+']' : ''));
   else lines.push('           unscored: drawn '+versus('draw')+'; kept '+versus('kept'));
-  if (rank) lines.push('rank       best '+rank.best+', median '+rank.median+' of ~'+rank.candidates+' (window: top '+rank.window.size+(rank.window.margin ? ' + '+rank.window.margin+' pts' : '')+')');
+  if (rank) lines.push('rank       best '+rank.best+', median '+rank.median+' of ~'+rank.candidates+' (window: top '+rank.window.size+(rank.window.maxSize>rank.window.size ? '-'+rank.window.maxSize : '')+(rank.window.margin ? ' + '+rank.window.margin+' pts' : '')+')');
   if (score) {
     const best = score.best;
     lines.push('score      points short of the window boundary (negative: inside): smallest '+signed(best.deficit)+' at '+best.context+(best.slot ? ' '+best.slot+' slot' : '')+

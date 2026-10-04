@@ -89,7 +89,7 @@ test('a synthetic zero-reachability exercise reports its boundary, competitors a
   assert.equal(diagnosis.selection.appearances,0);
   assert.equal(diagnosis.selection.best,null);
   assert.ok(diagnosis.slots.scored>0);
-  assert.deepEqual(diagnosis.rank.window,{size:G.SHORTLIST_SIZE,margin:G.SHORTLIST_MARGIN});
+  assert.deepEqual(diagnosis.rank.window,{size:G.SHORTLIST_SIZE,maxSize:G.SHORTLIST_SIZE,margin:G.SHORTLIST_MARGIN});
   assert.ok(diagnosis.rank.median>G.SHORTLIST_SIZE,'it usually ranks outside the shortlist');
   assert.ok(diagnosis.score.medianDeficit>0,'it usually scores below the window boundary');
   assert.ok(Number.isFinite(diagnosis.score.best.threshold)&&Number.isFinite(diagnosis.score.best.deficit));

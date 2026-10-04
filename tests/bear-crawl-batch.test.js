@@ -110,7 +110,8 @@ test('the supporting Pallof press is reachable with bands and dumbbells and stay
 });
 
 test('the rare supporting Dumbbell biceps curl is reachable and stays secondary',()=>{
-  const mixed=sample(['dumbbells','kettlebell'],'cardio');
+  // Strength focus: its densest bounded route with these two items of equipment.
+  const mixed=sample(['dumbbells','kettlebell'],'strength');
   const curl=countMain(mixed,'dumbbell-biceps-curl');
   assert.ok(curl>=1,'biceps curl '+curl);
   assert.ok(curl*4<countMain(mixed,'single-arm-dumbbell-row')+countMain(mixed,'kettlebell-deadlift')+countMain(mixed,'bear-crawl'),'curl vs primary pulling');
