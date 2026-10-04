@@ -50,7 +50,8 @@ test('Generator preview/player and both fixed players initialise without runtime
     SpeechSynthesisUtterance:function(text){this.text=text;},
     speechSynthesis:{cancel(){},speak(utterance){spoken.push(utterance.text);}},
     Date,
-    Math,
+    // Seeded so the unseeded generator calls in the app produce the same workouts on every run.
+    Math:Object.assign(Object.create(Math),{random:(seed=>()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;})(7)}),
     JSON,
     Set,
     document:{getElementById:id=>elements[id]||null,createElement:()=>new Element(),head:new Element(),addEventListener(){},querySelector(selector){return selector==='.preview-timing'?previewTiming:new Element()}},
