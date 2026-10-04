@@ -78,8 +78,9 @@ test('primary and supporting Main exercises in dense same-pattern pools are reac
     assert.ok(mainIds(workout).filter(item=>item===id).length<=1,mainIds(workout).join(','));
 });
 
-test('the kettlebell halo is reachable in Warm-up without repeating a major pattern within the Warm-up',()=>{
+test('the kettlebell halo is reachable in Warm-up, never in Ramp-up, and no Warm-up repeats a major pattern',()=>{
   assert.ok(count(kettlebell,'kettlebell-halo','warmup')>=2,'halo in warm-up');
+  assert.equal(count(kettlebell,'kettlebell-halo','rampup'),0);
   for(const workout of kettlebell.concat(trx)){
     const warmup=workout.warmup.exercises;
     for(let i=0;i<warmup.length;i++)for(let j=i+1;j<warmup.length;j++)
