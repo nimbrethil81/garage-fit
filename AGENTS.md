@@ -19,6 +19,13 @@ GarageFit is a dependency-free browser PWA for fixed and generated workouts.
 - Do not introduce new product decisions merely to complete a task.
 - When adding or editing exercises, follow the catalogue and editorial rules in data/EXERCISE_METADATA.md, including the exercise-instruction standard.
 
+## Catalogue reachability
+
+- Exercise additions must include bounded, deterministic reachability coverage for every generated phase they are flagged for.
+- Catalogue batches and material generator-policy changes must run the full audit: `node scripts/audit-exercise-reachability.js`.
+- Audit warnings (rare or dominant exercises) require review against intended roles, not automatic frequency equalisation.
+- The detailed rules are in the adding-an-exercise workflow in `data/EXERCISE_METADATA.md`.
+
 ## Architecture
 
 - `index.html`: application shell/UI and workout player
@@ -26,6 +33,7 @@ GarageFit is a dependency-free browser PWA for fixed and generated workouts.
 - `js/generator.js`: workout construction and selection
 - `js/rampup-ui.js`: ramp-up presentation
 - `tests/`: behavioural and UI regression tests
+- `scripts/`: developer tooling (not shipped), e.g. the reachability audit
 
 ## Git
 

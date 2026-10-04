@@ -12,17 +12,33 @@ given phase (Main, Warm-up, Ramp-up, Cool-down) is generator policy in
 
 ## Adding an exercise
 
-1. Give it a unique kebab-case `id` and a display `name`.
-2. State `prescription`, plus `estimatedSeconds` if it is rep-based (timed estimates
+1. Decide its intended phases and, for Main, its role (`mainRole`) before writing metadata.
+2. Give it a unique kebab-case `id` and a display `name`.
+3. State `prescription`, plus `estimatedSeconds` if it is rep-based (timed estimates
    are derived).
-3. Set the phase flags it belongs to (`generator`/`main`, `warmup`, `rampup`,
+4. Set the phase flags it belongs to (`generator`/`main`, `warmup`, `rampup`,
    `cooldown`) and each phase's own fields.
-4. Generator and preparation exercises must state `patterns`, `conditioning`,
+5. Generator and preparation exercises must state `patterns`, `conditioning`,
    `strength` and `cardio`; choose them with the anchors below, not by copying a
    neighbour.
-5. Add `family` / `repetitionClass` only if the definitions below are met.
-6. Consider a short `instruction` if the name may be unfamiliar; follow the editorial standard below.
-7. Run `node --test tests/*.test.js`.
+6. Add `family` / `repetitionClass` only if the definitions below are met.
+7. Consider a short `instruction` if the name may be unfamiliar; follow the editorial standard below.
+8. Run `node --test tests/*.test.js`; it validates the catalogue.
+9. Prove reachability. For every generated phase the exercise is flagged for, add a
+   bounded deterministic test (fixed seeds, at most a few hundred generated workouts)
+   showing it is selected in a suitable equipment/focus/duration configuration; see
+   `tests/reachability.test.js`. Reachability is not a frequency target: the exercise
+   stays subject to its role and the phase's rules, and need not be as common as its
+   peers or appear in every workout.
+10. For a batch of exercises, run `node scripts/audit-exercise-reachability.js`. It fails
+    if any exercise eligible for a generated phase is never selected across its
+    representative configurations, and warns about rare and dominant ones. Review the
+    warnings against each exercise's intended role rather than equalising frequencies,
+    and include the relevant results in the PR summary.
+
+Also run the full audit after material generator selection or scoring changes, after
+changing relationship or phase metadata rules, and when investigating observed overuse
+or absence. It is not part of the ordinary test run.
 
 ## Exercise instructions
 

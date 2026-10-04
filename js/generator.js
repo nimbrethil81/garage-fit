@@ -749,8 +749,21 @@
     return {blocks:[block],transitionSeconds:BLOCK_TRANSITION_SECONDS,estimatedDurationSeconds:fitted.estimate};
   }
 
+  // Hard eligibility for a generated phase: its flag, the owned equipment and the phase's own
+  // safety/suitability rules (e.g. no high-impact Warm-up). Selection only scores these
+  // candidates. The reachability audit (scripts/audit-exercise-reachability.js) reuses this so
+  // it never re-implements phase rules.
+  function generatedPhaseEligible(exercise, phase, owned) {
+    if (!exercise || !requirementsMet(exercise,owned)) return false;
+    if (phase==='main') return !!(exercise.generator && exercise.main);
+    if (phase==='warmup') return !!exercise.warmup && exercise.impact!=='high' && preparationMetadataValid(exercise);
+    if (phase==='rampup') return !!exercise.rampup && preparationMetadataValid(exercise) && exercise.prepFatigue<=3 && exercise.prepComplexity<=3;
+    if (phase==='cooldown') return !!exercise.cooldown;
+    return false;
+  }
+
   function buildSection(catalogue, kind, targetSeconds, owned, random) {
-    let candidates = Object.values(catalogue).filter(exercise => exercise[kind] && requirementsMet(exercise,owned)).map(exercise => {
+    let candidates = Object.values(catalogue).filter(exercise => generatedPhaseEligible(exercise,kind,owned)).map(exercise => {
       if (kind==='warmup' && exercise.warmupPrescription) return Object.assign({},exercise,{prescription:Object.assign({},exercise.warmupPrescription),estimatedSeconds:exercise.warmupEstimatedSeconds || exercise.warmupPrescription.value});
       return exercise;
     });
@@ -1070,7 +1083,7 @@
     const focus = options.focus || 'balanced';
     // High-impact movements are a safety exclusion for warm-ups specifically; they remain
     // available to a suitable Main phase, which is scored (not hard-filtered) on impact.
-    let candidates = Object.values(catalogue).filter(ex=>ex.warmup && ex.impact!=='high' && preparationMetadataValid(ex) && requirementsMet(ex,owned));
+    let candidates = Object.values(catalogue).filter(ex=>generatedPhaseEligible(ex,'warmup',owned));
     const restSeconds=5, selected=[];
     const targetCount=Math.max(2,Math.min(candidates.length,Math.round((targetSeconds+5)/25)));
     const lowerDemand=lowerBodyDemand(options.mainDemandExercises||mainExercises,focus);
@@ -1141,7 +1154,7 @@
   }
 
   function selectRampup(catalogue, targetSeconds, owned, mainExercises, warmup, focus, random) {
-    const eligible = Object.values(catalogue).filter(ex=>ex.rampup && preparationMetadataValid(ex) && ex.prepFatigue<=3 && ex.prepComplexity<=3 && requirementsMet(ex,owned));
+    const eligible = Object.values(catalogue).filter(ex=>generatedPhaseEligible(ex,'rampup',owned));
     const restSeconds=5, count=Math.min(chooseRampCount(targetSeconds),eligible.length);
     let best=null;
     for(let attempt=0;attempt<8;attempt++) {
@@ -1202,7 +1215,7 @@
     const owned=options.equipment||[],history=options.history||[],random=options.random||Math.random;
     const budget=BUDGETS[duration]||BUDGETS[20],rest=RESTS[focus]||RESTS.balanced;
     assertValidCatalogue(catalogue);
-    const eligible=Object.values(catalogue).filter(exercise=>exercise.generator&&exercise.main&&requirementsMet(exercise,owned));
+    const eligible=Object.values(catalogue).filter(exercise=>generatedPhaseEligible(exercise,'main',owned));
     if(!eligible.length)throw new Error('No eligible exercises available.');
     const main=composeMain(catalogue,eligible,budget,duration,focus,owned,history,rest,random);
     const firstMain=main.blocks[0].exercises;
@@ -1302,7 +1315,7 @@
     workout.estimatedSeconds=workout.warmup.estimatedSeconds+workout.rampup.estimatedSeconds+workout.main.estimatedDurationSeconds+workout.cooldown.estimatedSeconds;
   }
 
-  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, SHORTLIST_SIZE, SHORTLIST_MARGIN, controlledPick, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_PATTERNS, VALID_WARMUP_AREAS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, selectBlockExercises, selectWarmup, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, generate, swap, swapPreparation };
+  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, SHORTLIST_SIZE, SHORTLIST_MARGIN, controlledPick, generatedPhaseEligible, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_PATTERNS, VALID_WARMUP_AREAS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, selectBlockExercises, selectWarmup, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, generate, swap, swapPreparation };
 
   if (typeof window!=='undefined' && typeof document!=='undefined' && typeof window.addEventListener==='function') window.addEventListener('load',()=>{
     if (document.querySelector('script[data-garagefit-rampup-ui]')) return;
