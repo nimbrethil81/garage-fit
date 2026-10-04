@@ -29,6 +29,17 @@ test('the same disclosure displays instructions only where the catalogue has one
   assert.match(el('workoutInstructionText').textContent, /back against a wall/);
 });
 
+test('reviewed kettlebell movements and separated stretches have clear instructions', () => {
+  const { context } = setup();
+  for (const id of ['kettlebell-deadlift','kettlebell-shoulder-press','single-arm-kettlebell-row','arm-across-pull','triceps-stretch']) {
+    const instruction=vm.runInContext(`CATALOGUE[${JSON.stringify(id)}].instruction`,context);
+    assert.ok(instruction && instruction.length<=180,id);
+  }
+  assert.match(vm.runInContext("CATALOGUE['single-arm-kettlebell-row'].instruction",context),/change sides halfway/i);
+  assert.equal(vm.runInContext("CATALOGUE['hip-flexor-arm-stretch'].name",context),'Hip flexor stretch');
+  assert.equal(vm.runInContext("CATALOGUE['trx-glute-standing'].name",context),'TRX glute stretch');
+});
+
 test('generated preview adds a collapsed disclosure only for instructed exercises', () => {
   const { context, el } = setup();
   vm.runInContext("generatorState.workout=GarageFitGenerator.generate({catalogue:CATALOGUE,duration:10,focus:'balanced',equipment:['trx'],random:()=>0.4});generatorState.workout.main.blocks[0].exercises[0]=CATALOGUE['trx-knee-tuck'];generatorState.workout.main.blocks[0].exercises[1]=CATALOGUE['air-squat']",context);

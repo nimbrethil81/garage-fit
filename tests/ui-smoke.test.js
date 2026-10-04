@@ -77,8 +77,8 @@ test('Generator preview/player and both fixed players initialise without runtime
   context.setRoutineVariant('equipment');
   context.startPreferredRoutine('cooldown');
   const cooldownRoutine=vm.runInContext('state.list',context);
-  assert.ok(cooldownRoutine.some(item=>item.name==='TRX glute standing - Right'));
-  assert.ok(cooldownRoutine.some(item=>item.name==='TRX glute standing - Left'));
+  assert.ok(cooldownRoutine.some(item=>item.name==='TRX glute stretch - Right'));
+  assert.ok(cooldownRoutine.some(item=>item.name==='TRX glute stretch - Left'));
   assert.equal(cooldownRoutine.some(item=>item.id==='glute-stretch'),false);
   context.goHome();
   context.startPreferredRoutine('warmup');

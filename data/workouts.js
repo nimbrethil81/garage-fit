@@ -24,12 +24,12 @@
     }),
     cooldown: freezeVariants({
       bodyweight: [
-        'toe-touch','inside-thigh-stretch','wide-toe-touch','hip-flexor-arm-stretch','kneeling-hamstring',
+        'toe-touch','inside-thigh-stretch','wide-toe-touch','hip-flexor-arm-stretch','arm-across-pull','triceps-stretch','kneeling-hamstring',
         'frog-stretch','standing-quads','downward-upward-dog','plank-calf-stretch','pigeon-stretch','runners-stretch',
         'childs-pose','chest-opener','side-stretch','glute-stretch','lying-torso-twist','full-body-stretch'
       ],
       equipment: [
-        'toe-touch','inside-thigh-stretch','wide-toe-touch','hip-flexor-arm-stretch','kneeling-hamstring',
+        'toe-touch','inside-thigh-stretch','wide-toe-touch','hip-flexor-arm-stretch','arm-across-pull','triceps-stretch','kneeling-hamstring',
         'frog-stretch','standing-quads','downward-upward-dog','plank-calf-stretch','pigeon-stretch','runners-stretch',
         'trx-lean-back-sink','trx-lunge-calf-chest','trx-glute-standing','trx-side-stretch','lying-torso-twist','full-body-stretch'
       ]

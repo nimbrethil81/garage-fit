@@ -18,12 +18,12 @@ const WARM_UP_EQUIPMENT = [
   'trx-squat-overhead','trx-lunge-warmup','band-pull-apart','hangout-pullup-bar','kettlebell-figure-eight'
 ];
 const COOL_DOWN_BODYWEIGHT = [
-  'toe-touch','inside-thigh-stretch','wide-toe-touch','hip-flexor-arm-stretch','kneeling-hamstring',
+  'toe-touch','inside-thigh-stretch','wide-toe-touch','hip-flexor-arm-stretch','arm-across-pull','triceps-stretch','kneeling-hamstring',
   'frog-stretch','standing-quads','downward-upward-dog','plank-calf-stretch','pigeon-stretch','runners-stretch',
   'childs-pose','chest-opener','side-stretch','glute-stretch','lying-torso-twist','full-body-stretch'
 ];
 const COOL_DOWN_EQUIPMENT = [
-  'toe-touch','inside-thigh-stretch','wide-toe-touch','hip-flexor-arm-stretch','kneeling-hamstring',
+  'toe-touch','inside-thigh-stretch','wide-toe-touch','hip-flexor-arm-stretch','arm-across-pull','triceps-stretch','kneeling-hamstring',
   'frog-stretch','standing-quads','downward-upward-dog','plank-calf-stretch','pigeon-stretch','runners-stretch',
   'trx-lean-back-sink','trx-lunge-calf-chest','trx-glute-standing','trx-side-stretch','lying-torso-twist','full-body-stretch'
 ];
