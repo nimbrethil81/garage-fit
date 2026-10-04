@@ -111,7 +111,9 @@ test('major-pattern overlap uses intersection and distant repetition remains all
   const warmup=G.selectWarmup(constrained,65,[],[],random(1));
   assert.equal(warmup.exercises.length,2);
   assert.ok(overlaps(...warmup.exercises)); // No different-pattern option: preserve the phase.
-  const rampup=G.selectRampup({a:constrained.a},55,[],[],[constrained.b],'balanced',random(1));
+  // Step back lunge is Warm-up-only in the catalogue; give the fixture Ramp-up eligibility to keep the constrained case.
+  const rampupLunge=Object.assign(clone(constrained.a),{rampup:true,rampupPrescription:{type:'unilateral-timed',value:15,minValue:10,maxValue:20}});
+  const rampup=G.selectRampup({a:rampupLunge},55,[],[],[constrained.b],'balanced',random(1));
   assert.equal(rampup.exercises.length,1);
   assert.ok(overlaps(constrained.b,rampup.exercises[0]));
 });

@@ -249,7 +249,7 @@ family per workout (farmer carries). It requires a `family`.
 
 | Phase | Same family | Same repetition class |
 | --- | --- | --- |
-| Main | Hard cap of one per workout for `occasional` families, shared by generation and swaps. Recent use of a variant counts towards recency penalties. | — |
+| Main | Hard cap of one per workout for `occasional` families, shared by generation and swaps. Recent use of a variant counts towards recency penalties. | Soft score penalty when the immediately preceding Main exercise shares it; never an exclusion. |
 | Warm-up | Never two members. | — |
 | Ramp-up | Avoided (soft-mandatory) against earlier Ramp-up and Warm-up picks, including in swaps. | Soft score penalty against Warm-up and earlier Ramp-up picks. |
 | Cool-down | Never two members. | — |
