@@ -92,6 +92,23 @@
     normal:{ excluded:[], credit:{} },
     hard:{ excluded:[], credit:{ hard:6, moderate:2 } }
   };
+  // Workout body focus (generate({bodyFocus})) reads each exercise's intrinsic `bodyFocus`.
+  // Full Body is neutral: it scores nothing, so it generates exactly as a workout without the
+  // option. Upper, Lower and Core are weighted preferences, never filters: exercises of the
+  // focus area get a Main score credit (full-body exercises a smaller one) and every other
+  // exercise stays eligible at its usual score. The credit pauses beside a run of
+  // BODY_FOCUS_MAX_RUN focus-area exercises and never rewards high-impact work following
+  // high-impact work, so the existing pattern, repetition, recency and equipment rules still
+  // shape the workout. Preparation and Cool-down are unaffected.
+  const WORKOUT_BODY_FOCUSES = ['upper','full-body','lower','core'];
+  const EXERCISE_BODY_FOCUSES = new Set(['upper','lower','core','full-body']);
+  const BODY_FOCUS_POLICY = {
+    upper:{ credit:{ upper:18, 'full-body':3 } },
+    'full-body':{ credit:{} },
+    lower:{ credit:{ lower:18, 'full-body':3 } },
+    core:{ credit:{ core:18, 'full-body':3 } }
+  };
+  const BODY_FOCUS_MAX_RUN = 2;
 
   function requirementsMet(exercise, owned) {
     const equipment = new Set(owned || []);
@@ -119,6 +136,30 @@
   function difficultyCredit(exercise, difficulty) {
     const policy = DIFFICULTY_POLICY[difficulty] || DIFFICULTY_POLICY.normal;
     return (exercise && policy.credit[exercise.difficulty]) || 0;
+  }
+
+  // ---- Workout body focus policy (see BODY_FOCUS_POLICY) ----
+
+  function workoutBodyFocus(value) {
+    if (value==null) return 'full-body';
+    const bodyFocus = String(value).toLowerCase();
+    if (!WORKOUT_BODY_FOCUSES.includes(bodyFocus)) throw new Error('Unknown workout body focus '+JSON.stringify(value)+'.');
+    return bodyFocus;
+  }
+
+  // Main score credit for `exercise` placed between the Main exercises `before` and `after`
+  // (each in Main order). The credit pauses next to a run of BODY_FOCUS_MAX_RUN focus-area
+  // exercises, and focus-area work earns nothing where it would extend a run beyond it, so that
+  // slot is chosen on the usual scores alone.
+  function bodyFocusCredit(exercise, bodyFocus, before, after) {
+    const policy = BODY_FOCUS_POLICY[bodyFocus] || BODY_FOCUS_POLICY['full-body'];
+    const value = (exercise && policy.credit[exercise.bodyFocus]) || 0;
+    if (!value) return 0;
+    // Focus-area exercises next to the slot; a full-body exercise neither extends nor breaks the run.
+    const streak = list => { let count = 0; for (const item of list) { if (item && item.bodyFocus==='full-body') continue; if (!item || item.bodyFocus!==bodyFocus) break; count++; } return count; };
+    const preceding = streak((before || []).slice().reverse()), following = streak(after || []);
+    if (preceding>=BODY_FOCUS_MAX_RUN || following>=BODY_FOCUS_MAX_RUN) return 0;
+    return exercise.bodyFocus===bodyFocus && 1+preceding+following>BODY_FOCUS_MAX_RUN ? 0 : value;
   }
 
   // ---- Relationship metadata and the phase policies built on it ----
@@ -580,9 +621,12 @@
           const supportingAlready=allSelected.filter(item=>item.mainRole==='supporting').length;
           score+=credit(parts,'supporting-role',-(3+supportingAlready*6));
         }
-        // The difficulty preference never rewards back-to-back high-impact work (a fatigue safeguard).
-        const difficulty=previous&&previous.impact==='high'&&exercise.impact==='high'?0:difficultyCredit(exercise,state.difficulty);
+        // The difficulty and body-focus preferences never reward back-to-back high-impact work (a fatigue safeguard).
+        const adjacentHighImpact=previous&&previous.impact==='high'&&exercise.impact==='high';
+        const difficulty=adjacentHighImpact?0:difficultyCredit(exercise,state.difficulty);
         if(difficulty)score+=credit(parts,'difficulty',difficulty);
+        const bodyFocus=adjacentHighImpact?0:bodyFocusCredit(exercise,state.bodyFocus,allSelected);
+        if(bodyFocus)score+=credit(parts,'body-focus',bodyFocus);
         // Equipment portfolio bias: nudge toward introducing an under-used viable equipment
         // type, and away from a type that would come to dominate active Main working time.
         // This runs during selection (not as a final shuffle) but is a soft preference,
@@ -827,7 +871,7 @@
     return issues;
   }
 
-  function composeMain(catalogue, eligible, budget, duration, focus, owned, history, rest, random, difficulty) {
+  function composeMain(catalogue, eligible, budget, duration, focus, owned, history, rest, random, difficulty, bodyFocus) {
     const attempts=[];
     const diversityTarget=EQUIPMENT_DIVERSITY[duration]||EQUIPMENT_DIVERSITY[20];
     const viableCount=viableEquipmentTypes(eligible).size;
@@ -837,7 +881,7 @@
     const supportingRoute=duration>=SUPPORTING_ROUTE.minDuration&&focus!=='cardio'&&eligible.filter(routeAccessory).length>=SUPPORTING_ROUTE.minCandidates&&random()<SUPPORTING_ROUTE.probability;
     for(let attempt=0;attempt<10;attempt++){
       const count=chooseBlockCount(duration,eligible.length,random),intents=chooseIntents(focus,count,random);
-      const state={exercises:[],usedIds:new Set(),equipmentUsage:new Map(),blocks:[],owned,diversityTarget,supportingRoute,difficulty};
+      const state={exercises:[],usedIds:new Set(),equipmentUsage:new Map(),blocks:[],owned,diversityTarget,supportingRoute,difficulty,bodyFocus};
       let remaining=budget.main;
       for(let index=0;index<count;index++){
         const blocksLeft=count-index;
@@ -1030,6 +1074,7 @@
       if (!isScale(exercise.strength)) errors.push(id+': strength must be an integer from 1 to 5');
       if (!isScale(exercise.cardio)) errors.push(id+': cardio must be an integer from 1 to 5');
       if (exercise.difficulty!=null && !EXERCISE_DIFFICULTIES.has(exercise.difficulty)) errors.push(id+': invalid difficulty '+JSON.stringify(exercise.difficulty));
+      if (exercise.bodyFocus!=null && !EXERCISE_BODY_FOCUSES.has(exercise.bodyFocus)) errors.push(id+': invalid bodyFocus '+JSON.stringify(exercise.bodyFocus));
       if (!VALID_IMPACT_LEVELS.has(exercise.impact)) errors.push(id+': invalid impact '+JSON.stringify(exercise.impact));
       if (exercise.load!=null && !VALID_LOADS.has(exercise.load)) errors.push(id+': invalid load '+JSON.stringify(exercise.load));
       if (!VALID_BODY_POSITIONS.has(exercise.bodyPosition)) errors.push(id+': invalid body position');
@@ -1393,18 +1438,19 @@
     const duration=Number(options.duration);
     const focus=String(options.focus||'balanced').toLowerCase();
     const difficulty=workoutDifficulty(options.difficulty);
+    const bodyFocus=workoutBodyFocus(options.bodyFocus);
     const owned=options.equipment||[],history=options.history||[],random=options.random||Math.random;
     const budget=BUDGETS[duration]||BUDGETS[20],rest=RESTS[focus]||RESTS.balanced;
     assertValidCatalogue(catalogue);
     const eligible=Object.values(catalogue).filter(exercise=>generatedPhaseEligible(exercise,'main',owned,difficulty));
     if(!eligible.length)throw new Error('No eligible exercises available.');
-    const main=composeMain(catalogue,eligible,budget,duration,focus,owned,history,rest,random,difficulty);
+    const main=composeMain(catalogue,eligible,budget,duration,focus,owned,history,rest,random,difficulty,bodyFocus);
     const firstMain=main.blocks[0].exercises;
     const preparation=buildPreparation(catalogue,budget,owned,firstMain,focus,random,main.blocks.flatMap(block=>block.exercises),difficulty);
     const cooldown=buildSection(catalogue,'cooldown',budget.cooldown,owned,random);
     const estimatedSeconds=preparation.warmup.estimatedSeconds+preparation.rampup.estimatedSeconds+main.estimatedDurationSeconds+cooldown.estimatedSeconds;
     const workout={
-      schemaVersion:2,id:'generated-'+Date.now(),duration,focus,difficulty,estimatedSeconds,
+      schemaVersion:2,id:'generated-'+Date.now(),duration,focus,bodyFocus,difficulty,estimatedSeconds,
       warmup:{estimatedSeconds:preparation.warmup.estimatedSeconds,restSeconds:preparation.warmup.restSeconds,exercises:preparation.warmup.exercises.map(copyExercise)},
       rampup:{estimatedSeconds:preparation.rampup.estimatedSeconds,restSeconds:preparation.rampup.restSeconds,exercises:preparation.rampup.exercises.map(copyExercise)},
       main,
@@ -1425,10 +1471,13 @@
     if(!block||!current)return workout;
     const otherExercises=blocks.flatMap((item,bIndex)=>item.exercises.filter((_,eIndex)=>bIndex!==(blockIndex||0)||eIndex!==exerciseIndex));
     const otherIds=new Set(otherExercises.map(exercise=>exercise.id));
-    // A swap keeps the workout's difficulty: its Main eligibility and score preference.
+    // A swap keeps the workout's difficulty (its Main eligibility and score preference) and body focus.
     const difficulty=workoutDifficulty(workout.difficulty);
+    const bodyFocus=workoutBodyFocus(workout.bodyFocus);
     let eligible=Object.values(catalogue).filter(exercise=>generatedPhaseEligible(exercise,'main',owned,difficulty)&&protocolCompatible(exercise,block.protocol)&&exercise.id!==current.id&&!mainFamilyCapReached(exercise,otherExercises));
     const fresh=eligible.filter(exercise=>!otherIds.has(exercise.id));if(fresh.length)eligible=fresh;
+    // The swapped slot's neighbours in Main order, for the body-focus run limit.
+    const mainOrder=blocks.flatMap(item=>item.exercises),position=blocks.slice(0,blockIndex||0).reduce((sum,item)=>sum+item.exercises.length,0)+exerciseIndex;
     const before=exerciseIndex>0?block.exercises[exerciseIndex-1]:(blocks[(blockIndex||0)-1]||{exercises:[]}).exercises.at(-1);
     const after=exerciseIndex<block.exercises.length-1?block.exercises[exerciseIndex+1]:(blocks[(blockIndex||0)+1]||{exercises:[]}).exercises[0];
     const scored=eligible.map(exercise=>{
@@ -1441,7 +1490,7 @@
       if(otherIds.has(exercise.id))score-=42;
       const adjacentHighImpact=exercise.impact==='high'&&((before&&before.impact==='high')||(after&&after.impact==='high'));
       if(adjacentHighImpact)score-=12;
-      else score+=difficultyCredit(exercise,difficulty);
+      else score+=difficultyCredit(exercise,difficulty)+bodyFocusCredit(exercise,bodyFocus,mainOrder.slice(0,position),mainOrder.slice(position+1));
       return {exercise,score};
     });
     const replacement=controlledPick(scored,random,SHORTLIST_MARGIN);if(!replacement)return workout;
@@ -1500,7 +1549,7 @@
     workout.estimatedSeconds=workout.warmup.estimatedSeconds+workout.rampup.estimatedSeconds+workout.main.estimatedDurationSeconds+workout.cooldown.estimatedSeconds;
   }
 
-  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, WORKOUT_DIFFICULTIES, EXERCISE_DIFFICULTIES, DIFFICULTY_POLICY, workoutDifficulty, difficultyExcluded, difficultyCredit, SHORTLIST_SIZE, SHORTLIST_MARGIN, WINDOW_MAX_RANKS, SUPPORTING_ROUTE, candidateWindowRanks, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_PATTERNS, VALID_WARMUP_AREAS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, selectBlockExercises, selectWarmup, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, generate, swap, swapPreparation };
+  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, WORKOUT_DIFFICULTIES, EXERCISE_DIFFICULTIES, DIFFICULTY_POLICY, workoutDifficulty, difficultyExcluded, difficultyCredit, WORKOUT_BODY_FOCUSES, EXERCISE_BODY_FOCUSES, BODY_FOCUS_POLICY, workoutBodyFocus, bodyFocusCredit, SHORTLIST_SIZE, SHORTLIST_MARGIN, WINDOW_MAX_RANKS, SUPPORTING_ROUTE, candidateWindowRanks, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_PATTERNS, VALID_WARMUP_AREAS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, selectBlockExercises, selectWarmup, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, generate, swap, swapPreparation };
 
   if (typeof window!=='undefined' && typeof document!=='undefined' && typeof window.addEventListener==='function') window.addEventListener('load',()=>{
     if (document.querySelector('script[data-garagefit-rampup-ui]')) return;

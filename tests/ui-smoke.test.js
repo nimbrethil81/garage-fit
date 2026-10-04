@@ -87,9 +87,13 @@ test('Generator preview/player and both fixed players initialise without runtime
   assert.ok(vm.runInContext('state.list',context).some(item=>item.id==='kettlebell-figure-eight'));
   context.goHome();
   context.showLanding('generator');
-  // Focus is labelled Strength / Mixed / Cardio; Difficulty sits collapsed under Additional options, defaulting to Normal.
+  // Workout style is labelled Strength / Mixed / Cardio; Body focus and Difficulty sit collapsed under
+  // Additional options, defaulting to Full Body and Normal.
+  assert.match(html,/<h2>Workout style<\/h2>\s*<div class="choice-row focus-row" id="focusChoices">/);
   assert.deepEqual(elements.focusChoices.children.map(button=>button.textContent),['Strength','Mixed','Cardio']);
-  assert.match(html,/<details class="generator-options" id="generatorOptions">\s*<summary>Additional options<span class="generator-options-value" id="generatorOptionsValue"><\/span><\/summary>[\s\S]*?id="difficultyChoices"[\s\S]*?<\/details>\s*<button class="generator-primary"/);
+  assert.match(html,/<details class="generator-options" id="generatorOptions">\s*<summary>Additional options<span class="generator-options-value" id="generatorOptionsValue"><\/span><\/summary>[\s\S]*?<h2>Body focus<\/h2>\s*<div class="choice-row body-focus-row" id="bodyFocusChoices"><\/div>[\s\S]*?id="difficultyChoices"[\s\S]*?<\/details>\s*<button class="generator-primary"/);
+  assert.deepEqual(elements.bodyFocusChoices.children.map(button=>button.textContent),['Upper','Full Body','Lower','Core']);
+  assert.deepEqual(elements.bodyFocusChoices.children.map(button=>button.attributes['aria-pressed']),['false','true','false','false']);
   assert.deepEqual(elements.difficultyChoices.children.map(button=>button.textContent),['Easy','Normal','Hard']);
   assert.deepEqual(elements.difficultyChoices.children.map(button=>button.attributes['aria-pressed']),['false','true','false']);
   assert.equal(elements.generatorOptionsValue.textContent,'');
@@ -170,16 +174,22 @@ test('Generator preview/player and both fixed players initialise without runtime
   assert.equal(spoken.filter(text=>text==='Test cue').length,cueSpeechCount+1);
 
   assert.equal(vm.runInContext('generatorState.workout.difficulty',context),'normal');
+  assert.equal(vm.runInContext('generatorState.workout.bodyFocus',context),'full-body');
   assert.equal(elements.previewKicker.textContent,'30 min · Mixed');
   context.goGenerator();
   context.selectGeneratorDifficulty('hard');
   assert.equal(storage.get('gf_generator_difficulty'),'hard');
   assert.deepEqual(elements.difficultyChoices.children.map(button=>button.attributes['aria-pressed']),['false','false','true']);
   assert.equal(elements.generatorOptionsValue.textContent,'· Hard');
+  context.selectGeneratorBodyFocus('upper');
+  assert.equal(storage.get('gf_generator_body_focus'),'upper');
+  assert.deepEqual(elements.bodyFocusChoices.children.map(button=>button.attributes['aria-pressed']),['true','false','false','false']);
+  assert.equal(elements.generatorOptionsValue.textContent,'· Upper · Hard');
   context.selectGeneratorFocus('strength');
   context.generateWorkout();
   assert.equal(vm.runInContext('generatorState.workout.difficulty',context),'hard');
-  assert.equal(elements.previewKicker.textContent,'30 min · Strength · Hard');
+  assert.equal(vm.runInContext('generatorState.workout.bodyFocus',context),'upper');
+  assert.equal(elements.previewKicker.textContent,'30 min · Strength · Upper · Hard');
   context.startGeneratedWorkout();
   assert.equal(elements.workoutPlayerTitle.textContent,'Strength · 30 min');
 
