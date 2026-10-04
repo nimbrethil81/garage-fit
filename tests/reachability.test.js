@@ -50,17 +50,19 @@ test('a margin admits near-misses below the cutoff at a lower, score-ordered wei
   assert.equal(G.controlledPick([],Math.random,G.SHORTLIST_MARGIN),null);
 });
 
-// Bounded, deterministic reachability sample: 160 kettlebell and 160 TRX workouts across
+// Bounded, deterministic reachability sample: 320 kettlebell and 160 TRX workouts across
 // Strength/Balanced at 30 and 45 minutes, where Main has room for primary and supporting work.
-function sample(equipment){
+// Kettlebell is larger because the supporting route (SUPPORTING_ROUTE) shares long Mains'
+// accessory slots with lower-ranked primary work such as the single-leg deadlift.
+function sample(equipment,seeds=40){
   const workouts=[];
-  for(const focus of ['strength','balanced'])for(const duration of [30,45])for(let seed=1;seed<=40;seed++)
+  for(const focus of ['strength','balanced'])for(const duration of [30,45])for(let seed=1;seed<=seeds;seed++)
     workouts.push(G.generate({catalogue,duration,focus,equipment,random:random(seed*1009+duration*31+focus.length)}));
   return workouts;
 }
 const mainIds=workout=>workout.main.blocks.flatMap(block=>block.exercises.map(exercise=>exercise.id));
 const count=(workouts,id,phase='main')=>workouts.filter(workout=>(phase==='main'?mainIds(workout):workout[phase].exercises.map(ex=>ex.id)).includes(id)).length;
-const kettlebell=sample(['kettlebell']);
+const kettlebell=sample(['kettlebell'],80);
 const trx=sample(['trx']);
 
 test('primary and supporting Main exercises in dense same-pattern pools are reachable, and supporting work stays secondary',()=>{

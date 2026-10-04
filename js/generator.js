@@ -48,6 +48,11 @@
   // candidateWindowRanks), so a fixed leading group cannot crowd accurately modelled exercises
   // out as the catalogue grows. Warm-up, Ramp-up and swaps keep the fixed SHORTLIST_SIZE.
   const WINDOW_MAX_RANKS = 6;
+  // Bounded Main route for supporting exercises (see supportingRouteOpen). Main phases of at
+  // least `minDuration` minutes that can contain an accessory block take one seeded roll; when
+  // it succeeds, the last slot of the accessory block may be filled from the supporting pool
+  // once the exercises before it cover `minRoles` recipe roles and none of them is supporting.
+  const SUPPORTING_ROUTE = { minDuration:30, probability:.25, minRoles:4 };
   const SCORE_TIE_EPSILON = 1e-9;
   // Main score penalty when the previous Main exercise shares a non-null repetitionClass (soft, never an exclusion).
   const MAIN_REPETITION_CLASS_PENALTY = 10;
@@ -495,6 +500,17 @@
     return exercise.strength+exercise.cardio*.45+((exercise.patterns||[]).includes('core')?2:0);
   }
 
+  // Whether the supporting route may fill this slot: the Main drew the route, this is the last
+  // slot of an accessory-intent block, the exercises before it already cover enough recipe
+  // roles, and none of them is supporting.
+  function supportingRouteOpen(state, intent, slot, count, mainSoFar, focus) {
+    if(!state.supportingRoute||intent!=='accessory'||slot!==count-1)return false;
+    if(mainSoFar.some(exercise=>exercise.mainRole==='supporting'))return false;
+    const recipe=RECIPES[focus]||RECIPES.balanced;
+    const roles=new Set(mainSoFar.flatMap(selectionTags).filter(tag=>recipe.includes(tag)));
+    return roles.size>=SUPPORTING_ROUTE.minRoles;
+  }
+
   function selectBlockExercises(eligible, count, focus, intent, protocol, state, history, random, catalogue) {
     const selected=[], recipe=RECIPES[focus]||RECIPES.balanced;
     for(let slot=0;slot<count;slot++){
@@ -505,6 +521,13 @@
       const compatible=narrow(stages,'protocol',unselected,unselected.filter(ex=>protocolCompatible(ex,protocol)));
       let candidates=narrow(stages,'family-cap',compatible,compatible.filter(ex=>!mainFamilyCapReached(ex,mainSoFar)));
       if(!candidates.length)break;
+      // The route narrows this slot to supporting candidates that passed every filter; with none,
+      // the slot is filled as normal.
+      const route=supportingRouteOpen(state,intent,slot,count,mainSoFar,focus);
+      if(route){
+        const supporting=candidates.filter(ex=>ex.mainRole==='supporting');
+        if(supporting.length)candidates=narrow(stages,'supporting-route',candidates,supporting);
+      }
       const previous=selected[selected.length-1]||state.exercises[state.exercises.length-1];
       const allSelected=state.exercises.concat(selected);
       const scoreFor=(exercise,parts)=>{
@@ -541,7 +564,7 @@
       };
       const scored=candidates.map(exercise=>({exercise,score:scoreFor(exercise,null)}));
       const picked=tracedPick(scored,random,SHORTLIST_MARGIN,()=>({phase:'main',desired,intent,protocol,stages,
-        explain:exercise=>{const parts={};scoreFor(exercise,parts);return parts;}}),candidateWindowRanks(scored.length));
+        route,explain:exercise=>{const parts={};scoreFor(exercise,parts);return parts;}}),candidateWindowRanks(scored.length));
       if(!picked)break;
       selected.push(picked);
     }
@@ -768,9 +791,13 @@
     const attempts=[];
     const diversityTarget=EQUIPMENT_DIVERSITY[duration]||EQUIPMENT_DIVERSITY[20];
     const viableCount=viableEquipmentTypes(eligible).size;
+    // One roll for the whole Main, taken only where the route could apply, so short Main phases,
+    // Cardio (no accessory block; see chooseIntents) and pools without supporting exercises
+    // generate exactly as before.
+    const supportingRoute=duration>=SUPPORTING_ROUTE.minDuration&&focus!=='cardio'&&eligible.some(exercise=>exercise.mainRole==='supporting')&&random()<SUPPORTING_ROUTE.probability;
     for(let attempt=0;attempt<10;attempt++){
       const count=chooseBlockCount(duration,eligible.length,random),intents=chooseIntents(focus,count,random);
-      const state={exercises:[],usedIds:new Set(),equipmentUsage:new Map(),blocks:[],owned,diversityTarget};
+      const state={exercises:[],usedIds:new Set(),equipmentUsage:new Map(),blocks:[],owned,diversityTarget,supportingRoute};
       let remaining=budget.main;
       for(let index=0;index<count;index++){
         const blocksLeft=count-index;
@@ -825,7 +852,7 @@
     }
     attempts.sort((a,b)=>a.fitness-b.fitness);
     const chosen=attempts[0];
-    if(activeTrace)activeTrace({type:'main-result',attempt:chosen?chosen.attempt:null});
+    if(activeTrace)activeTrace({type:'main-result',attempt:chosen?chosen.attempt:null,supportingRoute});
     if(chosen)return {blocks:chosen.blocks,transitionSeconds:BLOCK_TRANSITION_SECONDS,estimatedDurationSeconds:chosen.estimated};
     const fallbackExercises=selectExercises(eligible,Math.min(3,eligible.length),focus,history,random,catalogue);
     const fitted=chooseClosestPrescription('rounds',fallbackExercises,budget.main,rest,focus,{allowExtendedRepetition:true});
@@ -1427,7 +1454,7 @@
     workout.estimatedSeconds=workout.warmup.estimatedSeconds+workout.rampup.estimatedSeconds+workout.main.estimatedDurationSeconds+workout.cooldown.estimatedSeconds;
   }
 
-  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, SHORTLIST_SIZE, SHORTLIST_MARGIN, WINDOW_MAX_RANKS, candidateWindowRanks, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_PATTERNS, VALID_WARMUP_AREAS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, selectBlockExercises, selectWarmup, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, generate, swap, swapPreparation };
+  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, SHORTLIST_SIZE, SHORTLIST_MARGIN, WINDOW_MAX_RANKS, SUPPORTING_ROUTE, candidateWindowRanks, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_PATTERNS, VALID_WARMUP_AREAS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, selectBlockExercises, selectWarmup, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, generate, swap, swapPreparation };
 
   if (typeof window!=='undefined' && typeof document!=='undefined' && typeof window.addEventListener==='function') window.addEventListener('load',()=>{
     if (document.querySelector('script[data-garagefit-rampup-ui]')) return;
