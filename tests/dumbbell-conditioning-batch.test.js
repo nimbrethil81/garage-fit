@@ -68,8 +68,9 @@ test('the explosive dumbbell pair shares a repetition class, not a family',()=>{
   const a=catalogue['devils-press'],b=catalogue['dumbbell-snatch'];
   assert.equal(a.repetitionClass,'dumbbell-snatch-conditioning');
   assert.equal(b.repetitionClass,a.repetitionClass);
+  // Devil's press is not a snatch; Dumbbell snatch joins the snatch family (with the kettlebell snatch).
   assert.equal(a.family,null);
-  assert.equal(b.family,null);
+  assert.equal(b.family,'snatch');
   assert.ok(!G.sameFamily(a,b)&&G.sameRepetitionClass(a,b));
 });
 

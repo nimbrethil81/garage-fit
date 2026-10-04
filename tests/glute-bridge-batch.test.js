@@ -69,7 +69,7 @@ test('Dumbbell wood chop is one continuous 40-second interval with a halfway Cha
   const chop=catalogue['dumbbell-wood-chop'];
   assert.deepEqual(chop.timedCues,[{text:'Change side',at:{type:'fraction',value:0.5}}]);
   assert.equal(chop.estimatedSeconds,40);
-  assert.equal(G.sideCount(chop.sidedness),1);
+  assert.equal(G.sideCount(chop),1);
   const tracker=GarageFitTimedCues.createTracker(chop.timedCues,40);
   assert.deepEqual(GarageFitTimedCues.takeDueCues(tracker,19),[]);
   assert.equal(GarageFitTimedCues.takeDueCues(tracker,20)[0].text,'Change side');
