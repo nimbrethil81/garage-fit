@@ -44,18 +44,20 @@ test('per-side entries prescribe both sides; Russian twist is one continuous alt
   assert.deepEqual(twist.prescription,{type:'timed',value:30});
 });
 
-test('the halo is preparation-only, with a midpoint direction cue in both phases',()=>{
+test('the halo is Warm-up-only preparation, with a midpoint direction cue',()=>{
   const halo=catalogue['kettlebell-halo'];
-  assert.ok(halo.warmup&&halo.rampup);
+  assert.ok(halo.warmup);
+  // Withdrawn from Ramp-up: as pattern-less intensity-2 mobility it conflicts with Ramp-up's
+  // Main-specific, rising-intensity policy.
+  assert.equal(halo.rampup,false);
+  assert.equal(halo.rampupPrescription,null);
   assert.ok(!halo.main&&!halo.generator);
   assert.deepEqual(halo.patterns,[]);
   assert.equal(halo.warmupPrescription.value,20);
-  assert.equal(halo.rampupPrescription.value,30);
-  for(const seconds of [halo.warmupPrescription.value,halo.rampupPrescription.value]){
-    const tracker=GarageFitTimedCues.createTracker(halo.timedCues,seconds);
-    assert.deepEqual(GarageFitTimedCues.takeDueCues(tracker,seconds/2-1),[]);
-    assert.equal(GarageFitTimedCues.takeDueCues(tracker,seconds/2)[0].text,'Change direction');
-  }
+  const seconds=halo.warmupPrescription.value;
+  const tracker=GarageFitTimedCues.createTracker(halo.timedCues,seconds);
+  assert.deepEqual(GarageFitTimedCues.takeDueCues(tracker,seconds/2-1),[]);
+  assert.equal(GarageFitTimedCues.takeDueCues(tracker,seconds/2)[0].text,'Change direction');
 });
 
 test('Main eligibility: the four Main entries are generator/Main kettlebell exercises; the halo never appears in Main',()=>{
@@ -79,14 +81,12 @@ test('Main eligibility: the four Main entries are generator/Main kettlebell exer
   assert.ok(seen.has('kettlebell-floor-press')&&seen.has('kettlebell-single-arm-swing'),[...seen].join(','));
 });
 
-test('fitting the halo into a Warm-up or Ramp-up budget keeps its timed prescription and direction cue',()=>{
+test('fitting the halo into a Warm-up budget keeps its timed prescription and direction cue',()=>{
   const halo=catalogue['kettlebell-halo'];
-  for(const [kind,seconds] of [['warmup',20],['rampup',30]]){
-    const prescription=kind==='warmup'?halo.warmupPrescription:halo.rampupPrescription;
-    const prepared=Object.assign({},halo,{prescription:Object.assign({},prescription),estimatedSeconds:seconds});
-    const fitted=GarageFitGenerator.fitTimedDurations([prepared],seconds,5,kind).exercises[0];
-    assert.equal(fitted.prescription.type,'timed');
-    assert.equal(fitted.prescription.value,seconds);
-    assert.deepEqual(fitted.timedCues,[{text:'Change direction',at:{type:'fraction',value:0.5}}]);
-  }
+  const seconds=20;
+  const prepared=Object.assign({},halo,{prescription:Object.assign({},halo.warmupPrescription),estimatedSeconds:seconds});
+  const fitted=GarageFitGenerator.fitTimedDurations([prepared],seconds,5,'warmup').exercises[0];
+  assert.equal(fitted.prescription.type,'timed');
+  assert.equal(fitted.prescription.value,seconds);
+  assert.deepEqual(fitted.timedCues,[{text:'Change direction',at:{type:'fraction',value:0.5}}]);
 });

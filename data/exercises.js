@@ -272,7 +272,7 @@
       patterns:[], conditioning:false, strength:2, cardio:1, movementPlanes:['transverse'], sidedness:'none',
       prescription:{type:'timed',value:30}, timedCues:[{text:'Change direction',at:{type:'fraction',value:0.5}}],
       warmup:true, warmupPhase:'dynamic', warmupPrescription:{type:'timed',value:20}, warmupAreas:['shoulders','trunk'],
-      rampup:true, rampupPrescription:{type:'timed',value:30}, prepIntensity:2, prepFatigue:1, prepComplexity:2,
+      prepIntensity:2, prepFatigue:1, prepComplexity:2,
       instruction:'Hold the kettlebell by its horns at your chest and circle it around your head, reversing direction halfway, keeping the movement controlled.', voiceInstruction:true },
     { id:'kettlebell-russian-twist', name:'Kettlebell Russian twist', equipment:[['kettlebell']],
       patterns:['core'], conditioning:false, strength:3, cardio:2, bodyPosition:'floor', sidedness:'alternating', movementPlanes:['transverse'],

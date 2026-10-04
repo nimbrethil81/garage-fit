@@ -38,6 +38,13 @@
   const LOWER_DEMAND_POSITIONS = new Set(['standing','mixed']);
   // Share of Main exercises above which lower-body demand is treated as substantial.
   const LOWER_DEMAND_THRESHOLD = { strength:.4, balanced:.5, cardio:.5 };
+  // Scored-selection shortlist (see controlledPick). Main and Warm-up admit near-misses within
+  // SHORTLIST_MARGIN score points of the cutoff, so a correctly modelled exercise just outside
+  // a dense same-pattern shortlist stays reachable. Ramp-up does not: its scores target an
+  // intensity progression per position, so a near-miss there is a progression fault.
+  const SHORTLIST_SIZE = 4;
+  const SHORTLIST_MARGIN = 5;
+  const SCORE_TIE_EPSILON = 1e-9;
   const RECENT_EXACT_PENALTIES = [18,10,6,3];
   const RECENT_PATTERN_PENALTIES = [6,3,2,1];
   const MAIN_PROTOCOLS = new Set(['rounds','paired_sets','timed_intervals']);
@@ -245,16 +252,28 @@
     return score;
   }
 
-  function controlledPick(scored, random) {
-    const top = scored.slice().sort((a,b)=>b.score-a.score).slice(0,4);
-    if (!top.length) return null;
-    const weights = top.map((item,index)=>Math.max(1,4-index) * Math.max(1,item.score-top[top.length-1].score+1));
+  // Scored selection. The best SHORTLIST_SIZE scores form the shortlist, weighted by rank and by
+  // lead over the shortlist cutoff. Equal scores share a rank, so catalogue order never decides
+  // whether (or how strongly) an exercise is shortlisted. A phase may pass a `margin` to admit
+  // near-misses below the cutoff with a weight that falls linearly from the cutoff's weight to
+  // zero across the margin: still score-ordered, but no longer all-or-nothing at the cutoff.
+  function controlledPick(scored, random, margin) {
+    const sorted = scored.slice().sort((a,b)=>b.score-a.score);
+    if (!sorted.length) return null;
+    const band = margin || 0;
+    const cutoff = sorted[Math.min(SHORTLIST_SIZE,sorted.length)-1].score - SCORE_TIE_EPSILON;
+    const pool = sorted.filter(item=>item.score>cutoff-band);
+    const weights = pool.map(item=>{
+      if (item.score<cutoff) return 1-(cutoff-item.score)/band;
+      const ahead = sorted.filter(other=>other.score>item.score+SCORE_TIE_EPSILON).length;
+      return Math.max(1,SHORTLIST_SIZE-ahead) * Math.max(1,item.score-cutoff+1);
+    });
     let roll = random() * weights.reduce((sum,value)=>sum+value,0);
-    for (let i=0;i<top.length;i++) {
+    for (let i=0;i<pool.length;i++) {
       roll -= weights[i];
-      if (roll<=0) return top[i].exercise;
+      if (roll<=0) return pool[i].exercise;
     }
-    return top[0].exercise;
+    return pool[0].exercise;
   }
 
   function selectExercises(eligible, count, focus, history, random, catalogue) {
@@ -278,7 +297,7 @@
         if (!(allPreferredRecentlyUsed && hasFreshAlternative)) candidates = preferredMatches;
       }
       const scored = candidates.map(exercise => ({exercise,score:scoreCandidate(exercise,desired,selected,focus,history,catalogue)}));
-      const picked = controlledPick(scored,random);
+      const picked = controlledPick(scored,random,SHORTLIST_MARGIN);
       if (picked) selected.push(picked);
     }
     return selected;
@@ -446,7 +465,7 @@
         }
         return {exercise,score};
       });
-      const picked=controlledPick(scored,random);
+      const picked=controlledPick(scored,random,SHORTLIST_MARGIN);
       if(!picked)break;
       selected.push(picked);
     }
@@ -1070,8 +1089,12 @@
         const lowerInvolved=slotCandidates.filter(ex=>lowerJointCoverage(ex).length);
         if (lowerInvolved.length) slotCandidates=lowerInvolved;
       }
+      // Intensity ordering follows selection, so any two warm-up exercises may end up adjacent:
+      // prefer candidates that repeat no major pattern already selected (soft-mandatory, below coverage).
+      const freshPatterns=slotCandidates.filter(ex=>!selected.some(item=>sharesMajorPattern(item,ex)));
+      if (freshPatterns.length) slotCandidates=freshPatterns;
       const scored=slotCandidates.map(exercise=>({exercise,score:scoreWarmupCandidate(exercise,selected,mainExercises,owned,context)}));
-      const picked=controlledPick(scored,random); if(!picked) break;
+      const picked=controlledPick(scored,random,SHORTLIST_MARGIN); if(!picked) break;
       selected.push(picked); candidates=candidates.filter(ex=>!sameExerciseOrFamily(ex,picked));
     }
     selected.sort((a,b)=>{
@@ -1132,6 +1155,12 @@
         candidates=preferNonDuplicates(candidates,selected);
         candidates=preferNonDuplicates(candidates,warmup);
         candidates=preferDifferentPattern(candidates,selected[selected.length-1] || warmup[warmup.length-1]);
+        // Consecutive high-impact work is a Ramp-up fault (validatePreparation); avoid it whenever
+        // an alternative exists rather than relying on the score penalty, which a shifted pool can outweigh.
+        if (selected.length && selected[selected.length-1].impact==='high') {
+          const lowerImpact=candidates.filter(ex=>ex.impact!=='high');
+          if (lowerImpact.length) candidates=lowerImpact;
+        }
         const scored=candidates.map(exercise=>({exercise,score:scoreRampupCandidate(exercise,position,selected,warmup,mainExercises,owned,focus)}));
         const picked=controlledPick(scored,random); if(!picked) break; selected.push(picked);
       }
@@ -1217,7 +1246,7 @@
       if(exercise.impact==='high'&&((before&&before.impact==='high')||(after&&after.impact==='high')))score-=12;
       return {exercise,score};
     });
-    const replacement=controlledPick(scored,random);if(!replacement)return workout;
+    const replacement=controlledPick(scored,random,SHORTLIST_MARGIN);if(!replacement)return workout;
     block.exercises[exerciseIndex]=copyExercise(replacement);
     block.estimatedDurationSeconds=estimateBlockDuration(block);block.estimatedSeconds=block.estimatedDurationSeconds;
     recalcWorkoutEstimate(workout);return workout;
@@ -1257,7 +1286,7 @@
     if(separated.length) eligible=separated;
     else if ((!before || !sharesMajorPattern(before,current)) && (!after || !sharesMajorPattern(current,after))) return workout;
     const scored=eligible.map(exercise=>({exercise,score:(section==='rampup'?scoreRampupCandidate(exercise,position,workout[section].exercises.slice(0,exerciseIndex),workout.warmup.exercises,main,owned,workout.focus):scoreWarmupCandidate(exercise,workout.warmup.exercises.slice(0,exerciseIndex),main,owned) - Math.abs(exercise.prepIntensity-current.prepIntensity)*2 + (before&&before.bodyPosition===exercise.bodyPosition?1:0)) - (after&&sharesMajorPattern(exercise,after)?12:0)}));
-    const replacement=controlledPick(scored,random); if(!replacement) return workout;
+    const replacement=controlledPick(scored,random,section==='warmup'?SHORTLIST_MARGIN:0); if(!replacement) return workout;
     // Keep the slot's total time: a per-side replacement shares it between its sides.
     const seconds=roundToFive(current.estimatedSeconds/sideCount(replacement));
     workout[section].exercises[exerciseIndex]=phaseExercise(replacement,section,seconds);
@@ -1273,7 +1302,7 @@
     workout.estimatedSeconds=workout.warmup.estimatedSeconds+workout.rampup.estimatedSeconds+workout.main.estimatedDurationSeconds+workout.cooldown.estimatedSeconds;
   }
 
-  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_PATTERNS, VALID_WARMUP_AREAS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, selectBlockExercises, selectWarmup, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, generate, swap, swapPreparation };
+  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, SHORTLIST_SIZE, SHORTLIST_MARGIN, controlledPick, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_PATTERNS, VALID_WARMUP_AREAS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, selectBlockExercises, selectWarmup, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, generate, swap, swapPreparation };
 
   if (typeof window!=='undefined' && typeof document!=='undefined' && typeof window.addEventListener==='function') window.addEventListener('load',()=>{
     if (document.querySelector('script[data-garagefit-rampup-ui]')) return;
