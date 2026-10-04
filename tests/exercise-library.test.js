@@ -23,6 +23,7 @@ test('More opens the complete canonical Exercise Library and keeps the bottom na
   assert.equal(app.document.getElementById('moreNav').classList.contains('active'),true);
   assert.equal(app.document.getElementById('workoutsNav').classList.contains('active'),false);
   assert.doesNotMatch(html,/closeMore/);
+  assert.match(html,/<main id="more"[^>]*>\s*<div class="home-header">\s*<div class="brand"/);
   assert.equal((html.match(/<h1 class="screen-title">/g)||[]).length,4);
 });
 
