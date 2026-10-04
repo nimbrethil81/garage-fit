@@ -44,6 +44,10 @@
   // intensity progression per position, so a near-miss there is a progression fault.
   const SHORTLIST_SIZE = 4;
   const SHORTLIST_MARGIN = 5;
+  // Generated Main selection widens its shortlist slowly as its candidate pool grows (see
+  // candidateWindowRanks), so a fixed leading group cannot crowd accurately modelled exercises
+  // out as the catalogue grows. Warm-up, Ramp-up and swaps keep the fixed SHORTLIST_SIZE.
+  const WINDOW_MAX_RANKS = 6;
   const SCORE_TIE_EPSILON = 1e-9;
   // Main score penalty when the previous Main exercise shares a non-null repetitionClass (soft, never an exclusion).
   const MAIN_REPETITION_CLASS_PENALTY = 10;
@@ -249,9 +253,9 @@
   // controlledPick plus a trace event. `describe` (only called while tracing) adds the phase
   // context and an `explain` function that recomputes one candidate's score as labelled
   // components with the phase's own scorer; it is valid only during the trace call.
-  function tracedPick(scored, random, margin, describe) {
-    const picked = controlledPick(scored,random,margin);
-    if (activeTrace) activeTrace(Object.assign({ type:'pick', scored, window:selectionWindow(scored,margin), picked }, describe()));
+  function tracedPick(scored, random, margin, describe, ranks) {
+    const picked = controlledPick(scored,random,margin,ranks);
+    if (activeTrace) activeTrace(Object.assign({ type:'pick', scored, window:selectionWindow(scored,margin,ranks), picked }, describe()));
     return picked;
   }
 
@@ -291,12 +295,22 @@
   // whether (or how strongly) an exercise is shortlisted. A phase may pass a `margin` to admit
   // near-misses below the cutoff with a weight that falls linearly from the cutoff's weight to
   // zero across the margin: still score-ordered, but no longer all-or-nothing at the cutoff.
-  function selectionWindow(scored, margin) {
+  // A phase may pass `ranks` (see candidateWindowRanks) to widen the shortlist to that many
+  // score ranks; rank and lead weights then count from the wider cutoff.
+  function selectionWindow(scored, margin, ranks) {
     const sorted = scored.slice().sort((a,b)=>b.score-a.score);
     if (!sorted.length) return null;
     const band = margin || 0;
-    const cutoff = sorted[Math.min(SHORTLIST_SIZE,sorted.length)-1].score - SCORE_TIE_EPSILON;
-    return { sorted, band, cutoff, threshold:cutoff-band, pool:sorted.filter(item=>item.score>cutoff-band) };
+    const size = Math.max(SHORTLIST_SIZE, ranks || 0);
+    const cutoff = sorted[Math.min(size,sorted.length)-1].score - SCORE_TIE_EPSILON;
+    return { sorted, band, ranks:size, cutoff, threshold:cutoff-band, pool:sorted.filter(item=>item.score>cutoff-band) };
+  }
+
+  // Shortlist ranks for generated Main selection from `count` scored candidates (after every
+  // hard and soft filter): SHORTLIST_SIZE below 32 candidates, one more rank each time the pool
+  // doubles from there, never more than WINDOW_MAX_RANKS.
+  function candidateWindowRanks(count) {
+    return Math.min(WINDOW_MAX_RANKS, Math.max(SHORTLIST_SIZE, SHORTLIST_SIZE+Math.floor(Math.log2(Math.max(1,count)/16))));
   }
 
   // 1-based shortlist rank of each entry of a selectionWindow's `sorted` list: one plus the
@@ -311,14 +325,14 @@
     return ranks;
   }
 
-  function controlledPick(scored, random, margin) {
-    const window = selectionWindow(scored,margin);
+  function controlledPick(scored, random, margin, ranks) {
+    const window = selectionWindow(scored,margin,ranks);
     if (!window) return null;
-    const { sorted, band, cutoff, pool } = window;
+    const { sorted, band, ranks:size, cutoff, pool } = window;
     const weights = pool.map(item=>{
       if (item.score<cutoff) return 1-(cutoff-item.score)/band;
       const ahead = sorted.filter(other=>other.score>item.score+SCORE_TIE_EPSILON).length;
-      return Math.max(1,SHORTLIST_SIZE-ahead) * Math.max(1,item.score-cutoff+1);
+      return Math.max(1,size-ahead) * Math.max(1,item.score-cutoff+1);
     });
     let roll = random() * weights.reduce((sum,value)=>sum+value,0);
     for (let i=0;i<pool.length;i++) {
@@ -352,7 +366,7 @@
       }
       const scored = candidates.map(exercise => ({exercise,score:scoreCandidate(exercise,desired,selected,focus,history,catalogue)}));
       const picked = tracedPick(scored,random,SHORTLIST_MARGIN,() => ({ phase:'main', desired, stages,
-        explain:exercise => { const parts = {}; scoreCandidate(exercise,desired,selected,focus,history,catalogue,parts); return parts; } }));
+        explain:exercise => { const parts = {}; scoreCandidate(exercise,desired,selected,focus,history,catalogue,parts); return parts; } }),candidateWindowRanks(scored.length));
       if (picked) selected.push(picked);
     }
     return selected;
@@ -527,7 +541,7 @@
       };
       const scored=candidates.map(exercise=>({exercise,score:scoreFor(exercise,null)}));
       const picked=tracedPick(scored,random,SHORTLIST_MARGIN,()=>({phase:'main',desired,intent,protocol,stages,
-        explain:exercise=>{const parts={};scoreFor(exercise,parts);return parts;}}));
+        explain:exercise=>{const parts={};scoreFor(exercise,parts);return parts;}}),candidateWindowRanks(scored.length));
       if(!picked)break;
       selected.push(picked);
     }
@@ -1413,7 +1427,7 @@
     workout.estimatedSeconds=workout.warmup.estimatedSeconds+workout.rampup.estimatedSeconds+workout.main.estimatedDurationSeconds+workout.cooldown.estimatedSeconds;
   }
 
-  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, SHORTLIST_SIZE, SHORTLIST_MARGIN, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_PATTERNS, VALID_WARMUP_AREAS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, selectBlockExercises, selectWarmup, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, generate, swap, swapPreparation };
+  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, SHORTLIST_SIZE, SHORTLIST_MARGIN, WINDOW_MAX_RANKS, candidateWindowRanks, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_PATTERNS, VALID_WARMUP_AREAS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, selectBlockExercises, selectWarmup, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, generate, swap, swapPreparation };
 
   if (typeof window!=='undefined' && typeof document!=='undefined' && typeof window.addEventListener==='function') window.addEventListener('load',()=>{
     if (document.querySelector('script[data-garagefit-rampup-ui]')) return;
