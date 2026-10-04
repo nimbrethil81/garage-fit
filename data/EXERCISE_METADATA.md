@@ -190,7 +190,7 @@ Rules enforced by validation:
 | --- | --- |
 | `main` | Usable as Main work (generated or fixed). |
 | `generator` | Eligible for generated Main. Requires `main`. |
-| `mainRole` | `primary`, or `supporting` for punctuation movements that should not dominate long, repeated blocks. Main scores supporting work down; long non-Cardio Mains occasionally offer one supporting exercise the last slot of their accessory block. |
+| `mainRole` | `primary`, or `supporting` for punctuation movements that should not dominate long, repeated blocks. Main scores supporting work down; long non-Cardio Mains with at least two non-conditioning supporting candidates occasionally offer one of them the last slot of their accessory block. |
 | `mainProtocols` | Protocols the exercise suits. Defaults to `rounds` + `paired_sets`; `timed_intervals` is opt-in (`WITH_TIMED_INTERVALS`). |
 | `warmup` / `rampup` | Eligible for the generated Warm-up or Ramp-up. Each needs its prescription and the prep scales. |
 | `cooldown` | Cool-down stretch. Cannot also be work or preparation. |

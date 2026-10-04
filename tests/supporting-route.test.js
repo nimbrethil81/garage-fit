@@ -80,14 +80,15 @@ test('at most one exercise per Main comes through the route, and inclusion is po
   assert.ok(used<longSample.length*ROUTE.probability,'used '+used);
 });
 
-test('route slots score only filtered supporting candidates with the normal scorer and window',()=>{
+test('route slots score only the filtered accessories, at least two, with the normal scorer and window',()=>{
   let routeSlots=0;
   for(const run of longSample)for(const pick of run.events.filter(event=>event.type==='pick'&&event.route&&event.scored)){
     const routeStage=(pick.stages||[]).find(stage=>stage.label==='supporting-route');
-    if(!routeStage)continue; // every candidate was already supporting, or none was (normal slot)
+    if(!routeStage)continue; // every candidate was already an accessory
     routeSlots++;
-    assert.ok(pick.scored.every(entry=>supporting(entry.exercise)));
-    assert.ok(routeStage.removed.every(exercise=>!supporting(exercise)),'the route removes only primary work');
+    assert.ok(pick.scored.length>=ROUTE.minCandidates,'at least two accessories remain');
+    assert.ok(pick.scored.every(entry=>supporting(entry.exercise)&&!entry.exercise.conditioning),'only supporting accessory work');
+    assert.ok(routeStage.removed.every(exercise=>!supporting(exercise)||exercise.conditioning),'the route removes only primary and conditioning work');
     const labels=pick.stages.map(stage=>stage.label);
     assert.ok(labels.indexOf('supporting-route')===labels.length-1,'the route narrows after every other filter: '+labels);
     pick.scored.forEach((entry,index)=>{
@@ -118,13 +119,61 @@ test('workouts using the route keep Main validity, family caps, variety and dura
   }
 });
 
-test('without supporting candidates the route is never drawn and generation is valid',()=>{
-  const primaryOnly=Object.fromEntries(Object.entries(catalogue).filter(([,exercise])=>!supporting(exercise)));
-  for(const focus of ['strength','balanced'])for(let seed=1;seed<=6;seed++){
-    const run=traced({catalogue:primaryOnly,duration:45,focus,equipment:owned,random:random(seed)});
+// Accessories are the route's candidates: supporting, non-conditioning exercises.
+const accessory=exercise=>supporting(exercise)&&!exercise.conditioning;
+const accessoriesFor=(source,equipment)=>Object.values(source).filter(exercise=>accessory(exercise)&&G.generatedPhaseEligible(exercise,'main',equipment));
+const routeStages=run=>run.events.filter(event=>event.type==='pick'&&(event.stages||[]).some(stage=>stage.label==='supporting-route'));
+function longRuns(source,equipment,seeds=12){
+  const runs=[];
+  for(const focus of ['strength','balanced'])for(const duration of [30,45])for(let seed=1;seed<=seeds;seed++)
+    runs.push(traced({catalogue:source,duration,focus,equipment,random:random(seed*131+duration+focus.length)}));
+  return runs;
+}
+
+test('zero accessory candidates: the route is never drawn, even with conditioning supporting work',()=>{
+  const conditioningOnly=Object.fromEntries(Object.entries(catalogue).filter(([,exercise])=>!accessory(exercise)));
+  assert.equal(accessoriesFor(conditioningOnly,owned).length,0);
+  assert.ok(Object.values(conditioningOnly).some(supporting));
+  for(const run of longRuns(conditioningOnly,owned,6)){
     assert.equal(run.result.supportingRoute,false);
-    assert.ok(!mainExercises(run.workout).some(supporting));
+    assert.equal(routeStages(run).length,0);
     assert.ok(run.workout.main.blocks.length>0);
+  }
+});
+
+test('one accessory candidate: kettlebell-only and bands-only Mains never draw the route',()=>{
+  for(const equipment of [['kettlebell'],['bands']]){
+    assert.equal(accessoriesFor(catalogue,equipment).length,1,equipment.join('+'));
+    for(const run of longRuns(catalogue,equipment)){
+      assert.equal(run.result.supportingRoute,false,equipment.join('+'));
+      assert.equal(routeStages(run).length,0);
+    }
+  }
+});
+
+test('two accessory candidates: TRX-only Mains can draw the route and narrow to both',()=>{
+  const both=accessoriesFor(catalogue,['trx']).map(exercise=>exercise.id).sort();
+  assert.equal(both.length,2);
+  const runs=longRuns(catalogue,['trx'],20);
+  assert.ok(runs.some(run=>run.result.supportingRoute),'drawn');
+  const narrowed=runs.flatMap(routeStages);
+  assert.ok(narrowed.length>0,'narrowed');
+  for(const pick of narrowed)assert.deepEqual(pick.scored.map(entry=>entry.exercise.id).sort(),both);
+});
+
+test('the route needs two accessories left after the slot filters, not just two in the Main',()=>{
+  // Two accessories in the Main, but no block protocol admits both: the twist allows rounds and
+  // paired sets, its synthetic copy only timed intervals.
+  const source={};
+  for(const exercise of Object.values(catalogue))if(G.generatedPhaseEligible(exercise,'main',['kettlebell']))source[exercise.id]=exercise;
+  source['timed-twist']=Object.assign({},catalogue['kettlebell-russian-twist'],{id:'timed-twist',name:'Timed twist',mainProtocols:['timed_intervals']});
+  G.assertValidCatalogue(source);
+  assert.equal(accessoriesFor(source,['kettlebell']).length,2);
+  const runs=longRuns(source,['kettlebell'],20);
+  assert.ok(runs.some(run=>run.result.supportingRoute),'drawn at Main level');
+  for(const run of runs){
+    assert.equal(routeStages(run).length,0);
+    assert.ok(!run.events.some(event=>event.route));
   }
 });
 
