@@ -20,7 +20,8 @@ given phase (Main, Warm-up, Ramp-up, Cool-down) is generator policy in
    `cooldown`) and each phase's own fields.
 5. Generator and preparation exercises must state `patterns`, `conditioning`,
    `strength` and `cardio`; choose them with the anchors below, not by copying a
-   neighbour. Generator and Ramp-up exercises must also state `difficulty` (see below).
+   neighbour. Generator and Ramp-up exercises must also state `difficulty`, and generator
+   exercises `bodyFocus` (see below).
 6. Add `family` / `repetitionClass` only if the definitions below are met.
 7. Consider a short `instruction` if the name may be unfamiliar; follow the editorial standard below.
 8. Run `node --test tests/*.test.js`; it validates the catalogue.
@@ -158,6 +159,29 @@ and `cardio`: jumping jacks are `cardio: 5` but `easy`, and a dumbbell floor pre
 
 The generator's workout difficulty (Easy / Normal / Hard) reads it; see Phases below.
 
+### `bodyFocus`
+
+`bodyFocus` is the body area an exercise primarily trains: `upper`, `lower`, `core` or
+`full-body`. Generator exercises must state it; other exercises leave it unset (`null`).
+Choose one value: the area that does most of the work and that a user would say the
+exercise is for.
+
+| Value | Use for | Examples |
+| --- | --- | --- |
+| `upper` | Arms, shoulders, chest or back do the work: presses, push-ups, dips, rows, pull-ups, curls, raises, hangs. | Push-up, dumbbell shoulder press, bent-over row, pull-up, dead hang, renegade row, push press |
+| `lower` | Hips and legs do the work: squats, lunges, hinges, bridges, step-ups, jumps, running drills. | Air squat, reverse lunge, Romanian deadlift, kettlebell swing, glute bridge, box jumps, high knees |
+| `core` | The trunk does the work, holding or moving against the limbs: planks, crunches, leg raises, twists, chops, anti-rotation, plank-based knee drives. | Plank, bicycle crunch, hanging knee raise, mountain climbers, Russian twist, Pallof press, ski abs |
+| `full-body` | Upper and lower body share the work with no clear primary area: lifts that move a load from the floor overhead or to the shoulders, carries, burpees, crawls, whole-body jumping. | Clean and press, thruster, snatch, kettlebell clean, farmer carry, burpees, bear crawl, jumping jacks |
+
+Classify by where the effort is, not by stance or which joints move: a hinge can be
+`upper` when the pull is the point (bent-over row) and `lower` when the hips drive the load
+(swing, deadlift); a hanging knee raise is `core`, not `upper`. Use `full-body` only when no
+one area clearly leads; it is not a default for conditioning work. `bodyFocus` is
+independent of `patterns`, which describe how the exercise moves.
+
+The generator's workout body focus (Upper / Full Body / Lower / Core) reads it; see Phases
+below.
+
 ### `impact`
 
 | Value | Meaning |
@@ -235,6 +259,21 @@ It is policy in `js/generator.js` (`DIFFICULTY_POLICY`), not metadata:
 
 Main swaps keep the workout's difficulty, and Ramp-up swaps keep Easy's exclusion.
 Difficulty changes exercise selection only, not rest, rounds or interval structure.
+
+### Workout body focus (generator policy)
+
+The Generator's optional Body focus setting is `upper`, `full-body` (the default), `lower`
+or `core`. It is policy in `js/generator.js` (`BODY_FOCUS_POLICY`), not metadata, and it
+applies to generated Main only:
+
+| Setting | Generated Main |
+| --- | --- |
+| Full Body | Neutral: no score change; generation is identical to omitting the setting. |
+| Upper / Lower / Core | Nothing is excluded. Exercises whose `bodyFocus` is the focus area get a score preference, `full-body` exercises a smaller one. The preference pauses beside a run of two focus-area exercises (a `full-body` exercise neither extends nor breaks the run), is withheld from a high-impact exercise following high-impact work, and works through the usual scores, so pattern, repetition, recency, equipment and structure rules still apply. |
+
+Warm-up, Ramp-up and Cool-down are unchanged (the Warm-up still adapts its lower-body
+preparation to the Main it precedes). Main swaps keep the workout's body focus. Body focus
+combines freely with workout style and difficulty.
 
 ## Preparation metadata
 
