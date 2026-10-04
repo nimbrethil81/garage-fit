@@ -22,13 +22,12 @@ test('the batch entries match the approved metadata',()=>{
   assert.deepEqual(gb.prescription,{type:'reps',value:12});
   assert.equal(gb.estimatedSeconds,30);
   assert.deepEqual(gb.mainProtocols,['rounds','paired_sets']);
-  assert.deepEqual(gb.rampupPrescription,{type:'timed',value:30,minValue:20,maxValue:35});
-  assert.deepEqual([gb.prepIntensity,gb.prepFatigue,gb.prepComplexity],[2,2,1]);
+  assert.equal(gb.rampup,false);
+  assert.equal(gb.rampupPrescription,null);
   assert.deepEqual(sp.equipment,[['pullup-bar']]);
-  assert.deepEqual([sp.patterns,sp.conditioning,sp.strength,sp.cardio,sp.impact,sp.sidedness,sp.bodyPosition,sp.mainRole,sp.family],[['pull'],false,3,1,'low','bilateral','hanging','supporting',null]);
+  assert.deepEqual([sp.patterns,sp.conditioning,sp.strength,sp.cardio,sp.impact,sp.sidedness,sp.bodyPosition,sp.family],[['pull'],false,3,1,'low','bilateral','hanging',null]);
   assert.deepEqual(sp.prescription,{type:'reps',value:10});
   assert.equal(sp.estimatedSeconds,30);
-  assert.deepEqual(sp.mainProtocols,['rounds','paired_sets']);
   assert.deepEqual(sp.rampupPrescription,{type:'timed',value:25,minValue:20,maxValue:30});
   assert.deepEqual([sp.prepIntensity,sp.prepFatigue,sp.prepComplexity],[2,1,2]);
   assert.deepEqual(ff.equipment,[['dumbbells']]);
@@ -47,13 +46,13 @@ test('the batch entries match the approved metadata',()=>{
   assert.ok(sa.mainProtocols.includes('timed_intervals'));
 });
 
-test('phase flags: only Glute bridge and Scapular pull-up reach Ramp-up; none reach Warm-up or Cool-down',()=>{
+test('phase flags: Scapular pull-up is Ramp-up only, Glute bridge Main only, the rest Main only; none reach Warm-up or Cool-down',()=>{
   for(const id of NEW){
     const ex=catalogue[id];
-    assert.ok(ex.generator&&ex.main,id);
+    assert.equal(!!(ex.generator&&ex.main),id!=='scapular-pull-up',id);
     assert.equal(ex.warmup,false,id);
     assert.equal(ex.cooldown,false,id);
-    assert.equal(ex.rampup,['glute-bridge','scapular-pull-up'].includes(id),id);
+    assert.equal(ex.rampup,id==='scapular-pull-up',id);
     assert.equal(ex.voiceInstruction,true,id);
     assert.ok(ex.instruction.length<=180,id);
     assert.equal(ex.instruction.split(/(?<=\.)\s+/).length,1,id);
@@ -107,27 +106,23 @@ test('Glute bridge, Ski abs and Dumbbell wood chop are reachable in Main',()=>{
   assert.ok(countMain(dumbbells,'dumbbell-wood-chop')>=5,'wood chop '+countMain(dumbbells,'dumbbell-wood-chop'));
 });
 
-test('the supporting Dumbbell floor fly and Scapular pull-up are reachable in Main, and stay secondary',()=>{
+test('the rare supporting Dumbbell floor fly stays reachable in Main and secondary; Scapular pull-up is never in Main',()=>{
   const strength=sample(['dumbbells'],'strength',[30,45],150);
   const fly=countMain(strength,'dumbbell-floor-fly');
   assert.ok(fly>=1,'floor fly '+fly);
-  const bar=sample(['pullup-bar'],'cardio',[45],60);
-  const scapular=countMain(bar,'scapular-pull-up');
-  assert.ok(scapular>=1,'scapular pull-up '+scapular);
-  // Control: the supporting entries stay far below their primary peers.
   assert.ok(fly*4<countMain(strength,'dumbbell-floor-press')+countMain(strength,'dumbbell-bench-press')+countMain(strength,'goblet-squat'),'floor fly vs peers');
-  assert.ok(scapular*4<countMain(bar,'burpees')+countMain(bar,'mountain-climbers'),'scapular vs peers');
-  for(const workout of strength.concat(bar))for(const id of ['dumbbell-floor-fly','scapular-pull-up'])
-    assert.ok(mainIds(workout).filter(item=>item===id).length<=1,id);
+  for(const workout of strength)assert.ok(mainIds(workout).filter(item=>item==='dumbbell-floor-fly').length<=1);
+  const bar=sample(['pullup-bar'],'cardio',[45],60);
+  assert.equal(countMain(bar,'scapular-pull-up'),0);
 });
 
-test('Glute bridge and Scapular pull-up are reachable in Ramp-up without breaking intensity progression',()=>{
-  const strength=sample([],'strength',[45],200);
-  assert.ok(countPrep(strength,'glute-bridge','rampup')>=1,'glute bridge ramp-up '+countPrep(strength,'glute-bridge','rampup'));
+test('Scapular pull-up is reachable in Ramp-up without breaking intensity progression; Glute bridge is not in Ramp-up',()=>{
   const bar=sample(['pullup-bar'],'strength',[45],60);
   assert.ok(countPrep(bar,'scapular-pull-up','rampup')>=10,'scapular pull-up ramp-up '+countPrep(bar,'scapular-pull-up','rampup'));
-  // Ramp-up never drops by more than one intensity step, with or without the new entries.
-  for(const workout of strength.concat(bar)){
+  const bodyweight=sample([],'strength',[45],200);
+  assert.equal(countPrep(bodyweight,'glute-bridge','rampup'),0);
+  // Ramp-up never drops by more than one intensity step.
+  for(const workout of bodyweight.concat(bar)){
     const ramp=workout.rampup.exercises;
     for(let i=1;i<ramp.length;i++)assert.ok(ramp[i].prepIntensity>=ramp[i-1].prepIntensity-1,ramp.map(ex=>ex.id+':'+ex.prepIntensity).join(' > '));
   }
