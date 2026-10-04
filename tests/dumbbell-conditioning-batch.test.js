@@ -143,3 +143,13 @@ test('Devil\'s press and dumbbell snatch are not usually adjacent in generated M
   }
   assert.ok(adjacent*2<=both,'adjacent '+adjacent+' of '+both);
 });
+
+test('Kettlebell figure-of-eight is withdrawn from Warm-up and Step back lunge from Ramp-up, keeping their other phases',()=>{
+  const fig=catalogue['kettlebell-figure-eight'],lunge=catalogue['step-back-lunge'];
+  assert.equal(fig.warmup,false);
+  assert.equal(fig.warmupPrescription,null);
+  assert.ok(fig.rampup&&fig.generator&&fig.main);
+  assert.equal(lunge.rampup,false);
+  assert.equal(lunge.rampupPrescription,null);
+  assert.ok(lunge.warmup);
+});
