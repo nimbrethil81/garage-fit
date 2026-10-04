@@ -79,6 +79,19 @@
   };
   const EQUIPMENT_DOMINANCE_CAP = 0.6;
   const BLOCK_DOMINANCE_CAP = 0.45;
+  // Workout difficulty (generate({difficulty})) reads each exercise's intrinsic `difficulty`.
+  // Normal is neutral: it neither excludes nor scores, so it generates exactly as a workout
+  // without the option. Easy is a hard eligibility rule for generated Main and Ramp-up (no
+  // `hard` exercises) plus a Main preference for `easy` ones. Hard excludes nothing; it gives
+  // demanding exercises a Main score advantage that stays below the pattern, impact and recency
+  // safeguards. Warm-up and Cool-down are unaffected.
+  const WORKOUT_DIFFICULTIES = ['easy','normal','hard'];
+  const EXERCISE_DIFFICULTIES = new Set(['easy','moderate','hard']);
+  const DIFFICULTY_POLICY = {
+    easy:{ excluded:['hard'], credit:{ easy:4 } },
+    normal:{ excluded:[], credit:{} },
+    hard:{ excluded:[], credit:{ hard:6, moderate:2 } }
+  };
 
   function requirementsMet(exercise, owned) {
     const equipment = new Set(owned || []);
@@ -87,6 +100,25 @@
 
   function prescriptionMode(type) {
     return PRESCRIPTION_MODE_BY_TYPE[type] || null;
+  }
+
+  // ---- Workout difficulty policy (see DIFFICULTY_POLICY) ----
+
+  function workoutDifficulty(value) {
+    if (value==null) return 'normal';
+    const difficulty = String(value).toLowerCase();
+    if (!WORKOUT_DIFFICULTIES.includes(difficulty)) throw new Error('Unknown workout difficulty '+JSON.stringify(value)+'.');
+    return difficulty;
+  }
+
+  function difficultyExcluded(exercise, difficulty) {
+    const policy = DIFFICULTY_POLICY[difficulty] || DIFFICULTY_POLICY.normal;
+    return !!(exercise && policy.excluded.includes(exercise.difficulty));
+  }
+
+  function difficultyCredit(exercise, difficulty) {
+    const policy = DIFFICULTY_POLICY[difficulty] || DIFFICULTY_POLICY.normal;
+    return (exercise && policy.credit[exercise.difficulty]) || 0;
   }
 
   // ---- Relationship metadata and the phase policies built on it ----
@@ -548,6 +580,9 @@
           const supportingAlready=allSelected.filter(item=>item.mainRole==='supporting').length;
           score+=credit(parts,'supporting-role',-(3+supportingAlready*6));
         }
+        // The difficulty preference never rewards back-to-back high-impact work (a fatigue safeguard).
+        const difficulty=previous&&previous.impact==='high'&&exercise.impact==='high'?0:difficultyCredit(exercise,state.difficulty);
+        if(difficulty)score+=credit(parts,'difficulty',difficulty);
         // Equipment portfolio bias: nudge toward introducing an under-used viable equipment
         // type, and away from a type that would come to dominate active Main working time.
         // This runs during selection (not as a final shuffle) but is a soft preference,
@@ -792,7 +827,7 @@
     return issues;
   }
 
-  function composeMain(catalogue, eligible, budget, duration, focus, owned, history, rest, random) {
+  function composeMain(catalogue, eligible, budget, duration, focus, owned, history, rest, random, difficulty) {
     const attempts=[];
     const diversityTarget=EQUIPMENT_DIVERSITY[duration]||EQUIPMENT_DIVERSITY[20];
     const viableCount=viableEquipmentTypes(eligible).size;
@@ -802,7 +837,7 @@
     const supportingRoute=duration>=SUPPORTING_ROUTE.minDuration&&focus!=='cardio'&&eligible.filter(routeAccessory).length>=SUPPORTING_ROUTE.minCandidates&&random()<SUPPORTING_ROUTE.probability;
     for(let attempt=0;attempt<10;attempt++){
       const count=chooseBlockCount(duration,eligible.length,random),intents=chooseIntents(focus,count,random);
-      const state={exercises:[],usedIds:new Set(),equipmentUsage:new Map(),blocks:[],owned,diversityTarget,supportingRoute};
+      const state={exercises:[],usedIds:new Set(),equipmentUsage:new Map(),blocks:[],owned,diversityTarget,supportingRoute,difficulty};
       let remaining=budget.main;
       for(let index=0;index<count;index++){
         const blocksLeft=count-index;
@@ -868,12 +903,12 @@
   // Hard eligibility for a generated phase: its flag, the owned equipment and the phase's own
   // safety/suitability rules (e.g. no high-impact Warm-up). Selection only scores these
   // candidates. The reachability audit (scripts/audit-exercise-reachability.js) reuses this so
-  // it never re-implements phase rules.
-  function generatedPhaseEligible(exercise, phase, owned) {
+  // it never re-implements phase rules. `difficulty` is the workout difficulty (default Normal).
+  function generatedPhaseEligible(exercise, phase, owned, difficulty) {
     if (!exercise || !requirementsMet(exercise,owned)) return false;
-    if (phase==='main') return !!(exercise.generator && exercise.main);
+    if (phase==='main') return !!(exercise.generator && exercise.main) && !difficultyExcluded(exercise,difficulty);
     if (phase==='warmup') return !!exercise.warmup && exercise.impact!=='high' && preparationMetadataValid(exercise);
-    if (phase==='rampup') return !!exercise.rampup && preparationMetadataValid(exercise) && exercise.prepFatigue<=3 && exercise.prepComplexity<=3;
+    if (phase==='rampup') return !!exercise.rampup && preparationMetadataValid(exercise) && exercise.prepFatigue<=3 && exercise.prepComplexity<=3 && !difficultyExcluded(exercise,difficulty);
     if (phase==='cooldown') return !!exercise.cooldown;
     return false;
   }
@@ -994,6 +1029,7 @@
       if (exercise.conditioning!==undefined && typeof exercise.conditioning!=='boolean') errors.push(id+': conditioning must be boolean');
       if (!isScale(exercise.strength)) errors.push(id+': strength must be an integer from 1 to 5');
       if (!isScale(exercise.cardio)) errors.push(id+': cardio must be an integer from 1 to 5');
+      if (exercise.difficulty!=null && !EXERCISE_DIFFICULTIES.has(exercise.difficulty)) errors.push(id+': invalid difficulty '+JSON.stringify(exercise.difficulty));
       if (!VALID_IMPACT_LEVELS.has(exercise.impact)) errors.push(id+': invalid impact '+JSON.stringify(exercise.impact));
       if (exercise.load!=null && !VALID_LOADS.has(exercise.load)) errors.push(id+': invalid load '+JSON.stringify(exercise.load));
       if (!VALID_BODY_POSITIONS.has(exercise.bodyPosition)) errors.push(id+': invalid body position');
@@ -1283,8 +1319,8 @@
     return score;
   }
 
-  function selectRampup(catalogue, targetSeconds, owned, mainExercises, warmup, focus, random) {
-    const eligible = Object.values(catalogue).filter(ex=>generatedPhaseEligible(ex,'rampup',owned));
+  function selectRampup(catalogue, targetSeconds, owned, mainExercises, warmup, focus, random, difficulty) {
+    const eligible = Object.values(catalogue).filter(ex=>generatedPhaseEligible(ex,'rampup',owned,difficulty));
     const restSeconds=5, count=Math.min(chooseRampCount(targetSeconds),eligible.length);
     let best=null;
     for(let attempt=0;attempt<8;attempt++) {
@@ -1332,9 +1368,9 @@
     return issues;
   }
 
-  function buildPreparation(catalogue, budget, owned, mainExercises, focus, random, allMainExercises) {
+  function buildPreparation(catalogue, budget, owned, mainExercises, focus, random, allMainExercises, difficulty) {
     const warmup=selectWarmup(catalogue,budget.warmup,owned,mainExercises,random,{focus,mainDemandExercises:allMainExercises});
-    const rampup=selectRampup(catalogue,budget.rampup,owned,mainExercises,warmup.exercises,focus,random);
+    const rampup=selectRampup(catalogue,budget.rampup,owned,mainExercises,warmup.exercises,focus,random,difficulty);
     return {warmup,rampup,issues:validatePreparation(warmup,rampup,mainExercises)};
   }
 
@@ -1356,18 +1392,19 @@
     const catalogue=options.catalogue;
     const duration=Number(options.duration);
     const focus=String(options.focus||'balanced').toLowerCase();
+    const difficulty=workoutDifficulty(options.difficulty);
     const owned=options.equipment||[],history=options.history||[],random=options.random||Math.random;
     const budget=BUDGETS[duration]||BUDGETS[20],rest=RESTS[focus]||RESTS.balanced;
     assertValidCatalogue(catalogue);
-    const eligible=Object.values(catalogue).filter(exercise=>generatedPhaseEligible(exercise,'main',owned));
+    const eligible=Object.values(catalogue).filter(exercise=>generatedPhaseEligible(exercise,'main',owned,difficulty));
     if(!eligible.length)throw new Error('No eligible exercises available.');
-    const main=composeMain(catalogue,eligible,budget,duration,focus,owned,history,rest,random);
+    const main=composeMain(catalogue,eligible,budget,duration,focus,owned,history,rest,random,difficulty);
     const firstMain=main.blocks[0].exercises;
-    const preparation=buildPreparation(catalogue,budget,owned,firstMain,focus,random,main.blocks.flatMap(block=>block.exercises));
+    const preparation=buildPreparation(catalogue,budget,owned,firstMain,focus,random,main.blocks.flatMap(block=>block.exercises),difficulty);
     const cooldown=buildSection(catalogue,'cooldown',budget.cooldown,owned,random);
     const estimatedSeconds=preparation.warmup.estimatedSeconds+preparation.rampup.estimatedSeconds+main.estimatedDurationSeconds+cooldown.estimatedSeconds;
     const workout={
-      schemaVersion:2,id:'generated-'+Date.now(),duration,focus,estimatedSeconds,
+      schemaVersion:2,id:'generated-'+Date.now(),duration,focus,difficulty,estimatedSeconds,
       warmup:{estimatedSeconds:preparation.warmup.estimatedSeconds,restSeconds:preparation.warmup.restSeconds,exercises:preparation.warmup.exercises.map(copyExercise)},
       rampup:{estimatedSeconds:preparation.rampup.estimatedSeconds,restSeconds:preparation.rampup.restSeconds,exercises:preparation.rampup.exercises.map(copyExercise)},
       main,
@@ -1388,7 +1425,9 @@
     if(!block||!current)return workout;
     const otherExercises=blocks.flatMap((item,bIndex)=>item.exercises.filter((_,eIndex)=>bIndex!==(blockIndex||0)||eIndex!==exerciseIndex));
     const otherIds=new Set(otherExercises.map(exercise=>exercise.id));
-    let eligible=Object.values(catalogue).filter(exercise=>exercise.generator&&exercise.main&&requirementsMet(exercise,owned)&&protocolCompatible(exercise,block.protocol)&&exercise.id!==current.id&&!mainFamilyCapReached(exercise,otherExercises));
+    // A swap keeps the workout's difficulty: its Main eligibility and score preference.
+    const difficulty=workoutDifficulty(workout.difficulty);
+    let eligible=Object.values(catalogue).filter(exercise=>generatedPhaseEligible(exercise,'main',owned,difficulty)&&protocolCompatible(exercise,block.protocol)&&exercise.id!==current.id&&!mainFamilyCapReached(exercise,otherExercises));
     const fresh=eligible.filter(exercise=>!otherIds.has(exercise.id));if(fresh.length)eligible=fresh;
     const before=exerciseIndex>0?block.exercises[exerciseIndex-1]:(blocks[(blockIndex||0)-1]||{exercises:[]}).exercises.at(-1);
     const after=exerciseIndex<block.exercises.length-1?block.exercises[exerciseIndex+1]:(blocks[(blockIndex||0)+1]||{exercises:[]}).exercises[0];
@@ -1400,7 +1439,9 @@
       score-=(sharedPatterns(before,exercise).length+sharedPatterns(exercise,after).length)*12;
       score-=repeatedMajorPatternCount(exercise,otherExercises)*8;
       if(otherIds.has(exercise.id))score-=42;
-      if(exercise.impact==='high'&&((before&&before.impact==='high')||(after&&after.impact==='high')))score-=12;
+      const adjacentHighImpact=exercise.impact==='high'&&((before&&before.impact==='high')||(after&&after.impact==='high'));
+      if(adjacentHighImpact)score-=12;
+      else score+=difficultyCredit(exercise,difficulty);
       return {exercise,score};
     });
     const replacement=controlledPick(scored,random,SHORTLIST_MARGIN);if(!replacement)return workout;
@@ -1416,7 +1457,7 @@
     let eligible=Object.values(catalogue).filter(ex=>ex[section]&&preparationMetadataValid(ex)&&requirementsMet(ex,owned)&&ex.id!==current.id&&!otherPrep.some(item=>item.id===ex.id));
     eligible=preferNonDuplicates(eligible,otherPrep);
     if(section==='warmup') eligible=eligible.filter(ex=>ex.impact!=='high');
-    if(section==='rampup') eligible=eligible.filter(ex=>ex.prepFatigue<=3&&ex.prepComplexity<=3);
+    if(section==='rampup') eligible=eligible.filter(ex=>ex.prepFatigue<=3&&ex.prepComplexity<=3&&!difficultyExcluded(ex,workoutDifficulty(workout.difficulty)));
     if(section==='warmup') {
       // A swap must not undo the warm-up's lower-body coverage or tip it into upper/trunk skew.
       const others=workout.warmup.exercises.filter((_,index)=>index!==exerciseIndex), count=workout.warmup.exercises.length;
@@ -1459,7 +1500,7 @@
     workout.estimatedSeconds=workout.warmup.estimatedSeconds+workout.rampup.estimatedSeconds+workout.main.estimatedDurationSeconds+workout.cooldown.estimatedSeconds;
   }
 
-  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, SHORTLIST_SIZE, SHORTLIST_MARGIN, WINDOW_MAX_RANKS, SUPPORTING_ROUTE, candidateWindowRanks, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_PATTERNS, VALID_WARMUP_AREAS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, selectBlockExercises, selectWarmup, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, generate, swap, swapPreparation };
+  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, WORKOUT_DIFFICULTIES, EXERCISE_DIFFICULTIES, DIFFICULTY_POLICY, workoutDifficulty, difficultyExcluded, difficultyCredit, SHORTLIST_SIZE, SHORTLIST_MARGIN, WINDOW_MAX_RANKS, SUPPORTING_ROUTE, candidateWindowRanks, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_PATTERNS, VALID_WARMUP_AREAS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, selectBlockExercises, selectWarmup, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, generate, swap, swapPreparation };
 
   if (typeof window!=='undefined' && typeof document!=='undefined' && typeof window.addEventListener==='function') window.addEventListener('load',()=>{
     if (document.querySelector('script[data-garagefit-rampup-ui]')) return;

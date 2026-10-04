@@ -86,6 +86,12 @@ test('Generator preview/player and both fixed players initialise without runtime
   assert.ok(vm.runInContext('state.list',context).some(item=>item.id==='kettlebell-figure-eight'));
   context.goHome();
   context.showLanding('generator');
+  // Focus is labelled Strength / Mixed / Cardio; Difficulty sits collapsed under Additional options, defaulting to Normal.
+  assert.deepEqual(elements.focusChoices.children.map(button=>button.textContent),['Strength','Mixed','Cardio']);
+  assert.match(html,/<details class="generator-options" id="generatorOptions">\s*<summary>Additional options<span class="generator-options-value" id="generatorOptionsValue"><\/span><\/summary>[\s\S]*?id="difficultyChoices"[\s\S]*?<\/details>\s*<button class="generator-primary"/);
+  assert.deepEqual(elements.difficultyChoices.children.map(button=>button.textContent),['Easy','Normal','Hard']);
+  assert.deepEqual(elements.difficultyChoices.children.map(button=>button.attributes['aria-pressed']),['false','true','false']);
+  assert.equal(elements.generatorOptionsValue.textContent,'');
   context.toggleEquipmentItem('dumbbells');
   context.toggleEquipmentItem('bench');
   context.selectGeneratorDuration(30);
@@ -161,6 +167,20 @@ test('Generator preview/player and both fixed players initialise without runtime
   phaseTimer=vm.runInContext('generatorState.phaseTimer',context);
   for(let second=0;second<Math.ceil(phaseSeconds/2);second++) intervals.get(phaseTimer)();
   assert.equal(spoken.filter(text=>text==='Test cue').length,cueSpeechCount+1);
+
+  assert.equal(vm.runInContext('generatorState.workout.difficulty',context),'normal');
+  assert.equal(elements.previewKicker.textContent,'30 min · Mixed');
+  context.goGenerator();
+  context.selectGeneratorDifficulty('hard');
+  assert.equal(storage.get('gf_generator_difficulty'),'hard');
+  assert.deepEqual(elements.difficultyChoices.children.map(button=>button.attributes['aria-pressed']),['false','false','true']);
+  assert.equal(elements.generatorOptionsValue.textContent,'· Hard');
+  context.selectGeneratorFocus('strength');
+  context.generateWorkout();
+  assert.equal(vm.runInContext('generatorState.workout.difficulty',context),'hard');
+  assert.equal(elements.previewKicker.textContent,'30 min · Strength · Hard');
+  context.startGeneratedWorkout();
+  assert.equal(elements.workoutPlayerTitle.textContent,'Strength · 30 min');
 
   context.startWorkout();
   assert.equal(vm.runInContext('workoutState.mode',context),'fixed');

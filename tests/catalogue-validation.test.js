@@ -70,7 +70,7 @@ test('catalogue authoring rejects unknown fields and incomplete definitions', ()
 test('authoring derives estimates that budget every side', () => {
   const built = GarageFitData.buildExerciseCatalogue([
     { id:'one-side', name:'One side', sidedness:'per-side', prescription:{ type:'unilateral-timed', value:20 },
-      patterns:['lunge'], conditioning:false, strength:2, cardio:2, warmup:true, warmupPhase:'dynamic', warmupPrescription:{ type:'unilateral-timed', value:15 },
+      patterns:['lunge'], conditioning:false, strength:2, cardio:2, difficulty:'easy', warmup:true, warmupPhase:'dynamic', warmupPrescription:{ type:'unilateral-timed', value:15 },
       rampup:true, rampupPrescription:{ type:'unilateral-timed', value:20, minValue:15, maxValue:25 }, prepIntensity:2, prepFatigue:2, prepComplexity:2 }
   ])['one-side'];
   assert.equal(built.estimatedSeconds, 40);

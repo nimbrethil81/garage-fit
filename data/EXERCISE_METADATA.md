@@ -20,7 +20,7 @@ given phase (Main, Warm-up, Ramp-up, Cool-down) is generator policy in
    `cooldown`) and each phase's own fields.
 5. Generator and preparation exercises must state `patterns`, `conditioning`,
    `strength` and `cardio`; choose them with the anchors below, not by copying a
-   neighbour.
+   neighbour. Generator and Ramp-up exercises must also state `difficulty` (see below).
 6. Add `family` / `repetitionClass` only if the definitions below are met.
 7. Consider a short `instruction` if the name may be unfamiliar; follow the editorial standard below.
 8. Run `node --test tests/*.test.js`; it validates the catalogue.
@@ -135,6 +135,29 @@ alone never counts as lower-body demand.
 | 4 | Hard bodyweight or moderate load: push-ups, bands, TRX, hanging knee raise | High: cleans, step-ups, kettlebell figure-of-eight |
 | 5 | Heavy load or very hard bodyweight: goblet squat, barbell lifts, pull-ups | Maximal: jumping jacks, burpees, swings, high knees |
 
+### `difficulty`
+
+`difficulty` is how demanding the exercise is to perform well for a typical user: its
+strength prerequisite, skill and coordination, balance, and the power or work capacity
+it needs. It is `easy`, `moderate` or `hard`. Generator and Ramp-up exercises must state
+it; other exercises leave it unset (`null`).
+
+| Value | Use for | Examples |
+| --- | --- | --- |
+| `easy` | Simple, stable movements a beginner can perform well at a comfortable effort: no jumping, no technical or ballistic lifting, no demanding strength prerequisite. | Air squat, glute bridge, plank, crunches, jumping jacks, band exercises, supported dumbbell presses and rows, step-ups, TRX row |
+| `moderate` | Standard movements that need some strength, coordination, balance or conditioning but are routine for a regular trainee. | Push-ups, lunges, goblet squat, deadlifts, kettlebell swing, mountain climbers, high knees, hanging knee raise, TRX chest press |
+| `hard` | Movements with a substantial strength, skill, balance or power prerequisite, or explosive full-body work. | Pull-ups, toes-to-bar, pistol and Bulgarian split squats, cleans and snatches, thrusters, burpees, squat/box/skater jumps |
+
+Classify the movement, not the equipment: a barbell or kettlebell does not make an
+exercise hard, and bodyweight does not make it easy. Load is the user's choice, so judge
+the movement at a sensible load. Repeated jumping with a flight phase (`impact: 'high'`)
+is never `easy`. When torn between two levels, choose the lower one unless the exercise
+would be inappropriate for an Easy workout. `difficulty` is independent of `strength`
+and `cardio`: jumping jacks are `cardio: 5` but `easy`, and a dumbbell floor press is
+`strength: 5` but `easy`.
+
+The generator's workout difficulty (Easy / Normal / Hard) reads it; see Phases below.
+
 ### `impact`
 
 | Value | Meaning |
@@ -198,6 +221,20 @@ Rules enforced by validation:
 
 Exercises with no phase flags (for example `easy-recovery-walk`) exist for fixed
 workouts.
+
+### Workout difficulty (generator policy)
+
+The Generator's optional Difficulty setting is `easy`, `normal` (the default) or `hard`.
+It is policy in `js/generator.js` (`DIFFICULTY_POLICY`), not metadata:
+
+| Setting | Generated Main | Ramp-up | Warm-up / Cool-down |
+| --- | --- | --- | --- |
+| Normal | Neutral: no exclusion or score change; generation is identical to omitting the setting. | Unchanged. | Unchanged. |
+| Easy | `hard` exercises are ineligible; `easy` exercises get a score preference over `moderate`. | `hard` exercises are ineligible. | Unchanged. |
+| Hard | Nothing is excluded; `hard` exercises get a score preference, `moderate` a smaller one. The preference is withheld from a high-impact exercise following high-impact work, and stays below the pattern, recency and variety rules. | Unchanged. | Unchanged. |
+
+Main swaps keep the workout's difficulty, and Ramp-up swaps keep Easy's exclusion.
+Difficulty changes exercise selection only, not rest, rounds or interval structure.
 
 ## Preparation metadata
 
