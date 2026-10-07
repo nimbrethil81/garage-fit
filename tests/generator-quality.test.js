@@ -334,3 +334,17 @@ test('whole-Main fatigue remains cumulative across blocks after these changes', 
     }
   }
 });
+
+test('TRX reverse lunge is one continuous timed alternating interval with no side split', () => {
+  const exercise=catalogue['trx-reverse-lunge'];
+  assert.equal(exercise.sidedness,'alternating');
+  assert.equal(exercise.prescription.type,'timed');
+  assert.deepEqual(exercise.timedCues,[]);
+  assert.match(exercise.instruction,/alternating lunges/);
+  for (let seed=1;seed<=150;seed++) {
+    const workout=create({duration:20,focus:'balanced',equipment:['trx'],random:random(seed)});
+    for (const block of workout.main.blocks) for (const e of block.exercises) {
+      if (e.id==='trx-reverse-lunge') assert.equal(e.prescription.type,'timed');
+    }
+  }
+});
