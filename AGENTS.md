@@ -32,6 +32,8 @@ GarageFit is a dependency-free browser PWA for fixed and generated workouts.
 - `data/`: exercise, equipment and fixed-workout data
 - `js/generator.js`: workout construction and selection
 - `js/rampup-ui.js`: ramp-up presentation
+- `js/coach-model.js`: versioned Coach record contracts and validation (Programme State, Session Prescription, Session Result, Session Draft)
+- `js/coach-store.js`: Coach persistence behind an injected storage adapter; all other code reads and writes Coach records only through this module, never Coach localStorage keys directly
 - `tests/`: behavioural and UI regression tests
 - `scripts/`: developer tooling (not shipped), e.g. the reachability audit
 
