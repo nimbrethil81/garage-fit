@@ -71,6 +71,7 @@
   const nonNegativeInteger = required(value => Number.isInteger(value) && value >= 0, 'a non-negative integer');
   const positiveNumber = required(value => typeof value === 'number' && Number.isFinite(value) && value > 0, 'a positive number');
   const nonNegativeNumber = required(value => typeof value === 'number' && Number.isFinite(value) && value >= 0, 'a non-negative number');
+  const boolean = required(value => typeof value === 'boolean', 'a boolean');
   const oneOf = values => required(value => values.includes(value), 'one of '+values.join(', '));
   const exactly = expected => required(value => value === expected, describe(expected));
 
@@ -191,11 +192,13 @@
 
   // What actually happened to one occurrence. status null = not recorded; sets null = not
   // logged in detail (accessories need not be). exerciseId is what was actually performed.
+  // targetAchieved is only known when someone confirmed it (e.g. an anchor); null otherwise.
   const occurrenceOutcome = shape({
     occurrenceId: id,
     exerciseId: nullable(id),
     status: nullable(oneOf(OCCURRENCE_STATUSES)),
     sets: nullable(arrayOf(setLog)),
+    targetAchieved: nullable(boolean),
     note: nullable(text)
   });
 

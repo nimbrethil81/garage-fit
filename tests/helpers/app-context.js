@@ -22,7 +22,9 @@ class Element {
   focus() {}
 }
 
-function loadAppContext(storage = new Map()) {
+// options.ownIntrinsics leaves JSON/Math/Date/Set/Map to the VM realm, so objects the app
+// builds and parses share one realm (needed by plain-object checks in js/coach-model.js).
+function loadAppContext(storage = new Map(), options = {}) {
   const root = path.join(__dirname, '..', '..');
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   const elements = {};
@@ -33,14 +35,15 @@ function loadAppContext(storage = new Map()) {
     speechSynthesis: { cancel(){}, speak(){} },
     addEventListener(){},
     document: { getElementById: element, createElement: () => new Element(), head: new Element(), body: new Element(), addEventListener(){}, querySelector: () => new Element() },
-    localStorage: { getItem: key => storage.has(key) ? storage.get(key) : null, setItem: (key, value) => storage.set(key, String(value)) },
+    localStorage: { getItem: key => storage.has(key) ? storage.get(key) : null, setItem: (key, value) => storage.set(key, String(value)), removeItem: key => storage.delete(key) },
     navigator: {},
     getComputedStyle: () => ({ getPropertyValue: () => '#000' }),
     setInterval: () => 0, clearInterval(){}, setTimeout: callback => callback()
   };
+  if (options.ownIntrinsics) ['JSON','Math','Date','Set','Map'].forEach(name => delete context[name]);
   context.window = context; context.globalThis = context;
   vm.createContext(context);
-  for (const file of ['data/equipment.js','js/equipment-icons.js','data/exercises.js','data/workouts.js','js/generator.js','js/timed-cues.js','js/completion-signal.js']) {
+  for (const file of ['data/equipment.js','js/equipment-icons.js','data/exercises.js','data/workouts.js','js/generator.js','js/timed-cues.js','js/completion-signal.js','js/coach-model.js','js/coach-store.js','js/session-tracker.js']) {
     vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), context, { filename:file });
   }
   const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].at(-1)[1];

@@ -93,6 +93,7 @@
     originalRenderGeneratedPhase();
     let button=document.getElementById('rampupSkipBtn');
     if(!button){button=document.createElement('button');button.id='rampupSkipBtn';button.type='button';button.className='ctrl-btn ctrl-secondary hidden';button.textContent='Skip ramp-up';button.onclick=()=>{
+      if(typeof recordGeneratedOutcome==='function')recordGeneratedOutcome('skip');
       for(let i=generatorState.timelineIndex+1;i<generatorState.timeline.length;i++)if(generatorState.timeline[i].kind==='exercise'&&generatorState.timeline[i].section==='main'){enterGeneratedPhase(i);return;}
     };document.getElementById('completeMovementBtn').parentNode.insertBefore(button,document.getElementById('completeMovementBtn'));}
     const phase=currentGeneratedPhase();button.classList.toggle('hidden',!(phase&&phase.section==='rampup'));

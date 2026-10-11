@@ -16,6 +16,8 @@ Live: https://nimbrethil81.github.io/garage-fit/
 - `data/workouts.js` — fixed workouts
 - `js/generator.js` — workout generation rules
 - `js/rampup-ui.js` — ramp-up UI
+- `js/coach-model.js`, `js/coach-store.js` — versioned Coach records and their local persistence
+- `js/session-tracker.js` — records what actually happened during a tracked generated workout
 - `tests/` — generator and UI regression tests
 
 ## Tests
