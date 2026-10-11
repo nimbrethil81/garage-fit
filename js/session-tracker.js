@@ -34,10 +34,11 @@
     return parts.join(':');
   }
 
-  // Planned occurrences in timeline order. requirementIdFor(phase) lets a caller (Coach) link
-  // an occurrence to an anchor requirement; standalone timelines have none.
+  // Planned occurrences in timeline order. Generated Coach anchor metadata supplies the
+  // requirement/target by default; callers can override linkage with requirementIdFor(phase).
+  // Standalone timelines have none. Suggested targets are never copied into actual results.
   function plannedWorkFromTimeline(timeline, options = {}) {
-    const requirementIdFor = options.requirementIdFor || (() => null);
+    const requirementIdFor = options.requirementIdFor || (phase => phase.section === 'main' && phase.exercise.coachAnchor ? phase.exercise.coachAnchor.requirementId : null);
     const seen = new Set();
     return timeline.filter(phase => phase.kind === 'exercise').map(phase => {
       if (!phase.occurrenceId) throw new Error('Timeline exercise phase has no occurrenceId.');
@@ -60,7 +61,8 @@
           round: Number.isInteger(phase.round) ? phase.round : null,
           set: Number.isInteger(phase.set) ? phase.set : null,
           cycle: Number.isInteger(phase.cycle) ? phase.cycle : null,
-          exerciseIndex: phase.exerciseIndex
+          exerciseIndex: phase.exerciseIndex,
+          ...(phase.section === 'main' && exercise.coachAnchor ? {plannedTarget: clone(exercise.coachAnchor.plannedTarget)} : {})
         }
       };
     });
