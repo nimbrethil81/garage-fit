@@ -95,6 +95,28 @@ test('invalid Session Prescriptions are rejected', () => {
   assertInvalidAt('session-prescription', prescription({preferredAnchors: [anchor({importance: 'preferred'})]}), 'session-prescription.anchors[1].requirementId');
 });
 
+test('Session Prescription priorities and constraints use bounded semantic contracts', () => {
+  const record = prescription({
+    movementPriorities: [{requirementId:'push',pattern:'push',priority:'primary'}],
+    bodyRegionPriorities: [{requirementId:'upper',bodyRegion:'upper',priority:'high'}],
+    avoidConstraints: [{requirementId:'avoid',exerciseId:'pull-up',importance:'soft'}],
+    protocolConstraints: [{requirementId:'protocol',anchorRequirementId:'req-1',importance:'hard',allowedProtocols:['rounds']}],
+    variationPreference:'varied'
+  });
+  assert.equal(validate('session-prescription',record).valid,true);
+  assert.deepEqual(Model.MOVEMENT_PATTERNS,[...GarageFitGenerator.VALID_PATTERNS]);
+  for(const patch of [
+    {movementPriorities:['push']},
+    {movementPriorities:[{requirementId:'push',pattern:'push',priority:99}]},
+    {bodyRegionPriorities:[{requirementId:'upper',bodyRegion:'upper',priority:'high',weight:100}]},
+    {avoidConstraints:[{requirementId:'avoid',importance:'hard'}]},
+    {avoidConstraints:[{requirementId:'avoid',importance:'hard',exerciseId:'pull-up',pattern:'pull'}]},
+    {protocolConstraints:[{requirementId:'protocol',anchorRequirementId:'absent',importance:'hard',allowedProtocols:['rounds']}]},
+    {variationPreference:300},
+    {movementPriorities:[{requirementId:'req-1',pattern:'push',priority:'primary'}]}
+  ]) assert.equal(validate('session-prescription',Object.assign({},record,patch)).valid,false,JSON.stringify(patch));
+});
+
 test('anchor requirements carry rep range or timed targets with interpretable loads', () => {
   const timed = anchor({target: {type: 'timed', seconds: 40}, suggestedLoad: null, loadUnit: null});
   assert.equal(validate('session-prescription', prescription({requiredAnchors: [timed]})).valid, true);

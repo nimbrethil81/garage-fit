@@ -51,7 +51,7 @@ function prescription(overrides) {
     equipment: ['kettlebell','dumbbells'],
     requiredAnchors: [anchor()],
     preferredAnchors: [],
-    movementPriorities: ['hinge'],
+    movementPriorities: [{requirementId: 'priority-hinge', pattern: 'hinge', priority: 'primary'}],
     bodyRegionPriorities: [],
     avoidConstraints: [],
     protocolConstraints: [],

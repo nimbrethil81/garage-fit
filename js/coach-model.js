@@ -10,8 +10,8 @@
   //   session-draft         mutable in-progress session, finalised later into a result
   //
   // Unknown stays unknown: optional fields accept null/absent and nothing here fills them
-  // from planned values. Policy-owned payloads (anchors, targets, priorities, constraints,
-  // feedback, summaries) are only required to be plain JSON until programme policy exists.
+  // from planned values. Programme-owned state/feedback/summaries remain plain JSON;
+  // Session Prescription intent uses bounded Generator-independent semantic contracts.
   // Records never touch storage here; persistence lives behind js/coach-store.js.
 
   const SCHEMA_VERSION = 1;
@@ -33,6 +33,12 @@
   const WORKOUT_DIFFICULTIES = ['easy','normal','hard'];
   const WORKOUT_BODY_FOCUSES = ['upper','full-body','lower','core'];
   const MAIN_PROTOCOLS = ['rounds','paired_sets','timed_intervals'];
+  const MOVEMENT_PATTERNS = ['squat','hinge','lunge','push','pull','carry','core'];
+  const MOVEMENT_PRIORITIES = ['primary','secondary','maintenance'];
+  const BODY_REGION_PRIORITIES = ['high','normal','maintenance'];
+  const CONSTRAINT_IMPORTANCE = ['hard','soft'];
+  const PRESCRIPTION_MODES = ['reps','time'];
+  const VARIATION_PREFERENCES = ['varied','familiar'];
 
   const ERROR_CODES = ['invalid-record','unsupported-schema-version','corrupt-record','storage-unavailable','storage-write-failed','session-result-conflict','session-index-corrupt'];
 
@@ -166,6 +172,7 @@
     importance: oneOf(ANCHOR_IMPORTANCE),
     targetSets: nullable(positiveInteger),
     targetExposures: nullable(positiveInteger),
+    prescriptionMode: nullable(oneOf(PRESCRIPTION_MODES)),
     target: nullable(target),
     suggestedLoad: nullable(nonNegativeNumber),
     loadUnit: nullable(oneOf(LOAD_UNITS)),
@@ -173,6 +180,21 @@
     allowedProtocols: nullable(arrayOf(oneOf(MAIN_PROTOCOLS))),
     progressionIntent: nullable(text)
   }, loadHasUnit('suggestedLoad'));
+
+  // Coach expresses bounded intent, never Generator score weights. IDs let reconciliation
+  // name a priority or constraint just as it names an anchor requirement.
+  const movementPriority = shape({requirementId: id, pattern: oneOf(MOVEMENT_PATTERNS), priority: oneOf(MOVEMENT_PRIORITIES)});
+  const bodyRegionPriority = shape({requirementId: id, bodyRegion: oneOf(WORKOUT_BODY_FOCUSES), priority: oneOf(BODY_REGION_PRIORITIES)});
+  const avoidConstraint = shape({
+    requirementId: id, importance: oneOf(CONSTRAINT_IMPORTANCE),
+    exerciseId: nullable(id), pattern: nullable(oneOf(MOVEMENT_PATTERNS)), bodyRegion: nullable(oneOf(WORKOUT_BODY_FOCUSES))
+  }, (value, path, errors) => {
+    if (['exerciseId','pattern','bodyRegion'].filter(key => !isMissing(value[key])).length !== 1) fail(errors, path, 'needs exactly one exerciseId, pattern or bodyRegion');
+  });
+  const protocolConstraint = shape({
+    requirementId: id, importance: oneOf(CONSTRAINT_IMPORTANCE),
+    anchorRequirementId: nullable(id), allowedProtocols: arrayOf(oneOf(MAIN_PROTOCOLS))
+  });
 
   // One logged set. Every measure may be unknown; nothing is inferred from the plan.
   const setLog = shape(Object.assign({
@@ -255,10 +277,11 @@
     equipment: nullable(arrayOf(id)),
     requiredAnchors: nullable(arrayOf(anchorRequirement)),
     preferredAnchors: nullable(arrayOf(anchorRequirement)),
-    movementPriorities: nullable(arrayOf(jsonValue)),
-    bodyRegionPriorities: nullable(arrayOf(jsonValue)),
-    avoidConstraints: nullable(arrayOf(jsonValue)),
-    protocolConstraints: nullable(arrayOf(jsonValue)),
+    movementPriorities: nullable(arrayOf(movementPriority)),
+    bodyRegionPriorities: nullable(arrayOf(bodyRegionPriority)),
+    avoidConstraints: nullable(arrayOf(avoidConstraint)),
+    protocolConstraints: nullable(arrayOf(protocolConstraint)),
+    variationPreference: nullable(oneOf(VARIATION_PREFERENCES)),
     programmeContext: nullable(jsonObject)
   }, (value, path, errors) => {
     [['requiredAnchors','required'],['preferredAnchors','preferred']].forEach(([key, importance]) => {
@@ -266,7 +289,13 @@
         if (anchor.importance !== importance) fail(errors, path+'.'+key+'['+index+'].importance', 'must be '+describe(importance)+' in '+key);
       });
     });
-    uniqueBy('requirementId','requirement')([...(value.requiredAnchors || []), ...(value.preferredAnchors || [])], path+'.anchors', errors);
+    const anchors = [...(value.requiredAnchors || []), ...(value.preferredAnchors || [])];
+    uniqueBy('requirementId','requirement')(anchors, path+'.anchors', errors);
+    const all = anchors.concat(value.movementPriorities || [], value.bodyRegionPriorities || [], value.avoidConstraints || [], value.protocolConstraints || []);
+    uniqueBy('requirementId','requirement')(all, path+'.requirements', errors);
+    (value.protocolConstraints || []).forEach((constraint, index) => {
+      if (constraint.anchorRequirementId && !anchors.some(anchor => anchor.requirementId === constraint.anchorRequirementId)) fail(errors, path+'.protocolConstraints['+index+'].anchorRequirementId', 'must name an anchor requirement');
+    });
   });
 
   // Fields shared by a finished Session Result and an in-progress Session Draft.
@@ -419,6 +448,7 @@
     SCHEMA_VERSION, RECORD_KINDS, PROGRAMME_STATUSES, PROGRAMME_MODES, SESSION_SOURCES, FINAL_STATUSES,
     OCCURRENCE_STATUSES, DRAFT_STATES, ANCHOR_IMPORTANCE, LOAD_UNITS, LOAD_INTERPRETATIONS, TARGET_TYPES,
     WORKOUT_STYLES, WORKOUT_DIFFICULTIES, WORKOUT_BODY_FOCUSES, MAIN_PROTOCOLS, ERROR_CODES,
+    MOVEMENT_PATTERNS, MOVEMENT_PRIORITIES, BODY_REGION_PRIORITIES, CONSTRAINT_IMPORTANCE, PRESCRIPTION_MODES, VARIATION_PREFERENCES,
     CoachError, validate, assertValid, upgradeRecord, MIGRATIONS,
     canonicalJson, sameRecord, deepFreeze,
     createProgrammeState, createActiveProgramme, createSessionPrescription, createSessionResult, createSessionDraft,
