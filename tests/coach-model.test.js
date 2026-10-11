@@ -145,6 +145,15 @@ test('Session Result records occurrence-level outcomes without requiring set log
   assertInvalidAt('session-result', sessionResult({performedWork: [{occurrenceId: 'occ-1', status: 'completed', sets: [{reps: 8, load: 16}]}]}), 'session-result.performedWork[0].sets[0].loadUnit');
 });
 
+test('whether an occurrence achieved its target is a confirmed boolean or unknown', () => {
+  [true, false, null, undefined].forEach(targetAchieved => {
+    const outcome = {occurrenceId: 'occ-1', exerciseId: 'goblet-squat', status: 'completed', sets: [{reps: 8}], targetAchieved};
+    assert.equal(validate('session-result', sessionResult({performedWork: [outcome]})).valid, true);
+    assert.equal(validate('session-draft', sessionDraft({occurrenceOutcomes: [outcome]})).valid, true);
+  });
+  assertInvalidAt('session-result', sessionResult({performedWork: [{occurrenceId: 'occ-1', status: 'completed', targetAchieved: 'yes'}]}), 'session-result.performedWork[0].targetAchieved');
+});
+
 test('Session Result keeps planned and performed work separate and source linkage explicit', () => {
   Model.SESSION_SOURCES.forEach(source => {
     const linked = source === 'coach' ? {} : {programmeInstanceId: null, prescriptionId: null};
