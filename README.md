@@ -20,6 +20,7 @@ Live: https://nimbrethil81.github.io/garage-fit/
 - `js/coach-model.js`, `js/coach-store.js` — versioned Coach records and their local persistence
 - `js/session-tracker.js` — records what actually happened during a tracked generated workout
 - `js/coach-engine.js`, `js/coach-policies.js`, `js/training-history.js` — pure programme decisions, policy strategies and performed-training evidence
+- `js/coach-recovery.js` — result/state/draft transaction and startup reconciliation
 - `js/coach-ui.js` — Coach screens and recoverable engine/store/generator/tracker orchestration
 - `tests/` — generator and UI regression tests
 
@@ -98,7 +99,8 @@ Strength: three stable squat/push/pull anchors, 2×6–10 double progression, an
 20/30/45-minute sessions. Anchor Done explicitly confirms the visible actual
 reps/load; blank values stay unknown. Temporary substitutes preserve the programme
 anchor and begin a separate performance series. Controlled early exit saves performed
-work, and interrupted drafts can be saved after reloading.
+work, and interrupted Coach drafts are recovered automatically after reloading using only
+durably recorded outcomes. Planned work and the current screen never earn recovery credit.
 
 The four-week review separates calendar position from performed evidence and offers
 Continue building, Maintenance or Finish. Maintenance retains the same instance and
@@ -113,3 +115,8 @@ an explicitly confirmed resistance increase. Separate rolling seven-day targets
 are nine performed direct set exposures each; compound work provides separate
 whole-body maintenance context. Bands/TRX log a confirmed resistance setup through
 the same anchor UI. See [the Build Arms pilot](docs/BUILD_ARMS_PILOT.md).
+
+Coach history is local to this browser/device. Clearing browser or site data can
+remove it; replacing a device does not automatically migrate it. Cloud durability
+and cross-device continuity are deferred. Storage failures appear in Coach with a
+retry action; valid performed evidence is retained when another record is damaged.

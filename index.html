@@ -420,6 +420,7 @@
 <script src="js/training-history.js"></script>
 <script src="js/coach-policies.js"></script>
 <script src="js/coach-engine.js"></script>
+<script src="js/coach-recovery.js"></script>
 <script src="js/coach-ui.js"></script>
 <script>
 const WORK_S=15,REST_S=5;
@@ -453,11 +454,12 @@ function beginInstructionSession(){instructionSeen=new Set()}
 function instructionFor(exercise){return exercise&&exercise.id&&CATALOGUE[exercise.id]&&CATALOGUE[exercise.id].instruction}
 function createInstructionDisclosure(exercise){const instruction=instructionFor(exercise);if(!instruction)return null;const details=document.createElement('details'),summary=document.createElement('summary'),copy=document.createElement('p');details.className='exercise-instruction';summary.textContent='How to do it';copy.textContent=instruction;details.append(summary,copy);return details}
 function setInstructionDisclosure(id,exercise){const details=document.getElementById(id),instruction=instructionFor(exercise);details.classList.toggle('hidden',!instruction);details.open=false;document.getElementById(id+'Text').textContent=instruction||''}
+function readPreference(key){try{return localStorage.getItem(key)}catch(e){return null}}
 function loadEquipment(){
-  let inventory=null;try{inventory=JSON.parse(localStorage.getItem('gf_equipment_inventory'))}catch(e){}
-  if(Array.isArray(inventory)){state.ownedEquipment=inventory.filter(id=>EQUIPMENT.some(item=>item.id===id));state.equipmentConfigured=localStorage.getItem('gf_equipment_configured')==='true'}
-  else{const legacy=localStorage.getItem('gf_equipment');if(legacy!==null){state.ownedEquipment=legacy==='true'?EQUIPMENT.map(item=>item.id):[];state.equipmentConfigured=true;saveEquipment()}else{state.ownedEquipment=[];state.equipmentConfigured=false}}
-  const savedDuration=Number(localStorage.getItem('gf_generator_duration')),savedFocus=localStorage.getItem('gf_generator_focus');if([10,15,20,30,45].includes(savedDuration))generatorState.duration=savedDuration;if(['strength','balanced','cardio'].includes(savedFocus))generatorState.focus=savedFocus;const savedDifficulty=localStorage.getItem('gf_generator_difficulty');if(Object.keys(DIFFICULTY_LABELS).includes(savedDifficulty))generatorState.difficulty=savedDifficulty;const savedBodyFocus=localStorage.getItem('gf_generator_body_focus');if(Object.keys(BODY_FOCUS_LABELS).includes(savedBodyFocus))generatorState.bodyFocus=savedBodyFocus;
+  let inventory=null;try{inventory=JSON.parse(readPreference('gf_equipment_inventory'))}catch(e){}
+  if(Array.isArray(inventory)){state.ownedEquipment=inventory.filter(id=>EQUIPMENT.some(item=>item.id===id));state.equipmentConfigured=readPreference('gf_equipment_configured')==='true'}
+  else{const legacy=readPreference('gf_equipment');if(legacy!==null){state.ownedEquipment=legacy==='true'?EQUIPMENT.map(item=>item.id):[];state.equipmentConfigured=true;saveEquipment()}else{state.ownedEquipment=[];state.equipmentConfigured=false}}
+  const savedDuration=Number(readPreference('gf_generator_duration')),savedFocus=readPreference('gf_generator_focus');if([10,15,20,30,45].includes(savedDuration))generatorState.duration=savedDuration;if(['strength','balanced','cardio'].includes(savedFocus))generatorState.focus=savedFocus;const savedDifficulty=readPreference('gf_generator_difficulty');if(Object.keys(DIFFICULTY_LABELS).includes(savedDifficulty))generatorState.difficulty=savedDifficulty;const savedBodyFocus=readPreference('gf_generator_body_focus');if(Object.keys(BODY_FOCUS_LABELS).includes(savedBodyFocus))generatorState.bodyFocus=savedBodyFocus;
   loadRoutineVariant();renderHome();renderWorkoutReview();renderCindyDetail();renderPersonalBest();renderGenerator();showScreen('home')
 }
 function saveEquipment(){try{localStorage.setItem('gf_equipment_inventory',JSON.stringify(state.ownedEquipment));localStorage.setItem('gf_equipment_configured',String(state.equipmentConfigured))}catch(e){}}

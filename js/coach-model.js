@@ -15,7 +15,7 @@
   // Records never touch storage here; persistence lives behind js/coach-store.js.
 
   const SCHEMA_VERSION = 1;
-  const RECORD_KINDS = ['programme-state','active-programme','session-prescription','session-result','session-draft'];
+  const RECORD_KINDS = ['programme-state','active-programme','session-prescription','session-result','session-draft','session-result-index'];
 
   const PROGRAMME_STATUSES = ['active','paused','completed'];
   const PROGRAMME_MODES = ['development','maintenance'];
@@ -265,7 +265,26 @@
     recentOverrides: nullable(arrayOf(jsonObject)),
     recentSubstitutions: nullable(arrayOf(jsonObject)),
     lastAppliedSessionResultId: nullable(id)
-  }));
+  }), (value, path, errors) => {
+    const targets = value.currentTargets;
+    if (!targets) return;
+    if (!isMissing(targets.reconciliation)) shape({appliedSessionResultIds: arrayOf(id)}, (ledger, ledgerPath, issues) => {
+      if (new Set(ledger.appliedSessionResultIds).size !== ledger.appliedSessionResultIds.length) fail(issues, ledgerPath+'.appliedSessionResultIds', 'must be unique');
+    })(targets.reconciliation, path+'.currentTargets.reconciliation', errors);
+    if (!isMissing(targets.dose)) {
+      const dosePath = path+'.currentTargets.dose';
+      jsonObject(targets.dose, dosePath, errors);
+      if (isPlainObject(targets.dose)) {
+        nonNegativeNumber(targets.dose.exposure, dosePath+'.exposure', errors);
+        for (const field of ['patterns','bodyRegions','directElbowActions','compoundContext']) {
+          if (isMissing(targets.dose[field])) continue;
+          jsonObject(targets.dose[field], dosePath+'.'+field, errors);
+          if (isPlainObject(targets.dose[field])) Object.entries(targets.dose[field]).forEach(([key, amount]) => nonNegativeNumber(amount, dosePath+'.'+field+'.'+key, errors));
+        }
+      }
+    }
+    nullable(id)(targets.lastMeaningfulSessionResultId, path+'.currentTargets.lastMeaningfulSessionResultId', errors);
+  });
 
   const sessionPrescription = shape({
     schemaVersion: exactly(SCHEMA_VERSION),
@@ -370,7 +389,19 @@
     'active-programme': activeProgramme,
     'session-prescription': sessionPrescription,
     'session-result': sessionResult,
-    'session-draft': sessionDraft
+    'session-draft': sessionDraft,
+    // The original v1 id-only index remains readable. Metadata is a rebuildable
+    // query accelerator, never performed evidence or a reason to bump the schema.
+    'session-result-index': shape({schemaVersion: exactly(SCHEMA_VERSION),
+      sessionResultIds: arrayOf(id),
+      entries: nullable(arrayOf(shape({sessionResultId: id, source: oneOf(SESSION_SOURCES),
+        programmeInstanceId: nullable(id), occurredAt: nullable(timestamp), exerciseIds: arrayOf(id)})))
+    }, (value, path, errors) => {
+      if (!Array.isArray(value.sessionResultIds)) return;
+      if (new Set(value.sessionResultIds).size !== value.sessionResultIds.length) fail(errors, path+'.sessionResultIds', 'must be unique');
+      if (Array.isArray(value.entries) && (value.entries.length !== value.sessionResultIds.length
+        || value.entries.some((entry, i) => entry.sessionResultId !== value.sessionResultIds[i]))) fail(errors, path+'.entries', 'must match sessionResultIds in order');
+    })
   };
 
   function requireKind(kind) {

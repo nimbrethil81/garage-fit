@@ -5,36 +5,54 @@
   // records go through the store and execution evidence through the tracker.
   function createController({store, engine, catalogue, buildTimeline, clock = () => new Date().toISOString(),
     id = prefix => prefix+':'+(root.crypto && root.crypto.randomUUID ? root.crypto.randomUUID() : Date.now()+':'+Math.random()),
-    definitionFor = state => root.GarageFitData.programmes[state.programmeDefinitionId][state.programmeDefinitionVersion]} = {}) {
+    definitionFor = state => {
+      const versions = root.GarageFitData.programmes[state.programmeDefinitionId];
+      const def = versions && versions[state.programmeDefinitionVersion];
+      if (!def) throw new Error('The saved programme definition version is unavailable. Records have been retained.');
+      return def;
+    }} = {}) {
     let state = null, results = [], preview = null, tracker = null, draft = null, pendingResult = null, preparationContext = null;
     const definition = () => definitionFor(state);
-    const meaningful = (outcome, planned) => planned.section === 'main' && ['completed','partial'].includes(outcome.status)
-      && (!outcome.sets || outcome.sets.some(set => set.reps > 0 || set.seconds > 0));
-    async function load() {
-      const listed = await store.listSessionResults();
-      if (listed.errors.length) throw listed.errors[0];
-      results = listed.results.slice().sort((a,b) => Date.parse(a.endedAt) - Date.parse(b.endedAt));
-      // Reconcile every persisted result, including an inactive instance, before
-      // clearing a final draft. Retrying any application is an engine no-op.
-      for (const result of results.filter(item => item.source === 'coach')) {
-        const previous = await store.loadProgrammeState(result.programmeInstanceId);
-        if (!previous) throw new Error('Saved session has no programme state.');
-        const next = engine.applySessionResult(definitionFor(previous), previous, result, results);
-        if (!Model().sameRecord(previous, next)) await store.saveProgrammeState(next);
+    const meaningful = root.GarageFitCoachRecovery.meaningful;
+    const recovery = root.GarageFitCoachRecovery.createRecovery({store, engine, definitionFor});
+    let errors = [], blocked = false;
+    async function recentHistory() {
+      if (!state) { results = []; return; }
+      const def = definition(), since = new Date(Date.parse(clock()) - Math.max(def.coverageTargets.windowDays, def.doseTargets.windowDays || 0) * 86400000).toISOString();
+      const scoped = {programmeInstanceId: state.programmeInstanceId};
+      const queries = [await store.listSessionResults({...scoped, since}), await store.listSessionResults({...scoped, limit: 8})];
+      if (def.coverageTargets.includeStandaloneHistory) queries.push(await store.listSessionResults({source: 'generator', since}));
+      const byId = new Map();
+      queries.forEach(query => { errors.push(...query.errors); query.results.forEach(result => byId.set(result.sessionResultId, result)); });
+      const lastMeaningful = (state.recentSessionSummaries || []).slice().reverse().find(item => item.meaningful);
+      const lastMeaningfulId = state.currentTargets && state.currentTargets.lastMeaningfulSessionResultId || lastMeaningful && lastMeaningful.sessionResultId;
+      if (lastMeaningfulId && !byId.has(lastMeaningfulId)) {
+        try { const last = await store.getSessionResult(lastMeaningfulId); if (last) byId.set(last.sessionResultId, last); }
+        catch (error) { errors.push(error); }
       }
-      const reference = await store.loadActiveProgramme();
-      state = reference ? await store.loadProgrammeState(reference.programmeInstanceId) : null;
-      if (reference && !state) throw new Error('The saved programme could not be loaded.');
-      draft = await store.loadSessionDraft();
-      if (draft && draft.finalisation.sessionResultId && results.some(item => item.sessionResultId === draft.finalisation.sessionResultId)) {
-        await store.clearSessionDraft(); draft = null;
+      results = [...byId.values()].sort((a,b) => Date.parse(a.endedAt) - Date.parse(b.endedAt));
+    }
+    async function load(force = false) {
+      errors = []; blocked = false;
+      // A live tracker belongs to the current player, not to crash recovery.
+      if (!tracker) {
+        const recovered = await recovery.reconcile(force);
+        errors = recovered.errors; draft = recovered.draft; blocked = recovered.draftBlocked;
       }
+      try {
+        const reference = await store.loadActiveProgramme();
+        state = reference ? await store.loadProgrammeState(reference.programmeInstanceId) : null;
+        if (reference && (!state || !Model().sameRecord(reference, Model().createActiveProgramme(Model().programmeDefinitionRef(state))))) throw new Error('The saved active programme reference does not match its state. Records have been retained.');
+        if (state) definition();
+        await recentHistory();
+      } catch (error) { errors.push(error); blocked = true; state = null; }
       return snapshot();
     }
     function snapshot() { return {state: state && clone(state), results: clone(results.filter(item => state && item.programmeInstanceId === state.programmeInstanceId)),
-      preview, interruptedDraft: draft && !tracker ? clone(draft) : null}; }
+      preview, errors: errors.slice(), blocked, interruptedDraft: draft && !tracker ? clone(draft) : null}; }
     function assess(def, equipment) { return engine.assessProgrammeFeasibility(def, {equipment}); }
     async function start(def, equipment) {
+      if (blocked) throw new Error('Resolve the saved programme error before starting another.');
       if (draft || state && state.status !== 'completed') throw new Error('Finish the current programme before starting another.');
       const started = engine.startProgramme(def, {equipment, programmeInstanceId: id('programme')}, clock());
       if (!started.state) return started;
@@ -85,14 +103,8 @@
       }
       if (!tracker) throw new Error('No active Coach session.');
       if (!pendingResult) pendingResult = await (kind === 'complete' ? tracker.complete({feedback, actualDurationSeconds}) : tracker.exitEarly({feedback, actualDurationSeconds}));
-      // Safe order: immutable evidence -> updated state -> clear the draft.
-      await store.saveSessionResult(pendingResult);
-      const previous = await store.loadProgrammeState(pendingResult.programmeInstanceId);
-      const next = engine.applySessionResult(definitionFor(previous), previous, pendingResult, results);
-      await store.saveProgrammeState(next);
-      state = next;
-      if (!results.some(item => item.sessionResultId === pendingResult.sessionResultId)) results.push(pendingResult);
-      await store.clearSessionDraft();
+      state = await recovery.persist(pendingResult, results);
+      await recentHistory();
       const result = pendingResult; pendingResult = null; tracker = null; draft = null; preview = null;
       return result;
     }
@@ -179,6 +191,11 @@
     function render() {
       const wrap=el('coachContent'); wrap.innerHTML=''; const current=controller.snapshot(), state=current.state;
       if (lastSaved) wrap.append(paragraph(lastSaved));
+      if (current.errors.length) {
+        wrap.append(paragraph('Some Coach records could not be recovered. Saved evidence has been retained.'),
+          ...current.errors.map(error => paragraph(error.message)), button('Retry recovery', async () => { await controller.load(true); resetOptions(); render(); }));
+        if (current.blocked) return;
+      }
       if (current.interruptedDraft) { wrap.append(heading('Interrupted session'),paragraph('Your recorded work is safe. Save it before starting another session.'),button('Save performed work',() => showEnd('exit',null),true)); return; }
       if (!state || state.status==='completed') {
         wrap.append(paragraph('A training goal, stable anchors and sessions adapted to the work you actually do.'));

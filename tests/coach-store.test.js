@@ -101,8 +101,9 @@ test('each Session Result is a separate record with a small ordered index', asyn
     assert.equal(JSON.parse(storage.map.get(key)).sessionResultId, id);
   });
   const indexKey = storage.keyHolding(record => Array.isArray(record.sessionResultIds));
-  assert.deepEqual(JSON.parse(storage.map.get(indexKey)), {schemaVersion: 1, sessionResultIds: ['result-1','result-2','result-3']});
-  assert.ok(storage.map.get(indexKey).length < 200, 'the index holds ids only');
+  assert.deepEqual(JSON.parse(storage.map.get(indexKey)).sessionResultIds, ['result-1','result-2','result-3']);
+  assert.equal(JSON.parse(storage.map.get(indexKey)).entries.length, 3);
+  assert.ok(!storage.map.get(indexKey).includes('plannedWork'), 'the index holds only identity and filter metadata');
 
   const listed = await store.listSessionResults();
   assert.deepEqual(listed.results.map(result => result.sessionResultId), ['result-1','result-2','result-3']);
@@ -339,4 +340,70 @@ test('Coach storage keys are only known to js/coach-store.js', () => {
   const files = ['index.html', ...fs.readdirSync(path.join(root, 'js')).map(file => path.join('js', file))];
   const leaking = files.filter(file => file !== path.join('js', 'coach-store.js') && /gf_coach/.test(fs.readFileSync(path.join(root, file), 'utf8')));
   assert.deepEqual(leaking, []);
+});
+
+test('recent N uses metadata and reads only N matching results across large histories', async () => {
+  const storage = new MemoryStorage(), store = createStore(storage);
+  for (let i=0;i<180;i++) {
+    const at=new Date(Date.UTC(2026,0,1+i)).toISOString();
+    await store.saveSessionResult(sessionResult({sessionResultId:'history-'+i, programmeInstanceId:i%2?'other':'prog-1',
+      startedAt:at, endedAt:at}));
+  }
+  const reads=[], original=storage.getItem.bind(storage);
+  storage.getItem=key=>{reads.push(key);return original(key);};
+  const listed=await store.listSessionResults({programmeInstanceId:'prog-1',source:'coach',exerciseId:'goblet-squat',limit:3});
+  assert.deepEqual(listed.results.map(result=>result.sessionResultId),['history-178','history-176','history-174']);
+  assert.equal(reads.filter(key=>key.startsWith('gf_coach_session_result:')).length,3);
+  reads.length=0;
+  await store.listSessionResults({since:new Date(Date.UTC(2026,0,175)).toISOString(),programmeInstanceId:'prog-1',limit:2});
+  assert.equal(reads.filter(key=>key.startsWith('gf_coach_session_result:')).length,2);
+  assert.equal((await store.listSessionResults({limit:0})).results.length,0);
+});
+
+test('original v1 id-only index enriches centrally; startup finds unindexed evidence once', async () => {
+  const storage=new MemoryStorage(), store=createStore(storage);
+  await store.saveSessionResult(sessionResult());
+  storage.map.set('gf_coach_session_result_index',JSON.stringify({schemaVersion:1,sessionResultIds:[]}));
+  await store.reconcileSessionIndex();
+  const index=JSON.parse(storage.map.get('gf_coach_session_result_index'));
+  assert.equal(index.schemaVersion,1); assert.deepEqual(index.sessionResultIds,['result-1']);
+  assert.deepEqual(index.entries[0].exerciseIds,['goblet-squat']);
+  let scanned=0; storage.key=()=>{scanned++;throw new Error('routine query must not scan');};
+  await store.reconcileSessionIndex();
+  assert.equal((await store.listSessionResults({limit:1})).results.length,1);
+  assert.equal(scanned,0);
+});
+
+test('malformed/future versions for every persisted shape are never silently current', async () => {
+  const records={
+    'programme-state':programmeState(), 'session-result':sessionResult(), 'session-draft':sessionDraft(),
+    'active-programme':activeRef(), 'session-result-index':{schemaVersion:1,sessionResultIds:[]}
+  };
+  for(const [kind,record] of Object.entries(records)) {
+    assert.equal(GarageFitCoachModel.assertValid(kind,GarageFitCoachModel.upgradeRecord(kind,record)),record);
+    for(const version of [undefined,null,'1',0,-1,1.5,2]) assert.throws(()=>GarageFitCoachModel.upgradeRecord(kind,{...record,schemaVersion:version}),error=>error.code==='unsupported-schema-version');
+  }
+});
+
+test('missing records and conflicting/key-mismatched IDs preserve other evidence', async () => {
+  const storage=new MemoryStorage(),store=createStore(storage);
+  await store.saveSessionResult(sessionResult());
+  await store.saveSessionResult(sessionResult({sessionResultId:'missing'}));
+  storage.map.delete('gf_coach_session_result:missing');
+  storage.map.set('gf_coach_session_result:wrong',JSON.stringify(sessionResult()));
+  const recovery=await store.reconcileSessionIndex();
+  assert.ok(recovery.errors.some(error=>error.code==='invalid-record'));
+  const listed=await store.listSessionResults();
+  assert.deepEqual(listed.results.map(result=>result.sessionResultId),['result-1']);
+  assert.ok(listed.errors.some(error=>error.details.missing));
+  await rejectsWith(store.saveSessionResult(sessionResult({finalStatus:'partial'})),'session-result-conflict');
+  assert.equal((await store.getSessionResult('result-1')).finalStatus,'completed');
+});
+
+test('known derived state cannot hide malformed dose or reconciliation data inside JSON', async () => {
+  const store=createStore(new MemoryStorage());
+  for(const currentTargets of [{dose:{exposure:'12'}},{dose:{exposure:1,directElbowActions:{flexion:-1}}},
+    {reconciliation:{appliedSessionResultIds:'result-1'}},{reconciliation:{appliedSessionResultIds:['same','same']}}]) {
+    await rejectsWith(store.saveProgrammeState(programmeState({currentTargets})),'invalid-record');
+  }
 });
