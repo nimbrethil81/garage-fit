@@ -44,6 +44,40 @@ GarageFit is a dependency-free browser PWA for fixed and generated workouts.
 - `tests/`: behavioural and UI regression tests
 - `scripts/`: developer tooling (not shipped), e.g. the reachability audit
 
-## Git
+## Git and delivery workflow
+
+When implementing an approved GitHub issue, complete the delivery workflow rather than stopping after code changes.
+
+1. **Implement and validate**
+   - Work on a dedicated implementation branch, unless direct changes to `main` are explicitly authorised.
+   - Follow the repository's development instructions and run all required tests and applicable audits.
+   - Do not introduce unapproved scope or product decisions.
+
+2. **Commit and create PR**
+   - Commit and push the completed changes.
+   - Create a pull request targeting `main`, referencing the GitHub issue.
+   - Summarise the changes, validation performed and any relevant limitations.
+   - Do not request additional approval merely to commit, push or create the PR.
+
+3. **Merge**
+   - For an implementation explicitly authorised by the user, enable GitHub auto-merge on the PR when available and appropriate.
+   - Use the repository's established merge strategy and respect required checks, branch protection and review requirements.
+   - If all requirements are already satisfied, merge the PR directly.
+   - Do not bypass required checks or protections.
+   - Do not merge if validation fails, material uncertainty remains, or implementation exceeds the approved scope.
+   - Do not request a separate approval solely to merge an implementation that is already authorised and meets these conditions.
+
+4. **Complete and report**
+   - Confirm whether the PR was merged, auto-merge is pending, or delivery is blocked.
+   - Close the associated issue only after the implementation is merged and its acceptance criteria are satisfied. If the PR automatically closes the issue, do not close it again.
+   - Report the PR link, merge status, test results and any outstanding action.
+   - If auto-merge is pending, report that status accurately; do not claim completion or wait indefinitely.
+   - Leave unrelated changes and issues untouched.
+
+### Exceptions
 
 Changes may be committed and pushed directly to `main` when explicitly authorised by the user.
+
+For direct-to-main work, complete the required validation before pushing and report the resulting commit.
+
+If repository permissions, unavailable tooling, failed checks or other safeguards prevent completing the workflow, stop at the furthest safe point and explain the blocker. Do not repeatedly ask for approval for routine delivery steps already covered by the original implementation authorisation.
