@@ -90,9 +90,47 @@ calendar passage. Progression decisions are recorded as evidence (`baseline`,
 `progress`, `hold`, `hold-maintenance`, `new-exercise-series`); they do not invent
 load increments, change exercise difficulty, or automatically replace exercises.
 
-No production General Strength definition is bundled. The complete fixture in
-`tests/helpers/coach-policy-fixtures.js` contains deliberately fake test parameters.
-The first production definition and UI belong to #58, after a Coach UI/UX design pass.
+`data/programmes.js` now ships `general-strength-4w`, version 1, using the production
+values approved in issue #58. The definition is pinned in each Programme State and
+must receive a new version for material policy changes. Test fixture definitions
+remain separate from this release.
+
+The production `double-progression` strategy persists `anchors[].currentTarget`,
+`comparisonBaseline`, latest progression and substitution history. It requires both
+sets (including both sides for unilateral work) with confirmed comparable actual
+reps/load. It advances one rep through 6–10, then suggests the next heavier weight;
+confirmed heavier work resets the target to 6 without inventing a load increment.
+Partial/skipped, unknown or incompatible evidence holds progression. Easy today and
+maintenance hold it as well. Whole-session feedback cannot award progression.
+
+`doseTargets.meaningfulRule: 'any-performed-main-work'` counts a session only when
+catalogue-resolved Main work has positive performed exposure; preparation alone is
+abandoned on early exit. The rolling pattern floors are priority targets, not quotas.
+Start feasibility preflights the selected anchors at every supported duration.
+
+The optional `anchorAlternatives` policy hook validates candidates for a programme
+role. `engine.getAnchorAlternatives(definition, state, context, requirementId)` exposes
+these for substitutions. Planning accepts `todayContext.anchorSubstitutions`, a map
+of requirement ID to substitute ID, and creates a temporary prescription at the new
+exercise's initial target. It never rewrites persistent anchors or imports their load.
+The tracker records planned original identity and actual substitute identity.
+
+`engine.programmeReview(definition, state, now)` projects nominal block progress and
+counts meaningful sessions within the reviewed 28-day block. It does not mutate state
+or automatically complete the programme. `acknowledgeBlockReview(...)` advances the
+review marker while retaining identity, anchors and history. `finishProgramme(state)`
+is the explicit terminal operation. Mode/lifecycle changes still go through the engine.
+
+Production maintenance uses one anchor set, 20-minute sessions, 1–2 sessions/week,
+half the coverage priority floor and softer preference for supporting accessories;
+challenge and instance identity persist. Optional `maximumDurationMinutes` belongs
+to the definition and caps available time without increasing density or reducing rest.
+
+`GarageFitCoachUI.createController(...)` owns recoverable application orchestration.
+It saves immutable results, applies them idempotently, persists state, then clears
+the active draft. Startup reconciles saved results before allowing another session.
+The store also discovers an immutable result stranded by an interrupted index write.
+In-progress drafts offer an explicit Save performed work action after reload.
 
 ## Policy strategies
 
