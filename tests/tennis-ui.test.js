@@ -33,7 +33,7 @@ test('Coach selection groups existing programmes and Tennis; minimal setup saves
   await p.change('Typical tennis intensity','hard'); await p.change('Training intent','event');
   await p.change('Important event date','2026-11-20'); await p.click('Start programme');
   const state=p.state(),config=state.currentTargets.programmeSettings;
-  assert.equal(state.programmeDefinitionVersion,4); assert.equal(state.anchors.length,4);
+  assert.equal(state.programmeDefinitionVersion,5); assert.equal(state.anchors.length,4);
   assert.equal(config.focus,'power');assert.equal(config.weeklyCoachFrequency,3);
   assert.deepEqual(config.usualPlayingDays,['monday','friday']);assert.equal(config.typicalSportIntensity,'hard');
   assert.equal(config.intent,'event');assert.equal(config.significantEventDate,'2026-11-20');

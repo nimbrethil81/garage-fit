@@ -131,7 +131,7 @@ the instance-settings API supports one, two or three weekly sessions. Session ro
 omission rotation and supporting choices follow performed work and rolling 14-day
 capability coverage, with explicit equipment/time limitations and no catch-up debt.
 The third role at three sessions is conditioning/resilience without required strength
-anchors. New Tennis programmes use v4's conservative schedule/readiness and event policy:
+anchors. New Tennis programmes use v5's conservative schedule/readiness and event policy:
 planned commitments stay separate from explicitly reported activity, lighter work
 holds progression, and rest recommendations create no workout result. After six
 meaningful sessions and 21 days of development, one reduced-demand consolidation
@@ -140,7 +140,9 @@ tennis progress check-ins require 28 days and four meaningful sessions since sta
 or the last check-in/skip. Impressions remain separate from exercise progress.
 Training intent and event controls prepare for an explicit local-date event with
 conservative horizons, then return to ongoing development on the same instance.
-Saved v1–v3 programmes retain their policies. Coach groups Strength & fitness and
+Saved v1–v4 programmes retain their policies. v5 breaks equal recent anchor-dose
+ties with earlier performed history so weekly short sessions do not repeatedly
+omit a never-performed anchor. Coach groups Strength & fitness and
 Cross-training → Tennis, with focus/frequency, usual playing days, intensity and
 local-date event setup. Settings preserve the same anchors/history; optional daily
 readiness, short-session preflight and performed capability coverage use the existing
