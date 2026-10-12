@@ -1,9 +1,10 @@
 (function (root) {
   // Sport identity and permitted user choices, independent of programme policies
-  // and Generator selection. Capability-to-exercise mappings belong to later work.
+  // and Generator selection. Reviewed mappings are versioned in sport-capabilities.js.
   const tennis = {
-    id: 'tennis', version: 1,
-    capabilities: ['movement','power','endurance','resilience'],
+    id: 'tennis', version: 2,
+    capabilities: ['lower-body','lateral-movement','trunk','upper-body','power','endurance'],
+    capabilityPolicy: {id: 'tennis-conditioning', version: 1},
     configuration: {
       focuses: ['balanced','movement','power','endurance','resilience'],
       weeklyCoachFrequencies: [1,2,3],
