@@ -44,7 +44,7 @@ function loadAppContext(storage = new Map(), options = {}) {
   if (options.ownIntrinsics) ['JSON','Math','Date','Set','Map'].forEach(name => delete context[name]);
   context.window = context; context.globalThis = context;
   vm.createContext(context);
-  for (const file of ['data/equipment.js','js/equipment-icons.js','data/exercises.js','data/workouts.js','js/generator.js','js/timed-cues.js','js/completion-signal.js','data/sport-profiles.js','data/sport-capabilities.js','js/coach-model.js','js/coach-store.js','js/session-tracker.js','data/programmes.js','js/training-history.js','js/sport-coverage.js','js/coach-policies.js','js/coach-tennis-policy.js','js/coach-engine.js','js/coach-recovery.js','js/coach-ui.js','js/masthead.js']) {
+  for (const file of ['data/equipment.js','js/equipment-icons.js','data/exercises.js','data/workouts.js','js/generator.js','js/timed-cues.js','js/completion-signal.js','data/sport-profiles.js','data/sport-capabilities.js','js/coach-model.js','js/coach-store.js','js/session-tracker.js','data/programmes.js','js/training-history.js','js/sport-coverage.js','js/coach-policies.js','js/coach-tennis-policy.js','js/coach-engine.js','js/coach-recovery.js','js/coach-tennis-ui.js','js/coach-ui.js','js/masthead.js']) {
     vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), context, { filename:file });
   }
   const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].at(-1)[1];

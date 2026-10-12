@@ -54,7 +54,8 @@
     }
     function snapshot() { return {state: state && clone(state), results: clone(results.filter(item => state && item.programmeInstanceId === state.programmeInstanceId)),
       preview, errors: errors.slice(), blocked, interruptedDraft: draft && !tracker ? clone(draft) : null}; }
-    function assess(def, equipment) { return engine.assessProgrammeFeasibility(def, {equipment}); }
+    function assess(def, equipment, programmeSettings) { return engine.assessProgrammeFeasibility(def,
+      {equipment, ...(programmeSettings === undefined ? {} : {programmeSettings})}); }
     async function start(def, equipment, programmeSettings) {
       if (blocked) throw new Error('Resolve the saved programme error before starting another.');
       if (draft || state && state.status !== 'completed') throw new Error('Finish the current programme before starting another.');
@@ -84,7 +85,7 @@
       preview = {workout, plan, today: context, generatedAt: clock()};
       return preview;
     }
-    function alternatives(requirementId, context) { return engine.getAnchorAlternatives(definition(), state, context, requirementId); }
+    function alternatives(requirementId, context) { return engine.getAnchorAlternatives(definition(), state, today(context), requirementId); }
     function substitute(requirementId, exerciseId, context) {
       const input = context || preparationContext || preview && preview.today;
       if (!input) throw new Error('Prepare today’s session first.');
@@ -177,13 +178,15 @@
     const programmes = Object.values(root.GarageFitData.programmes).map(versions => versions[Math.max(...Object.keys(versions).map(Number))]);
     let def = programmes[0], activeResistance = null, sessionSetups = {};
     const el = id => document.getElementById(id);
-    let options = null, busy = false, sessionActive = false, endKind = null, endSeconds = null, lastSaved = '', initialisation = Promise.resolve();
+    let options = null, busy = false, sessionActive = false, endKind = null, endSeconds = null, lastSaved = '', initialisation = Promise.resolve(), adjustmentOpen = false;
     function button(text, action, primary = false) {
       const node = document.createElement('button'); node.type = 'button'; node.textContent = text;
       node.className = primary ? 'generator-primary' : 'ctrl-btn ctrl-secondary'; node.onclick = () => run(action); return node;
     }
     function paragraph(text) { const node = document.createElement('p'); node.textContent = text; return node; }
     function heading(text) { const node = document.createElement('h2'); node.textContent = text; return node; }
+    const tennisViews = root.GarageFitCoachTennisUI.createViews({button,paragraph,heading,catalogue});
+    const isTennis = () => def.type === 'tennis-conditioning';
     async function run(action) {
       if (busy) return; busy = true;
       ['coachError','coachPlayerError','coachPreviewError','coachResultError'].forEach(id => {el(id).textContent='';});
@@ -195,6 +198,8 @@
       const state = controller.snapshot().state;
       if (state) def = root.GarageFitData.programmes[state.programmeDefinitionId][state.programmeDefinitionVersion];
       options = {duration: def.sessionTemplate.duration, equipment: getEquipment().slice(), easyToday: false, bodyFocus: null};
+      if (def.contextPolicy) options.sessionContext = {readiness: {value:'normal',localDate:localDay(new Date().toISOString())}};
+      adjustmentOpen = false;
     }
     const patternNames = {squat: 'squat', hinge: 'hinge', lunge: 'lunge', push: 'push', pull: 'pull', core: 'core', carry: 'carry'};
     function conflictText(conflicts) {
@@ -212,6 +217,7 @@
       }))].join(' ');
     }
     function rationale(plan) {
+      if (isTennis()) return tennisViews.whyToday(plan);
       const adaptation = plan.rationale.priorities.adaptation;
       if (adaptation && adaptation.recommendation) return adaptation.recommendation;
       const event = plan.rationale.priorities.event;
@@ -229,19 +235,47 @@
         : patterns.length ? 'Prioritising '+patterns.slice(0,3).join(', ')+' from your recent performed work.' : 'Keep your anchors steady and maintain whole-body coverage.';
     }
     async function open() { showScreen('coach'); await initialisation; await run(async () => { await controller.load(); resetOptions(); render(); }); }
+    function renderToday(focusLabel) {
+      render();
+      // Replanning replaces the controls; keep keyboard focus on the same choice.
+      const controls=el('coachContent').querySelectorAll('button,select,input');
+      [...controls].find(node=>node.getAttribute('aria-label')===focusLabel || node.textContent===focusLabel)?.focus();
+    }
     function renderAdjust(wrap) {
       const details = document.createElement('details'), summary = document.createElement('summary'); summary.textContent = 'Adjust today'; details.className = 'generator-options'; details.append(summary);
+      details.open = adjustmentOpen; details.ontoggle = () => { adjustmentOpen = details.open; };
       const durations = document.createElement('div'); durations.className = 'choice-row';
-      def.supportedDurations.forEach(value => { const item = button(value+' min', () => { options.duration = value; renderAdjustValues(); }); item.setAttribute('aria-pressed', String(options.duration === value)); durations.append(item); });
+      const unavailable = [];
+      def.supportedDurations.forEach(value => {
+        const item = button(value+' min', () => { options.duration = value; if (isTennis()) { adjustmentOpen=true; renderToday(value+' min'); } else renderAdjustValues(); });
+        item.setAttribute('aria-pressed', String(options.duration === value));
+        if (isTennis()) {
+          const plan = controller.plan({...options,duration:value});
+          if (!plan.prescription && !plan.conflicts.some(conflict => conflict.code==='tennis-rest-recommended')) {
+            item.disabled = true; item.setAttribute('aria-label',value+' minutes unavailable with today’s options'); unavailable.push(value);
+          }
+        }
+        durations.append(item);
+      });
       details.append(heading('Available time'), durations);
+      if (unavailable.length) details.append(paragraph(unavailable.join('/')+' minutes cannot fit useful work with today’s options. Try a longer duration, restore equipment or use an approved substitute.'));
+      if (def.contextPolicy) {
+        const readiness = tennisViews.selectField('Readiness today (optional)',[['fresh','Fresh'],['normal','Normal'],['tired','Tired']],options.sessionContext?.readiness?.value || 'normal');
+        readiness.select.onchange = () => {
+          options.sessionContext = {...options.sessionContext,readiness:{value:readiness.select.value,localDate:localDay(new Date().toISOString())}};
+          adjustmentOpen=true; renderToday('Readiness today (optional)');
+        };
+        details.append(readiness.field,paragraph('Normal if unanswered. This check-in affects today’s session, not your persistent targets.'));
+      }
       const easy = document.createElement('label'), check = document.createElement('input'); check.type = 'checkbox'; check.checked = options.easyToday;
-      check.onchange = () => { options.easyToday = check.checked; }; easy.append(check, paragraph('Easy today · progression held')); details.append(easy);
+      check.setAttribute('aria-label','Easy today');
+      check.onchange = () => { options.easyToday = check.checked; if (isTennis()) { adjustmentOpen=true; renderToday('Easy today'); } }; easy.append(check, paragraph('Easy today · progression held')); details.append(easy);
       const select = document.createElement('select'); select.setAttribute('aria-label', 'Body emphasis');
       [['','Whole body'],['upper','Upper'],['lower','Lower'],['core','Core']].forEach(([value,label]) => { const option = document.createElement('option'); option.value=value; option.textContent=label; select.append(option); });
-      select.value=options.bodyFocus || ''; select.onchange=() => { options.bodyFocus=select.value || null; }; details.append(heading('Body emphasis'), select);
+      select.value=options.bodyFocus || ''; select.onchange=() => { options.bodyFocus=select.value || null; }; if (!isTennis()) details.append(heading('Body emphasis'), select);
       details.append(heading('Equipment available today'));
       const kit = document.createElement('div'); kit.className = 'equipment-list';
-      equipment.forEach(item => { const control = button(item.name, () => { options.equipment = options.equipment.includes(item.id) ? options.equipment.filter(id => id !== item.id) : [...options.equipment,item.id]; control.setAttribute('aria-pressed', String(options.equipment.includes(item.id))); }); control.setAttribute('aria-pressed',String(options.equipment.includes(item.id))); kit.append(control); });
+      equipment.forEach(item => { const control = button(item.name, () => { options.equipment = options.equipment.includes(item.id) ? options.equipment.filter(id => id !== item.id) : [...options.equipment,item.id]; control.setAttribute('aria-pressed', String(options.equipment.includes(item.id))); if (isTennis()) { adjustmentOpen=true; renderToday(item.name); } }); control.setAttribute('aria-pressed',String(options.equipment.includes(item.id))); kit.append(control); });
       details.append(kit,paragraph('Today’s selection leaves your usual equipment inventory unchanged.')); wrap.append(details);
       function renderAdjustValues() { [...durations.children].forEach((item,index) => item.setAttribute('aria-pressed',String(options.duration===def.supportedDurations[index]))); }
     }
@@ -256,13 +290,17 @@
       if (current.interruptedDraft) { wrap.append(heading('Interrupted session'),paragraph('Your recorded work is safe. Save it before starting another session.'),button('Save performed work',() => showEnd('exit',null),true)); return; }
       if (!state || state.status==='completed') {
         wrap.append(paragraph('A training goal, stable anchors and sessions adapted to the work you actually do.'));
-        programmes.forEach(programme => wrap.append(button(programme.name, () => { def=programme; overview(); }, true)));
+        wrap.append(heading('Strength & fitness'));
+        programmes.filter(programme => programme.type !== 'tennis-conditioning').forEach(programme => wrap.append(button(programme.name, () => { def=programme; overview(); }, true)));
+        wrap.append(heading('Cross-training'));
+        programmes.filter(programme => programme.type === 'tennis-conditioning').forEach(programme => wrap.append(button('Tennis', () => { def=programme; overview(); }, true)));
         if (state) wrap.append(paragraph('Previous programme finished · '+state.meaningfulSessionsCompleted+' meaningful sessions. Your history is saved.'));
         return;
       }
       def = root.GarageFitData.programmes[state.programmeDefinitionId][state.programmeDefinitionVersion];
       wrap.append(heading(def.name),paragraph(def.objective));
-      const review=controller.review(), blockDays=review.nominalProgress%def.nominalDurationDays, weeks=Math.ceil(def.nominalDurationDays/7);
+      if (isTennis()) { renderTennis(wrap,current); return; }
+      const review=def.openEnded?{due:false}:controller.review(), blockDays=def.openEnded?0:review.nominalProgress%def.nominalDurationDays, weeks=def.openEnded?0:Math.ceil(def.nominalDurationDays/7);
       const tennisFrequency=def.type==='tennis-conditioning' && state.currentTargets.programmeSettings.weeklyCoachFrequency;
       const frequency=state.mode==='maintenance'?def.maintenancePolicy.frequency:def.recommendedFrequency;
       wrap.append(paragraph((def.openEnded?'Open-ended objective':review.due?'Four-week block complete':'Week '+Math.min(weeks,Math.floor(blockDays/7)+1)+' of '+weeks)+' · '+state.meaningfulSessionsCompleted+' meaningful sessions'),
@@ -298,6 +336,42 @@
       progress.append(button(state.status==='paused'?'Resume':'Pause',() => manage(state.status==='paused'?'resume':'pause')));
       if (def.supportsMaintenanceMode !== false) progress.append(button(state.mode==='maintenance'?'Return to development':'Move to maintenance',() => manage(state.mode==='maintenance'?'development':'maintenance')));
       progress.append(button('Finish programme',() => manage('finish'))); wrap.append(progress);
+    }
+    function renderTennis(wrap, current) {
+      const state=current.state, config=state.currentTargets.programmeSettings, now=new Date().toISOString();
+      if (options.sessionContext?.readiness && options.sessionContext.readiness.localDate!==localDay(now))
+        options.sessionContext.readiness={value:'normal',localDate:localDay(now)};
+      const plan=state.status==='active'?controller.plan(options):null;
+      wrap.append(paragraph(config.weeklyCoachFrequency+' Coach sessions per week · '+state.meaningfulSessionsCompleted+' meaningful performed sessions'));
+      if (state.status==='paused') wrap.append(paragraph('Paused · anchors and history preserved.'),button('Resume',() => manage('resume'),true));
+      else {
+        const card=document.createElement('section'); card.className='coach-card';
+        const role=plan.prescription?.programmeContext.roleLabel || plan.rationale.priorities.role?.label;
+        const rest=plan.conflicts.some(item=>item.code==='tennis-rest-recommended');
+        const expired=plan.rationale.priorities.event?.phase==='expired';
+        card.append(heading(expired ? 'Event date has passed' : plan.prescription ? role+' · '+plan.prescription.duration+' min' : rest ? 'Rest today' : 'Adjust today’s options'),
+          paragraph('Why today · '+rationale(plan)));
+        if (plan.prescription) card.append(button('Start session',prepare,true));
+        else if (expired) card.append(button('Continue ongoing training',async()=>{
+          await controller.saveProgrammeSettings({intent:'ongoing',significantEventDate:null,significantEventLabel:null});render();
+        },true));
+        else if (rest) card.append(paragraph('No workout is required. Your anchors, targets and history are retained; check in again when ready.'));
+        else {
+          card.append(paragraph(conflictText(plan.conflicts)),paragraph('Try more time, restore equipment or choose a compatible anchor substitute. Rest is also an option; no work is owed.'));
+          state.anchors.forEach(anchor=>card.append(button('Substitute '+catalogue[anchor.exerciseId].name,()=>showSubstitutes(anchor.requirementId,options))));
+        }
+        wrap.append(card); renderAdjust(wrap);
+        if (def.sportReviewPolicy) renderSportReview(wrap,controller.sportReview());
+      }
+      const progress=tennisViews.progress(wrap,{definition:def,state,results:current.results,now,localDate:localDay(now),plan,equipment:options.equipment});
+      if (config.intent==='event' && config.significantEventDate<localDay(now)) progress.open=true;
+      const settings=document.createElement('details'), summary=document.createElement('summary'); summary.textContent='Tennis settings';
+      const form=tennisViews.settingsForm(config);
+      settings.append(summary,form.wrap,paragraph('Settings keep the same programme, four anchors, progression and history. Save your current session before editing.'),
+        button('Save tennis settings',async()=>{await controller.saveProgrammeSettings(form.read());render();})); progress.append(settings);
+      if (def.eventPolicy) renderEventSettings(progress,state);
+      progress.append(button(state.status==='paused'?'Resume':'Pause',()=>manage(state.status==='paused'?'resume':'pause')),
+        button('Finish programme',()=>manage('finish')));
     }
     function renderEventSettings(wrap, state) {
       const config=state.currentTargets.programmeSettings, details=document.createElement('details'), summary=document.createElement('summary');
@@ -340,6 +414,7 @@
       wrap.append(details);
     }
     function overview() {
+      if (isTennis()) { tennisOverview(); return; }
       const assessment=controller.assess(def,getEquipment()), wrap=el('coachContent'); wrap.innerHTML='';
       const anchor=def.anchorSelectionPolicy.requirements[0];
       wrap.append(heading(def.name),paragraph(def.type==='tennis-conditioning' ? def.objective+'. Balanced by default, with 2 Coach sessions per week; 1–3 sessions are supported. Pause or finish whenever you choose.' : def.openEnded ? def.objective+'. An open-ended objective: aim for '+def.recommendedFrequency.aimSessionsPerWeek+' sessions per week; two is acceptable. Pause or finish whenever you choose.' : def.objective+' over a nominal four-week block. Aim for '+def.completionCriteria.blockMeaningfulSessionTarget+' meaningful sessions, at '+def.recommendedFrequency.minSessionsPerWeek+'–'+def.recommendedFrequency.maxSessionsPerWeek+' per week.'),
@@ -347,8 +422,33 @@
         paragraph(assessment.status==='infeasible'?'Blocked · '+conflictText(assessment.conflicts):assessment.status==='partially-feasible'?'Partially feasible · required anchors fit; supporting choices may be adjusted.':'Feasible · your equipment supports this programme.'),
         button('Set up usual equipment',() => root.openEquipment('coach')));
       if (def.doseTargets.directElbowActions) wrap.append(paragraph('Build from 3 × 8 to 3 × 12, then confirm more resistance. Aim for 9 performed curl and 9 extension set exposures in each rolling 7 days, plus squat, hinge, lunge, compound push/pull, core and carry maintenance. Short sessions keep the direct anchors first.'));
-      if (assessment.status!=='infeasible') wrap.append(button('Start programme',async () => { await controller.start(def,getEquipment()); resetOptions(); render(); },true));
+      if (assessment.status!=='infeasible') wrap.append(button('Start programme',async () => {
+        const started=await controller.start(def,getEquipment());
+        if (!started.state) { wrap.append(paragraph(conflictText(started.assessment.conflicts))); return; }
+        resetOptions(); render();
+      },true));
       wrap.append(button('Back',render));
+    }
+    function tennisOverview() {
+      const wrap=el('coachContent'); wrap.innerHTML='';
+      const defaults=Model().createProgrammeSettings(def.defaultProgrammeSettings);
+      const form=tennisViews.settingsForm(defaults,{includeEvent:!!def.eventPolicy,localDate:localDay(new Date().toISOString())});
+      wrap.append(heading(def.name),paragraph('Usually 20–30 minutes. Four stable knee, hinge, push and pull anchors build from 2 × 6 to 2 × 10 reps, about 2 reps in reserve. Each session selects only the targets that fit your time.'),form.wrap);
+      const assessment=controller.assess(def,getEquipment(),defaults), feasibility=paragraph('');
+      const showAssessment=value=>{feasibility.textContent=value.status==='infeasible'?'Equipment needs attention · '+conflictText(value.conflicts)
+        : 'Your equipment supports all four anchor roles. Short-session feasibility is checked for each session.';};
+      showAssessment(assessment); wrap.append(feasibility,button('Set up usual equipment',()=>root.openEquipment('coach')));
+      if (assessment.status!=='infeasible') wrap.append(button('Start programme',async()=>{
+        const config=Model().updateProgrammeSettings(defaults,form.read()), checked=controller.assess(def,getEquipment(),config);
+        showAssessment(checked); if (checked.status==='infeasible') return;
+        const started=await controller.start(def,getEquipment(),config);
+        if (!started.state) {
+          feasibility.textContent=conflictText(started.assessment.conflicts)+' Your choices have been kept here; choose ongoing development or adjust the event date if today’s work cannot fit.';
+          return;
+        }
+        lastSaved=''; resetOptions(); render();
+      },true));
+      wrap.append(paragraph('History is local to this browser and device. Only actual performed work earns progress.'),button('Back',render));
     }
     function prepare() {
       const preview=controller.prepare(options);
@@ -369,6 +469,7 @@
         if (phase && phase.exercises.length) wrap.append(heading(label+' · '+Math.round(phase.estimatedSeconds/60)+' min'),paragraph(phase.exercises.map(exercise=>exercise.name).join(' · ')));
       }
       preparation('Warm-up',workout.warmup); preparation('Ramp-up',workout.rampup);
+      if (isTennis()) wrap.append(heading('Main · selected work today'));
       workout.main.blocks.forEach((block,index) => {
         wrap.append(heading('Block '+(index+1)));
         block.exercises.forEach((exercise,exerciseIndex) => {
@@ -389,6 +490,12 @@
       const unavailable=preview.plan.prescription.programmeContext.maintenanceUnavailable || [];
       if (unavailable.length) wrap.append(paragraph('Today’s equipment cannot provide '+unavailable.join(', ')+' maintenance. Add suitable equipment when available; there is no catch-up debt.'));
       (preview.plan.prescription.programmeContext.warnings || []).forEach(warning => wrap.append(paragraph(warning.message)));
+      if (isTennis()) {
+        const selected=new Set(preview.plan.prescription.requiredAnchors.map(anchor=>anchor.requirementId));
+        const deferred=controller.snapshot().state.anchors.filter(anchor=>!selected.has(anchor.requirementId));
+        if (deferred.length) wrap.append(paragraph('Not scheduled today · '+deferred.map(anchor=>catalogue[anchor.exerciseId].name).join(', ')+'. Their targets are retained; this is not failed or skipped work.'));
+        tennisViews.coverage(wrap,preview.plan.rationale.priorities.coverage);
+      }
       wrap.append(button('Begin workout',async () => { const tracker=await controller.begin(); sessionSetups={}; sessionActive=true; await play(workout,tracker); },true),button('Back to Coach',() => { showScreen('coach'); render(); })); showScreen('coachPreview');
     }
     function showSubstitutes(requirementId, context) {
@@ -461,7 +568,9 @@
     }
     async function saveFeedback(value) {
       await run(async () => { const result=await controller.finish(endKind,{difficulty:value},endSeconds); sessionActive=false;
-        lastSaved=result.finalStatus==='abandoned'?'Session saved · no meaningful main work recorded.':'Session saved · '+result.finalStatus+' · '+result.anchorResults.filter(item=>item.status!=='skipped').length+' anchors recorded';
+        const stableIds=new Set(controller.snapshot().state.anchors.map(anchor=>anchor.requirementId));
+        const recorded=result.anchorResults.filter(item=>item.status!=='skipped' && (!isTennis() || stableIds.has(item.requirementId))).length;
+        lastSaved=result.finalStatus==='abandoned'?'Session saved · no meaningful main work recorded.':'Session saved · '+result.finalStatus+' · '+recorded+' anchors recorded';
         resetOptions(); showScreen('coach'); render(); });
     }
     return {open, overview, controller, renderAnchor, record, showEnd, saveFeedback, updateActualSummary,
