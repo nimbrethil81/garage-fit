@@ -159,7 +159,9 @@
     schemaVersion: exactly(PROGRAMME_SETTINGS_VERSION), sportId: knownSport,
     focus: text, weeklyCoachFrequency: positiveInteger,
     usualPlayingDays: arrayOf(text), typicalSportIntensity: text,
-    intent: text, significantEventDate: nullable(localDate)
+    intent: text, significantEventDate: nullable(localDate),
+    significantEventLabel: nullable(required(value => typeof value === 'string' && value === value.trim()
+      && value.length > 0 && value.length <= 60, 'a trimmed event label of 1–60 characters'))
   }, (value, path, errors) => {
     const permitted = sportProfile(value.sportId).configuration;
     for (const [field, options] of [['focus',permitted.focuses], ['weeklyCoachFrequency',permitted.weeklyCoachFrequencies],
@@ -169,6 +171,8 @@
     value.usualPlayingDays.forEach((day, index) => oneOf(permitted.playingDays)(day, path+'.usualPlayingDays['+index+']', errors));
     if (new Set(value.usualPlayingDays).size !== value.usualPlayingDays.length) fail(errors, path+'.usualPlayingDays', 'must be unique');
     if (value.intent !== 'event' && !isMissing(value.significantEventDate)) fail(errors, path+'.significantEventDate', 'requires event intent');
+    if (!isMissing(value.significantEventLabel) && (value.intent !== 'event' || isMissing(value.significantEventDate)))
+      fail(errors, path+'.significantEventLabel', 'requires an explicitly selected dated event');
   });
   // Optional, transient context. A dated check-in expires at the local day boundary.
   // Explicit sport reports are bounded context, never performed Coach work.

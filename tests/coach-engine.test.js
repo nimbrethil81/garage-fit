@@ -32,9 +32,16 @@ test('strategy registry dispatches all programme decisions for a future programm
   const calls = [], policy = {};
   for (const name of [...Policies.requiredHooks, ...Policies.optionalHooks]) policy[name] = args => {
     calls.push(name);
-    if (name === 'validateProgrammeSettings') {
+    if (name === 'validateProgrammeSettings' || name === 'validateSettingsChange') {
       assert.equal(args.settings.sportId, 'tennis');
       assert.ok(Object.isFrozen(args.settings));
+      if (name === 'validateSettingsChange') {
+        assert.equal(args.previous.focus,'balanced');
+        assert.equal(args.settings.focus,'power');
+        assert.equal(args.context.now,NOW);
+        assert.ok(Object.isFrozen(args.previous));
+        assert.ok(Object.isFrozen(args.context));
+      }
       return;
     }
     const result = Policies.generalStrengthPolicy[name](args);
@@ -46,6 +53,8 @@ test('strategy registry dispatches all programme decisions for a future programm
   const state = custom.startProgramme(def, {...context(), programmeSettings: {sportId: 'tennis'}}, NOW).state;
   assert.equal(custom.planNextSession(def, state, [], today()).prescription.sessionRole, 'future-sport-session');
   custom.applySessionResult(def, state, performance(), []);
+  const changed=custom.updateProgrammeSettings(def,state,{focus:'power'},{now:NOW});
+  assert.deepEqual(changed.anchors,state.anchors);
   assert.deepEqual(new Set(calls), new Set([...Policies.requiredHooks, ...Policies.optionalHooks]));
   assert.throws(() => registry.register('future-sport', policy), /registered once/);
   assert.throws(() => Policies.createRegistry({incomplete: {}}), /must implement/);

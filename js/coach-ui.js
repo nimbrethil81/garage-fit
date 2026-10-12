@@ -58,8 +58,10 @@
     async function start(def, equipment, programmeSettings) {
       if (blocked) throw new Error('Resolve the saved programme error before starting another.');
       if (draft || state && state.status !== 'completed') throw new Error('Finish the current programme before starting another.');
+      const now = clock();
       const started = engine.startProgramme(def, {equipment, programmeInstanceId: id('programme'),
-        ...(programmeSettings === undefined ? {} : {programmeSettings})}, clock());
+        ...(def.contextPolicy ? {localDate: localDay(now)} : {}),
+        ...(programmeSettings === undefined ? {} : {programmeSettings})}, now);
       if (!started.state) return started;
       await store.saveProgrammeState(started.state);
       await store.saveActiveProgramme(Model().createActiveProgramme(Model().programmeDefinitionRef(started.state)));
@@ -156,7 +158,10 @@
       await recentHistory();
       return clone(next);
     }
-    const saveProgrammeSettings = patch => saveProgrammeChange((def,previous) => engine.updateProgrammeSettings(def,previous,patch));
+    const saveProgrammeSettings = patch => saveProgrammeChange((def,previous) => {
+      const now = clock();
+      return engine.updateProgrammeSettings(def,previous,patch,{now,localDate:localDay(now)});
+    });
     const saveSportReview = response => saveProgrammeChange((def,previous) => engine.recordSportReview(def,previous,response,clock()));
     return {load, snapshot, assess, start, plan, prepare, alternatives, substitute, begin, finish, manage, saveProgrammeSettings,
       saveSportReview, sportReview: () => engine.sportReview(definition(),state,clock()),
@@ -209,6 +214,9 @@
     function rationale(plan) {
       const adaptation = plan.rationale.priorities.adaptation;
       if (adaptation && adaptation.recommendation) return adaptation.recommendation;
+      const event = plan.rationale.priorities.event;
+      if (event) return event.rationale+' '+event.evidenceNote
+        +(adaptation ? ' '+adaptation.reasons.filter(reason => reason !== event.rationale).join(' · ') : '');
       const phase = plan.rationale.priorities.phase;
       if (phase) return phase.rationale+' '+phase.evidenceNote
         +(adaptation && adaptation.reasons.length ? ' '+adaptation.reasons.join(' · ')+'.' : '');
@@ -272,6 +280,7 @@
         });
         wrap.append(paragraph('Compound pushing and pulling support whole-body maintenance and are tracked separately from direct arm work.'));
       }
+      if (def.eventPolicy) renderEventSettings(wrap,state);
       if (state.status==='paused') { wrap.append(paragraph('Paused · anchors and history preserved.'),button('Resume',() => manage('resume'),true)); }
       else if (review.due) {
         wrap.append(heading('Four-week review'),paragraph(review.meaningfulSessions+' meaningful sessions in this block'+(review.targetMet?' · Block target met':'')),
@@ -289,6 +298,26 @@
       progress.append(button(state.status==='paused'?'Resume':'Pause',() => manage(state.status==='paused'?'resume':'pause')));
       if (def.supportsMaintenanceMode !== false) progress.append(button(state.mode==='maintenance'?'Return to development':'Move to maintenance',() => manage(state.mode==='maintenance'?'development':'maintenance')));
       progress.append(button('Finish programme',() => manage('finish'))); wrap.append(progress);
+    }
+    function renderEventSettings(wrap, state) {
+      const config=state.currentTargets.programmeSettings, details=document.createElement('details'), summary=document.createElement('summary');
+      const now=new Date().toISOString(), localDate=localDay(now), expired=config.intent==='event' && config.significantEventDate<localDate;
+      summary.textContent='Training intent and event'; details.append(summary,
+        paragraph(config.intent==='event' ? 'Preparing for '+(config.significantEventLabel || 'your event')+' · '+config.significantEventDate : 'Ongoing development'),
+        paragraph('Choose an important dated event explicitly. Usual tennis playing days remain routine commitments. Event preparation keeps the same anchors, programme and history.'));
+      if (expired) { details.open=true; details.append(paragraph('Your event date has passed. Return to ongoing development or choose a new date; no missed work needs repaying.')); }
+      const date=document.createElement('input'); date.type='date'; date.min=localDate;
+      date.value=config.significantEventDate || ''; date.setAttribute('aria-label','Important event date');
+      const label=document.createElement('input'); label.type='text'; label.maxLength=60;
+      label.value=config.significantEventLabel || ''; label.setAttribute('aria-label','Event label (optional)');
+      details.append(paragraph('Event date'),date,paragraph('Short label (optional)'),label,
+        button(config.intent==='event'?'Save event changes':'Prepare for event',async()=>{
+          await controller.saveProgrammeSettings({intent:'event',significantEventDate:date.value,significantEventLabel:label.value.trim() || null});render();
+        }));
+      if (config.intent==='event') details.append(button(expired?'Return to ongoing development':'Cancel event preparation',async()=>{
+        await controller.saveProgrammeSettings({intent:'ongoing',significantEventDate:null,significantEventLabel:null});render();
+      }));
+      wrap.append(details);
     }
     function renderSportReview(wrap, review) {
       if (review.latestFeedback) wrap.append(paragraph('Last sport check-in · '+new Date(review.latestFeedback.timestamp).toLocaleDateString()
