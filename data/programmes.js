@@ -64,7 +64,52 @@
     completionCriteria: {minimumMeaningfulSessions: null, requireNominalDuration: false, explicitFinish: true},
     supportsMaintenanceMode: false
   };
+  // Tennis keeps programme anchors separate from the hard subset of today's work.
+  const tennisAnchor = (roleId, pattern, exerciseIds, patterns = [pattern]) => ({
+    ...anchor(pattern, exerciseIds), requirementId: 'tennis-anchor-'+roleId, roleId, patterns,
+    progressionIntent: 'Confirm both sets; leave about 2 reps in reserve'
+  });
+  const tennisRole = (id, label, capabilities, anchorLimits) => ({id, label, capabilities, anchorLimits});
+  const tennis = {
+    schemaVersion: 1, id: 'tennis-conditioning', version: 1, type: 'tennis-conditioning',
+    name: 'Tennis Conditioning', objective: 'Build balanced conditioning for tennis', openEnded: true,
+    supportedDurations: [10,15,20,30,45],
+    recommendedFrequency: {minSessionsPerWeek: 1, maxSessionsPerWeek: 3, aimSessionsPerWeek: 2},
+    defaultProgrammeSettings: {sportId: 'tennis', weeklyCoachFrequency: 2, focus: 'balanced'},
+    sportPolicy: {sportId: 'tennis', version: 1},
+    preparationTimingReserveSeconds: 30,
+    coverageTargets: {windowDays: 14, patterns: {lunge: 1, squat: 1, hinge: 1, push: 1, pull: 1, core: 1}},
+    doseTargets: {meaningfulRule: 'any-performed-main-work', sections: ['main']},
+    anchorSelectionPolicy: {strengthOnly: true, requirements: [
+      tennisAnchor('knee','lunge',['dumbbell-reverse-lunge','trx-split-squat','reverse-lunge','goblet-squat','kettlebell-goblet-squat','air-squat'],['lunge','squat']),
+      tennisAnchor('hinge','hinge',['dumbbell-romanian-deadlift','kettlebell-deadlift','trx-single-leg-deadlift','band-romanian-deadlift','barbell-romanian-deadlift','glute-bridge']),
+      tennisAnchor('push','push',['dumbbell-floor-press','kettlebell-floor-press','trx-chest-press','band-chest-press','push-up']),
+      tennisAnchor('pull','pull',['dumbbell-bent-over-row','trx-row','band-row','pull-up','chin-up'])
+    ]},
+    progressionPolicy: {strategy: 'double-progression', minReps: 6, maxReps: 10, repIncrement: 1,
+      allowConfirmedSetup: true, numericLoadEquipment: ['dumbbells','kettlebell','barbell'],
+      numericResistanceIntent: 'Use the next heavier available load', setupResistanceIntent: 'Ready for more resistance',
+      minimumRepsImprovement: null, minimumLoadImprovement: null, minimumSecondsImprovement: null},
+    // All anchor sessions retain the same rounds/rest conditions for comparison.
+    sessionTemplate: {duration: 30, workoutStyle: 'strength', difficulty: 'normal', bodyFocus: 'full-body', variationPreference: 'varied'},
+    sequencingRules: {minimumRecoveryHours: 0, repsInReserve: 2},
+    sessionRoles: {
+      1: [tennisRole('full-body','Full-body', ['lower-body','upper-body','lateral-movement','trunk','power','endurance'],[1,2,3,4,4])],
+      2: [tennisRole('strength-stability','Strength and stability',['lower-body','upper-body','trunk','lateral-movement'],[1,2,3,4,4]),
+        tennisRole('movement-conditioning','Movement and athletic conditioning',['lateral-movement','trunk','endurance','power','upper-body'],[1,1,1,2,2])],
+      3: [tennisRole('strength','Strength',['lower-body','upper-body','trunk'],[1,2,3,4,4]),
+        tennisRole('movement-power','Movement and power',['lateral-movement','power','trunk','lower-body'],[1,1,1,1,2]),
+        tennisRole('conditioning-resilience','Conditioning and resilience',['endurance','trunk','upper-body','lateral-movement'],[0,0,0,0,0])]
+    },
+    shortSessionPolicy: {preservePreparation: true, preserveRest: true, tiers: []},
+    maintenancePolicy: {frequency: {minSessionsPerWeek: 1, maxSessionsPerWeek: 3}, coverageMultiplier: 1,
+      keepAccessories: true, allowProgression: false, anchorTargetOverrides: {}},
+    missedSessionPolicy: {strategy: 'recompute-no-debt'},
+    feasibilityRequirements: {minimumDurationMinutes: 10, requiredPatterns: []},
+    completionCriteria: {minimumMeaningfulSessions: null, requireNominalDuration: false, explicitFinish: true},
+    supportsMaintenanceMode: false
+  };
   function freeze(value) { Object.values(value).forEach(item => { if (item && typeof item === 'object') freeze(item); }); return Object.freeze(value); }
   root.GarageFitData = root.GarageFitData || {};
-  root.GarageFitData.programmes = freeze({'general-strength-4w': {1: strength}, 'build-arms': {1: arms}});
+  root.GarageFitData.programmes = freeze({'general-strength-4w': {1: strength}, 'build-arms': {1: arms}, 'tennis-conditioning': {1: tennis}});
 })(typeof window !== 'undefined' ? window : globalThis);

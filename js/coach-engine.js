@@ -39,7 +39,8 @@
     }
     function assessProgrammeFeasibility(definition, context = {}) {
       const policy = policyFor(definition), def = snapshot(definition), input = snapshot(context);
-      const assessment = clone(policy.assessFeasibility({definition: def, catalogue: exercises, context: input}));
+      const assessment = clone(policy.assessFeasibility({definition: def, catalogue: exercises, context: input,
+        assessSessionPrescription: assessSessionPrescription ? preflight : undefined}));
       if (assessment.status !== 'infeasible' && assessment.prescription) {
         Model.assertValid('session-prescription', assessment.prescription);
         const generatorAssessment = preflight(assessment.prescription);
@@ -58,7 +59,8 @@
     }
     function startProgramme(definition, context, now) {
       const policy = policyFor(definition), def = snapshot(definition);
-      const settings = Object.prototype.hasOwnProperty.call(context, 'programmeSettings') ? Model.createProgrammeSettings(context.programmeSettings) : null;
+      const settingsInput = Object.prototype.hasOwnProperty.call(context, 'programmeSettings') ? context.programmeSettings : def.defaultProgrammeSettings;
+      const settings = settingsInput === undefined ? null : Model.createProgrammeSettings(settingsInput);
       if (Object.prototype.hasOwnProperty.call(context, 'sessionContext')) Model.assertSessionContext(context.sessionContext);
       if (settings && policy.validateProgrammeSettings) policy.validateProgrammeSettings({definition: def, settings: snapshot(settings)});
       const input = snapshot(context);
@@ -101,7 +103,8 @@
       }
       const projected = snapshot(sessionState);
       const history = History.createHistory(trainingHistory, exercises);
-      const base = {definition: def, catalogue: exercises, state: projected, history, today};
+      const base = {definition: def, catalogue: exercises, state: projected, history, today,
+        assessSessionPrescription: assessSessionPrescription ? preflight : undefined};
       const mode = policy.getModeSettings ? snapshot(policy.getModeSettings(base)) : snapshot({});
       const missedSessionResponse = policy.respondToMissedSessions ? policy.respondToMissedSessions({...base, mode}) : null;
       const priorities = snapshot(policy.calculatePriorities({...base, mode, missedSessionResponse}));

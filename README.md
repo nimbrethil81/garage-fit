@@ -22,6 +22,7 @@ Live: https://nimbrethil81.github.io/garage-fit/
 - `js/coach-model.js`, `js/coach-store.js` — versioned Coach records and their local persistence
 - `js/session-tracker.js` — records what actually happened during a tracked generated workout
 - `js/coach-engine.js`, `js/coach-policies.js`, `js/training-history.js` — pure programme decisions, policy strategies and performed-training evidence
+- `js/coach-tennis-policy.js` — Tennis anchors, performed session roles and duration-specific prescriptions
 - `js/coach-recovery.js` — result/state/draft transaction and startup reconciliation
 - `js/coach-ui.js` — Coach screens and recoverable engine/store/generator/tracker orchestration
 - `tests/` — generator and UI regression tests
@@ -72,6 +73,10 @@ prescription's duration/style/difficulty/body-focus/equipment defaults, so the
 current equipment selection always controls eligibility. Prescribed durations
 use the supported 10/15/20/30/45 minute budgets.
 
+Optional hard `mainTimeLimitSeconds` and `maximumDurationSeconds` reserve Main
+time and cap the total generated duration, including preparation and rest.
+Omitted limits preserve existing composition. Generation and swaps enforce them.
+
 Required work reserves Main time before generic selection. Sets count full
 left/right passes; exposures count executable side occurrences. Three per-side
 sets therefore mean six exposures. Supplying both counts requires agreement.
@@ -117,6 +122,17 @@ an explicitly confirmed resistance increase. Separate rolling seven-day targets
 are nine performed direct set exposures each; compound work provides separate
 whole-body maintenance context. Bands/TRX log a confirmed resistance setup through
 the same anchor UI. See [the Build Arms pilot](docs/BUILD_ARMS_PILOT.md).
+
+**Tennis Conditioning** keeps four stable knee, hinge, push and pull anchors,
+2×6–10 double progression with confirmed comparable actuals. Each session selects
+only the anchors and supporting targets that fit 10/15/20/30/45 minutes, preserving
+preparation and rest. Balanced and two weekly Coach sessions are the defaults;
+the instance-settings API supports one, two or three weekly sessions. Session roles,
+omission rotation and supporting choices follow performed work and rolling 14-day
+capability coverage, with explicit equipment/time limitations and no catch-up debt.
+The third role at three sessions is conditioning/resilience without required strength
+anchors. Sport/event/readiness setup screens remain follow-up work; the existing Coach
+entry/player can run the default programme. See the [Coach contract](docs/COACH_ENGINE.md).
 
 Coach history is local to this browser/device. Clearing browser or site data can
 remove it; replacing a device does not automatically migrate it. Cloud durability

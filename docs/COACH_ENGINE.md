@@ -1,7 +1,9 @@
 # Coach engine and policy contract
 
 Load `data/sport-profiles.js`, `coach-model.js`, `training-history.js`, `coach-policies.js`, then
-`coach-engine.js`. These scripts use the repository's `GarageFit*` globals and run
+`coach-engine.js`. For Tennis also load `data/sport-capabilities.js`, `sport-coverage.js`
+and `coach-tennis-policy.js` (after `coach-policies.js`, before creating the engine).
+These scripts use the repository's `GarageFit*` globals and run
 in Node without browser, storage, player, clock or third-party dependencies.
 They are dormant until a caller explicitly creates an engine.
 
@@ -106,7 +108,7 @@ maintenance hold it as well. Whole-session feedback cannot award progression.
 `doseTargets.meaningfulRule: 'any-performed-main-work'` counts a session only when
 catalogue-resolved Main work has positive performed exposure; preparation alone is
 abandoned on early exit. The rolling pattern floors are priority targets, not quotas.
-Start feasibility preflights the selected anchors at every supported duration.
+General Strength start feasibility preflights the selected anchors at every supported duration.
 
 The optional `anchorAlternatives` policy hook validates candidates for a programme
 role. `engine.getAnchorAlternatives(definition, state, context, requirementId)` exposes
@@ -137,8 +139,8 @@ In-progress drafts offer an explicit Save performed work action after reload.
 `createRegistry({type: policy})` returns a registry with `register`, `get`, and
 `types`. Duplicate types and incomplete strategies are rejected.
 `createDefaultRegistry()` registers the parameterised `general-strength` and
-`build-arms` strategies. Another programme (including a future Tennis strategy) registers its
-own type and hooks without changing the engine.
+`build-arms` strategies, plus `tennis-conditioning` when its module is loaded.
+Other programmes register their own type and hooks.
 
 Required hooks are `validateDefinition`, `assessFeasibility`, `initialiseState`,
 `calculatePriorities`, `buildPrescription`, and `interpretDose`. Optional hooks
@@ -158,6 +160,56 @@ protected. Dose interpretation returns `{meaningful, exposure: {value, confidenc
 patterns, bodyRegions}` based solely on performed evidence. Progression returns
 updated anchors. Completion returns a boolean. `assessPlannedSession` returns
 `{conflicts}`. The engine validates outgoing records through Coach Model.
+
+Feasibility and planning hooks also receive `assessSessionPrescription(prescription)`
+when the engine's Generator adapter is supplied. This pure callback consumes no
+randomness. Existing strategies retain their preflight path. A strategy owning start
+shapes can return `prescription: null` and explicit per-duration assessments rather
+than ask the engine to repeat one prescription at every duration.
+
+## Tennis Conditioning
+
+The immutable `tennis-conditioning` v1 definition registers a separate pure policy.
+It selects four eligible canonical anchor identities at start (knee, hinge, upper push,
+upper pull); the knee prefers unilateral lunges with explicit squat alternatives.
+Bodyweight alone fails with an actionable missing-pull conflict. Definition-bound
+default settings initialise Tennis/Balanced/two sessions; existing definitions have no
+defaults and keep their saved settings semantics.
+
+Start checks all four roles and reports `durationAssessments[].roles` with their actual
+prescriptions/conflicts. A role that cannot fit a short budget does not make every
+supported duration fail. Planning uses the same pure Generator preflight to choose
+the hard subset before issuing a prescription, holding each selected strength anchor
+at two complete rounds sets (both sides where applicable). `mainTimeLimitSeconds`
+reserves 30 seconds for whole-step preparation timing, and `maximumDurationSeconds`
+caps the complete workout. These opt-in limits also apply to swaps; General Strength,
+Build Arms and no-prescription generation omit them and retain their existing output.
+
+One weekly session emphasises full body; two balance strength/stability with
+movement/conditioning; three distribute strength, movement/power and
+conditioning/resilience. The last role has no required progression anchors and avoids
+optional primary strength work. Roles balance earned sessions over 14 days: a role
+label in a result's overrides needs a full two-set anchor contribution or a completed
+mapped supporting target. Preview, skipped/abandoned results, unknown partials and
+tiny partial loops cannot advance the rotation. Partial sessions can earn their actual
+useful contribution. Where a role has no attainable target, another feasible role
+provides work with an explicit warning; no role quota or catch-up queue is created.
+
+Anchor selection for today favours the least performed full-pass exposure, so repeated
+short sessions rotate unavoidable omissions. Deferred targets/baselines remain intact.
+Core capability gaps retain Balanced priority under focus preferences; supporting
+exercises rotate by actual identity/recency. Availability, missing facets and time
+shortages are separate warnings, not invented coverage. Coverage uses the pinned sport
+mapping and actual Main observations; no sport calendar or feedback earns exercise dose.
+Supporting targets can be required for execution without becoming stable progression
+anchors. The existing player logs them through normal Done/timed evidence.
+
+The policy reuses exact exercise/protocol/side/actual-load double progression (6–10,
+about two reps in reserve). Explicitly confirmed nonnumeric setups use the shared
+band/TRX contract. Temporary substitutes use eligible candidates for the same role,
+retain the programme anchor, and start a separate series with no inherited load.
+Sport/event/readiness setup and scheduling refinements remain subsequent issues;
+the existing controller's settings API supports frequency/focus now.
 
 ## History and confidence
 
@@ -298,8 +350,8 @@ the plan. General Strength retains its existing numeric-load progression rules.
 
 `data/sport-profiles.js` defines immutable sport identities, capabilities, permitted
 configuration and defaults. Tennis profile v2 names the six conditioning capabilities
-and references immutable `tennis-conditioning` mapping v1. A Tennis programme
-and scheduling policy remain deferred. The two released programmes retain settings as
+and references immutable `tennis-conditioning` mapping v1. Tennis Conditioning v1
+uses these capabilities for session priorities. General Strength and Build Arms retain settings as
 context without changing their training policies or exposing sport setup in the UI.
 
 `currentTargets.programmeSettings` is an optional, reserved Programme State
