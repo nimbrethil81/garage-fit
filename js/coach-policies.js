@@ -71,13 +71,15 @@
     requirements.forEach(requirement => {
       if (ids.has(requirement.requirementId)) throw new Error('Duplicate anchor requirement.');
       ids.add(requirement.requirementId);
+      const hasExerciseIds = Array.isArray(requirement.exerciseIds) && requirement.exerciseIds.length;
+      const direct = ['flexion','extension'].includes(requirement.directElbowAction);
       if (!Model.MOVEMENT_PATTERNS.includes(requirement.pattern) || !['primary','accessory'].includes(requirement.role)
-        || !Array.isArray(requirement.exerciseIds) || !requirement.exerciseIds.length) throw new Error('Anchor selection needs a pattern, role and ordered exercise IDs.');
+        || !hasExerciseIds && !direct) throw new Error('Anchor selection needs a pattern, role and exercise IDs or intrinsic direct-action selector.');
       positive(requirement.targetSets || requirement.targetExposures, 'anchor dose');
       if (!requirement.target || !requirement.prescriptionMode || !Array.isArray(requirement.allowedProtocols) || !requirement.allowedProtocols.length) throw new Error('Anchor targets, mode and protocols must be explicit.');
       // The Generator seam remains the authority on the bounded anchor shape.
       Model.createSessionPrescription({prescriptionId: 'definition-check', programmeInstanceId: 'definition-check', sessionRole: 'check',
-        [requirement.importance === 'required' ? 'requiredAnchors' : 'preferredAnchors']: [anchorRequest(requirement, requirement.exerciseIds[0])]});
+        [requirement.importance === 'required' ? 'requiredAnchors' : 'preferredAnchors']: [anchorRequest(requirement, hasExerciseIds ? requirement.exerciseIds[0] : 'definition-check')]});
     });
     if (!definition.sessionTemplate) throw new Error('Explicit session template required.');
     Model.createSessionPrescription({prescriptionId: 'definition-check', programmeInstanceId: 'definition-check', sessionRole: 'check', ...definition.sessionTemplate});
@@ -113,7 +115,7 @@
     requirements.forEach(requirement => {
       const adjusted = {...requirement, ...(overrides[requirement.requirementId] || {})};
       Model.createSessionPrescription({prescriptionId: 'maintenance-check', programmeInstanceId: 'maintenance-check', sessionRole: 'check',
-        [requirement.importance === 'required' ? 'requiredAnchors' : 'preferredAnchors']: [anchorRequest(adjusted, requirement.exerciseIds[0])]});
+        [requirement.importance === 'required' ? 'requiredAnchors' : 'preferredAnchors']: [anchorRequest(adjusted, requirement.exerciseIds && requirement.exerciseIds[0] || 'definition-check')]});
     });
     const progression = definition.progressionPolicy;
     if (!progression) throw new Error('Explicit progression policy required.');
@@ -149,7 +151,8 @@
     if (!requirement) return true;
     const mode = exercise.prescription && exercise.prescription.type.includes('timed') ? 'time' : 'reps';
     const sides = exercise.sidedness === 'per-side' ? 2 : 1;
-    return (exercise.patterns || []).includes(requirement.pattern) && mode === requirement.prescriptionMode
+    return (!requirement.directElbowAction || exercise.directElbowAction === requirement.directElbowAction)
+      && (exercise.patterns || []).includes(requirement.pattern) && mode === requirement.prescriptionMode
       && (requirement.target.type === 'timed' ? 'time' : 'reps') === mode
       && (!requirement.targetExposures || Number.isInteger(requirement.targetExposures / sides)
         && (!requirement.targetSets || requirement.targetSets * sides === requirement.targetExposures))
@@ -161,11 +164,19 @@
     return eligible(exercise, context, requirement) && (!definition.anchorSelectionPolicy.strengthOnly
       || exercise.mainRole === 'primary' && exercise.strength >= exercise.cardio && !exercise.conditioning);
   }
+  function candidateIds(definition, catalogue, requirement) {
+    if (requirement.exerciseIds) return requirement.exerciseIds;
+    return Object.values(catalogue).filter(exercise => exercise.directElbowAction === requirement.directElbowAction)
+      .sort((a,b) => Number(numericLoad(definition,b)) - Number(numericLoad(definition,a)) || a.id.localeCompare(b.id)).map(exercise => exercise.id);
+  }
+  function numericLoad(definition, exercise) {
+    return (exercise.equipment || []).some(group => group.some(id => (definition.progressionPolicy.numericLoadEquipment || []).includes(id)));
+  }
   function anchorAlternatives({definition, catalogue, context, state, requirementId}) {
     const requirement = definition.anchorSelectionPolicy.requirements.find(item => item.requirementId === requirementId);
     if (!requirement) throw new Error('Unknown anchor requirement.');
     const today = {...definition.sessionTemplate, ...context, difficulty: context.easyToday ? 'easy' : context.difficulty || definition.sessionTemplate.difficulty};
-    return requirement.exerciseIds.filter(id => anchorEligible(definition, catalogue[id], today, requirement)
+    return candidateIds(definition, catalogue, requirement).filter(id => anchorEligible(definition, catalogue[id], today, requirement)
       && !(state.anchors || []).some(anchor => anchor.requirementId !== requirementId && anchor.exerciseId === id));
   }
   function assessFeasibility({definition, catalogue, context}) {
@@ -181,9 +192,11 @@
       if (!definition.anchorSelectionPolicy.requirements.some(item => item.requirementId === requirementId)) conflicts.push({code: 'unknown-anchor-selection', requirementId});
     });
     for (const requirement of definition.anchorSelectionPolicy.requirements) {
-      const ids = selected[requirement.requirementId] ? [selected[requirement.requirementId]] : requirement.exerciseIds;
-      const exerciseId = ids.find(id => requirement.exerciseIds.includes(id) && !used.has(id) && anchorEligible(definition, catalogue[id], context, requirement));
-      if (!exerciseId) conflicts.push({code: 'anchor-unavailable', requirementId: requirement.requirementId, exerciseIds: ids.slice()});
+      const candidates = candidateIds(definition, catalogue, requirement);
+      const ids = selected[requirement.requirementId] ? [selected[requirement.requirementId]] : candidates;
+      const exerciseId = ids.find(id => candidates.includes(id) && !used.has(id) && anchorEligible(definition, catalogue[id], context, requirement));
+      if (!exerciseId) conflicts.push({code: 'anchor-unavailable', requirementId: requirement.requirementId, exerciseIds: ids.slice(),
+        ...(requirement.directElbowAction ? {directElbowAction: requirement.directElbowAction} : {})});
       else { used.add(exerciseId); anchors.push({...clone(requirement), exerciseId}); }
     }
     const prescription = root.GarageFitCoachModel.createSessionPrescription({...clone(definition.sessionTemplate),
@@ -199,12 +212,13 @@
       frequency: clone(definition.recommendedFrequency), coverageMultiplier: 1, keepAccessories: true, allowProgression: true, anchorTargetOverrides: {}
     };
   }
-  function assessPlannedSession({catalogue, prescription}) {
+  function assessPlannedSession({definition, catalogue, prescription}) {
     const conflicts = [];
     for (const anchor of prescription.requiredAnchors || []) {
       const source = catalogue[anchor.exerciseId];
-      const pattern = source && (source.patterns || [])[0];
-      if (!eligible(source, prescription, {...anchor, pattern})) conflicts.push({code: 'required-anchor-unavailable', requirementId: anchor.requirementId, exerciseId: anchor.exerciseId});
+      const requirement = definition.anchorSelectionPolicy.requirements.find(item => item.requirementId === anchor.requirementId);
+      const pattern = requirement ? requirement.pattern : source && (source.patterns || [])[0];
+      if (!eligible(source, prescription, {...requirement, ...anchor, pattern})) conflicts.push({code: 'required-anchor-unavailable', requirementId: anchor.requirementId, exerciseId: anchor.exerciseId});
     }
     return {conflicts};
   }
@@ -254,6 +268,11 @@
           .map(exercise => ({requirementId: 'maintenance-support-'+exercise.id, importance: 'soft', exerciseId: exercise.id}))
       ]} : {}),
       programmeContext: {objective: definition.objective, mode: state.mode, frequency: mode.frequency,
+        ...(definition.progressionPolicy.allowConfirmedSetup ? {anchorResistance: Object.fromEntries((state.anchors || []).map(anchor => [anchor.requirementId, {
+          exerciseId: anchor.exerciseId, numericLoad: numericLoad(definition, catalogue[anchor.exerciseId]),
+          setup: anchor.comparisonBaseline && anchor.comparisonBaseline.resistanceSetup || 'initial',
+          ready: anchor.currentTarget.progressionIntent === definition.progressionPolicy.setupResistanceIntent
+        }]))} : {}),
         essentialConstraints: clone(definition.sequencingRules), nominalProgress: state.nominalProgress,
         overrides: [...(today.easyToday ? [{type: 'easy-today'}] : []), ...(today.bodyFocus ? [{type: 'body-focus', value: today.bodyFocus}] : []),
           ...(today.duration && today.duration < definition.sessionTemplate.duration ? [{type: 'duration', value: today.duration}] : [])]}
@@ -330,12 +349,32 @@
       });
       if (!mode.allowProgression) decision = 'hold-maintenance';
       else if ((result.overrides || []).some(item => item.type === 'easy-today')) decision = 'hold-easy-today';
+      else if (rule.allowConfirmedSetup && !numericLoad(definition, catalogue[anchor.exerciseId])) {
+        const setup = sets[0] && sets[0].resistanceSetup;
+        const confirmed = full && compatible && setup && sets.every(set => set.reps.value !== null && set.resistanceSetup === setup);
+        const unchanged = !baseline || baseline.resistanceSetup === setup;
+        const ready = target.progressionIntent === rule.setupResistanceIntent;
+        if (confirmed && !unchanged && ready && sets.every(set => set.reps.value >= rule.minReps)) {
+          target.target = {type: 'reps', minReps: rule.minReps, maxReps: rule.minReps};
+          target.progressionIntent = 'Harder setup confirmed; build reps again'; decision = 'reset-after-resistance';
+        } else if (confirmed && unchanged && sets.every(set => set.reps.value >= reps)) {
+          if (reps < rule.maxReps) {
+            const next = Math.min(rule.maxReps, reps + rule.repIncrement);
+            target.target = {type: 'reps', minReps: next, maxReps: next};
+            target.progressionIntent = 'Try '+next+' reps with the confirmed setup'; decision = 'add-rep';
+          } else { target.progressionIntent = rule.setupResistanceIntent; decision = 'suggest-resistance'; }
+        } else if (!confirmed) decision = 'hold-unknown-setup';
+        if (confirmed && (unchanged || decision === 'reset-after-resistance')) {
+          anchor.comparisonBaseline = {resistanceSetup: setup, performances: clone(work)};
+        }
+      }
       else if (sameLoad && compatible) {
         const load = sets[0].load.value, unit = sets[0].loadUnit, interpretation = sets[0].loadInterpretation;
         const unchanged = !baseline || load === baseline.load && unit === baseline.loadUnit && interpretation === baseline.loadInterpretation;
         const heavier = baseline && load > baseline.load && unit === baseline.loadUnit && interpretation === baseline.loadInterpretation;
         const meets = sets.every(set => set.reps.value >= reps);
-        if (target.progressionIntent === 'Use the next heavier weight' && heavier && sets.every(set => set.reps.value >= rule.minReps)) {
+        const heavierIntent = rule.numericResistanceIntent || 'Use the next heavier weight';
+        if (target.progressionIntent === heavierIntent && heavier && sets.every(set => set.reps.value >= rule.minReps)) {
           target.target = {type: 'reps', minReps: rule.minReps, maxReps: rule.minReps};
           target.progressionIntent = 'Heavier load confirmed; build reps again'; decision = 'reset-after-load';
         } else if (unchanged && meets) {
@@ -343,7 +382,7 @@
             const next = Math.min(rule.maxReps, reps + rule.repIncrement);
             target.target = {type: 'reps', minReps: next, maxReps: next};
             target.progressionIntent = 'Try '+next+' reps at the confirmed load'; decision = 'add-rep';
-          } else { target.progressionIntent = 'Use the next heavier weight'; decision = 'suggest-load'; }
+          } else { target.progressionIntent = heavierIntent; decision = 'suggest-load'; }
         }
         if (unchanged || decision === 'reset-after-load') {
           anchor.comparisonBaseline = {load, loadUnit: unit, loadInterpretation: interpretation, performances: clone(work)};
@@ -409,6 +448,59 @@
   const generalStrengthPolicy = Object.freeze({validateDefinition: validateStrengthDefinition, assessFeasibility, initialiseState,
     getModeSettings, assessPlannedSession, calculatePriorities, buildPrescription, reduceForShortSession, interpretDose, interpretProgression,
     respondToMissedSessions, isComplete, anchorAlternatives});
-  const createDefaultRegistry = () => createRegistry({'general-strength': generalStrengthPolicy});
-  root.GarageFitCoachPolicies = {createRegistry, createDefaultRegistry, assertDefinition, generalStrengthPolicy, requiredHooks, optionalHooks};
+  function validateArmsDefinition(definition) {
+    validateStrengthDefinition(definition);
+    positive(definition.doseTargets.windowDays, 'direct-dose window');
+    ['flexion','extension'].forEach(action => {
+      positive(definition.doseTargets.directElbowActions[action], 'direct '+action+' target');
+      if (definition.anchorSelectionPolicy.requirements.filter(item => item.directElbowAction === action).length !== 1) throw new Error('One stable direct anchor per action is required.');
+    });
+    if (!definition.openEnded || definition.coverageTargets.excludeDirectArmWork !== true || definition.anchorSelectionPolicy.requirements.length !== 2
+      || definition.anchorSelectionPolicy.requirements.some(item => item.importance !== 'required' || item.role !== 'primary')) throw new Error('Build Arms must be open-ended with two required direct anchors and compound maintenance separate.');
+  }
+  function armsPriorities({definition, state, history, today}) {
+    const options = {programmeInstanceId: state.programmeInstanceId, sections: definition.doseTargets.sections,
+      since: new Date(Date.parse(today.now) - definition.coverageTargets.windowDays * DAY).toISOString(), until: today.now};
+    const movements = Object.entries(definition.coverageTargets.patterns).map(([pattern,target],index) => {
+      const exposure = history.compoundPatternExposure(pattern, options);
+      const deficit = Math.max(0,target-exposure.value);
+      return {requirementId: 'coverage-'+pattern, pattern, priority: deficit > 0 ? 'secondary' : 'maintenance', deficit, exposure, index};
+    }).sort((a,b) => b.deficit - a.deficit || a.index - b.index);
+    const directOptions = {...options, since: new Date(Date.parse(today.now)-definition.doseTargets.windowDays*DAY).toISOString()};
+    const directDose = Object.fromEntries(Object.entries(definition.doseTargets.directElbowActions).map(([action,target]) =>
+      [action, {...history.directElbowExposure(action,directOptions), target}]));
+    return {movements, bodyRegions: [], directDose};
+  }
+  function armsPrescription(input) {
+    const {catalogue, priorities} = input;
+    const prescription = buildPrescription(input), used = new Set(prescription.requiredAnchors.map(item => item.exerciseId)), unavailable = [];
+    // Explicit preferred work preserves compound coverage even when a direct
+    // anchor shares its broad pattern. No Generator programme branches are needed.
+    for (const priority of priorities.movements.filter(item => item.deficit > 0)) {
+      const exercise = Object.values(catalogue).filter(item => eligible(item, prescription) && !item.directElbowAction
+        && !used.has(item.id) && item.patterns.includes(priority.pattern) && item.mainProtocols.includes('rounds'))
+        .sort((a,b) => Number(b.mainRole === 'primary')-Number(a.mainRole === 'primary') || a.estimatedSeconds-b.estimatedSeconds || a.id.localeCompare(b.id))[0];
+      if (!exercise) { unavailable.push(priority.pattern); continue; }
+      used.add(exercise.id);
+      const timed = exercise.prescription.type.includes('timed');
+      prescription.preferredAnchors.push({requirementId: 'maintenance-'+priority.pattern, exerciseId: exercise.id, importance: 'preferred',
+        targetSets: 1, prescriptionMode: timed ? 'time' : 'reps', allowedProtocols: ['rounds'],
+        target: timed ? {type: 'timed', seconds: exercise.prescription.value} : {type: 'reps', minReps: exercise.prescription.value, maxReps: exercise.prescription.value}});
+    }
+    prescription.programmeContext.directDose = clone(priorities.directDose);
+    prescription.programmeContext.maintenanceUnavailable = unavailable;
+    return root.GarageFitCoachModel.createSessionPrescription(prescription);
+  }
+  function armsDose(input) {
+    const dose = interpretDose(input), performed = input.evidence.performances.filter(item => input.definition.doseTargets.sections.includes(item.section));
+    dose.directElbowActions = Object.fromEntries(['flexion','extension'].map(action =>
+      [action, root.GarageFitTrainingHistory.sumExposure(performed.filter(item => item.directElbowAction === action))]));
+    dose.compoundContext = Object.fromEntries(['push','pull'].map(pattern =>
+      [pattern, root.GarageFitTrainingHistory.sumExposure(performed.filter(item => !item.directElbowAction && item.patterns.includes(pattern)))]));
+    return dose;
+  }
+  const buildArmsPolicy = Object.freeze({...generalStrengthPolicy, validateDefinition: validateArmsDefinition,
+    calculatePriorities: armsPriorities, buildPrescription: armsPrescription, interpretDose: armsDose, isComplete: () => false});
+  const createDefaultRegistry = () => createRegistry({'general-strength': generalStrengthPolicy, 'build-arms': buildArmsPolicy});
+  root.GarageFitCoachPolicies = {createRegistry, createDefaultRegistry, assertDefinition, generalStrengthPolicy, buildArmsPolicy, requiredHooks, optionalHooks};
 })(typeof window !== 'undefined' ? window : globalThis);

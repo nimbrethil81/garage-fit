@@ -116,6 +116,8 @@
   #coachAnchorLog{max-width:500px;margin:12px auto;text-align:left;border:1px solid var(--surface-2);padding:12px;border-radius:12px;font-size:13px;line-height:1.5}
   #coachAnchorLog p{margin:0 0 8px}#coachAnchorLog summary{cursor:pointer;color:var(--rest);font-weight:800}
   .coach-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}.coach-fields label{display:flex;flex-direction:column;gap:4px}
+  #coachNumericLoad{display:contents}#coachResistanceSetup{grid-column:1/-1;display:grid;gap:10px}
+  .coach-fields #coachResistanceSetup label{flex-direction:row;align-items:center}.coach-fields input[type=checkbox]{width:20px;min-height:20px;flex-shrink:0}
   .coach-error{color:var(--danger);font-size:14px;line-height:1.4}.coach-error:empty{display:none}
   #coachSkipBtn{margin-top:10px}#coach .choice-row button{font-size:13px;padding:10px}
   #coachResult .coach-feedback{display:flex;flex-direction:column;gap:12px}
@@ -290,9 +292,15 @@
         <details id="coachAnchorEdit"><summary>Edit result</summary>
           <div class="coach-fields">
             <label>Actual reps<input id="coachActualReps" type="number" min="0" step="1" inputmode="numeric" oninput="coachUI.updateActualSummary()"></label>
+            <div id="coachNumericLoad">
             <label>Actual load (blank = unknown)<input id="coachActualLoad" type="number" min="0" step="any" inputmode="decimal" oninput="coachUI.updateActualSummary()"></label>
             <label>Unit<select id="coachLoadUnit" onchange="coachUI.updateActualSummary()"><option value="kg">kg</option><option value="lb">lb</option></select></label>
             <label>Load means<select id="coachLoadInterpretation" onchange="coachUI.updateActualSummary()"><option value="per-item">Each weight</option><option value="total">Total load</option></select></label>
+            </div>
+            <div id="coachResistanceSetup" class="hidden">
+              <label><input id="coachSameSetup" type="checkbox" onchange="coachUI.updateActualSummary()"> I used the same resistance setup</label>
+              <label id="coachHarderSetupLabel" class="hidden"><input id="coachHarderSetup" type="checkbox" onchange="coachUI.updateActualSummary()"> I made this same exercise harder</label>
+            </div>
           </div>
         </details>
       </section>

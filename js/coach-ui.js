@@ -118,7 +118,8 @@
     const store = root.GarageFitCoachStore.createStore(storage);
     const engine = root.GarageFitCoachEngine.createEngine({catalogue, assessSessionPrescription: root.GarageFitGenerator.assessSessionPrescription});
     const controller = createController({store, engine, catalogue, buildTimeline});
-    const def = root.GarageFitData.programmes['general-strength-4w'][1];
+    const programmes = Object.values(root.GarageFitData.programmes).map(versions => versions[Math.max(...Object.keys(versions).map(Number))]);
+    let def = programmes[0], activeResistance = null, sessionSetups = {};
     const el = id => document.getElementById(id);
     let options = null, busy = false, sessionActive = false, endKind = null, endSeconds = null, lastSaved = '', initialisation = Promise.resolve();
     function button(text, action, primary = false) {
@@ -134,12 +135,18 @@
       catch (error) { ['coachError','coachPreviewError','coachResultError'].forEach(id => {el(id).textContent=error.message;}); el('coachPlayerError').textContent = 'Could not save. '+error.message+' Try again before leaving.'; }
       finally { busy = false; }
     }
-    function resetOptions() { options = {duration: def.sessionTemplate.duration, equipment: getEquipment().slice(), easyToday: false, bodyFocus: null}; }
+    function resetOptions() {
+      const state = controller.snapshot().state;
+      if (state) def = root.GarageFitData.programmes[state.programmeDefinitionId][state.programmeDefinitionVersion];
+      options = {duration: def.sessionTemplate.duration, equipment: getEquipment().slice(), easyToday: false, bodyFocus: null};
+    }
     const patternNames = {squat: 'squat', hinge: 'hinge', lunge: 'lunge', push: 'push', pull: 'pull', core: 'core', carry: 'carry'};
     function conflictText(conflicts) {
       return [...new Set((conflicts || []).map(item => {
         if (item.code === 'missing-pattern') return 'Add equipment for '+item.pattern+' work.';
-        if (item.code === 'anchor-unavailable') return 'No suitable '+item.requirementId.replace('anchor-','')+' anchor is available.';
+        if (item.code === 'anchor-unavailable') return item.directElbowAction
+          ? 'No suitable direct arm '+(item.directElbowAction === 'flexion' ? 'curl' : 'extension')+' anchor is available. Compound pushing or pulling cannot replace it.'
+          : 'No suitable '+item.requirementId.replace('anchor-','')+' anchor is available.';
         if (['equipment-mismatch','required-anchor-unavailable','difficulty-ineligible'].includes(item.code)) return 'A required anchor is unavailable today. Restore its equipment or choose an approved substitute.';
         if (['insufficient-duration','unsupported-duration','insufficient-main-time'].includes(item.code)) return 'Required work needs a supported duration that fits. Try 30 or 45 minutes.';
         return 'A programme requirement cannot be met with today’s options. Adjust equipment or duration.';
@@ -148,6 +155,7 @@
     function rationale(plan) {
       const patterns = plan.rationale.priorities.movements.filter(item => item.deficit > 0).map(item => patternNames[item.pattern]);
       if (plan.prescription && plan.prescription.sessionRole==='maintenance') return 'Keep your anchor challenge with fewer sets and less supporting work in '+plan.prescription.duration+' minutes.';
+      if (plan.rationale.priorities.directDose) return 'Direct arm anchors first; whole-body maintenance follows'+(patterns.length ? ' with attention to '+patterns.slice(0,3).join(', ') : '')+'.';
       return plan.prescription && plan.prescription.duration < def.sessionTemplate.duration ? 'Shorter session today: keeping required anchors and reducing supporting work.'
         : patterns.length ? 'Prioritising '+patterns.slice(0,3).join(', ')+' from your recent performed work.' : 'Keep your anchors steady and maintain whole-body coverage.';
     }
@@ -173,14 +181,30 @@
       if (lastSaved) wrap.append(paragraph(lastSaved));
       if (current.interruptedDraft) { wrap.append(heading('Interrupted session'),paragraph('Your recorded work is safe. Save it before starting another session.'),button('Save performed work',() => showEnd('exit',null),true)); return; }
       if (!state || state.status==='completed') {
-        wrap.append(paragraph('A training goal, stable anchors and sessions adapted to the work you actually do.'),button(def.name, overview, true));
+        wrap.append(paragraph('A training goal, stable anchors and sessions adapted to the work you actually do.'));
+        programmes.forEach(programme => wrap.append(button(programme.name, () => { def=programme; overview(); }, true)));
         if (state) wrap.append(paragraph('Previous programme finished · '+state.meaningfulSessionsCompleted+' meaningful sessions. Your history is saved.'));
         return;
       }
-      wrap.append(heading(def.name));
+      def = root.GarageFitData.programmes[state.programmeDefinitionId][state.programmeDefinitionVersion];
+      wrap.append(heading(def.name),paragraph(def.objective));
       const review=controller.review(), blockDays=review.nominalProgress%def.nominalDurationDays, weeks=Math.ceil(def.nominalDurationDays/7);
       const frequency=state.mode==='maintenance'?def.maintenancePolicy.frequency:def.recommendedFrequency;
-      wrap.append(paragraph((review.due?'Four-week block complete':'Week '+Math.min(weeks,Math.floor(blockDays/7)+1)+' of '+weeks)+' · '+state.meaningfulSessionsCompleted+' meaningful sessions'),paragraph((state.mode==='maintenance'?'Maintenance':'Development')+' · '+frequency.minSessionsPerWeek+'–'+frequency.maxSessionsPerWeek+' sessions per week'));
+      wrap.append(paragraph((def.openEnded?'Open-ended objective':review.due?'Four-week block complete':'Week '+Math.min(weeks,Math.floor(blockDays/7)+1)+' of '+weeks)+' · '+state.meaningfulSessionsCompleted+' meaningful sessions'),
+        paragraph(frequency.aimSessionsPerWeek ? 'Aim for '+frequency.aimSessionsPerWeek+' sessions per week; two is acceptable. No catch-up debt.' : (state.mode==='maintenance'?'Maintenance':'Development')+' · '+frequency.minSessionsPerWeek+'–'+frequency.maxSessionsPerWeek+' sessions per week'));
+      if (def.doseTargets.directElbowActions) {
+        const now=new Date().toISOString(), history=root.GarageFitTrainingHistory.createHistory(current.results,catalogue);
+        const scope={programmeInstanceId:state.programmeInstanceId, sections:def.doseTargets.sections,
+          since:new Date(Date.parse(now)-def.doseTargets.windowDays*86400000).toISOString(),until:now};
+        wrap.append(heading('Arm work · last '+def.doseTargets.windowDays+' days'));
+        Object.entries(def.doseTargets.directElbowActions).forEach(([action,target]) => {
+          const exposure=history.directElbowExposure(action,scope);
+          const unmeasured=history.performances.some(item=>item.directElbowAction===action && item.exposure.confidence==='unknown'
+            && scope.sections.includes(item.section) && Date.parse(item.occurredAt)>=Date.parse(scope.since) && Date.parse(item.occurredAt)<=Date.parse(scope.until));
+          wrap.append(paragraph((action==='flexion'?'Curls':'Extensions')+' · '+Number(exposure.value.toFixed(2))+' / '+target+' performed set exposures'+(unmeasured?' · some work is unmeasured':'')));
+        });
+        wrap.append(paragraph('Compound pushing and pulling support whole-body maintenance and are tracked separately from direct arm work.'));
+      }
       if (state.status==='paused') { wrap.append(paragraph('Paused · anchors and history preserved.'),button('Resume',() => manage('resume'),true)); }
       else if (review.due) {
         wrap.append(heading('Four-week review'),paragraph(review.meaningfulSessions+' meaningful sessions in this block'+(review.targetMet?' · Block target met':'')),
@@ -189,18 +213,20 @@
         const plan=controller.plan(options), card=document.createElement('section'); card.className='coach-card'; card.append(heading('Up next'),paragraph(plan.prescription?rationale(plan):conflictText(plan.conflicts)),button('Start session', prepare,true)); wrap.append(card); renderAdjust(wrap);
       }
       const progress=document.createElement('details'), summary=document.createElement('summary'); summary.textContent='Programme progress and management'; progress.append(summary);
-      state.anchors.forEach(anchor => progress.append(paragraph(catalogue[anchor.exerciseId].name+' · '+(anchor.currentTarget || anchor).targetSets+' × '+(anchor.currentTarget || anchor).target.maxReps+' reps · '+(anchor.progression && ['add-rep','reset-after-load'].includes(anchor.progression.decision)?'progressed':'holding'))));
+      state.anchors.forEach(anchor => progress.append(paragraph(catalogue[anchor.exerciseId].name+' · '+(anchor.currentTarget || anchor).targetSets+' × '+(anchor.currentTarget || anchor).target.maxReps+' reps · '+(anchor.currentTarget.progressionIntent || 'Confirm actual work'))));
       current.results.slice(-5).reverse().forEach(result => progress.append(paragraph(new Date(result.endedAt).toLocaleDateString()+' · '+result.finalStatus+' · '+result.performedWork.filter(work=>work.status!=='skipped').length+' work occurrences')));
-      progress.append(button(state.status==='paused'?'Resume':'Pause',() => manage(state.status==='paused'?'resume':'pause')),
-        button(state.mode==='maintenance'?'Return to development':'Move to maintenance',() => manage(state.mode==='maintenance'?'development':'maintenance')),button('Finish programme',() => manage('finish'))); wrap.append(progress);
+      progress.append(button(state.status==='paused'?'Resume':'Pause',() => manage(state.status==='paused'?'resume':'pause')));
+      if (def.supportsMaintenanceMode !== false) progress.append(button(state.mode==='maintenance'?'Return to development':'Move to maintenance',() => manage(state.mode==='maintenance'?'development':'maintenance')));
+      progress.append(button('Finish programme',() => manage('finish'))); wrap.append(progress);
     }
     function overview() {
       const assessment=controller.assess(def,getEquipment()), wrap=el('coachContent'); wrap.innerHTML='';
       const anchor=def.anchorSelectionPolicy.requirements[0];
-      wrap.append(heading(def.name),paragraph(def.objective+' over a nominal four-week block. Aim for '+def.completionCriteria.blockMeaningfulSessionTarget+' meaningful sessions, at '+def.recommendedFrequency.minSessionsPerWeek+'–'+def.recommendedFrequency.maxSessionsPerWeek+' per week.'),
-        paragraph(def.sessionTemplate.duration+' minutes by default; '+def.supportedDurations.filter(duration=>duration!==def.sessionTemplate.duration).join(' or ')+' minutes when needed. '+def.anchorSelectionPolicy.requirements.length+' stable squat, push and pull anchors start at '+anchor.targetSets+' × '+anchor.target.maxReps+' reps.'),
+      wrap.append(heading(def.name),paragraph(def.openEnded ? def.objective+'. An open-ended objective: aim for '+def.recommendedFrequency.aimSessionsPerWeek+' sessions per week; two is acceptable. Pause or finish whenever you choose.' : def.objective+' over a nominal four-week block. Aim for '+def.completionCriteria.blockMeaningfulSessionTarget+' meaningful sessions, at '+def.recommendedFrequency.minSessionsPerWeek+'–'+def.recommendedFrequency.maxSessionsPerWeek+' per week.'),
+        paragraph(def.sessionTemplate.duration+' minutes by default; '+def.supportedDurations.filter(duration=>duration!==def.sessionTemplate.duration).join(' or ')+' minutes when needed. '+def.anchorSelectionPolicy.requirements.length+' stable '+(def.doseTargets.directElbowActions?'direct curl and extension':'squat, push and pull')+' anchors start at '+anchor.targetSets+' × '+anchor.target.maxReps+' reps.'),
         paragraph(assessment.status==='infeasible'?'Blocked · '+conflictText(assessment.conflicts):assessment.status==='partially-feasible'?'Partially feasible · required anchors fit; supporting choices may be adjusted.':'Feasible · your equipment supports this programme.'),
         button('Set up usual equipment',() => root.openEquipment('coach')));
+      if (def.doseTargets.directElbowActions) wrap.append(paragraph('Build from 3 × 8 to 3 × 12, then confirm more resistance. Aim for 9 performed curl and 9 extension set exposures in each rolling 7 days, plus squat, hinge, lunge, compound push/pull, core and carry maintenance. Short sessions keep the direct anchors first.'));
       if (assessment.status!=='infeasible') wrap.append(button('Start programme',async () => { await controller.start(def,getEquipment()); resetOptions(); render(); },true));
       wrap.append(button('Back',render));
     }
@@ -225,15 +251,20 @@
         block.exercises.forEach((exercise,exerciseIndex) => {
           const row=document.createElement('div'); row.className='coach-preview-row'; const anchor=exercise.coachAnchor;
           const timed=block.protocol==='timed_intervals' || exercise.prescription.type.includes('timed');
-          row.append(paragraph((anchor?'Required anchor · ':'')+exercise.name+' · '+(block.protocol==='timed_intervals'?block.prescription.workSeconds:exercise.prescription.value)+(timed?' sec':' reps')+(exercise.sidedness==='per-side'?' each side':'')));
-          if (anchor) row.append(paragraph(anchor.plannedTarget.targetSets+' sets · '+(anchor.plannedTarget.progressionIntent || 'Confirm actual work')),button('Substitute',() => showSubstitutes(anchor.requirementId,preview.today)));
+          row.append(paragraph((anchor?(anchor.importance==='required'?'Required anchor · ':'Maintenance · '):'')+exercise.name+' · '+(block.protocol==='timed_intervals'?block.prescription.workSeconds:exercise.prescription.value)+(timed?' sec':' reps')+(exercise.sidedness==='per-side'?' each side':'')));
+          if (anchor) {
+            row.append(paragraph(anchor.plannedTarget.targetSets+' sets · '+(anchor.plannedTarget.progressionIntent || 'Confirm actual work')));
+            if (controller.snapshot().state.anchors.some(item=>item.requirementId===anchor.requirementId)) row.append(button('Substitute',() => showSubstitutes(anchor.requirementId,preview.today)));
+          }
           else row.append(button('Swap',() => { root.GarageFitGenerator.swap(workout,index,exerciseIndex,{catalogue,equipment:preview.today.equipment}); renderPreview(preview); }));
           wrap.append(row);
         });
       });
       preparation('Cool-down',workout.cooldown);
       if (outcome.softRelaxations.length) wrap.append(paragraph('Some supporting choices were adjusted to keep the required work.'));
-      wrap.append(button('Begin workout',async () => { const tracker=await controller.begin(); sessionActive=true; await play(workout,tracker); },true),button('Back to Coach',() => { showScreen('coach'); render(); })); showScreen('coachPreview');
+      const unavailable=preview.plan.prescription.programmeContext.maintenanceUnavailable || [];
+      if (unavailable.length) wrap.append(paragraph('Today’s equipment cannot provide '+unavailable.join(', ')+' maintenance. Add suitable equipment when available; there is no catch-up debt.'));
+      wrap.append(button('Begin workout',async () => { const tracker=await controller.begin(); sessionSetups={}; sessionActive=true; await play(workout,tracker); },true),button('Back to Coach',() => { showScreen('coach'); render(); })); showScreen('coachPreview');
     }
     function showSubstitutes(requirementId, context) {
       const wrap=el('coachSubstituteContent'); wrap.innerHTML='';
@@ -249,9 +280,16 @@
     }
     async function manage(action) { await controller.manage(action); resetOptions(); render(); }
     function renderAnchor(phase, tracker) {
-      const anchor=sessionActive && phase && phase.kind==='exercise' && phase.section==='main' && phase.exercise.coachAnchor;
+      const anchor=sessionActive && phase && phase.kind==='exercise' && phase.section==='main' && phase.exercise.coachAnchor && phase.exercise.coachAnchor.importance==='required' && phase.exercise.coachAnchor;
       el('coachAnchorLog').classList.toggle('hidden',!anchor); el('coachSkipBtn').classList.toggle('hidden',!sessionActive || !phase || phase.kind!=='exercise' || phase.timed);
       if (!anchor) return;
+      const preview=controller.snapshot().preview, resistance=preview.plan.prescription.programmeContext.anchorResistance;
+      activeResistance=resistance && resistance[anchor.requirementId] ? {...resistance[anchor.requirementId],requirementId:anchor.requirementId, prescriptionId:preview.plan.prescription.prescriptionId} : null;
+      const setup=activeResistance && !activeResistance.numericLoad;
+      el('coachResistanceSetup').classList.toggle('hidden',!setup);
+      el('coachNumericLoad').classList.toggle('hidden',!!setup);
+      el('coachSameSetup').checked=false; el('coachHarderSetup').checked=false;
+      el('coachHarderSetupLabel').classList.toggle('hidden',!setup || !activeResistance.ready);
       const planned=anchor.plannedTarget, existing=tracker.outcome(phase.occurrenceId), actual=existing && existing.sets && existing.sets[0];
       el('coachAnchorPlanned').textContent='Planned: '+phase.exercise.prescription.value+' reps'+(planned.suggestedLoad!==undefined?' at '+planned.suggestedLoad+' '+planned.loadUnit+(planned.loadInterpretation==='per-item'?' each':' total'):' · confirm your actual load when known');
       el('coachActualReps').value=actual && actual.reps!==undefined?actual.reps:phase.exercise.prescription.value;
@@ -263,19 +301,24 @@
     function actualSet() {
       const reps=el('coachActualReps').value, load=el('coachActualLoad').value;
       const set={reps: reps===''?null:Number(reps), load:load===''?null:Number(load)};
+      if (activeResistance && !activeResistance.numericLoad) {
+        set.load=null;
+        if (el('coachSameSetup').checked || el('coachHarderSetup').checked) set.resistanceSetup=el('coachHarderSetup').checked
+          ? activeResistance.prescriptionId : sessionSetups[activeResistance.requirementId] || activeResistance.setup;
+      }
       if (set.reps!==null && (!Number.isInteger(set.reps)||set.reps<0) || set.load!==null && (!Number.isFinite(set.load)||set.load<0)) throw new Error('Enter non-negative actual reps and load, or leave unknown values blank.');
       if (set.load!==null) Object.assign(set,{loadUnit:el('coachLoadUnit').value,loadInterpretation:el('coachLoadInterpretation').value});
       return set;
     }
     function updateActualSummary() {
-      try { const set=actualSet(); el('coachActualSummary').textContent='Done confirms: '+(set.reps===null?'unknown reps':set.reps+' reps')+' · '+(set.load===null?'load unknown':set.load+' '+set.loadUnit+(set.loadInterpretation==='per-item'?' each':' total')); } catch(error) { el('coachActualSummary').textContent=error.message; }
+      try { const set=actualSet(); el('coachActualSummary').textContent='Done confirms: '+(set.reps===null?'unknown reps':set.reps+' reps')+' · '+(activeResistance && !activeResistance.numericLoad ? set.resistanceSetup?'resistance setup confirmed':'setup unknown; progression held' : set.load===null?'load unknown':set.load+' '+set.loadUnit+(set.loadInterpretation==='per-item'?' each':' total')); } catch(error) { el('coachActualSummary').textContent=error.message; }
     }
     async function record(phase, tracker, action, elapsed) {
       if (busy) return false; return run(async () => {
         if (!phase || phase.kind!=='exercise') return true;
         if (phase.timed) await tracker.recordTimed(phase.occurrenceId,{plannedSeconds:phase.seconds,elapsedSeconds:elapsed});
         else if (action==='skip') await tracker.recordSkip(phase.occurrenceId);
-        else if (phase.section==='main' && phase.exercise.coachAnchor) { const set=actualSet(); await tracker.recordAnchor(phase.occurrenceId,{status:'completed',sets:[set],targetAchieved:set.reps===null?null:set.reps>=phase.exercise.prescription.value}); }
+        else if (phase.section==='main' && phase.exercise.coachAnchor && phase.exercise.coachAnchor.importance==='required') { const set=actualSet(); await tracker.recordAnchor(phase.occurrenceId,{status:'completed',sets:[set],targetAchieved:set.reps===null?null:set.reps>=phase.exercise.prescription.value}); if (set.resistanceSetup) sessionSetups[activeResistance.requirementId]=set.resistanceSetup; }
         else await tracker.recordDone(phase.occurrenceId);
         return true;
       });
