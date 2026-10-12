@@ -106,3 +106,10 @@ load history with one anchor set, 20-minute sessions and less supporting pressur
 
 See [the Coach API and policy contract](docs/COACH_ENGINE.md) and
 [the production pilot verification](docs/COACH_PILOT.md).
+
+Coach also offers **Build Arms**, an open-ended objective with one stable direct
+curl and one direct extension anchor. Both start at 3×8 and progress to 3×12 before
+an explicitly confirmed resistance increase. Separate rolling seven-day targets
+are nine performed direct set exposures each; compound work provides separate
+whole-body maintenance context. Bands/TRX log a confirmed resistance setup through
+the same anchor UI. See [the Build Arms pilot](docs/BUILD_ARMS_PILOT.md).

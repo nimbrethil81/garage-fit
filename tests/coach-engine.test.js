@@ -80,12 +80,12 @@ test('start pins identity/version and fails Generator preflight when required do
   assert.throws(() => engine.startProgramme(def, context(), null), /explicit timestamp/);
 });
 
-test('definitions require explicit test parameters and do not expose a production programme', () => {
+test('strategies require explicit parameters and keep production definitions separate', () => {
   for (const field of ['anchorSelectionPolicy','progressionPolicy','shortSessionPolicy','maintenancePolicy','doseTargets']) {
     const def = definition(); delete def[field];
     assert.throws(() => start(def), undefined, field);
   }
-  assert.deepEqual(Policies.createDefaultRegistry().types(), ['general-strength']);
+  assert.deepEqual(Policies.createDefaultRegistry().types(), ['general-strength','build-arms']);
   assert.equal(Policies.generalStrengthDefinition, undefined);
   assert.equal(engine.assessProgrammeFeasibility(definition(), context({duration: 5})).status, 'infeasible');
   assert.throws(() => start(Object.assign(definition(), {extra: () => 1})), error => error.code === 'invalid-record');

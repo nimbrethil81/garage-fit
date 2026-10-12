@@ -199,7 +199,9 @@
   // One logged set. Every measure may be unknown; nothing is inferred from the plan.
   const setLog = shape(Object.assign({
     reps: nullable(nonNegativeInteger),
-    seconds: nullable(nonNegativeNumber)
+    seconds: nullable(nonNegativeNumber),
+    // Explicitly confirmed setup identity for resistance without numeric load.
+    resistanceSetup: nullable(id)
   }, loadFields), loadHasUnit('load'));
 
   // A planned exercise occurrence in the workout as built (what was intended).

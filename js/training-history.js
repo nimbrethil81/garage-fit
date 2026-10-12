@@ -43,6 +43,7 @@
       exposure: exposureFor(outcome, prescription),
       patterns: exercise ? (exercise.patterns || []).filter(pattern => root.GarageFitCoachModel.MOVEMENT_PATTERNS.includes(pattern)) : [],
       bodyRegion: exercise && exercise.bodyFocus || null,
+      directElbowAction: exercise && exercise.directElbowAction || null,
       semanticConfidence: exercise ? 'derived' : 'unknown',
       prescriptionMode: mode || null, protocol: prescription && prescription.protocol || null,
       // Absent side/conditions are unknown, rather than silently bilateral or compatible.
@@ -52,7 +53,8 @@
       sets: (outcome.sets || []).map(set => ({
         reps: measure(set.reps), seconds: measure(set.seconds), load: measure(set.load),
         loadUnit: known(set.load) ? set.loadUnit || null : null,
-        loadInterpretation: known(set.load) ? set.loadInterpretation || null : null
+        loadInterpretation: known(set.load) ? set.loadInterpretation || null : null,
+        resistanceSetup: set.resistanceSetup || null
       }))
     };
   }
@@ -80,6 +82,18 @@
     const before = previous.sets, after = current.sets;
     if (!before.length || before.length !== after.length) return {...comparison, change: 'insufficient-evidence'};
     const field = current.prescriptionMode === 'time' ? 'seconds' : 'reps';
+    // An explicitly confirmed nonnumeric setup can establish same resistance,
+    // never a quantified load increase or equivalence to a different exercise.
+    const setupConfirmed = before.concat(after).every(set => set.resistanceSetup && !known(set.load.value));
+    if (setupConfirmed) {
+      if (before.some((set,i) => set.resistanceSetup !== after[i].resistanceSetup)) return {...comparison, comparable: false,
+        reasons: ['resistance-setup'], change: 'new-resistance-baseline'};
+      if (before.concat(after).some(set => !known(set[field].value))) return {...comparison, change: 'insufficient-evidence'};
+      const deltas = after.map((set,i) => set[field].value-before[i][field].value);
+      return {...comparison, change: deltas.every(delta => delta >= 0) && deltas.some(delta => delta > 0)
+        ? field === 'reps' ? 'improved-reps' : 'improved-time' : 'unchanged-or-insufficient',
+        performanceDelta: Math.min(...deltas), loadDelta: null};
+    }
     if (before.concat(after).some(set => !known(set.load.value) || !set.loadUnit || !set.loadInterpretation)) return {...comparison, change: 'unknown-load'};
     if (before.concat(after).some(set => !known(set[field].value))) return {...comparison, change: 'insufficient-evidence'};
     if (before.some((set, i) => set.loadUnit !== after[i].loadUnit || set.loadInterpretation !== after[i].loadInterpretation)) return {...comparison, comparable: false, reasons: ['load-unit-or-interpretation'], change: 'incomparable-load'};
@@ -154,6 +168,8 @@
       },
       exactExercisePerformances(exerciseId, options = {}) { return recent(filter(performances, options).filter(item => item.exerciseId === exerciseId), options); },
       movementPatternExposure(pattern, options = {}) { return sumExposure(filter(performances, options).filter(item => item.patterns.includes(pattern))); },
+      directElbowExposure(action, options = {}) { return sumExposure(filter(performances, options).filter(item => item.directElbowAction === action)); },
+      compoundPatternExposure(pattern, options = {}) { return sumExposure(filter(performances, options).filter(item => !item.directElbowAction && item.patterns.includes(pattern))); },
       bodyRegionExposure(bodyRegion, options = {}) { return sumExposure(filter(performances, options).filter(item => item.bodyRegion === bodyRegion)); },
       anchorPerformanceSeries(requirementId, options = {}) {
         const series = [];

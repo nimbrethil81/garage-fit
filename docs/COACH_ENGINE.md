@@ -136,8 +136,8 @@ In-progress drafts offer an explicit Save performed work action after reload.
 
 `createRegistry({type: policy})` returns a registry with `register`, `get`, and
 `types`. Duplicate types and incomplete strategies are rejected.
-`createDefaultRegistry()` registers only the parameterised `general-strength`
-strategy. Another programme (including a future Tennis strategy) registers its
+`createDefaultRegistry()` registers the parameterised `general-strength` and
+`build-arms` strategies. Another programme (including a future Tennis strategy) registers its
 own type and hooks without changing the engine.
 
 Required hooks are `validateDefinition`, `assessFeasibility`, `initialiseState`,
@@ -164,6 +164,8 @@ Conflicting contents under the same result ID are rejected. It provides:
 - `recentPerformedSessions(options)`;
 - `exactExercisePerformances(exerciseId, options)`;
 - `movementPatternExposure(pattern, options)`;
+- `directElbowExposure(action, options)`;
+- `compoundPatternExposure(pattern, options)` (excludes direct arm work);
 - `bodyRegionExposure(bodyRegion, options)`;
 - `anchorPerformanceSeries(requirementId, options)`;
 - `sessionEvidence(sessionResultId)`;
@@ -255,3 +257,34 @@ no-ops. Cumulative credited exposure lives in `currentTargets.dose`; per-anchor
 progression evidence lives in `anchors[].progression`. Only meaningful performed
 results add override/substitution summaries. Store these records through Coach Store;
 no engine/history/policy operation accesses storage directly.
+
+## Build Arms
+
+`build-arms` version 1 is a second immutable production definition. Its anchor
+requirements select candidates from canonical `directElbowAction` rather than
+an exercise-ID list. The common candidate/eligibility and substitution flow still
+checks equipment, Main/generator eligibility, rep mode and protocol compatibility.
+Supporting-role direct work is eligible; compound push/pull cannot replace it.
+The same pure Generator preflight verifies all supported 20/30/45-minute budgets.
+
+Policy `build-arms` reuses common lifecycle, prescriptions, double progression,
+tracking and result application. Its rolling direct-dose and maintenance queries
+exclude each other's direct/compound evidence. `rationale.priorities.directDose`
+exposes per-action performed value, target and confidence; cumulative direct work
+and compound context are retained separately in `currentTargets.dose`. Preferred
+maintenance prescriptions restore deficient broad patterns after required work;
+unsupported maintenance equipment is explained in the preview. Open-ended review
+never creates a four-week review or automatic completion. The definition exposes
+pause/resume/finish without an unapproved reduced-volume maintenance mode.
+
+The common actual-set contract optionally accepts `resistanceSetup`, a stable ID
+that the user explicitly confirms for nonnumeric resistance. A new setup ID means
+a fresh baseline, never a quantified resistance increase. The shared history
+comparison can compare reps/time under the same confirmed setup while retaining
+the exact exercise/protocol/side constraints; missing setup and missing numeric
+load remain unknown. The programme opts into setup progression through
+`progressionPolicy.allowConfirmedSetup`. `programmeContext.anchorResistance`
+supplies per-anchor confirmation context to the generic player, including whether
+numeric load is meaningful and whether a harder setup may be confirmed. Actuals
+are saved only on explicit Done/confirmation; no setup or load is inferred from
+the plan. General Strength retains its existing numeric-load progression rules.

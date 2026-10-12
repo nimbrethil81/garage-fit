@@ -148,6 +148,11 @@
         const priorExposure = total.exposure;
         total.exposure += dose.exposure.value;
         for (const field of ['patterns','bodyRegions']) Object.entries(dose[field] || {}).forEach(([key, value]) => { total[field][key] = (total[field][key] || 0) + value; });
+        for (const field of ['directElbowActions','compoundContext']) {
+          if (!dose[field]) continue;
+          total[field] = total[field] || {};
+          Object.entries(dose[field]).forEach(([key, exposure]) => { total[field][key] = (total[field][key] || 0) + exposure.value; });
+        }
         total.confidence = total.hasUnknownExposure || (priorExposure > 0 && total.confidence === 'unknown') || dose.exposure.confidence === 'unknown' ? 'unknown' : 'derived';
         if (policy.interpretProgression) next.anchors = clone(policy.interpretProgression({...base, mode}));
       }
@@ -171,6 +176,7 @@
     function programmeReview(definition, state, now) {
       policyFor(definition); validateState(definition, state);
       const progress = atTime(clone(state), now).nominalProgress || 0;
+      if (definition.openEnded) return {due: false, block: 0, nominalProgress: progress, meaningfulSessions: state.meaningfulSessionsCompleted, targetMet: false};
       const block = definition.openEnded ? 0 : Math.floor(progress / definition.nominalDurationDays);
       const acknowledged = state.currentTargets && state.currentTargets.blockReview && state.currentTargets.blockReview.acknowledgedBlocks || 0;
       const start = Date.parse(state.startedAt) + Math.max(0, block-1) * definition.nominalDurationDays * DAY;
