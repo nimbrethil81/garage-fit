@@ -343,6 +343,8 @@
     programmeInstanceId: id,
     sessionRole: text,
     duration: nullable(positiveNumber), // minutes, as generate({duration})
+    mainTimeLimitSeconds: nullable(positiveNumber),
+    maximumDurationSeconds: nullable(positiveNumber),
     workoutStyle: nullable(oneOf(WORKOUT_STYLES)),
     difficulty: nullable(oneOf(WORKOUT_DIFFICULTIES)),
     bodyFocus: nullable(oneOf(WORKOUT_BODY_FOCUSES)),

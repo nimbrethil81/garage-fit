@@ -189,6 +189,30 @@ test('required work and its rest must fit Main time; failure does not fall throu
   assertInfeasible(rx({requiredAnchors:[anchor({target:{type:'reps',minReps:200,maxReps:300}})]}),'insufficient-main-time');
 });
 
+test('explicit prescription timing ceilings reserve Main time and survive optional swaps without changing hard targets',()=>{
+  const prescription=rx({duration:15,mainTimeLimitSeconds:570,maximumDurationSeconds:900,
+    requiredAnchors:[anchor({targetSets:2})]});
+  const assessment=Generator.assessSessionPrescription(options(prescription));
+  assert.equal(assessment.availableMainSeconds,570);
+  assert.equal(assessment.status,'feasible');
+  for(let seed=1;seed<=24;seed++){
+    const workout=generate(prescription,seed);
+    assert.ok(workout.main.estimatedDurationSeconds<=570);
+    assert.ok(workout.estimatedSeconds<=900);
+    const original=plain(workout.prescriptionOutcome.requiredAnchorPlacements);
+    workout.main.blocks.forEach((block,blockIndex)=>block.exercises.forEach((exercise,exerciseIndex)=>{
+      if(exercise.coachAnchor&&exercise.coachAnchor.importance==='required')return;
+      Generator.swap(workout,blockIndex,exerciseIndex,{catalogue,equipment:kit,random:random(seed)});
+      assert.ok(workout.main.estimatedDurationSeconds<=570);
+      assert.ok(workout.estimatedSeconds<=900);
+      assert.deepEqual(workout.prescriptionOutcome.requiredAnchorPlacements,original);
+    }));
+  }
+  assertInfeasible({...prescription,mainTimeLimitSeconds:1},'insufficient-main-time');
+  assertInfeasible({...prescription,maximumDurationSeconds:1},'insufficient-main-time');
+  assert.equal(Model.validate('session-prescription',{...prescription,mainTimeLimitSeconds:0}).valid,false);
+});
+
 test('a soft missing/equipment conflict yields partial feasibility and explicit preferred relaxation',()=>{
   const prescription=rx({preferredAnchors:[anchor({importance:'preferred',requirementId:'want-pullup',exerciseId:'pull-up',target:null})]});
   const opts={equipment:['dumbbells']};

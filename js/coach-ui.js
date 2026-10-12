@@ -175,6 +175,8 @@
     function conflictText(conflicts) {
       return [...new Set((conflicts || []).map(item => {
         if (item.code === 'missing-pattern') return 'Add equipment for '+item.pattern+' work.';
+        if (item.code === 'anchor-unavailable' && item.message) return item.message;
+        if (item.code === 'tennis-no-useful-session' || item.code === 'tennis-preflight-required') return item.message || 'No useful Tennis session can be prescribed with these options.';
         if (item.code === 'anchor-unavailable') return item.directElbowAction
           ? 'No suitable direct arm '+(item.directElbowAction === 'flexion' ? 'curl' : 'extension')+' anchor is available. Compound pushing or pulling cannot replace it.'
           : 'No suitable '+item.requirementId.replace('anchor-','')+' anchor is available.';
@@ -184,6 +186,7 @@
       }))].join(' ');
     }
     function rationale(plan) {
+      if (plan.prescription && plan.prescription.programmeContext.roleLabel) return plan.prescription.programmeContext.roleLabel+' today: selected targets fit '+plan.prescription.duration+' minutes with preparation and rest. Keep about 2 reps in reserve on strength anchors.';
       const patterns = plan.rationale.priorities.movements.filter(item => item.deficit > 0).map(item => patternNames[item.pattern]);
       if (plan.prescription && plan.prescription.sessionRole==='maintenance') return 'Keep your anchor challenge with fewer sets and less supporting work in '+plan.prescription.duration+' minutes.';
       if (plan.rationale.priorities.directDose) return 'Direct arm anchors first; whole-body maintenance follows'+(patterns.length ? ' with attention to '+patterns.slice(0,3).join(', ') : '')+'.';
@@ -225,9 +228,10 @@
       def = root.GarageFitData.programmes[state.programmeDefinitionId][state.programmeDefinitionVersion];
       wrap.append(heading(def.name),paragraph(def.objective));
       const review=controller.review(), blockDays=review.nominalProgress%def.nominalDurationDays, weeks=Math.ceil(def.nominalDurationDays/7);
+      const tennisFrequency=def.type==='tennis-conditioning' && state.currentTargets.programmeSettings.weeklyCoachFrequency;
       const frequency=state.mode==='maintenance'?def.maintenancePolicy.frequency:def.recommendedFrequency;
       wrap.append(paragraph((def.openEnded?'Open-ended objective':review.due?'Four-week block complete':'Week '+Math.min(weeks,Math.floor(blockDays/7)+1)+' of '+weeks)+' · '+state.meaningfulSessionsCompleted+' meaningful sessions'),
-        paragraph(frequency.aimSessionsPerWeek ? 'Aim for '+frequency.aimSessionsPerWeek+' sessions per week; two is acceptable. No catch-up debt.' : (state.mode==='maintenance'?'Maintenance':'Development')+' · '+frequency.minSessionsPerWeek+'–'+frequency.maxSessionsPerWeek+' sessions per week'));
+        paragraph(tennisFrequency ? tennisFrequency+' Coach sessions per week. Priorities follow performed work; no catch-up debt.' : frequency.aimSessionsPerWeek ? 'Aim for '+frequency.aimSessionsPerWeek+' sessions per week; two is acceptable. No catch-up debt.' : (state.mode==='maintenance'?'Maintenance':'Development')+' · '+frequency.minSessionsPerWeek+'–'+frequency.maxSessionsPerWeek+' sessions per week'));
       if (def.doseTargets.directElbowActions) {
         const now=new Date().toISOString(), history=root.GarageFitTrainingHistory.createHistory(current.results,catalogue);
         const scope={programmeInstanceId:state.programmeInstanceId, sections:def.doseTargets.sections,
@@ -258,8 +262,8 @@
     function overview() {
       const assessment=controller.assess(def,getEquipment()), wrap=el('coachContent'); wrap.innerHTML='';
       const anchor=def.anchorSelectionPolicy.requirements[0];
-      wrap.append(heading(def.name),paragraph(def.openEnded ? def.objective+'. An open-ended objective: aim for '+def.recommendedFrequency.aimSessionsPerWeek+' sessions per week; two is acceptable. Pause or finish whenever you choose.' : def.objective+' over a nominal four-week block. Aim for '+def.completionCriteria.blockMeaningfulSessionTarget+' meaningful sessions, at '+def.recommendedFrequency.minSessionsPerWeek+'–'+def.recommendedFrequency.maxSessionsPerWeek+' per week.'),
-        paragraph(def.sessionTemplate.duration+' minutes by default; '+def.supportedDurations.filter(duration=>duration!==def.sessionTemplate.duration).join(' or ')+' minutes when needed. '+def.anchorSelectionPolicy.requirements.length+' stable '+(def.doseTargets.directElbowActions?'direct curl and extension':'squat, push and pull')+' anchors start at '+anchor.targetSets+' × '+anchor.target.maxReps+' reps.'),
+      wrap.append(heading(def.name),paragraph(def.type==='tennis-conditioning' ? def.objective+'. Balanced by default, with 2 Coach sessions per week; 1–3 sessions are supported. Pause or finish whenever you choose.' : def.openEnded ? def.objective+'. An open-ended objective: aim for '+def.recommendedFrequency.aimSessionsPerWeek+' sessions per week; two is acceptable. Pause or finish whenever you choose.' : def.objective+' over a nominal four-week block. Aim for '+def.completionCriteria.blockMeaningfulSessionTarget+' meaningful sessions, at '+def.recommendedFrequency.minSessionsPerWeek+'–'+def.recommendedFrequency.maxSessionsPerWeek+' per week.'),
+        paragraph(def.type==='tennis-conditioning' ? 'Usually 20–30 minutes. Four stable knee, hinge, push and pull anchors build from 2 × 6 to 2 × 10 reps, about 2 reps in reserve. Each session selects the targets that fit your available 10/15/20/30/45 minutes; both sides are required where applicable. Supporting work rotates from performed history, with no catch-up debt.' : def.sessionTemplate.duration+' minutes by default; '+def.supportedDurations.filter(duration=>duration!==def.sessionTemplate.duration).join(' or ')+' minutes when needed. '+def.anchorSelectionPolicy.requirements.length+' stable '+(def.doseTargets.directElbowActions?'direct curl and extension':'squat, push and pull')+' anchors start at '+anchor.targetSets+' × '+anchor.target.maxReps+' reps.'),
         paragraph(assessment.status==='infeasible'?'Blocked · '+conflictText(assessment.conflicts):assessment.status==='partially-feasible'?'Partially feasible · required anchors fit; supporting choices may be adjusted.':'Feasible · your equipment supports this programme.'),
         button('Set up usual equipment',() => root.openEquipment('coach')));
       if (def.doseTargets.directElbowActions) wrap.append(paragraph('Build from 3 × 8 to 3 × 12, then confirm more resistance. Aim for 9 performed curl and 9 extension set exposures in each rolling 7 days, plus squat, hinge, lunge, compound push/pull, core and carry maintenance. Short sessions keep the direct anchors first.'));
@@ -286,11 +290,12 @@
         wrap.append(heading('Block '+(index+1)));
         block.exercises.forEach((exercise,exerciseIndex) => {
           const row=document.createElement('div'); row.className='coach-preview-row'; const anchor=exercise.coachAnchor;
+          const stableAnchor=anchor && controller.snapshot().state.anchors.some(item=>item.requirementId===anchor.requirementId);
           const timed=block.protocol==='timed_intervals' || exercise.prescription.type.includes('timed');
-          row.append(paragraph((anchor?(anchor.importance==='required'?'Required anchor · ':'Maintenance · '):'')+exercise.name+' · '+(block.protocol==='timed_intervals'?block.prescription.workSeconds:exercise.prescription.value)+(timed?' sec':' reps')+(exercise.sidedness==='per-side'?' each side':'')));
+          row.append(paragraph((anchor?(anchor.importance==='required'?(stableAnchor?'Required anchor · ':'Required support · '):'Maintenance · '):'')+exercise.name+' · '+(block.protocol==='timed_intervals'?block.prescription.workSeconds:exercise.prescription.value)+(timed?' sec':' reps')+(exercise.sidedness==='per-side'?' each side':'')));
           if (anchor) {
             row.append(paragraph(anchor.plannedTarget.targetSets+' sets · '+(anchor.plannedTarget.progressionIntent || 'Confirm actual work')));
-            if (controller.snapshot().state.anchors.some(item=>item.requirementId===anchor.requirementId)) row.append(button('Substitute',() => showSubstitutes(anchor.requirementId,preview.today)));
+            if (stableAnchor) row.append(button('Substitute',() => showSubstitutes(anchor.requirementId,preview.today)));
           }
           else row.append(button('Swap',() => { root.GarageFitGenerator.swap(workout,index,exerciseIndex,{catalogue,equipment:preview.today.equipment}); renderPreview(preview); }));
           wrap.append(row);
@@ -300,6 +305,7 @@
       if (outcome.softRelaxations.length) wrap.append(paragraph('Some supporting choices were adjusted to keep the required work.'));
       const unavailable=preview.plan.prescription.programmeContext.maintenanceUnavailable || [];
       if (unavailable.length) wrap.append(paragraph('Today’s equipment cannot provide '+unavailable.join(', ')+' maintenance. Add suitable equipment when available; there is no catch-up debt.'));
+      (preview.plan.prescription.programmeContext.warnings || []).forEach(warning => wrap.append(paragraph(warning.message)));
       wrap.append(button('Begin workout',async () => { const tracker=await controller.begin(); sessionSetups={}; sessionActive=true; await play(workout,tracker); },true),button('Back to Coach',() => { showScreen('coach'); render(); })); showScreen('coachPreview');
     }
     function showSubstitutes(requirementId, context) {
@@ -315,8 +321,13 @@
       showScreen('coachSubstitute');
     }
     async function manage(action) { await controller.manage(action); resetOptions(); render(); }
+    function isProgressionAnchor(phase) {
+      const anchor=phase && phase.kind==='exercise' && phase.section==='main' && !phase.timed && phase.exercise.coachAnchor;
+      const state=controller.snapshot().state;
+      return anchor && anchor.importance==='required' && state && state.anchors.some(item=>item.requirementId===anchor.requirementId);
+    }
     function renderAnchor(phase, tracker) {
-      const anchor=sessionActive && phase && phase.kind==='exercise' && phase.section==='main' && phase.exercise.coachAnchor && phase.exercise.coachAnchor.importance==='required' && phase.exercise.coachAnchor;
+      const anchor=sessionActive && isProgressionAnchor(phase) && phase.exercise.coachAnchor;
       el('coachAnchorLog').classList.toggle('hidden',!anchor); el('coachSkipBtn').classList.toggle('hidden',!sessionActive || !phase || phase.kind!=='exercise' || phase.timed);
       if (!anchor) return;
       const preview=controller.snapshot().preview, resistance=preview.plan.prescription.programmeContext.anchorResistance;
@@ -354,7 +365,7 @@
         if (!phase || phase.kind!=='exercise') return true;
         if (phase.timed) await tracker.recordTimed(phase.occurrenceId,{plannedSeconds:phase.seconds,elapsedSeconds:elapsed});
         else if (action==='skip') await tracker.recordSkip(phase.occurrenceId);
-        else if (phase.section==='main' && phase.exercise.coachAnchor && phase.exercise.coachAnchor.importance==='required') { const set=actualSet(); await tracker.recordAnchor(phase.occurrenceId,{status:'completed',sets:[set],targetAchieved:set.reps===null?null:set.reps>=phase.exercise.prescription.value}); if (set.resistanceSetup) sessionSetups[activeResistance.requirementId]=set.resistanceSetup; }
+        else if (isProgressionAnchor(phase)) { const set=actualSet(); await tracker.recordAnchor(phase.occurrenceId,{status:'completed',sets:[set],targetAchieved:set.reps===null?null:set.reps>=phase.exercise.prescription.value}); if (set.resistanceSetup) sessionSetups[activeResistance.requirementId]=set.resistanceSetup; }
         else await tracker.recordDone(phase.occurrenceId);
         return true;
       });

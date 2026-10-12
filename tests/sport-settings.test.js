@@ -221,7 +221,7 @@ test('save route preserves latest performed state, rejects bad/stale updates, an
   assert.equal(p.json('pilot.snapshot().state').currentTargets.programmeSettings,undefined);
 });
 
-test('invalid saved settings are retained and block writes; no sport programme or extra active instance is exposed', async () => {
+test('invalid saved settings are retained and block writes; released programmes still share one active instance', async () => {
   const p = pilot(); await p.start(); await configure(p);
   const key = [...p.storage.keys()].find(key=>key.startsWith('gf_coach_programme_state:'));
   const state = JSON.parse(p.storage.get(key)); state.currentTargets.programmeSettings.schemaVersion=2;
@@ -230,7 +230,7 @@ test('invalid saved settings are retained and block writes; no sport programme o
   assert.ok(q.run('pilot.snapshot().blocked')); assert.match(q.run('pilot.snapshot().errors[0].message'),/programmeSettings.schemaVersion/);
   await assert.rejects(q.run("pilot.saveProgrammeSettings({focus:'power'})"), /valid programme/);
   await assert.rejects(q.start(), /Resolve/); assert.equal(q.storage.get(key),raw);
-  assert.deepEqual(q.json('Object.keys(GarageFitData.programmes)'),['general-strength-4w','build-arms']);
+  assert.deepEqual(q.json('Object.keys(GarageFitData.programmes)'),['general-strength-4w','build-arms','tennis-conditioning']);
   const r = pilot(); await r.start(); await configure(r);
   await assert.rejects(r.start(), /Finish the current programme/);
   await r.run("pilot.manage('pause')"); await assert.rejects(r.start(), /Finish the current programme/);

@@ -1536,6 +1536,12 @@
       equipment:options.equipment??rx.equipment??[]
     });
   }
+  function prescriptionBudget(rx, duration) {
+    const budget = BUDGETS[duration] || BUDGETS[20];
+    if(rx.mainTimeLimitSeconds==null&&rx.maximumDurationSeconds==null)return budget;
+    return {...budget,main:Math.max(0,Math.min(budget.main,rx.mainTimeLimitSeconds??Infinity,
+      (rx.maximumDurationSeconds??Infinity)-budget.warmup-budget.rampup-budget.cooldown))};
+  }
   function prepareSessionPrescription(options) {
     const rx=options.sessionPrescription;
     const assessment={status:'feasible',prescriptionId:rx&&rx.prescriptionId||null,hardConflicts:[],softConflicts:[],softRelaxations:[],warnings:[]};
@@ -1555,7 +1561,7 @@
       assertValidCatalogue(context.catalogue);
     }
     catch(error){conflict(assessment.hardConflicts,'invalid-generation-context',[],[],{message:error.message});assessment.status='infeasible';return {assessment};}
-    const catalogue=context.catalogue,owned=context.equipment,budget=BUDGETS[context.duration]||BUDGETS[20],rest=RESTS[context.focus]||RESTS.balanced;
+    const catalogue=context.catalogue,owned=context.equipment,budget=prescriptionBudget(rx,context.duration),rest=RESTS[context.focus]||RESTS.balanced;
     const hardAvoids=prescriptionList(rx,'avoidConstraints').filter(item=>item.importance==='hard');
     const available=Object.values(catalogue).filter(exercise=>!hardAvoids.some(item=>avoidMatches(exercise,item)));
     const eligible=available.filter(exercise=>generatedPhaseEligible(exercise,'main',owned,context.difficulty));
@@ -1775,6 +1781,12 @@
     const blocks=mainBlocks(workout),mainExercises=blocks.flatMap(block=>block.exercises);
     const allExercises=mainExercises.concat(...['warmup','rampup','cooldown'].map(section=>workout[section].exercises));
     const placements=[];
+    if(rx.mainTimeLimitSeconds!=null&&workout.main.estimatedDurationSeconds>rx.mainTimeLimitSeconds)hardTimingConflict('main-time-limit-exceeded',workout.main.estimatedDurationSeconds,rx.mainTimeLimitSeconds);
+    if(rx.maximumDurationSeconds!=null&&workout.estimatedSeconds>rx.maximumDurationSeconds)hardTimingConflict('maximum-duration-exceeded',workout.estimatedSeconds,rx.maximumDurationSeconds);
+    function hardTimingConflict(code,actualSeconds,maximumSeconds) {
+      throw new SessionPrescriptionError({...assessment,status:'infeasible',hardConflicts:[{code,actualSeconds,maximumSeconds,
+        requirementIds:prescriptionList(rx,'requiredAnchors').map(anchor=>anchor.requirementId),exerciseIds:[]}]});
+    }
     blocks.forEach((block,blockIndex)=>block.exercises.forEach((exercise,exerciseIndex)=>{
       if(!exercise.coachAnchor)return;
       placements.push({requirementId:exercise.coachAnchor.requirementId,exerciseId:exercise.id,importance:exercise.coachAnchor.importance,
@@ -1835,7 +1847,7 @@
   function generatePrescribedWorkout(options) {
     const prepared=prepareSessionPrescription(options),{assessment,context,rx}=prepared;
     if(assessment.status==='infeasible')throw new SessionPrescriptionError(assessment);
-    const hasRequirements=['requiredAnchors','preferredAnchors','movementPriorities','bodyRegionPriorities','avoidConstraints','protocolConstraints'].some(key=>prescriptionList(rx,key).length)||rx.variationPreference;
+    const hasRequirements=['requiredAnchors','preferredAnchors','movementPriorities','bodyRegionPriorities','avoidConstraints','protocolConstraints'].some(key=>prescriptionList(rx,key).length)||rx.variationPreference||rx.mainTimeLimitSeconds!=null||rx.maximumDurationSeconds!=null;
     // An empty prescription can use the exact ordinary flow, including its RNG consumption.
     if(!hasRequirements){
       const workout=generateWorkout(context);
@@ -1863,7 +1875,7 @@
   }
   function refreshPrescriptionOutcome(workout) {
     if(!workout.sessionPrescription)return;
-    workout.prescriptionOutcome=reconcileSessionPrescription(workout,workout.sessionPrescription,{softConflicts:[],availableMainSeconds:(BUDGETS[workout.duration]||BUDGETS[20]).main});
+    workout.prescriptionOutcome=reconcileSessionPrescription(workout,workout.sessionPrescription,{softConflicts:[],availableMainSeconds:prescriptionBudget(workout.sessionPrescription,workout.duration).main});
   }
 
   // options.trace: optional diagnostic callback receiving selection events (see tracedPick and
@@ -1927,10 +1939,12 @@
     const bodyFocus=workoutBodyFocus(workout.bodyFocus);
     let eligible=Object.values(catalogue).filter(exercise=>generatedPhaseEligible(exercise,'main',owned,difficulty)&&protocolCompatible(exercise,block.protocol)&&exercise.id!==current.id&&!mainFamilyCapReached(exercise,otherExercises));
     if(workout.sessionPrescription){
-      const rx=workout.sessionPrescription,budget=BUDGETS[workout.duration]||BUDGETS[20];
+      const rx=workout.sessionPrescription,budget=prescriptionBudget(rx,workout.duration);
       eligible=eligible.filter(exercise=>!prescriptionList(rx,'avoidConstraints').some(item=>item.importance==='hard'&&avoidMatches(exercise,item))&&
         !prescriptionList(rx,'requiredAnchors').some(item=>item.exerciseId===exercise.id)&&
-        mainSeconds(blocks)-estimateBlockDuration(block)+estimateBlockDuration({...block,exercises:block.exercises.map((item,index)=>index===exerciseIndex?exercise:item)})<=budget.main);
+        mainSeconds(blocks)-estimateBlockDuration(block)+estimateBlockDuration({...block,exercises:block.exercises.map((item,index)=>index===exerciseIndex?exercise:item)})<=budget.main
+        && (rx.maximumDurationSeconds==null || workout.estimatedSeconds-estimateBlockDuration(block)
+          +estimateBlockDuration({...block,exercises:block.exercises.map((item,index)=>index===exerciseIndex?exercise:item)})<=rx.maximumDurationSeconds));
     }
     const fresh=eligible.filter(exercise=>!otherIds.has(exercise.id));if(fresh.length)eligible=fresh;
     // The swapped slot's neighbours in Main order, for the body-focus run limit.
@@ -1966,6 +1980,8 @@
     if(section==='warmup') eligible=eligible.filter(ex=>ex.impact!=='high');
     if(section==='rampup') eligible=eligible.filter(ex=>ex.prepFatigue<=3&&ex.prepComplexity<=3&&!difficultyExcluded(ex,workoutDifficulty(workout.difficulty)));
     if(workout.sessionPrescription)eligible=eligible.filter(ex=>!prescriptionList(workout.sessionPrescription,'avoidConstraints').some(item=>item.importance==='hard'&&avoidMatches(ex,item)));
+    if(workout.sessionPrescription&&workout.sessionPrescription.maximumDurationSeconds!=null)eligible=eligible.filter(ex=>
+      workout.estimatedSeconds-current.estimatedSeconds+roundToFive(current.estimatedSeconds/sideCount(ex))*sideCount(ex)<=workout.sessionPrescription.maximumDurationSeconds);
     if(section==='warmup') {
       // A swap must not undo the warm-up's lower-body coverage or tip it into upper/trunk skew.
       const others=workout.warmup.exercises.filter((_,index)=>index!==exerciseIndex), count=workout.warmup.exercises.length;
