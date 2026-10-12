@@ -119,7 +119,10 @@
     phasePolicy: {minimumDevelopmentDays: 21, minimumDevelopmentSessions: 6,
       consolidationSessions: 1, consolidationAnchorSets: 1},
     sportReviewPolicy: {minimumDays: 28, minimumSessions: 4}};
+  const tennisEvents = {...JSON.parse(JSON.stringify(tennisDevelopment)), version: 4,
+    eventPolicy: {buildMinimumDays: 15, refineMinimumDays: 8, reducedMinimumDays: 3,
+      reducedAnchorSets: 1, finalAnchorLimit: 0, finalDurationMinutes: 15, finalImpact: ['low']}};
   function freeze(value) { Object.values(value).forEach(item => { if (item && typeof item === 'object') freeze(item); }); return Object.freeze(value); }
   root.GarageFitData = root.GarageFitData || {};
-  root.GarageFitData.programmes = freeze({'general-strength-4w': {1: strength}, 'build-arms': {1: arms}, 'tennis-conditioning': {1: tennis, 2: tennisContext, 3: tennisDevelopment}});
+  root.GarageFitData.programmes = freeze({'general-strength-4w': {1: strength}, 'build-arms': {1: arms}, 'tennis-conditioning': {1: tennis, 2: tennisContext, 3: tennisDevelopment, 4: tennisEvents}});
 })(typeof window !== 'undefined' ? window : globalThis);

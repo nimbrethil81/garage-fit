@@ -13,6 +13,8 @@
     date.setUTCFullYear(year,month-1,day); date.setUTCHours(0,0,0,0); return date;
   }
   function initialiseState(input) {
+    validateSettingsChange({definition: input.definition, previous: null,
+      settings: settings(input.definition,null,input.context), context: input.context});
     const initial = strength.initialiseState(input);
     if (input.definition.phasePolicy) initial.currentTargets.tennisDevelopment = {
       schemaVersion: 1, phase: 'development', entryReason: 'programme-start',
@@ -97,6 +99,32 @@
       && overrides.some(item => item.type === 'tennis-feedback-review')) review.easierNextSession = false;
     return targets;
   }
+  function eventHorizon({definition, state, today}) {
+    const rule = definition.eventPolicy, config = settings(definition,state);
+    if (!rule || config.intent !== 'event') return null;
+    const localDate = today.localDate === undefined ? today.now.slice(0,10) : today.localDate;
+    const daysUntil = (calendarDate(config.significantEventDate)-calendarDate(localDate))/DAY;
+    const phase = daysUntil < 0 ? 'expired' : daysUntil >= rule.buildMinimumDays ? 'build'
+      : daysUntil >= rule.refineMinimumDays ? 'refine' : daysUntil >= rule.reducedMinimumDays ? 'reduced' : 'final';
+    const reasons = {
+      build: 'Event preparation: time allows normal progressive development; no compressed build or catch-up work.',
+      refine: 'Event preparation: retain established strength and familiar movement; hold progression and avoid unfamiliar difficult or explosive work.',
+      reduced: 'Event preparation: reduce demand before your event; prefer light established anchors and avoid power or fatiguing conditioning.',
+      final: 'Your event is within two days: gentle trunk/shoulder work only, or rest. No hard legs or power; progression is held.',
+      expired: 'Your event date has passed. Return to ongoing development or explicitly choose a new event date; your anchors and progress are retained.'
+    };
+    return {phase, daysUntil, localDate, eventDate: config.significantEventDate,
+      label: config.significantEventLabel || null, holdProgression: phase !== 'build',
+      nextAction: phase === 'expired' ? 'return-ongoing-or-change-event' : null,
+      rationale: reasons[phase], evidenceNote: 'Conservative pilot preferences, not a guaranteed peak. Dates never confirm sport participation or award training credit.'};
+  }
+  function validateSettingsChange({definition, previous, settings: config, context}) {
+    if (!definition.eventPolicy || config.intent !== 'event'
+      || previous?.intent === 'event' && previous.significantEventDate === config.significantEventDate) return;
+    const localDate = context.localDate === undefined ? context.now?.slice(0,10) : context.localDate;
+    if (!localDate) throw new Error('Selecting an event needs today’s local calendar date.');
+    if (calendarDate(config.significantEventDate) < calendarDate(localDate)) throw new Error('Choose an event date today or in the future.');
+  }
   function classifyContext({definition, state, today}) {
     const rule = definition.contextPolicy;
     if (!rule) return null; // Preserve the released v1 policy.
@@ -147,12 +175,14 @@
     if (today.allowedImpact !== undefined && (!Array.isArray(today.allowedImpact)
       || today.allowedImpact.some(impact => !['low','medium','high'].includes(impact)))) throw new Error('Invalid availability constraints.');
     const requested = today.duration === undefined ? definition.sessionTemplate.duration : today.duration;
+    const final = adaptation.event?.phase === 'final';
+    const permittedImpact = final ? definition.eventPolicy.finalImpact : rule.lighterImpact;
     return {...today, smallSpace: today.smallSpace === undefined ? rule.homeSmallSpace : today.smallSpace,
       ...(lighter ? {easyToday: true,
         // Unsupported budgets still fail rather than being silently repaired.
         duration: definition.supportedDurations.includes(requested) ? Math.min(requested,
-          adaptation.readiness === 'tired' ? rule.tiredDurationMinutes : rule.lighterDurationMinutes) : requested,
-        allowedImpact: (today.allowedImpact || rule.lighterImpact).filter(impact => rule.lighterImpact.includes(impact))} : {})};
+          final ? definition.eventPolicy.finalDurationMinutes : adaptation.readiness === 'tired' ? rule.tiredDurationMinutes : rule.lighterDurationMinutes) : requested,
+        allowedImpact: (today.allowedImpact || permittedImpact).filter(impact => permittedImpact.includes(impact))} : {})};
   }
   function settings(definition, state, context = {}) {
     return Model().createProgrammeSettings(context.programmeSettings
@@ -163,9 +193,11 @@
     const mapping = root.GarageFitData.sportCapabilityPolicies[pin.sportId][pin.version];
     return root.GarageFitSportCoverage.createPolicy(mapping, catalogue);
   }
-  function validateProgrammeSettings({settings: value}) {
+  function validateProgrammeSettings({definition, settings: value}) {
     Model().assertProgrammeSettings(value);
     if (value.sportId !== 'tennis') throw new Error('Tennis Conditioning requires tennis settings.');
+    if (definition?.eventPolicy && value.intent === 'event' && !value.significantEventDate)
+      throw new Error('Event preparation requires an explicitly selected local event date.');
   }
   function validateDefinition(definition) {
     strength.validateDefinition(definition);
@@ -206,6 +238,13 @@
         || phase.minimumDevelopmentSessions !== 6 || phase.consolidationSessions !== 1 || phase.consolidationAnchorSets !== 1
         || review.minimumDays !== 28 || review.minimumSessions !== 4) throw new Error('Invalid Tennis development pilot thresholds.');
     }
+    if (definition.eventPolicy) {
+      const rule = definition.eventPolicy;
+      if (!definition.phasePolicy || rule.buildMinimumDays !== 15 || rule.refineMinimumDays !== 8
+        || rule.reducedMinimumDays !== 3 || rule.reducedAnchorSets !== 1 || rule.finalAnchorLimit !== 0
+        || rule.finalDurationMinutes !== 15 || !Array.isArray(rule.finalImpact) || rule.finalImpact.join(',') !== 'low')
+        throw new Error('Invalid Tennis event pilot thresholds.');
+    }
   }
   function anchorEligible(exercise, context, requirement) {
     if (!exercise || !exercise.main || !exercise.generator
@@ -245,6 +284,14 @@
   }
   function calculatePriorities({definition, catalogue, state, history, today, forFeasibility = false}) {
     const adaptation = forFeasibility ? null : classifyContext({definition,state,today});
+    const event = forFeasibility ? null : eventHorizon({definition,state,today});
+    if (adaptation && event) {
+      adaptation.event = event;
+      adaptation.reasons.push(event.rationale);
+      if (event.phase === 'expired') {
+        adaptation.classification = 'rest'; adaptation.recommendation = event.rationale;
+      } else if (['reduced','final'].includes(event.phase) && adaptation.classification === 'usual') adaptation.classification = 'lighter';
+    }
     const phase = forFeasibility ? null : phaseRecommendation({definition,state,now:today.now});
     const feedbackReview = !forFeasibility && definition.phasePolicy && state.currentTargets.tennisDevelopment.sportReview.easierNextSession;
     if (adaptation && (phase?.phase === 'consolidation' || feedbackReview)) {
@@ -291,15 +338,17 @@
       || Number(b.coverage !== 'observed')-Number(a.coverage !== 'observed') || Number(b.preferred)-Number(a.preferred)
       || (role.capabilities.includes(a.capabilityId) ? role.capabilities.indexOf(a.capabilityId) : 99)
         -(role.capabilities.includes(b.capabilityId) ? role.capabilities.indexOf(b.capabilityId) : 99));
-    if (adaptation && adaptation.classification !== 'usual'
+    if (adaptation && (adaptation.classification !== 'usual'
       && adaptation.reasons.some(reason => ['tired today','lighter before planned tennis','lighter after reported hard tennis',
-        'lighter before a planned match','lighter before your planned event','easy today'].includes(reason))) {
+        'lighter before a planned match','lighter before your planned event','easy today'].includes(reason))
+      || ['reduced','final'].includes(event?.phase))) {
       // Prefer upper/trunk work around demanding tennis without banning all legs.
       anchors.sort((a,b) => Number(['knee','hinge'].includes(state.anchors[a.index].roleId))
         -Number(['knee','hinge'].includes(state.anchors[b.index].roleId)) || a.passes-b.passes || a.index-b.index);
       capabilities.sort((a,b) => Number(['trunk','upper-body'].includes(b.capabilityId))-Number(['trunk','upper-body'].includes(a.capabilityId)));
     }
     return {role, earnedRoles, anchors, capabilities, coverage: summary, movements: [], bodyRegions: [],
+      ...(event ? {event} : {}),
       ...(phase ? {phase, sportReview: sportReviewRecommendation({definition,state,now:today.now}), feedbackReview: !!feedbackReview} : {}),
       ...(adaptation ? {adaptation} : {})};
   }
@@ -312,6 +361,7 @@
   }
   function buildPrescription({definition, catalogue, state, history, today, priorities, assessSessionPrescription, allowRoleFallback = true}) {
     const adaptation = priorities.adaptation;
+    const event = priorities.event, final = event?.phase === 'final';
     const requestedDuration = today.duration === undefined ? definition.sessionTemplate.duration : today.duration;
     today = trainingContext(definition,today,adaptation);
     const lighter = adaptation && adaptation.classification !== 'usual';
@@ -325,15 +375,29 @@
         equipment: today.equipment || []})).availableMainSeconds : null;
     const availability = sport.availability({equipment: today.equipment || [], allowedImpact: today.allowedImpact, smallSpace: today.smallSpace});
     const lowLoad = role.id === 'conditioning-resilience';
+    const familiar = new Set(history.performances.filter(item => item.programmeInstanceId === state.programmeInstanceId
+      && item.section === 'main' && item.status === 'completed' && item.exposure.value > 0
+      && item.occurredAt && Date.parse(item.occurredAt) <= Date.parse(today.now)).map(item => item.exerciseId));
+    // Safety constraints precede hard anchor selection and apply to preparation,
+    // supporting targets, filler and swaps through the existing Generator seam.
+    const eventAvoids = event && ['refine','reduced','final'].includes(event.phase) ? Object.values(catalogue).filter(exercise => {
+      const power = sport.classifyExercise(exercise.id).contributions.some(item => item.capabilityId === 'power');
+      return !familiar.has(exercise.id) && (exercise.impact === 'high' || exercise.difficulty === 'hard' || power
+        || event.phase === 'reduced' && state.anchors.some(anchor => anchor.exerciseId === exercise.id))
+        || final && exercise.main && (!['core','upper'].includes(exercise.bodyFocus)
+          || exercise.difficulty !== 'easy' || exercise.conditioning || power
+          || exercise.mainRole === 'primary' && exercise.bodyFocus !== 'core');
+    }).map(exercise => ({requirementId: 'tennis-event-avoid-'+exercise.id, importance: 'hard', exerciseId: exercise.id})) : [];
     const numeric = exercise => exercise.equipment.some(group => group.some(id => definition.progressionPolicy.numericLoadEquipment.includes(id)));
     const prescription = Model().createSessionPrescription({...copy(definition.sessionTemplate), duration,
       ...(Number.isFinite(availableMainSeconds) ? {
         mainTimeLimitSeconds: Math.max(1,availableMainSeconds-definition.preparationTimingReserveSeconds), maximumDurationSeconds: duration*60} : {}),
       prescriptionId: today.prescriptionId, programmeInstanceId: state.programmeInstanceId, sessionRole: role.id,
       equipment: today.equipment || [], difficulty: today.easyToday ? 'easy' : definition.sessionTemplate.difficulty,
+      ...(event && event.phase !== 'build' ? {variationPreference: 'familiar'} : {}),
       bodyFocus: today.bodyFocus || definition.sessionTemplate.bodyFocus, requiredAnchors: [], preferredAnchors: [],
       protocolConstraints: [{requirementId: 'tennis-protocols', importance: 'hard', allowedProtocols: ['rounds','paired_sets']}],
-      avoidConstraints: [...(definition.sessionTemplate.avoidConstraints || []), ...(adaptation ? today.avoidConstraints || [] : []), ...Object.values(catalogue)
+      avoidConstraints: [...(definition.sessionTemplate.avoidConstraints || []), ...(adaptation ? today.avoidConstraints || [] : []), ...eventAvoids, ...Object.values(catalogue)
         .filter(exercise => today.allowedImpact && !today.allowedImpact.includes(exercise.impact)
           || today.smallSpace && availability.some(cap => cap.candidates.some(candidate => candidate.exerciseId === exercise.id && candidate.reasons.includes('space')))
           || lowLoad && exercise.main && exercise.strength >= exercise.cardio && !exercise.conditioning && exercise.mainRole === 'primary')
@@ -342,10 +406,12 @@
         roleLabel: role.label, repsInReserve: 2, warnings: [], deferredAnchorRequirementIds: [],
         ...(adaptation ? {adaptation, requestedDuration} : {}),
         ...(priorities.phase ? {phase: priorities.phase} : {}),
+        ...(event ? {event} : {}),
         anchorResistance: Object.fromEntries(state.anchors.map(anchor => [anchor.requirementId, {exerciseId: anchor.exerciseId,
           numericLoad: numeric(catalogue[anchor.exerciseId]), setup: anchor.comparisonBaseline && anchor.comparisonBaseline.resistanceSetup || 'initial',
-          ready: anchor.currentTarget.progressionIntent === definition.progressionPolicy.setupResistanceIntent}])),
+          ready: !event?.holdProgression && anchor.currentTarget.progressionIntent === definition.progressionPolicy.setupResistanceIntent}])),
         overrides: [{type: roleOverride, value: role.id}, ...(today.easyToday ? [{type: 'easy-today'}] : []),
+          ...(event ? [{type: 'tennis-event', value: event.phase, eventDate: event.eventDate, localDate: event.localDate}] : []),
           ...(priorities.phase ? [{type: 'tennis-phase', value: priorities.phase.phase}] : []),
           ...(priorities.feedbackReview ? [{type: 'tennis-feedback-review'}] : []),
           ...(adaptation && adaptation.reasons.length ? [{type: 'tennis-adaptation', localDate: adaptation.localDate,
@@ -366,11 +432,13 @@
       return prescription;
     }
     const limit = Math.min(role.anchorLimits[definition.supportedDurations.indexOf(duration)] || 0,
-      lighter ? definition.contextPolicy.lighterAnchorLimit : 4);
+      final ? definition.eventPolicy.finalAnchorLimit : lighter ? definition.contextPolicy.lighterAnchorLimit : 4);
     for (const priority of priorities.anchors) {
       const anchor = state.anchors.find(item => item.requirementId === priority.requirementId), request = anchorRequest(anchor);
+      if (event?.holdProgression) request.progressionIntent = 'Hold established resistance and reps for event preparation; leave comfortable reps in reserve';
       if (priorities.phase?.phase === 'consolidation') request.targetSets = definition.phasePolicy.consolidationAnchorSets;
       if (adaptation && adaptation.readiness === 'tired') request.targetSets = definition.contextPolicy.tiredAnchorSets;
+      if (event?.phase === 'reduced') request.targetSets = definition.eventPolicy.reducedAnchorSets;
       if (prescription.requiredAnchors.length < limit && add(request)) continue;
       prescription.programmeContext.deferredAnchorRequirementIds.push(anchor.requirementId);
       if (!lowLoad && !fits({...prescription, requiredAnchors: [request]})) warnings.push({code: 'tennis-anchor-unavailable', requirementId: anchor.requirementId,
@@ -405,7 +473,7 @@
       // forcing every session to contain every capability or a ballistic target.
       if (capability.priority === 'complementary' && !role.capabilities.includes(capability.capabilityId)) continue;
       const candidates = allowed.filter(item => !state.anchors.some(anchor => anchor.exerciseId === item.exerciseId))
-        .sort((a,b) => recent(a.exerciseId).localeCompare(recent(b.exerciseId))
+        .sort((a,b) => (event && event.phase !== 'build' ? -1 : 1)*recent(a.exerciseId).localeCompare(recent(b.exerciseId))
           || Number(catalogue[b.exerciseId].mainRole === 'supporting')-Number(catalogue[a.exerciseId].mainRole === 'supporting')
           || catalogue[a.exerciseId].estimatedSeconds-catalogue[b.exerciseId].estimatedSeconds || a.exerciseId.localeCompare(b.exerciseId));
       if (!candidates.some(candidate => add(supportRequest(capability.capabilityId,catalogue[candidate.exerciseId]))) && candidates.length) warnings.push({
@@ -413,6 +481,9 @@
         message: capability.label+' does not fit alongside today’s selected work. Priorities will be recomputed from performed history.'});
     }
     prescription.programmeContext.emptySession = !prescription.requiredAnchors.length;
+    if (event && ['reduced','final'].includes(event.phase) && prescription.programmeContext.emptySession) {
+      prescription.programmeContext.restRecommendation = 'Rest is sensible before your event: no gentle, useful work fits today’s equipment, time and constraints. Your anchors and progress are retained.';
+    }
     prescription.programmeContext.preflightAvailable = typeof assessSessionPrescription === 'function';
     if (prescription.programmeContext.emptySession && assessSessionPrescription && allowRoleFallback) {
       const alternatives = definition.sessionRoles[config.weeklyCoachFrequency].filter(item => item.id !== role.id)
@@ -478,12 +549,13 @@
     return {status: conflicts.length ? 'infeasible' : current.roles.some(item => item.status !== 'feasible') ? 'partially-feasible' : 'feasible', conflicts, anchors, prescription: null, durationAssessments,
       warnings: current.roles.flatMap(item => item.warnings)};
   }
-  const policy = {...strength, validateDefinition, validateState, initialiseState, validateProgrammeSettings, assessFeasibility, calculatePriorities, buildPrescription, classifyContext,
+  const policy = {...strength, validateDefinition, validateState, initialiseState, validateProgrammeSettings, validateSettingsChange, eventHorizon, assessFeasibility, calculatePriorities, buildPrescription, classifyContext,
     phaseRecommendation, sportReviewRecommendation, recordSportReview, beginSession, applyPerformedState,
     interpretDose: input => ['completed','partial'].includes(input.result.finalStatus) ? strength.interpretDose(input)
       : {meaningful:false,exposure:{value:0,confidence:'unknown'},patterns:{},bodyRegions:{}},
     interpretProgression: input => ['completed','partial'].includes(input.result.finalStatus)
-      && !(input.result.overrides || []).some(item => item.type === 'tennis-phase' && item.value === 'consolidation' || item.type === 'tennis-feedback-review')
+      && !(input.result.overrides || []).some(item => item.type === 'tennis-phase' && item.value === 'consolidation' || item.type === 'tennis-feedback-review'
+        || input.definition.eventPolicy && item.type === 'tennis-event' && ['refine','reduced','final','expired'].includes(item.value))
       ? strength.interpretProgression(input) : copy(input.state.anchors),
     assessPlannedSession, anchorAlternatives, reduceForShortSession: ({prescription}) => copy(prescription),
     getModeSettings: ({definition,state}) => {

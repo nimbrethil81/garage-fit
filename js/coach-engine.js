@@ -233,11 +233,13 @@
       if (state.status === 'completed') throw new Error('A completed programme cannot change lifecycle or mode.');
       return Model.createProgrammeState({...clone(state), [field]: value});
     }
-    function updateProgrammeSettings(definition, state, patch) {
-      policyFor(definition); validateState(definition, state);
+    function updateProgrammeSettings(definition, state, patch, context = {}) {
+      const policy = policyFor(definition); validateState(definition, state);
       if (state.status === 'completed') throw new Error('A completed programme cannot change settings.');
       const current = state.currentTargets && state.currentTargets.programmeSettings;
       const settings = current ? Model.updateProgrammeSettings(current, patch) : Model.createProgrammeSettings(patch);
+      if (policy.validateSettingsChange) policy.validateSettingsChange({definition: snapshot(definition),
+        previous: current ? snapshot(current) : null, settings: snapshot(settings), context: snapshot(context)});
       const next = clone(state);
       next.currentTargets = next.currentTargets || {};
       next.currentTargets.programmeSettings = settings;

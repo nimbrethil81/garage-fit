@@ -440,8 +440,9 @@ authority. General Strength, Build Arms and saved Tennis v1 ignore sport context
 
 ## Tennis development and optional sport reviews
 
-New Tennis instances pin immutable definition **v3**; saved v1/v2 instances keep
-their policies. `currentTargets.tennisDevelopment` is a closed, schema-version-1
+Tennis definition **v3** introduces ongoing development; v4 retains these rules
+and adds dated events below. Saved v1/v2 instances keep their policies.
+`currentTargets.tennisDevelopment` is a closed, schema-version-1
 namespace validated by Coach Model and persisted only through Coach Store. It
 holds `phase` (`development`/`consolidation`), `entryReason`, `lastTransitionAt`,
 `developmentStartedAt`, saturated eligible performed-session counts, the latest
@@ -489,6 +490,37 @@ Pilot thresholds live in `phasePolicy` and `sportReviewPolicy` on v3:
 targets and lifecycle while rebuilding dose/count/reconciliation evidence. Raw
 results and existing instance history remain unchanged. Revise pilot thresholds
 only in a new definition version with corresponding namespace validation/tests.
+
+## Dated Tennis event preparation
+
+New Tennis programmes use immutable v4, adding event horizons to v3's scheduler
+and development/consolidation rules. Saved v1–v3 retain their policies. Changing
+`intent` between `ongoing` and `event` preserves the current instance, four anchors,
+definition pin, baselines and performed histories. Coach's **Training intent and
+event** controls explicitly save/change a significant local date and optional
+`significantEventLabel` (1–60 trimmed characters), or cancel/return to ongoing.
+Routine playing days remain separate from an explicitly selected event.
+
+For pure settings updates, supply `{now, localDate}` as the fourth argument to
+`engine.updateProgrammeSettings`; the controller supplies the browser's local date.
+Selecting/changing an event requires today or a future date; impossible dates and
+invalid settings reject. Existing expired events remain readable and prompt
+return-to-ongoing or an explicit new date. Cancelling clears date and label.
+
+Calendar-day defaults: **15+** days permits normal development; **8–14** retains
+established targets, holds progression and avoids unfamiliar difficult/high-impact
+or power work; **3–7** reduces demand, with at most one established anchor set;
+**0–2** caps at 15 minutes, low impact and gentle trunk/shoulder work without
+required strength anchors. Readiness, planned/confirmed sport, consolidation and
+caller constraints may further reduce demand. Familiarity requires completed Main
+evidence, not a preview. Hard avoids precede anchor selection and remain through
+generation/swaps. If useful safe work cannot fit, rest is recommended without a
+workout/result. Event expiry likewise asks for an explicit next action.
+
+`rationale.priorities.event` and prescription context expose the local horizon and
+plain rationale; bounded `tennis-event` overrides preserve deliberate progression
+holds in performed results. Time alone never credits exercise, sport, phase work or
+training debt. These are conservative pilot preferences, not a guaranteed peak.
 
 ## Local persistence and recovery
 
