@@ -21,6 +21,9 @@
     function validateState(definition, state) {
       Model.assertValid('programme-state', state);
       if (state.programmeDefinitionId !== definition.id || state.programmeDefinitionVersion !== definition.version) throw new Error('Programme State is pinned to a different definition/version.');
+      const settings = state.currentTargets && state.currentTargets.programmeSettings;
+      const policy = policies.get(definition.type);
+      if (settings && policy.validateProgrammeSettings) policy.validateProgrammeSettings({definition: snapshot(definition), settings: snapshot(settings)});
     }
     function atTime(state, now) {
       if (now !== undefined && now !== null) {
@@ -54,7 +57,11 @@
       return assessment;
     }
     function startProgramme(definition, context, now) {
-      const policy = policyFor(definition), def = snapshot(definition), input = snapshot(context);
+      const policy = policyFor(definition), def = snapshot(definition);
+      const settings = Object.prototype.hasOwnProperty.call(context, 'programmeSettings') ? Model.createProgrammeSettings(context.programmeSettings) : null;
+      if (Object.prototype.hasOwnProperty.call(context, 'sessionContext')) Model.assertSessionContext(context.sessionContext);
+      if (settings && policy.validateProgrammeSettings) policy.validateProgrammeSettings({definition: def, settings: snapshot(settings)});
+      const input = snapshot(context);
       if (!now) throw new Error('Starting a programme needs an explicit timestamp.');
       const assessment = assessProgrammeFeasibility(def, input);
       if (assessment.status === 'infeasible') return {status: 'infeasible', state: null, assessment: clone(assessment)};
@@ -68,6 +75,9 @@
       state.currentTargets = clone(additions.currentTargets || {});
       state.currentTargets.reconciliation = {appliedSessionResultIds: []};
       state.currentTargets.dose = {exposure: 0, patterns: {}, bodyRegions: {}, confidence: 'unknown', hasUnknownExposure: false};
+      // This namespace belongs to user choices, never policy initialisation/derived work.
+      delete state.currentTargets.programmeSettings;
+      if (settings) state.currentTargets.programmeSettings = settings;
       Model.assertValid('programme-state', state);
       const today = {...clone(input), now, prescriptionId: 'start-feasibility'};
       const planned = planNextSession(def, state, [], today);
@@ -78,6 +88,7 @@
       const policy = policyFor(definition), def = snapshot(definition);
       validateState(def, state);
       if (state.status !== 'active') throw new Error('Only an active programme can plan a session.');
+      if (Object.prototype.hasOwnProperty.call(todayContext, 'sessionContext')) Model.assertSessionContext(todayContext.sessionContext);
       const today = snapshot(todayContext);
       if (!today.now) throw new Error('Planning needs an explicit todayContext.now.');
       const sessionState = atTime(clone(state), today.now);
@@ -212,6 +223,17 @@
       if (state.status === 'completed') throw new Error('A completed programme cannot change lifecycle or mode.');
       return Model.createProgrammeState({...clone(state), [field]: value});
     }
+    function updateProgrammeSettings(definition, state, patch) {
+      policyFor(definition); validateState(definition, state);
+      if (state.status === 'completed') throw new Error('A completed programme cannot change settings.');
+      const current = state.currentTargets && state.currentTargets.programmeSettings;
+      const settings = current ? Model.updateProgrammeSettings(current, patch) : Model.createProgrammeSettings(patch);
+      const next = clone(state);
+      next.currentTargets = next.currentTargets || {};
+      next.currentTargets.programmeSettings = settings;
+      validateState(definition, next);
+      return next;
+    }
     function programmeReview(definition, state, now) {
       policyFor(definition); validateState(definition, state);
       const progress = atTime(clone(state), now).nominalProgress || 0;
@@ -239,7 +261,7 @@
       return policy.anchorAlternatives ? clone(policy.anchorAlternatives({definition: snapshot(definition), state: snapshot(state),
         catalogue: exercises, context: snapshot(context), requirementId})) : [];
     }
-    return Object.freeze({assessProgrammeFeasibility, startProgramme, planNextSession, applySessionResult, rebuildDerivedState,
+    return Object.freeze({assessProgrammeFeasibility, startProgramme, planNextSession, applySessionResult, rebuildDerivedState, updateProgrammeSettings,
       programmeReview, acknowledgeBlockReview, getAnchorAlternatives,
       finishProgramme: state => transition(state, 'status', 'completed'),
       pauseProgramme: state => transition(state, 'status', 'paused'), resumeProgramme: state => transition(state, 'status', 'active'),

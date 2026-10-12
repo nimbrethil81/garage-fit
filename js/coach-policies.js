@@ -4,7 +4,7 @@
   const clone = value => JSON.parse(JSON.stringify(value));
   const DAY = 86400000;
   const requiredHooks = ['validateDefinition','assessFeasibility','initialiseState','calculatePriorities','buildPrescription','interpretDose'];
-  const optionalHooks = ['getModeSettings','assessPlannedSession','interpretProgression','respondToMissedSessions','reduceForShortSession','isComplete'];
+  const optionalHooks = ['getModeSettings','assessPlannedSession','interpretProgression','respondToMissedSessions','reduceForShortSession','isComplete','validateProgrammeSettings'];
 
   function createRegistry(entries = {}) {
     const policies = new Map();

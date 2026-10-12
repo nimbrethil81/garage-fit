@@ -15,6 +15,7 @@ Live: https://nimbrethil81.github.io/garage-fit/
 - `data/equipment.js` — equipment catalogue
 - `data/workouts.js` — fixed workouts
 - `data/programmes.js` — immutable, versioned production Coach definitions
+- `data/sport-profiles.js` — immutable sport identities and permitted programme settings
 - `js/generator.js` — workout generation rules
 - `js/rampup-ui.js` — ramp-up UI
 - `js/coach-model.js`, `js/coach-store.js` — versioned Coach records and their local persistence

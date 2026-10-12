@@ -1,6 +1,6 @@
 # Coach engine and policy contract
 
-Load `coach-model.js`, `training-history.js`, `coach-policies.js`, then
+Load `data/sport-profiles.js`, `coach-model.js`, `training-history.js`, `coach-policies.js`, then
 `coach-engine.js`. These scripts use the repository's `GarageFit*` globals and run
 in Node without browser, storage, player, clock or third-party dependencies.
 They are dormant until a caller explicitly creates an engine.
@@ -143,7 +143,12 @@ own type and hooks without changing the engine.
 Required hooks are `validateDefinition`, `assessFeasibility`, `initialiseState`,
 `calculatePriorities`, `buildPrescription`, and `interpretDose`. Optional hooks
 are `getModeSettings`, `assessPlannedSession`, `interpretProgression`,
-`respondToMissedSessions`, `reduceForShortSession`, and `isComplete`.
+`respondToMissedSessions`, `reduceForShortSession`, `isComplete`, and
+`validateProgrammeSettings`.
+
+The optional `validateProgrammeSettings({definition, settings})` hook receives
+frozen inputs and throws for policy-specific restrictions beyond the sport profile.
+It runs on creation, settings updates and definition-bound state operations.
 
 Hooks receive an object with the relevant `definition`, `catalogue`, `context`
 (at start), `state`, `history`, `today`, `mode`, `priorities`, `prescription`,
@@ -288,6 +293,54 @@ supplies per-anchor confirmation context to the generic player, including whethe
 numeric load is meaningful and whether a harder setup may be confirmed. Actuals
 are saved only on explicit Done/confirmation; no setup or load is inferred from
 the plan. General Strength retains its existing numeric-load progression rules.
+
+## Sport profiles and instance settings
+
+`data/sport-profiles.js` defines immutable sport identities, capabilities, permitted
+configuration and defaults. Tennis is the first profile; capability mappings and
+a Tennis programme are deferred. The two released programmes retain settings as
+context without changing their training policies or exposing sport setup in the UI.
+
+`currentTargets.programmeSettings` is an optional, reserved Programme State
+namespace with its own `schemaVersion: 1`. Coach Model validates it on every state
+read/write. Absent settings remain absent on existing records; Programme State,
+results, drafts, indexes and definition pins retain their version-1 contracts.
+
+```js
+const settings = GarageFitCoachModel.createProgrammeSettings({sportId: 'tennis'});
+// Pure helpers: updateProgrammeSettings(settings, patch), assertProgrammeSettings(settings).
+const changed = engine.updateProgrammeSettings(definition, state, {
+  sportId: 'tennis', intent: 'event', significantEventDate: '2026-11-01'
+});
+// Controller saves only the current instance through Coach Store, using durable state.
+await controller.saveProgrammeSettings({sportId: 'tennis', focus: 'power'});
+// Optional initial choices: controller.start(definition, equipment, settings), or
+// engine.startProgramme(definition, {...context, programmeSettings: settings}, now).
+```
+
+Fields are `sportId`, `focus` (default `balanced`, or `movement`, `power`,
+`endurance`, `resilience`), `weeklyCoachFrequency` (1/2/3, default 2),
+`usualPlayingDays` (unique lowercase weekday names; `[]` means irregular/no fixed
+days), `typicalSportIntensity` (`light`/`moderate`/`hard`, default `moderate`),
+`intent` (`ongoing` by default or `event`), and optional `significantEventDate`.
+Dates are validated `YYYY-MM-DD` local calendar dates, retained as strings without
+UTC conversion. Event intent may omit a date; ongoing intent requires it absent/null.
+Switching back to ongoing therefore clears a known date explicitly in the patch.
+Invalid values, unknown fields/sports and unsupported versions throw; defaults
+apply only during creation, never to repair invalid saved settings.
+
+Settings survive lifecycle changes, result application, startup recovery and
+`rebuildDerivedState`. Updating them preserves identity/pins, anchors, progression,
+dose and result reconciliation; it creates no training credit. Controller updates
+invalidate previews, reject an in-flight session or changed active reference, and
+publish new in-memory state only after the store write succeeds.
+
+Optional `todayContext.sessionContext` is a transient boundary with `readiness`
+(reserved plain JSON) and `reportedSportActivity` (explicit entries with `sportId`,
+`localDate`, `intensity`). Coach Model's `assertSessionContext` validates it before
+planning. Current policies do not interpret it. It is separate from enduring
+settings, per-session overrides and Session Results. Usual calendar slots never
+become reported sport activity or performed workouts, and this context awards no dose.
 
 ## Local persistence and recovery
 

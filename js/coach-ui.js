@@ -51,10 +51,11 @@
     function snapshot() { return {state: state && clone(state), results: clone(results.filter(item => state && item.programmeInstanceId === state.programmeInstanceId)),
       preview, errors: errors.slice(), blocked, interruptedDraft: draft && !tracker ? clone(draft) : null}; }
     function assess(def, equipment) { return engine.assessProgrammeFeasibility(def, {equipment}); }
-    async function start(def, equipment) {
+    async function start(def, equipment, programmeSettings) {
       if (blocked) throw new Error('Resolve the saved programme error before starting another.');
       if (draft || state && state.status !== 'completed') throw new Error('Finish the current programme before starting another.');
-      const started = engine.startProgramme(def, {equipment, programmeInstanceId: id('programme')}, clock());
+      const started = engine.startProgramme(def, {equipment, programmeInstanceId: id('programme'),
+        ...(programmeSettings === undefined ? {} : {programmeSettings})}, clock());
       if (!started.state) return started;
       await store.saveProgrammeState(started.state);
       await store.saveActiveProgramme(Model().createActiveProgramme(Model().programmeDefinitionRef(started.state)));
@@ -120,7 +121,25 @@
       else throw new Error('Unknown programme action.');
       await store.saveProgrammeState(next); state = next; preview = null;
     }
-    return {load, snapshot, assess, start, plan, prepare, alternatives, substitute, begin, finish, manage,
+    async function saveProgrammeSettings(patch) {
+      if (blocked || !state) throw new Error('Load a valid programme before changing settings.');
+      if (draft || tracker || pendingResult) throw new Error('Save the session before changing programme settings.');
+      if (await store.loadSessionDraft()) throw new Error('Save the session before changing programme settings.');
+      // Read the durable state, so saving preferences cannot overwrite reconciled work.
+      const reference = await store.loadActiveProgramme();
+      const previous = await store.loadProgrammeState(state.programmeInstanceId);
+      const expected = Model().createActiveProgramme(Model().programmeDefinitionRef(state));
+      if (!previous || !Model().sameRecord(reference, expected)
+        || !Model().sameRecord(Model().programmeDefinitionRef(previous), Model().programmeDefinitionRef(state))) {
+        throw new Error('The active programme changed. Reload Coach before saving settings.');
+      }
+      const next = engine.updateProgrammeSettings(definitionFor(previous), previous, patch);
+      await store.saveProgrammeState(next);
+      state = next; preview = null; preparationContext = null;
+      await recentHistory();
+      return clone(next);
+    }
+    return {load, snapshot, assess, start, plan, prepare, alternatives, substitute, begin, finish, manage, saveProgrammeSettings,
       review: () => engine.programmeReview(definition(), state, clock())};
   }
 

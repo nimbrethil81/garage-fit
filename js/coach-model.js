@@ -15,6 +15,7 @@
   // Records never touch storage here; persistence lives behind js/coach-store.js.
 
   const SCHEMA_VERSION = 1;
+  const PROGRAMME_SETTINGS_VERSION = 1;
   const RECORD_KINDS = ['programme-state','active-programme','session-prescription','session-result','session-draft','session-result-index'];
 
   const PROGRAMME_STATUSES = ['active','paused','completed'];
@@ -81,6 +82,23 @@
   const oneOf = values => required(value => values.includes(value), 'one of '+values.join(', '));
   const exactly = expected => required(value => value === expected, describe(expected));
 
+  // Date-only choices are local calendar dates. Never parse these as UTC instants.
+  function isLocalDate(value) {
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const [year, month, day] = value.split('-').map(Number);
+    const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+    const days = [31, leap ? 29 : 28, 31,30,31,30,31,31,30,31,30,31];
+    return year >= 1 && month >= 1 && month <= 12 && day >= 1 && day <= days[month-1];
+  }
+  const localDate = required(isLocalDate, 'a date-only local calendar date (YYYY-MM-DD)');
+  const sportProfile = sportId => root.GarageFitData && root.GarageFitData.sportProfiles
+    && Object.prototype.hasOwnProperty.call(root.GarageFitData.sportProfiles, sportId)
+    ? root.GarageFitData.sportProfiles[sportId] : null;
+  function knownSport(value, path, errors) {
+    id(value, path, errors);
+    if (!sportProfile(value)) fail(errors, path, 'must name a supported sport profile');
+  }
+
   function arrayOf(type) {
     return (value, path, errors) => {
       if (value === undefined || value === null) return fail(errors, path, 'is required');
@@ -137,6 +155,37 @@
   }
 
   // ---- Shared sub-records ----
+  const programmeSettings = shape({
+    schemaVersion: exactly(PROGRAMME_SETTINGS_VERSION), sportId: knownSport,
+    focus: text, weeklyCoachFrequency: positiveInteger,
+    usualPlayingDays: arrayOf(text), typicalSportIntensity: text,
+    intent: text, significantEventDate: nullable(localDate)
+  }, (value, path, errors) => {
+    const permitted = sportProfile(value.sportId).configuration;
+    for (const [field, options] of [['focus',permitted.focuses], ['weeklyCoachFrequency',permitted.weeklyCoachFrequencies],
+      ['typicalSportIntensity',permitted.sportIntensities], ['intent',permitted.intents]]) {
+      oneOf(options)(value[field], path+'.'+field, errors);
+    }
+    value.usualPlayingDays.forEach((day, index) => oneOf(permitted.playingDays)(day, path+'.usualPlayingDays['+index+']', errors));
+    if (new Set(value.usualPlayingDays).size !== value.usualPlayingDays.length) fail(errors, path+'.usualPlayingDays', 'must be unique');
+    if (value.intent !== 'event' && !isMissing(value.significantEventDate)) fail(errors, path+'.significantEventDate', 'requires event intent');
+  });
+  // Optional, transient todayContext boundary. Readiness is reserved plain JSON;
+  // reported activity is explicit context, never a Session Result or credited work.
+  const sessionContext = shape({readiness: nullable(jsonObject),
+    reportedSportActivity: nullable(arrayOf(shape({sportId: knownSport, localDate,
+      intensity: text}, (value, path, errors) => {
+        oneOf(sportProfile(value.sportId).configuration.sportIntensities)(value.intensity, path+'.intensity', errors);
+      })))
+  });
+  function assertBoundary(check, value, path) {
+    const errors = []; check(value, path, errors);
+    if (errors.length) throw new CoachError('invalid-record', 'Invalid '+path+': '+errors.map(error => error.path+' '+error.message).join('; '), {errors});
+    return value;
+  }
+  const assertProgrammeSettings = value => assertBoundary(programmeSettings, value, 'programme-settings');
+  const assertSessionContext = value => assertBoundary(sessionContext, value, 'session-context');
+
   const loadFields = {
     load: nullable(nonNegativeNumber),
     loadUnit: nullable(oneOf(LOAD_UNITS)),
@@ -268,6 +317,8 @@
   }), (value, path, errors) => {
     const targets = value.currentTargets;
     if (!targets) return;
+    // Enduring choices occupy a reserved, typed namespace; they are not derived dose.
+    if (Object.prototype.hasOwnProperty.call(targets, 'programmeSettings')) programmeSettings(targets.programmeSettings, path+'.currentTargets.programmeSettings', errors);
     if (!isMissing(targets.reconciliation)) shape({appliedSessionResultIds: arrayOf(id)}, (ledger, ledgerPath, issues) => {
       if (new Set(ledger.appliedSessionResultIds).size !== ledger.appliedSessionResultIds.length) fail(issues, ledgerPath+'.appliedSessionResultIds', 'must be unique');
     })(targets.reconciliation, path+'.currentTargets.reconciliation', errors);
@@ -468,6 +519,18 @@
   // Session Results are immutable evidence: the constructed record is deeply frozen.
   const createSessionResult = fields => deepFreeze(create('session-result', fields));
 
+  function createProgrammeSettings(fields) {
+    assertBoundary(jsonObject, fields, 'programme-settings');
+    const profile = sportProfile(fields.sportId);
+    const settings = {schemaVersion: PROGRAMME_SETTINGS_VERSION, ...(profile ? profile.defaults : {}), ...fields};
+    return clone(assertProgrammeSettings(settings));
+  }
+  function updateProgrammeSettings(settings, patch) {
+    assertProgrammeSettings(settings);
+    assertBoundary(jsonObject, patch, 'programme-settings-update');
+    return clone(assertProgrammeSettings({...settings, ...patch}));
+  }
+
   // The pinned Programme Definition identity of a state or active-programme record.
   function programmeDefinitionRef(record) {
     return {
@@ -478,13 +541,14 @@
   }
 
   root.GarageFitCoachModel = {
-    SCHEMA_VERSION, RECORD_KINDS, PROGRAMME_STATUSES, PROGRAMME_MODES, SESSION_SOURCES, FINAL_STATUSES,
+    SCHEMA_VERSION, PROGRAMME_SETTINGS_VERSION, RECORD_KINDS, PROGRAMME_STATUSES, PROGRAMME_MODES, SESSION_SOURCES, FINAL_STATUSES,
     OCCURRENCE_STATUSES, DRAFT_STATES, ANCHOR_IMPORTANCE, LOAD_UNITS, LOAD_INTERPRETATIONS, TARGET_TYPES,
     WORKOUT_STYLES, WORKOUT_DIFFICULTIES, WORKOUT_BODY_FOCUSES, MAIN_PROTOCOLS, ERROR_CODES,
     MOVEMENT_PATTERNS, MOVEMENT_PRIORITIES, BODY_REGION_PRIORITIES, CONSTRAINT_IMPORTANCE, PRESCRIPTION_MODES, VARIATION_PREFERENCES,
     CoachError, validate, assertValid, upgradeRecord, MIGRATIONS,
     canonicalJson, sameRecord, deepFreeze,
     createProgrammeState, createActiveProgramme, createSessionPrescription, createSessionResult, createSessionDraft,
-    programmeDefinitionRef
+    programmeDefinitionRef, createProgrammeSettings, updateProgrammeSettings,
+    assertProgrammeSettings, assertSessionContext, isLocalDate
   };
 })(typeof window !== 'undefined' ? window : globalThis);
