@@ -202,6 +202,9 @@
   function validateDefinition(definition) {
     strength.validateDefinition(definition);
     validateProgrammeSettings({settings: settings(definition)});
+    if (definition.anchorRotationPolicy !== undefined &&
+      (definition.anchorRotationPolicy.tieBreak !== 'last-performed' || Object.keys(definition.anchorRotationPolicy).length !== 1))
+      throw new Error('Invalid Tennis anchor rotation policy.');
     if (definition.type !== 'tennis-conditioning' || !definition.openEnded
       || definition.coverageTargets.windowDays !== 14 || definition.progressionPolicy.strategy !== 'double-progression'
       || definition.progressionPolicy.minReps !== 6 || definition.progressionPolicy.maxReps !== 10
@@ -326,13 +329,15 @@
     const role = roles.slice().sort((a,b) => earnedRoles[a.id]-earnedRoles[b.id] || roles.indexOf(a)-roles.indexOf(b))[0];
     const anchors = state.anchors.map((anchor,index) => {
       const requirement = definition.anchorSelectionPolicy.requirements.find(item => item.requirementId === anchor.requirementId);
-      const work = history.performances.filter(item => item.programmeInstanceId === state.programmeInstanceId
+      const earlierWork = history.performances.filter(item => item.programmeInstanceId === state.programmeInstanceId
         && item.requirementId === anchor.requirementId && item.section === 'main' && item.semanticConfidence === 'derived'
         && requirement.exerciseIds.includes(item.exerciseId)
-        && item.occurredAt && Date.parse(item.occurredAt) >= Date.parse(scope.since) && Date.parse(item.occurredAt) <= Date.parse(scope.until));
+        && item.occurredAt && Date.parse(item.occurredAt) <= Date.parse(scope.until));
+      const work = earlierWork.filter(item => Date.parse(item.occurredAt) >= Date.parse(scope.since));
       const passes = work.reduce((sum,item) => sum + item.exposure.value / (catalogue[item.exerciseId].sidedness === 'per-side' ? 2 : 1),0);
+      const tieWork = definition.anchorRotationPolicy?.tieBreak === 'last-performed' ? earlierWork : work;
       return {requirementId: anchor.requirementId, index, passes,
-        lastPerformedAt: work.filter(item => item.exposure.value > 0).map(item => new Date(item.occurredAt).toISOString()).at(-1) || null};
+        lastPerformedAt: tieWork.filter(item => item.exposure.value > 0).map(item => new Date(item.occurredAt).toISOString()).at(-1) || null};
     }).sort((a,b) => a.passes-b.passes || (a.lastPerformedAt || '').localeCompare(b.lastPerformedAt || '') || a.index-b.index);
     const capabilities = summary.capabilities.slice().sort((a,b) => Number(b.priority === 'core' && b.coverage !== 'observed')-Number(a.priority === 'core' && a.coverage !== 'observed')
       || Number(b.coverage !== 'observed')-Number(a.coverage !== 'observed') || Number(b.preferred)-Number(a.preferred)
