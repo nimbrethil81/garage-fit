@@ -233,7 +233,7 @@ test('invalid Session Drafts are rejected', () => {
 // ---- Versioning ----
 
 test('every record kind requires the current schemaVersion', () => {
-  const records = {'programme-state': programmeState(), 'session-prescription': prescription(), 'session-result': sessionResult(), 'session-draft': sessionDraft(),
+  const records = {'session-result-index': {schemaVersion:1,sessionResultIds:[]}, 'programme-state': programmeState(), 'session-prescription': prescription(), 'session-result': sessionResult(), 'session-draft': sessionDraft(),
     'active-programme': {schemaVersion: 1, programmeInstanceId: 'prog-1', programmeDefinitionId: 'general-strength', programmeDefinitionVersion: 1}};
   assert.deepEqual(Object.keys(records).sort(), [...Model.RECORD_KINDS].sort());
   Object.entries(records).forEach(([kind, record]) => {

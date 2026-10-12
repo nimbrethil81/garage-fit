@@ -1,33 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const vm = require('node:vm');
-const {loadAppContext} = require('./helpers/app-context');
 
-function pilot(storage = new Map()) {
-  const app = loadAppContext(storage, {ownIntrinsics:true});
-  const run = source => vm.runInContext(source, app);
-  run(`
-    const pilotDef=GarageFitData.programmes['general-strength-4w'][1];
-    const pilotStore=GarageFitCoachStore.createStore(localStorage);
-    const pilotEngine=GarageFitCoachEngine.createEngine({catalogue:CATALOGUE,assessSessionPrescription:GarageFitGenerator.assessSessionPrescription});
-    let pilotNow='2026-10-01T08:00:00Z',pilotId=0;
-    const pilot=GarageFitCoachUI.createController({store:pilotStore,engine:pilotEngine,catalogue:CATALOGUE,buildTimeline:buildGeneratedTimeline,
-      clock:()=>pilotNow,id:prefix=>prefix+':'+(++pilotId)});
-    const pilotOptions={equipment:['dumbbells'],duration:30};
-    let pilotTracker=null;
-  `);
-  const json = source => JSON.parse(run(`JSON.stringify(${source})`));
-  const start = () => run('pilot.start(pilotDef,pilotOptions.equipment)');
-  const begin = async options => { run(`pilot.prepare(${options || 'pilotOptions'})`); await run('pilot.begin().then(value=>{pilotTracker=value;})'); };
-  const log = (requirement='anchor-squat', reps='undefined', load='12') => run(`(async()=>{
-    for(const work of pilotTracker.plannedWork().filter(item=>item.requirementId===${JSON.stringify(requirement)})){
-      const reps=${reps}===undefined?work.prescription.reps:${reps};
-      await pilotTracker.recordAnchor(work.occurrenceId,{status:'completed',sets:[{reps,load:${load},...(${load}===null?{}:{loadUnit:'kg',loadInterpretation:'total'})}]});
-    }
-  })()`);
-  const finish = (kind='exit') => run(`pilot.finish('${kind}',{difficulty:'about-right'},600)`);
-  return {app,run,json,start,begin,log,finish,storage};
-}
+const {pilot} = require('./helpers/coach-pilot');
 
 test('production start checks coverage, supported time, candidate eligibility and pins three stable anchors', async () => {
   const p=pilot();
@@ -175,8 +149,8 @@ test('result/state write interruption and unindexed immutable evidence recover o
 
 test('interrupted in-progress draft saves performed work after reload and clears only after state is persisted', async () => {
   const p=pilot();await p.start();await p.begin();await p.log();
-  const reload=pilot(p.storage);await reload.run('pilot.load()');assert.ok(reload.json('pilot.snapshot().interruptedDraft'));
-  await reload.finish();assert.equal(reload.json('pilot.snapshot().results[0]').finalStatus,'partial');
+  const reload=pilot(p.storage);await reload.run('pilot.load()');assert.equal(reload.json('pilot.snapshot().interruptedDraft'),null);
+  assert.equal(reload.json('pilot.snapshot().results[0]').finalStatus,'partial');
   assert.equal(reload.run('pilot.snapshot().state.meaningfulSessionsCompleted'),1);
 });
 

@@ -161,12 +161,51 @@
       next.recentSessionSummaries = [...(next.recentSessionSummaries || []), {sessionResultId: result.sessionResultId,
         endedAt: result.endedAt || null, finalStatus: result.finalStatus, meaningful, exposure: clone(dose.exposure)}];
       if (meaningful) {
+        next.currentTargets.lastMeaningfulSessionResultId = result.sessionResultId;
         next.recentOverrides = [...(next.recentOverrides || []), ...(result.overrides || []).map(override => ({...clone(override), sessionResultId: result.sessionResultId}))];
         next.recentSubstitutions = [...(next.recentSubstitutions || []), ...(result.substitutions || []).map(substitution => ({...clone(substitution), sessionResultId: result.sessionResultId}))];
       }
+      if (!def.openEnded) {
+        const counts = next.currentTargets.blockMeaningfulCounts || {};
+        if (!next.currentTargets.blockMeaningfulCounts) {
+          (state.recentSessionSummaries || []).filter(item => item.meaningful).forEach(item => {
+            const block = Math.floor((Date.parse(item.endedAt)-Date.parse(state.startedAt)) / (def.nominalDurationDays*DAY));
+            counts[block] = (counts[block] || 0) + 1;
+          });
+        }
+        const block = Math.floor((Date.parse(result.endedAt || result.startedAt)-Date.parse(state.startedAt)) / (def.nominalDurationDays*DAY));
+        if (meaningful) counts[block] = (counts[block] || 0) + 1;
+        next.currentTargets.blockMeaningfulCounts = counts;
+      }
+      next.recentSessionSummaries = next.recentSessionSummaries.slice(-64);
+      next.recentOverrides = next.recentOverrides.slice(-32);
+      next.recentSubstitutions = next.recentSubstitutions.slice(-32);
       next.lastAppliedSessionResultId = result.sessionResultId;
       if (policy.isComplete && policy.isComplete({...base, mode, state: snapshot(next)})) next.status = 'completed';
       return Model.assertValid('programme-state', next);
+    }
+    // Repair evidence-derived totals explicitly, never on render. Membership,
+    // lifecycle, chosen mode, review decisions and current anchor targets remain
+    // user/policy state: historical mode changes are not a persisted event log.
+    // Exact comparable anchor series are rebuilt by TrainingHistory separately.
+    function rebuildDerivedState(definition, state, trainingHistory) {
+      policyFor(definition); validateState(definition, state);
+      let rebuilt = clone(state);
+      rebuilt.meaningfulSessionsCompleted = 0;
+      rebuilt.lastAppliedSessionResultId = null;
+      rebuilt.recentSessionSummaries = []; rebuilt.recentOverrides = []; rebuilt.recentSubstitutions = [];
+      rebuilt.currentTargets = rebuilt.currentTargets || {};
+      rebuilt.currentTargets.reconciliation = {appliedSessionResultIds: []};
+      rebuilt.currentTargets.dose = {exposure: 0, patterns: {}, bodyRegions: {}, confidence: 'unknown', hasUnknownExposure: false};
+      delete rebuilt.currentTargets.blockMeaningfulCounts;
+      delete rebuilt.currentTargets.lastMeaningfulSessionResultId;
+      const history = History.createHistory(trainingHistory, exercises);
+      const sessions = history.sessionsForProgramme(state.programmeInstanceId).filter(result => result.source === 'coach');
+      for (const result of sessions) {
+        rebuilt = applySessionResult(definition, rebuilt, result, []);
+        rebuilt.anchors = clone(state.anchors); rebuilt.status = state.status;
+      }
+      return Model.assertValid('programme-state', rebuilt);
     }
     function transition(state, field, value) {
       Model.assertValid('programme-state', state);
@@ -181,7 +220,9 @@
       const acknowledged = state.currentTargets && state.currentTargets.blockReview && state.currentTargets.blockReview.acknowledgedBlocks || 0;
       const start = Date.parse(state.startedAt) + Math.max(0, block-1) * definition.nominalDurationDays * DAY;
       const end = start + definition.nominalDurationDays * DAY;
-      const meaningfulSessions = (state.recentSessionSummaries || []).filter(item => item.meaningful && Date.parse(item.endedAt) >= start && Date.parse(item.endedAt) < end).length;
+      const meaningfulSessions = state.currentTargets && state.currentTargets.blockMeaningfulCounts
+        ? state.currentTargets.blockMeaningfulCounts[block-1] || 0
+        : (state.recentSessionSummaries || []).filter(item => item.meaningful && Date.parse(item.endedAt) >= start && Date.parse(item.endedAt) < end).length;
       return {due: state.status === 'active' && block > acknowledged, block, nominalProgress: progress,
         meaningfulSessions, targetMet: meaningfulSessions >= definition.completionCriteria.blockMeaningfulSessionTarget};
     }
@@ -198,7 +239,7 @@
       return policy.anchorAlternatives ? clone(policy.anchorAlternatives({definition: snapshot(definition), state: snapshot(state),
         catalogue: exercises, context: snapshot(context), requirementId})) : [];
     }
-    return Object.freeze({assessProgrammeFeasibility, startProgramme, planNextSession, applySessionResult,
+    return Object.freeze({assessProgrammeFeasibility, startProgramme, planNextSession, applySessionResult, rebuildDerivedState,
       programmeReview, acknowledgeBlockReview, getAnchorAlternatives,
       finishProgramme: state => transition(state, 'status', 'completed'),
       pauseProgramme: state => transition(state, 'status', 'paused'), resumeProgramme: state => transition(state, 'status', 'active'),

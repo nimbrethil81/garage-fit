@@ -328,7 +328,7 @@
       const substituted = work.filter(item => item.exerciseId !== anchor.exerciseId);
       if (substituted.length) {
         anchor.substitutionHistory = [...(anchor.substitutionHistory || []), {sessionResultId: result.sessionResultId,
-          exerciseId: substituted[0].exerciseId, occurredAt: at}];
+          exerciseId: substituted[0].exerciseId, occurredAt: at}].slice(-32);
         anchor.latestSubstitution = {exerciseId: substituted[0].exerciseId, decision: 'new-exercise-series'};
         return anchor;
       }

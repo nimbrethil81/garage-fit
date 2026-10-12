@@ -22,7 +22,6 @@
   const SESSION_INDEX_KEY = KEY_PREFIX+'session_result_index';
   const SESSION_RESULT_PREFIX = KEY_PREFIX+'session_result:';
   const SESSION_DRAFT_KEY = KEY_PREFIX+'session_draft';
-  const INDEX_SCHEMA_VERSION = 1;
   // Upper bound on keys inspected when rebuilding a malformed Session Result index.
   const MAX_RECOVERY_KEYS = 10000;
 
@@ -33,6 +32,7 @@
     const Model = root.GarageFitCoachModel;
     if (!Model) throw new Error('GarageFitCoachModel must be loaded before GarageFitCoachStore.');
     const {CoachError} = Model;
+    let reconciled = false;
     const usable = !!storage && ['getItem','setItem','removeItem'].every(method => typeof storage[method] === 'function');
 
     // Re-raise a model error with the storage key it came from.
@@ -82,23 +82,26 @@
     }
 
     // ---- Session Result index ----
+    const metadata = result => ({sessionResultId: result.sessionResultId, source: result.source,
+      programmeInstanceId: result.programmeInstanceId || null,
+      occurredAt: result.endedAt || result.startedAt || result.generatedAt || null,
+      exerciseIds: [...new Set((result.performedWork || []).map(work => work.exerciseId))]});
     function readIndex() {
       const raw = readRaw(SESSION_INDEX_KEY);
-      if (raw === null || raw === undefined) return [];
-      let index;
-      try { index = JSON.parse(raw); }
-      catch (error) { throw new CoachError('session-index-corrupt', 'Session Result index is not valid JSON.', {key: SESSION_INDEX_KEY}, error); }
-      const version = index && index.schemaVersion;
-      if (Number.isInteger(version) && version > INDEX_SCHEMA_VERSION) throw new CoachError('unsupported-schema-version', 'Session Result index schemaVersion '+version+' is newer than supported.', {key: SESSION_INDEX_KEY, schemaVersion: version});
-      const ids = index && index.sessionResultIds;
-      const valid = version === INDEX_SCHEMA_VERSION && Array.isArray(ids) &&
-        ids.every(id => typeof id === 'string' && id.trim() !== '') && new Set(ids).size === ids.length &&
-        Object.keys(index).every(key => key === 'schemaVersion' || key === 'sessionResultIds');
-      if (!valid) throw new CoachError('session-index-corrupt', 'Session Result index has an invalid shape.', {key: SESSION_INDEX_KEY});
-      return ids.slice();
+      if (raw === null || raw === undefined) return {ids: [], entries: []};
+      try {
+        const value = Model.assertValid('session-result-index', Model.upgradeRecord('session-result-index', parse(SESSION_INDEX_KEY, raw, 'session-result-index')));
+        return {ids: value.sessionResultIds.slice(), entries: value.entries && value.entries.slice()};
+      } catch (error) {
+        if (error.code === 'unsupported-schema-version' && Number.isInteger(error.details.schemaVersion)
+          && error.details.schemaVersion > Model.SCHEMA_VERSION) throw withKey(error, SESSION_INDEX_KEY);
+        throw new CoachError('session-index-corrupt', 'Session Result index has an invalid shape or JSON.', {key: SESSION_INDEX_KEY}, error);
+      }
     }
-    function writeIndex(ids) {
-      writeRaw(SESSION_INDEX_KEY, JSON.stringify({schemaVersion: INDEX_SCHEMA_VERSION, sessionResultIds: ids}));
+    function writeIndex(index) {
+      const value = {schemaVersion: Model.SCHEMA_VERSION, sessionResultIds: index.ids};
+      if (index.entries) value.entries = index.entries;
+      writeRecord('session-result-index', SESSION_INDEX_KEY, value);
     }
 
     // Rebuild the index from the individually stored Session Results (bounded scan, read-only).
@@ -127,15 +130,17 @@
         if (!!ta !== !!tb) return ta ? -1 : 1;
         return a.sessionResultId < b.sessionResultId ? -1 : a.sessionResultId > b.sessionResultId ? 1 : 0;
       });
-      return {ids: results.map(result => result.sessionResultId), errors};
+      if (storage.length > MAX_RECOVERY_KEYS) errors.push(new CoachError('session-index-corrupt',
+        'Coach history recovery reached its key limit. Some history could not be checked.', {key: SESSION_INDEX_KEY, truncated: true}));
+      return {ids: results.map(result => result.sessionResultId), entries: results.map(metadata), errors};
     }
 
     function readIndexOrRecover() {
-      try { return {ids: readIndex(), recovered: false, errors: []}; }
+      try { return {...readIndex(), recovered: false, errors: []}; }
       catch (error) {
         if (error.code !== 'session-index-corrupt') throw error;
         const recovered = recoverIndex(error);
-        return {ids: recovered.ids, recovered: true, errors: recovered.errors};
+        return {...recovered, recovered: true};
       }
     }
 
@@ -177,30 +182,67 @@
         // Resolve the index before writing anything, so an unusable index never strands a write.
         const index = readIndexOrRecover();
         if (!existing) writeRecord('session-result', key, result);
-        if (index.recovered || !index.ids.includes(sessionResultId)) writeIndex(index.ids.includes(sessionResultId) ? index.ids : [...index.ids, sessionResultId]);
+        if (index.recovered || !index.ids.includes(sessionResultId)) {
+          if (!index.ids.includes(sessionResultId)) {
+            index.ids.push(sessionResultId);
+            if (index.entries) index.entries.push(metadata(result));
+          }
+          writeIndex(index);
+        }
         return {status: existing ? 'unchanged' : 'created', sessionResultId};
       },
       async getSessionResult(sessionResultId) { return readSessionResult(sessionResultId); },
-      // Resolves {results, errors, indexRecovered}: results in saved order; one unreadable or
-      // missing record is reported in errors rather than hiding every other result.
-      async listSessionResults() {
+      // Startup-only scan finds evidence stranded between the result and index writes.
+      // Cache successful reconciliation for this store; routine screens never scan keys.
+      async reconcileSessionIndex(force = false) {
+        if (reconciled && !force) return {errors: [], indexRecovered: false};
         const index = readIndexOrRecover();
-        // A quota failure can leave a valid immutable result written before its
-        // index entry. Include such evidence on reload so it can still be applied.
-        if (!index.recovered && typeof storage.key === 'function' && Number.isInteger(storage.length)) {
+        const recovered = recoverIndex();
+        // Retain missing references so callers can report them, never hide evidence loss.
+        const recoveredIds = new Set(recovered.ids);
+        const ids = [...recovered.ids, ...index.ids.filter(id => !recoveredIds.has(id))];
+        const byId = new Map((index.entries || []).map(entry => [entry.sessionResultId, entry]));
+        recovered.entries.forEach(entry => byId.set(entry.sessionResultId, entry));
+        const entries = ids.map(id => byId.get(id));
+        const next = {ids, entries: entries.every(Boolean) ? entries : null};
+        if (!recovered.errors.some(error => error.details && error.details.truncated)
+          && !Model.sameRecord({ids: index.ids, entries: index.entries || null}, next)) writeIndex(next);
+        reconciled = true;
+        return {errors: recovered.errors, indexRecovered: index.recovered};
+      },
+      // Filters operate on small metadata before reading evidence. Recent N reads
+      // only matching records (plus damaged candidates), newest first when limited.
+      async listSessionResults(filters = {}) {
+        const index = readIndexOrRecover();
+        let entries = index.entries;
+        if (!entries && Object.keys(filters).length) {
           const recovered = recoverIndex();
-          const indexedKeys = new Set(index.ids.map(sessionResultKey));
-          index.errors.push(...recovered.errors.filter(error => !indexedKeys.has(error.details && error.details.key)));
-          recovered.ids.forEach(id => { if (!index.ids.includes(id)) index.ids.push(id); });
+          entries = recovered.entries; index.errors.push(...recovered.errors);
+          writeIndex(recovered);
+        }
+        let candidates = entries || index.ids.map(sessionResultId => ({sessionResultId}));
+        const matches = entry => (!filters.programmeInstanceId || entry.programmeInstanceId === filters.programmeInstanceId)
+          && (!filters.source || entry.source === filters.source)
+          && (!filters.exerciseId || entry.exerciseIds.includes(filters.exerciseId))
+          && (!filters.since || Date.parse(entry.occurredAt) >= Date.parse(filters.since))
+          && (!filters.until || Date.parse(entry.occurredAt) <= Date.parse(filters.until));
+        candidates = candidates.filter(matches);
+        if (filters.limit !== undefined) {
+          if (!Number.isInteger(filters.limit) || filters.limit < 0) throw new CoachError('invalid-record', 'History limit must be a non-negative integer.', {});
+          candidates = candidates.slice().sort((a,b) => (Date.parse(b.occurredAt) || 0) - (Date.parse(a.occurredAt) || 0)
+            || b.sessionResultId.localeCompare(a.sessionResultId));
         }
         const results = [], errors = index.errors.slice();
-        index.ids.forEach(sessionResultId => {
+        for (const entry of candidates) {
+          if (filters.limit !== undefined && results.length >= filters.limit) break;
+          const sessionResultId = entry.sessionResultId;
           try {
             const result = readSessionResult(sessionResultId);
-            if (result) results.push(result);
-            else errors.push(new CoachError('session-index-corrupt', 'Session Result index lists '+JSON.stringify(sessionResultId)+' but no record is stored.', {key: sessionResultKey(sessionResultId), sessionResultId, missing: true}));
+            if (result) {
+              if (!entries || matches(metadata(result))) results.push(result);
+            } else errors.push(new CoachError('session-index-corrupt', 'Session Result index references a missing record.', {key: sessionResultKey(sessionResultId), sessionResultId, missing: true}));
           } catch (error) { errors.push(error); }
-        });
+        }
         return {results, errors, indexRecovered: index.recovered};
       },
 
@@ -226,7 +268,7 @@
       async clearSessionDraft() { draft = null; },
       saveSessionResult: result => store.saveSessionResult(result),
       getSessionResult: sessionResultId => store.getSessionResult(sessionResultId),
-      listSessionResults: () => store.listSessionResults()
+      listSessionResults: filters => store.listSessionResults(filters)
     };
   }
 

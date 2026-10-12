@@ -288,3 +288,56 @@ supplies per-anchor confirmation context to the generic player, including whethe
 numeric load is meaningful and whether a harder setup may be confirmed. Actuals
 are saved only on explicit Done/confirmation; no setup or load is inferred from
 the plan. General Strength retains its existing numeric-load progression rules.
+
+## Local persistence and recovery
+
+`coach-recovery.js` centralises the production transaction: save immutable result,
+apply it idempotently, save changed Programme State, then clear the active draft.
+A failed write/clear remains an error. Reload replays only missing result IDs,
+including inactive instances. Interrupted Coach drafts finalise as partial or
+abandoned using their durable outcomes, stable result ID and last checkpoint time;
+no current-screen/planned work is inferred. Standalone unfinished drafts remain
+ephemeral. Conflicting evidence and invalid state/drafts are retained and reported,
+with recovery retry in Coach; damaged individual results do not hide valid results.
+
+All record versions, including active references and result-index metadata, pass
+through Coach Model's central validation/upgrade hooks. Production schema is still
+v1, with no actual pre-v1 record shape to migrate. The original v1 ID-only index is
+supported and enriched from immutable results without a schema bump. Future
+versions are refused; damaged indexes can be rebuilt deterministically. Startup
+key recovery inspects at most 10,000 keys and reports incomplete scans without
+replacing the index with incomplete metadata. No evidence retention/deletion policy
+is introduced.
+
+`store.listSessionResults({programmeInstanceId, source, exerciseId, since, until,
+limit})` filters compact metadata before reading individual results. A limited
+query returns newest first and reads only matching candidates (plus damaged
+candidates reported as errors). `reconcileSessionIndex()` performs the startup
+orphan scan once per store; its `true` argument explicitly retries the scan.
+Controller loads use the programme's rolling time window plus eight recent results
+and the latest meaningful session. Full-history replay is a startup/repair operation,
+not a render operation.
+
+`engine.rebuildDerivedState(definition, state, results)` is a pure explicit repair
+of cumulative dose, meaningful counts, review-block counts, applied IDs and recent
+session/override/substitution summaries. It preserves anchor membership/targets,
+lifecycle, mode and review decisions: immutable results are not a full event log
+of user mode changes. Training History's exact exercise and anchor series rebuild
+comparable performance evidence directly from results. Recent state summaries are
+bounded (64 sessions, 32 overrides/substitutions); the compact result-ID ledger and
+per-block counts remain for exact idempotency/review. Raw Session Results are neither
+copied into Programme State nor deleted by compaction.
+
+History is local-only. Browser/site-data clearing can remove it; device replacement
+does not migrate it. Cloud durability and cross-device continuity remain deferred.
+
+Resilience verification on 2026-10-12 used isolated Chromium contexts against the
+local application. Both programmes survived reload; interrupted recorded anchor
+work recovered as one partial result, remaining planned occurrences earned zero,
+and repeated reloads left dose/progression unchanged. Completed results, short
+sessions and temporary substitutions survived the same flow. A corrupt test record
+left startup and other history usable; unavailable localStorage showed a Coach
+error while the application still started. Standalone generation retained its
+`gf_generator_history` behaviour. These bounded browser checks used production
+controller/tracker calls to simulate work and interruption, plus rendered Coach
+navigation/errors; they did not use or clear production browser data.
