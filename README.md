@@ -18,6 +18,7 @@ Live: https://nimbrethil81.github.io/garage-fit/
 - `js/rampup-ui.js` — ramp-up UI
 - `js/coach-model.js`, `js/coach-store.js` — versioned Coach records and their local persistence
 - `js/session-tracker.js` — records what actually happened during a tracked generated workout
+- `js/coach-engine.js`, `js/coach-policies.js`, `js/training-history.js` — pure programme decisions, policy strategies and performed-training evidence
 - `tests/` — generator and UI regression tests
 
 ## Tests
@@ -82,3 +83,14 @@ soft relaxations, and warnings. The Session Tracker links Main occurrences to
 those requirements and copies the target into planned work. Generic anchor swaps
 throw with `code: 'required-anchor-swap'`; optional swaps refresh reconciliation.
 The workout retains the bounded session request for swaps, excluding programme context.
+
+## Coach decision boundary
+
+The pure Coach engine consumes an explicit, versioned programme definition, pinned
+Programme State, immutable Session Results and today's context. It produces a
+Session Prescription for the Generator and applies performed results idempotently.
+Policies own feasibility, priorities, progression, short sessions and maintenance.
+
+See [the Coach API and policy contract](docs/COACH_ENGINE.md). The General Strength
+strategy is exercised with test-only definitions; no production programme or Coach
+UI is supplied. Coach UI/UX design must precede implementation of issue #58.
