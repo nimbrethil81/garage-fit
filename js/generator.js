@@ -102,6 +102,7 @@
   // shape the workout. Preparation and Cool-down are unaffected.
   const WORKOUT_BODY_FOCUSES = ['upper','full-body','lower','core'];
   const EXERCISE_BODY_FOCUSES = new Set(['upper','lower','core','full-body']);
+  const EXERCISE_DIRECT_ELBOW_ACTIONS = new Set(['flexion','extension']);
   const BODY_FOCUS_POLICY = {
     upper:{ credit:{ upper:18, 'full-body':3 } },
     'full-body':{ credit:{} },
@@ -1076,6 +1077,7 @@
       if (!isScale(exercise.cardio)) errors.push(id+': cardio must be an integer from 1 to 5');
       if (exercise.difficulty!=null && !EXERCISE_DIFFICULTIES.has(exercise.difficulty)) errors.push(id+': invalid difficulty '+JSON.stringify(exercise.difficulty));
       if (exercise.bodyFocus!=null && !EXERCISE_BODY_FOCUSES.has(exercise.bodyFocus)) errors.push(id+': invalid bodyFocus '+JSON.stringify(exercise.bodyFocus));
+      if (exercise.directElbowAction!=null && !EXERCISE_DIRECT_ELBOW_ACTIONS.has(exercise.directElbowAction)) errors.push(id+': invalid directElbowAction '+JSON.stringify(exercise.directElbowAction));
       if (!VALID_IMPACT_LEVELS.has(exercise.impact)) errors.push(id+': invalid impact '+JSON.stringify(exercise.impact));
       if (exercise.load!=null && !VALID_LOADS.has(exercise.load)) errors.push(id+': invalid load '+JSON.stringify(exercise.load));
       if (!VALID_BODY_POSITIONS.has(exercise.bodyPosition)) errors.push(id+': invalid body position');
@@ -1990,7 +1992,7 @@
     workout.estimatedSeconds=workout.warmup.estimatedSeconds+workout.rampup.estimatedSeconds+workout.main.estimatedDurationSeconds+workout.cooldown.estimatedSeconds;
   }
 
-  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, WORKOUT_DIFFICULTIES, EXERCISE_DIFFICULTIES, DIFFICULTY_POLICY, workoutDifficulty, difficultyExcluded, difficultyCredit, WORKOUT_BODY_FOCUSES, EXERCISE_BODY_FOCUSES, BODY_FOCUS_POLICY, workoutBodyFocus, bodyFocusCredit, SHORTLIST_SIZE, SHORTLIST_MARGIN, WINDOW_MAX_RANKS, SUPPORTING_ROUTE, candidateWindowRanks, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_PATTERNS, VALID_WARMUP_AREAS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, selectBlockExercises, selectWarmup, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, SessionPrescriptionError, assessSessionPrescription, generate, swap, swapPreparation };
+  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, WORKOUT_DIFFICULTIES, EXERCISE_DIFFICULTIES, DIFFICULTY_POLICY, workoutDifficulty, difficultyExcluded, difficultyCredit, WORKOUT_BODY_FOCUSES, EXERCISE_BODY_FOCUSES, EXERCISE_DIRECT_ELBOW_ACTIONS, BODY_FOCUS_POLICY, workoutBodyFocus, bodyFocusCredit, SHORTLIST_SIZE, SHORTLIST_MARGIN, WINDOW_MAX_RANKS, SUPPORTING_ROUTE, candidateWindowRanks, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_PATTERNS, VALID_WARMUP_AREAS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, selectBlockExercises, selectWarmup, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, SessionPrescriptionError, assessSessionPrescription, generate, swap, swapPreparation };
 
   if (typeof window!=='undefined' && typeof document!=='undefined' && typeof window.addEventListener==='function') window.addEventListener('load',()=>{
     if (document.querySelector('script[data-garagefit-rampup-ui]')) return;
