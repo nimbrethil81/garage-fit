@@ -297,8 +297,9 @@ the plan. General Strength retains its existing numeric-load progression rules.
 ## Sport profiles and instance settings
 
 `data/sport-profiles.js` defines immutable sport identities, capabilities, permitted
-configuration and defaults. Tennis is the first profile; capability mappings and
-a Tennis programme are deferred. The two released programmes retain settings as
+configuration and defaults. Tennis profile v2 names the six conditioning capabilities
+and references immutable `tennis-conditioning` mapping v1. A Tennis programme
+and scheduling policy remain deferred. The two released programmes retain settings as
 context without changing their training policies or exposing sport setup in the UI.
 
 `currentTargets.programmeSettings` is an optional, reserved Programme State
@@ -394,3 +395,32 @@ error while the application still started. Standalone generation retained its
 `gf_generator_history` behaviour. These bounded browser checks used production
 controller/tracker calls to simulate work and interruption, plus rendered Coach
 navigation/errors; they did not use or clear production browser data.
+
+## Sport capability coverage
+
+Load `data/sport-capabilities.js` and `js/sport-coverage.js` after Coach Model and
+Training History. `GarageFitSportCoverage.createPolicy(definition, catalogue)`
+validates and snapshots a version-pinned mapping. It exposes `classifyExercise(id)`,
+`availability({equipment, allowedImpact, smallSpace})`, and
+`summarize(history, {now, focus, programmeInstanceId, includeStandalone, sections,
+equipment, allowedImpact, smallSpace})`. For tennis use
+`GarageFitData.sportCapabilityPolicies.tennis[1]`. No storage, clock, Generator
+selection or released programme policy is changed.
+
+Summary uses Training History's actual exercise IDs, inclusive `[now − 14 days, now]`,
+Main section by default, and its existing programme/standalone scope. Completed
+and measured partial occurrences retain history exposure/confidence; unknown
+partials remain unknown, explicit zero earns zero. Left/right occurrences remain
+separate observations, never multiplied into sets. Skipped/planned/external work
+cannot count. Unmapped/unknown actual identities appear in `unclassifiedObservations`
+without capability credit. Available exercises and missing facets explain current
+equipment/impact/space limits independently of historical exposure.
+
+Each capability reports core/complementary priority, focus preference, the same
+Balanced qualitative floor, observations and facet exposure. `observed` means
+positive known exercise exposure; `unknown` means only unquantified partial work;
+`not-observed` means no positive/unknown evidence. It does not assert physiological
+adequacy. Overlapping capability values must not be summed; `uniqueExposure` counts
+each mapped occurrence once. Facets distinguish controlled lateral work from
+braking, controlled rotation from rotational power, and general conditioning from
+unproven match repeated efforts. See [the catalogue gap audit](TENNIS_CAPABILITY_AUDIT.md).
