@@ -182,6 +182,30 @@ independent of `patterns`, which describe how the exercise moves.
 The generator's workout body focus (Upper / Full Body / Lower / Core) reads it; see Phases
 below.
 
+### `directElbowAction`
+
+Optional. `flexion` or `extension`; absent (`null`) means the exercise is neither.
+
+It records that the exercise's **primary, direct training action** is isolated or clearly
+biceps-led elbow flexion, or isolated or clearly triceps-led elbow extension. It does not
+mean that the elbow bends or straightens during the movement.
+
+- Set `flexion` for curls and other biceps-led work where bending the elbow is the point
+  (dumbbell, band and TRX biceps curls).
+- Set `extension` for triceps extensions, triceps presses and triceps-led dips where
+  straightening the elbow against load is the point (band triceps extension, TRX triceps
+  press, bench dips, triceps dips on a chair).
+- Leave it unset for compound work where the elbow moves but chest, shoulders or back lead:
+  rows, pull-ups and chin-ups, chest and shoulder presses, push-ups, and any exercise
+  whose name merely contains "curl" for another joint (TRX hamstring curl) or that
+  stretches the arm (triceps stretch).
+
+Decide it editorially from the movement, never from `patterns`, `family`, `bodyFocus`,
+`strength` or the name. When adding a direct biceps or triceps exercise, consider this
+field explicitly. It is an intrinsic descriptor only: do not use it as programme
+membership, progression or regression metadata, or as a muscle map or fractional
+contribution. Standalone generator policy does not read it.
+
 ### `impact`
 
 | Value | Meaning |
