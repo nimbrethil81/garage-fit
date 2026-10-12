@@ -451,7 +451,7 @@ function playToEnd(harness) {
   assert.equal(run('workoutState.running'), false);
 }
 
-test('standalone Generator playback stays untracked and writes no Coach records', () => {
+test('generated playback without an execution context stays untracked and writes no Coach records', () => {
   const harness = appWithWorkout();
   harness.app.startGeneratedWorkout();
   assert.equal(harness.run('generatorState.tracker'), null);

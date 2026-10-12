@@ -246,7 +246,7 @@
     <ol class="preview-list" id="previewList"></ol>
     <div class="preview-timing"><div class="preview-time-card"><strong id="previewWarmup">3 min</strong>Warm-up</div><div class="preview-time-card"><strong id="previewCooldown">2 min</strong>Cool-down</div></div>
     <div class="preview-estimate" id="previewEstimate">≈20 min total</div>
-    <div class="preview-actions"><button class="preview-regenerate" type="button" onclick="generateWorkout()">Regenerate</button><button class="preview-start" type="button" onclick="startGeneratedWorkout()">Start workout</button></div>
+    <div class="preview-actions"><button class="preview-regenerate" type="button" onclick="generateWorkout()">Regenerate</button><button class="preview-start" type="button" onclick="startStandaloneGeneratedWorkout()">Start workout</button></div>
   </main>
 
   <main id="snackpick" class="screen hidden">
@@ -438,7 +438,7 @@ let state={key:null,list:[],idx:0,phase:'ready',remaining:0,timer:null,paused:fa
 let workoutState={mode:'fixed',workout:null,idx:0,round:1,completedRounds:0,additionalReps:0,history:[],completed:[],elapsedMs:0,startedAt:0,timer:null,paused:false,running:false,expired:false,result:null};
 // Display labels; the generator's focus key for Mixed remains 'balanced'.
 const FOCUS_LABELS={strength:'Strength',balanced:'Mixed',cardio:'Cardio'},BODY_FOCUS_LABELS={upper:'Upper','full-body':'Full Body',lower:'Lower',core:'Core'},DIFFICULTY_LABELS={easy:'Easy',normal:'Normal',hard:'Hard'};
-let generatorState={duration:20,focus:'balanced',bodyFocus:'full-body',difficulty:'normal',workout:null,equipmentReturn:'generator',timeline:[],timelineIndex:0,phaseTimer:null,remaining:0,completedMain:0,cueTracker:null,tracker:null,trackedResult:null,trackerError:null};
+let generatorState={duration:20,focus:'balanced',bodyFocus:'full-body',difficulty:'normal',workout:null,equipmentReturn:'generator',timeline:[],timelineIndex:0,phaseTimer:null,remaining:0,completedMain:0,cueTracker:null,tracker:null,trackedResult:null,trackerError:null,standaloneTracking:false};
 let exitState={type:null,wasPaused:false,lastFocus:null};
 let instructionSeen=new Set();
 function beginInstructionSession(){instructionSeen=new Set()}
@@ -708,18 +708,24 @@ function buildGeneratedTimeline(workout){
   cooldown.forEach((exercise,index)=>{timeline.push(...makeGeneratedExercisePhases(exercise,'cooldown',null,index));if(index<cooldown.length-1)timeline.push({kind:'rest',section:'cooldown',seconds:workout.cooldown.restSeconds,nextExercise:cooldown[index+1]})});return timeline;
 }
 // Session tracking is dormant unless an execution context explicitly opts in by passing
-// tracking options ({store, source, meaningful, ...}; see js/session-tracker.js). The standalone
-// Start button passes none, so standalone playback and history are unchanged.
+// tracking options ({store, source, meaningful, ...}; see js/session-tracker.js). Coach passes
+// its own tracker; the standalone Start button opts in through standaloneGeneratedTracking().
 function startGeneratedWorkout(tracking){
   if(!generatorState.workout)return;beginInstructionSession();generatorState.workout=GarageFitGenerator.normaliseWorkout(generatorState.workout);stopTimer();stopGeneratedPhaseTimer();stopWorkoutClock();state.running=false;state.doneDestination='generator';workoutState={mode:'generated',idx:0,completed:[],elapsedMs:0,startedAt:Date.now(),timer:null,paused:false,running:true};generatorState.timeline=buildGeneratedTimeline(generatorState.workout);startGeneratedTracking(tracking);generatorState.timelineIndex=0;generatorState.remaining=0;generatorState.completedMain=0;const player=document.getElementById('workoutPlayer');player.classList.add('generated-player');document.getElementById('workoutPlayerTitle').textContent=FOCUS_LABELS[generatorState.workout.focus]+' · '+generatorState.workout.duration+' min';document.getElementById('generatedNext').classList.remove('hidden');document.getElementById('doneStats').classList.add('hidden');document.getElementById('generatedDoneStats').classList.add('hidden');document.getElementById('amrapDoneStats').classList.add('hidden');showScreen('workoutPlayer');startWorkoutClock();requestWake();enterGeneratedPhase(0);speak('Get ready. '+generatorState.workout.warmup.exercises[0].name);
 }
-function startGeneratedTracking(tracking){generatorState.tracker=null;generatorState.trackedResult=null;generatorState.trackerError=null;if(!tracking)return;if(tracking.tracker){generatorState.tracker=tracking.tracker;return}const tracker=GarageFitSessionTracker.createTracker(Object.assign({workoutId:generatorState.workout.id,plannedWork:GarageFitSessionTracker.plannedWorkFromTimeline(generatorState.timeline,tracking)},tracking));generatorState.tracker=tracker;trackGenerated(()=>tracker.start())}
+// Standalone generated workouts add a completed run to shared Training History as a
+// source=generator Session Result. The draft stays in memory: the exit flow promises that
+// unfinished progress is not saved, so a confirmed exit discards it and never touches the
+// persisted Coach draft. gf_generator_history remains the Generator's separate recency record.
+function standaloneGeneratedTracking(){if(typeof GarageFitCoachStore==='undefined')return null;let storage=null;try{storage=localStorage}catch(e){}return {store:GarageFitCoachStore.withEphemeralDraft(GarageFitCoachStore.createStore(storage)),source:'generator',recordResults:true,standalone:true}}
+function startStandaloneGeneratedWorkout(){startGeneratedWorkout(standaloneGeneratedTracking())}
+function startGeneratedTracking(tracking){generatorState.tracker=null;generatorState.trackedResult=null;generatorState.trackerError=null;generatorState.standaloneTracking=!!(tracking&&tracking.standalone);if(!tracking)return;if(tracking.tracker){generatorState.tracker=tracking.tracker;return}const tracker=GarageFitSessionTracker.createTracker(Object.assign({workoutId:generatorState.workout.id,plannedWork:GarageFitSessionTracker.plannedWorkFromTimeline(generatorState.timeline,tracking)},tracking));generatorState.tracker=tracker;trackGenerated(()=>tracker.start())}
 // Tracking never interrupts playback: failures are kept for the tracked context to inspect.
 function trackGenerated(action){try{const write=action();if(write&&write.catch)write.catch(error=>{generatorState.trackerError=error});return write}catch(error){generatorState.trackerError=error;return null}}
 // Record the current exercise occurrence's outcome before the timeline moves on. Timed work is
 // measured from the countdown; rep work is Done or skipped. Moving the index is not evidence.
 function recordGeneratedOutcome(action){const tracker=generatorState.tracker,phase=currentGeneratedPhase();if(!tracker||!tracker.started||tracker.finalised||generatorState.trackedResult||!phase||phase.kind!=='exercise')return;trackGenerated(()=>phase.timed?tracker.recordTimed(phase.occurrenceId,{plannedSeconds:phase.seconds,elapsedSeconds:phase.seconds-Math.max(0,generatorState.remaining)}):action==='done'?tracker.recordDone(phase.occurrenceId):tracker.recordSkip(phase.occurrenceId))}
-function finishGeneratedTracking(kind){const tracker=generatorState.tracker;if(!tracker||!tracker.started||tracker.finalised||generatorState.trackedResult)return null;const options={actualDurationSeconds:Math.floor(currentWorkoutElapsedMs()/1000)};generatorState.trackedResult=trackGenerated(()=>kind==='complete'?tracker.complete(options):tracker.exitEarly(options));return generatorState.trackedResult}
+function finishGeneratedTracking(kind){const tracker=generatorState.tracker;if(!tracker||!tracker.started||tracker.finalised||generatorState.trackedResult)return null;if(kind==='exit'&&generatorState.standaloneTracking){generatorState.tracker=null;return null}const options={actualDurationSeconds:Math.floor(currentWorkoutElapsedMs()/1000)};generatorState.trackedResult=trackGenerated(()=>kind==='complete'?tracker.complete(options):tracker.exitEarly(options));return generatorState.trackedResult}
 function currentGeneratedPhase(){return generatorState.timeline[generatorState.timelineIndex]}
 function stopGeneratedPhaseTimer(){clearInterval(generatorState.phaseTimer);generatorState.phaseTimer=null}
 function startGeneratedCountdown(seconds){stopGeneratedPhaseTimer();const phase=currentGeneratedPhase();generatorState.remaining=seconds;generatorState.cueTracker=GarageFitTimedCues.createTracker(phase&&phase.kind==='exercise'?phase.exercise.timedCues:[],seconds);renderGeneratedCountdown();generatorState.phaseTimer=setInterval(()=>{if(workoutState.paused)return;generatorState.remaining--;renderGeneratedCountdown();showDueTimedCues(generatorState.cueTracker,seconds-generatorState.remaining,'workoutTimedCue');if(generatorState.remaining<=0){stopGeneratedPhaseTimer();if(isCoachPlayer())coachAdvance('timer');else{recordGeneratedOutcome('timer');advanceGeneratedPhase()}}},1000)}
@@ -786,7 +792,7 @@ function confirmExitChoice(){if(exitState.type==='workout'&&isCoachPlayer())retu
 function handleModalBackdrop(event){if(event.target===document.getElementById('exitDialog'))cancelExit()}
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!document.getElementById('exitDialog').classList.contains('hidden'))cancelExit()});
 let coachUI=null,coachAdvancing=false;
-function isCoachPlayer(){return !!(coachUI&&coachUI.isActive()&&generatorState.tracker)}
+function isCoachPlayer(){return !!(coachUI&&coachUI.isActive()&&generatorState.tracker&&!generatorState.standaloneTracking)}
 function coachPlayerTracker(){return generatorState.tracker}
 function stopCoachPlayer(){stopGeneratedPhaseTimer();stopWorkoutClock();workoutState.running=false;releaseWake();cancelSpeech()}
 async function coachAdvance(action){
