@@ -309,6 +309,32 @@
 
   const activeProgramme = shape(Object.assign({schemaVersion: exactly(SCHEMA_VERSION)}, definitionRefFields));
 
+  const sportProgressFeedback = shape({movement: oneOf(['better','same','worse','unsure']),
+    endurance: oneOf(['better','same','worse','unsure']), comfort: oneOf(['better','same','worse','unsure']), timestamp});
+  const tennisDevelopmentState = shape({schemaVersion: exactly(1),
+    phase: oneOf(['development','consolidation']),
+    entryReason: oneOf(['programme-start','routine-consolidation','performed-consolidation']),
+    lastTransitionAt: timestamp, developmentStartedAt: timestamp,
+    eligibleDevelopmentSessions: nonNegativeInteger, consolidationSessions: nonNegativeInteger,
+    lastEvaluatedResultAt: nullable(timestamp),
+    sportReview: shape({lastPromptAt: nullable(timestamp), eligibleSessions: nonNegativeInteger,
+      latestFeedback: nullable(sportProgressFeedback), easierNextSession: boolean})
+  }, (value, path, errors) => {
+    if (value.eligibleDevelopmentSessions > 6 || value.consolidationSessions > 1 || value.sportReview.eligibleSessions > 4)
+      fail(errors, path, 'performed-session counters exceed the pilot bounds');
+    notBefore(value, 'developmentStartedAt', 'lastTransitionAt', path, errors);
+    if ((value.phase === 'consolidation') !== (value.entryReason === 'routine-consolidation'))
+      fail(errors, path+'.entryReason', 'does not match the phase');
+    if (value.phase === 'consolidation' && value.eligibleDevelopmentSessions !== 6)
+      fail(errors, path+'.eligibleDevelopmentSessions', 'consolidation requires six eligible sessions');
+    const review = value.sportReview;
+    if (review.latestFeedback && (!review.lastPromptAt || Date.parse(review.latestFeedback.timestamp) > Date.parse(review.lastPromptAt)))
+      fail(errors, path+'.sportReview.latestFeedback', 'requires a prompt at or after the feedback');
+    if (review.easierNextSession && (!review.latestFeedback
+      || !['movement','endurance','comfort'].some(key => review.latestFeedback[key] === 'worse')))
+      fail(errors, path+'.sportReview.easierNextSession', 'requires explicit worse sport feedback');
+  });
+
   const programmeState = shape(Object.assign({schemaVersion: exactly(SCHEMA_VERSION)}, definitionRefFields, {
     status: oneOf(PROGRAMME_STATUSES),
     mode: oneOf(PROGRAMME_MODES),
@@ -326,6 +352,14 @@
     if (!targets) return;
     // Enduring choices occupy a reserved, typed namespace; they are not derived dose.
     if (Object.prototype.hasOwnProperty.call(targets, 'programmeSettings')) programmeSettings(targets.programmeSettings, path+'.currentTargets.programmeSettings', errors);
+    if (Object.prototype.hasOwnProperty.call(targets, 'tennisDevelopment')) tennisDevelopmentState(targets.tennisDevelopment, path+'.currentTargets.tennisDevelopment', errors);
+    if (targets.tennisDevelopment) {
+      const tennisPath = path+'.currentTargets.tennisDevelopment';
+      notBefore({startedAt: value.startedAt, developmentStartedAt: targets.tennisDevelopment.developmentStartedAt}, 'startedAt', 'developmentStartedAt', tennisPath, errors);
+      notBefore({startedAt: value.startedAt, lastEvaluatedResultAt: targets.tennisDevelopment.lastEvaluatedResultAt}, 'startedAt', 'lastEvaluatedResultAt', tennisPath, errors);
+      const review = targets.tennisDevelopment.sportReview;
+      if (review) notBefore({startedAt: value.startedAt, lastPromptAt: review.lastPromptAt}, 'startedAt', 'lastPromptAt', tennisPath+'.sportReview', errors);
+    }
     if (!isMissing(targets.reconciliation)) shape({appliedSessionResultIds: arrayOf(id)}, (ledger, ledgerPath, issues) => {
       if (new Set(ledger.appliedSessionResultIds).size !== ledger.appliedSessionResultIds.length) fail(issues, ledgerPath+'.appliedSessionResultIds', 'must be unique');
     })(targets.reconciliation, path+'.currentTargets.reconciliation', errors);

@@ -115,7 +115,11 @@
     contextPolicy: {nearbyDays: 1, recentReportDays: 7, lighterDurationMinutes: 20,
       tiredDurationMinutes: 15, lighterAnchorLimit: 1, tiredAnchorSets: 1,
       lighterImpact: ['low','medium'], homeSmallSpace: true}};
+  const tennisDevelopment = {...JSON.parse(JSON.stringify(tennisContext)), version: 3,
+    phasePolicy: {minimumDevelopmentDays: 21, minimumDevelopmentSessions: 6,
+      consolidationSessions: 1, consolidationAnchorSets: 1},
+    sportReviewPolicy: {minimumDays: 28, minimumSessions: 4}};
   function freeze(value) { Object.values(value).forEach(item => { if (item && typeof item === 'object') freeze(item); }); return Object.freeze(value); }
   root.GarageFitData = root.GarageFitData || {};
-  root.GarageFitData.programmes = freeze({'general-strength-4w': {1: strength}, 'build-arms': {1: arms}, 'tennis-conditioning': {1: tennis, 2: tennisContext}});
+  root.GarageFitData.programmes = freeze({'general-strength-4w': {1: strength}, 'build-arms': {1: arms}, 'tennis-conditioning': {1: tennis, 2: tennisContext, 3: tennisDevelopment}});
 })(typeof window !== 'undefined' ? window : globalThis);

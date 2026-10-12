@@ -12,6 +12,91 @@
     const [year,month,day] = value.split('-').map(Number), date = new Date(0);
     date.setUTCFullYear(year,month-1,day); date.setUTCHours(0,0,0,0); return date;
   }
+  function initialiseState(input) {
+    const initial = strength.initialiseState(input);
+    if (input.definition.phasePolicy) initial.currentTargets.tennisDevelopment = {
+      schemaVersion: 1, phase: 'development', entryReason: 'programme-start',
+      lastTransitionAt: input.context.now, developmentStartedAt: input.context.now,
+      eligibleDevelopmentSessions: 0, consolidationSessions: 0, lastEvaluatedResultAt: null,
+      sportReview: {lastPromptAt: null, eligibleSessions: 0, latestFeedback: null, easierNextSession: false}};
+    return initial;
+  }
+  function validateState({definition, state}) {
+    if (!definition.phasePolicy) return;
+    const phase = state.currentTargets.tennisDevelopment;
+    if (!phase) throw new Error('The saved Tennis development state is missing. Records have been retained.');
+    if (!state.startedAt) throw new Error('Tennis development needs a known programme start timestamp. Records have been retained.');
+    if (Date.parse(phase.developmentStartedAt) < Date.parse(state.startedAt)) throw new Error('Invalid Tennis development start.');
+  }
+  function phaseRecommendation({definition, state, now}) {
+    if (!definition.phasePolicy) return null;
+    const phase = state.currentTargets.tennisDevelopment, rule = definition.phasePolicy;
+    const elapsedDays = Math.max(0, (Date.parse(now)-Date.parse(phase.developmentStartedAt))/DAY);
+    const consolidation = phase.phase === 'consolidation' || phase.eligibleDevelopmentSessions >= rule.minimumDevelopmentSessions
+      && elapsedDays >= rule.minimumDevelopmentDays;
+    return {phase: consolidation ? 'consolidation' : 'development',
+      reason: consolidation ? 'routine-consolidation' : phase.entryReason,
+      eligiblePerformedSessions: phase.eligibleDevelopmentSessions,
+      confidence: 'derived',
+      rationale: consolidation
+        ? 'A reduced-demand consolidation session is due after at least 6 meaningful Coach sessions and 21 days. Perform Main work to return to development; anchor targets are held.'
+        : 'Development uses confirmed comparable anchor results to build reps. Recent performed work guides coverage; absence creates no catch-up work.',
+      evidenceNote: 'Session counts and movement coverage describe performed work, not fitness or sporting improvement.'};
+  }
+  function sportReviewRecommendation({definition, state, now}) {
+    if (!definition.sportReviewPolicy) return null;
+    const review = state.currentTargets.tennisDevelopment.sportReview, rule = definition.sportReviewPolicy;
+    return {due: state.status === 'active' && review.eligibleSessions >= rule.minimumSessions
+      && (Date.parse(now)-Date.parse(review.lastPromptAt || state.startedAt))/DAY >= rule.minimumDays,
+      latestFeedback: copy(review.latestFeedback), confidence: review.latestFeedback ? 'subjective' : 'unknown'};
+  }
+  function recordSportReview({definition, state, response, now}) {
+    if (!sportReviewRecommendation({definition,state,now})?.due) throw new Error('A sport check-in is not due.');
+    if (response !== null && (!response || Array.isArray(response) || typeof response !== 'object'
+      || Object.keys(response).some(key => !['movement','endurance','comfort'].includes(key)))) throw new Error('Invalid sport check-in answers.');
+    const next = copy(state), review = next.currentTargets.tennisDevelopment.sportReview;
+    review.lastPromptAt = now; review.eligibleSessions = 0;
+    if (response !== null) {
+      review.latestFeedback = {...copy(response), timestamp: now};
+      review.easierNextSession = Object.values(response).includes('worse');
+    }
+    // Model's closed namespace rejects missing, unknown and corrupt answers.
+    return Model().assertValid('programme-state',next);
+  }
+  function beginSession({definition, state, prescription, now}) {
+    const next = copy(state), recommendation = phaseRecommendation({definition,state,now});
+    if (!recommendation || recommendation.phase !== 'consolidation') return next;
+    if (!prescription.programmeContext.overrides.some(item => item.type === 'tennis-phase' && item.value === 'consolidation'))
+      throw new Error('Prepare the due consolidation session again.');
+    const phase = next.currentTargets.tennisDevelopment;
+    if (phase.phase !== 'consolidation') Object.assign(phase, {phase: 'consolidation', entryReason: 'routine-consolidation', lastTransitionAt: now});
+    return next;
+  }
+  function applyPerformedState({definition, state, result, meaningful}) {
+    if (!definition.phasePolicy) return copy(state.currentTargets);
+    const targets = copy(state.currentTargets), phase = targets.tennisDevelopment;
+    const at = result.endedAt || result.startedAt;
+    // Late older results cannot rewind a deliberate phase or grant post-review work.
+    if (!at || Date.parse(at) < Date.parse(phase.lastEvaluatedResultAt || state.startedAt)) return targets;
+    phase.lastEvaluatedResultAt = at;
+    if (!meaningful) return targets;
+    const overrides = result.overrides || [];
+    const consolidation = overrides.some(item => item.type === 'tennis-phase' && item.value === 'consolidation');
+    if (phase.phase === 'consolidation' && consolidation && Date.parse(at) >= Date.parse(phase.lastTransitionAt)) {
+      phase.consolidationSessions++;
+      if (phase.consolidationSessions >= definition.phasePolicy.consolidationSessions) Object.assign(phase, {
+        phase: 'development', entryReason: 'performed-consolidation', lastTransitionAt: at,
+        developmentStartedAt: at, eligibleDevelopmentSessions: 0, consolidationSessions: 0});
+    } else if (phase.phase === 'development' && !consolidation && Date.parse(at) >= Date.parse(phase.developmentStartedAt)) {
+      phase.eligibleDevelopmentSessions = Math.min(definition.phasePolicy.minimumDevelopmentSessions, phase.eligibleDevelopmentSessions+1);
+    }
+    const review = phase.sportReview;
+    if (Date.parse(at) >= Date.parse(review.lastPromptAt || state.startedAt))
+      review.eligibleSessions = Math.min(definition.sportReviewPolicy.minimumSessions,review.eligibleSessions+1);
+    if (review.latestFeedback && Date.parse(at) >= Date.parse(review.latestFeedback.timestamp)
+      && overrides.some(item => item.type === 'tennis-feedback-review')) review.easierNextSession = false;
+    return targets;
+  }
   function classifyContext({definition, state, today}) {
     const rule = definition.contextPolicy;
     if (!rule) return null; // Preserve the released v1 policy.
@@ -115,6 +200,12 @@
         || !definition.supportedDurations.includes(rule.tiredDurationMinutes) || rule.tiredDurationMinutes > rule.lighterDurationMinutes
         || !Array.isArray(rule.lighterImpact) || rule.lighterImpact.join(',') !== 'low,medium') throw new Error('Invalid Tennis context policy.');
     }
+    if (definition.phasePolicy || definition.sportReviewPolicy) {
+      const phase = definition.phasePolicy, review = definition.sportReviewPolicy;
+      if (!definition.contextPolicy || !phase || !review || phase.minimumDevelopmentDays !== 21
+        || phase.minimumDevelopmentSessions !== 6 || phase.consolidationSessions !== 1 || phase.consolidationAnchorSets !== 1
+        || review.minimumDays !== 28 || review.minimumSessions !== 4) throw new Error('Invalid Tennis development pilot thresholds.');
+    }
   }
   function anchorEligible(exercise, context, requirement) {
     if (!exercise || !exercise.main || !exercise.generator
@@ -154,6 +245,13 @@
   }
   function calculatePriorities({definition, catalogue, state, history, today, forFeasibility = false}) {
     const adaptation = forFeasibility ? null : classifyContext({definition,state,today});
+    const phase = forFeasibility ? null : phaseRecommendation({definition,state,now:today.now});
+    const feedbackReview = !forFeasibility && definition.phasePolicy && state.currentTargets.tennisDevelopment.sportReview.easierNextSession;
+    if (adaptation && (phase?.phase === 'consolidation' || feedbackReview)) {
+      if (adaptation.classification === 'usual') adaptation.classification = 'lighter';
+      if (phase?.phase === 'consolidation') adaptation.reasons.push('routine consolidation');
+      if (feedbackReview) adaptation.reasons.push('easier session after your sport feedback; this is subjective context, not proof of a fitness decline');
+    }
     today = trainingContext(definition,today,adaptation);
     const config = settings(definition, state), sport = coveragePolicy(definition, catalogue);
     const scope = {programmeInstanceId: state.programmeInstanceId, sections: ['main'], until: today.now,
@@ -193,13 +291,16 @@
       || Number(b.coverage !== 'observed')-Number(a.coverage !== 'observed') || Number(b.preferred)-Number(a.preferred)
       || (role.capabilities.includes(a.capabilityId) ? role.capabilities.indexOf(a.capabilityId) : 99)
         -(role.capabilities.includes(b.capabilityId) ? role.capabilities.indexOf(b.capabilityId) : 99));
-    if (adaptation && adaptation.classification !== 'usual') {
+    if (adaptation && adaptation.classification !== 'usual'
+      && adaptation.reasons.some(reason => ['tired today','lighter before planned tennis','lighter after reported hard tennis',
+        'lighter before a planned match','lighter before your planned event','easy today'].includes(reason))) {
       // Prefer upper/trunk work around demanding tennis without banning all legs.
       anchors.sort((a,b) => Number(['knee','hinge'].includes(state.anchors[a.index].roleId))
         -Number(['knee','hinge'].includes(state.anchors[b.index].roleId)) || a.passes-b.passes || a.index-b.index);
       capabilities.sort((a,b) => Number(['trunk','upper-body'].includes(b.capabilityId))-Number(['trunk','upper-body'].includes(a.capabilityId)));
     }
     return {role, earnedRoles, anchors, capabilities, coverage: summary, movements: [], bodyRegions: [],
+      ...(phase ? {phase, sportReview: sportReviewRecommendation({definition,state,now:today.now}), feedbackReview: !!feedbackReview} : {}),
       ...(adaptation ? {adaptation} : {})};
   }
   function supportRequest(capabilityId, exercise) {
@@ -240,10 +341,13 @@
       programmeContext: {objective: definition.objective, mode: state.mode, frequency: {minSessionsPerWeek: config.weeklyCoachFrequency, maxSessionsPerWeek: config.weeklyCoachFrequency},
         roleLabel: role.label, repsInReserve: 2, warnings: [], deferredAnchorRequirementIds: [],
         ...(adaptation ? {adaptation, requestedDuration} : {}),
+        ...(priorities.phase ? {phase: priorities.phase} : {}),
         anchorResistance: Object.fromEntries(state.anchors.map(anchor => [anchor.requirementId, {exerciseId: anchor.exerciseId,
           numericLoad: numeric(catalogue[anchor.exerciseId]), setup: anchor.comparisonBaseline && anchor.comparisonBaseline.resistanceSetup || 'initial',
           ready: anchor.currentTarget.progressionIntent === definition.progressionPolicy.setupResistanceIntent}])),
         overrides: [{type: roleOverride, value: role.id}, ...(today.easyToday ? [{type: 'easy-today'}] : []),
+          ...(priorities.phase ? [{type: 'tennis-phase', value: priorities.phase.phase}] : []),
+          ...(priorities.feedbackReview ? [{type: 'tennis-feedback-review'}] : []),
           ...(adaptation && adaptation.reasons.length ? [{type: 'tennis-adaptation', localDate: adaptation.localDate,
             readiness: adaptation.readiness, classification: adaptation.classification, reasons: adaptation.reasons}] : []),
           ...(today.duration !== undefined ? [{type: 'duration', value: duration}] : []), ...(today.bodyFocus ? [{type: 'body-focus', value: today.bodyFocus}] : [])]}});
@@ -265,6 +369,7 @@
       lighter ? definition.contextPolicy.lighterAnchorLimit : 4);
     for (const priority of priorities.anchors) {
       const anchor = state.anchors.find(item => item.requirementId === priority.requirementId), request = anchorRequest(anchor);
+      if (priorities.phase?.phase === 'consolidation') request.targetSets = definition.phasePolicy.consolidationAnchorSets;
       if (adaptation && adaptation.readiness === 'tired') request.targetSets = definition.contextPolicy.tiredAnchorSets;
       if (prescription.requiredAnchors.length < limit && add(request)) continue;
       prescription.programmeContext.deferredAnchorRequirementIds.push(anchor.requirementId);
@@ -373,10 +478,13 @@
     return {status: conflicts.length ? 'infeasible' : current.roles.some(item => item.status !== 'feasible') ? 'partially-feasible' : 'feasible', conflicts, anchors, prescription: null, durationAssessments,
       warnings: current.roles.flatMap(item => item.warnings)};
   }
-  const policy = {...strength, validateDefinition, validateProgrammeSettings, assessFeasibility, calculatePriorities, buildPrescription, classifyContext,
+  const policy = {...strength, validateDefinition, validateState, initialiseState, validateProgrammeSettings, assessFeasibility, calculatePriorities, buildPrescription, classifyContext,
+    phaseRecommendation, sportReviewRecommendation, recordSportReview, beginSession, applyPerformedState,
     interpretDose: input => ['completed','partial'].includes(input.result.finalStatus) ? strength.interpretDose(input)
       : {meaningful:false,exposure:{value:0,confidence:'unknown'},patterns:{},bodyRegions:{}},
-    interpretProgression: input => ['completed','partial'].includes(input.result.finalStatus) ? strength.interpretProgression(input) : copy(input.state.anchors),
+    interpretProgression: input => ['completed','partial'].includes(input.result.finalStatus)
+      && !(input.result.overrides || []).some(item => item.type === 'tennis-phase' && item.value === 'consolidation' || item.type === 'tennis-feedback-review')
+      ? strength.interpretProgression(input) : copy(input.state.anchors),
     assessPlannedSession, anchorAlternatives, reduceForShortSession: ({prescription}) => copy(prescription),
     getModeSettings: ({definition,state}) => {
       const frequency = settings(definition,state).weeklyCoachFrequency;

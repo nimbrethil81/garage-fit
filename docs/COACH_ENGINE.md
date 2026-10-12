@@ -438,6 +438,58 @@ decisions become bounded `tennis-adaptation` overrides; readiness/reports are ne
 persisted as ongoing fitness state. Session Results remain the only performed-work
 authority. General Strength, Build Arms and saved Tennis v1 ignore sport context.
 
+## Tennis development and optional sport reviews
+
+New Tennis instances pin immutable definition **v3**; saved v1/v2 instances keep
+their policies. `currentTargets.tennisDevelopment` is a closed, schema-version-1
+namespace validated by Coach Model and persisted only through Coach Store. It
+holds `phase` (`development`/`consolidation`), `entryReason`, `lastTransitionAt`,
+`developmentStartedAt`, saturated eligible performed-session counts, the latest
+evaluated result timestamp, and a bounded `sportReview`. Generic programme mode,
+pause/resume/finish and all four anchor identities remain independent.
+
+Pilot thresholds live in `phasePolicy` and `sportReviewPolicy` on v3:
+
+- At least **six meaningful performed Coach sessions AND 21 elapsed days** since
+  start/last completed consolidation makes one consolidation session due. Counts
+  saturate at six; elapsed time, previews, absence and pause earn no session credit.
+  These gates are simple UX defaults, not a fatigue or optimal-dosage model.
+- Planning returns the recommendation and rationale without mutating state.
+  `engine.beginSession(definition, state, prescription, now)` enters consolidation
+  when a due, feasible prescription starts; the controller saves that state before
+  starting its Tracker draft. A failed save leaves state unchanged and retryable.
+  Rest/infeasible plans create neither a phase transition nor a draft.
+- Consolidation uses the existing lighter-work constraints: at most 20 minutes,
+  one achievable strength anchor with **one set**, low/medium impact and reduced
+  demanding support/filler; important capabilities still follow performed-only
+  two-week coverage. Tired/event safeguards can shorten or defer it further.
+  Preparation/rest and the requested shorter budget remain intact. Deliberately
+  easier work holds complete anchor targets and baselines, with no set repayment.
+- **One** meaningful completed/partial consolidation result with real Main work
+  returns to development and resets the six-session/21-day gates. Abandonment,
+  skip, preparation-only, zero and unmeasured partial work cannot finish it.
+  Recovery can finish only durable Main outcomes. Replay cannot duplicate phase
+  work; older out-of-order results cannot rewind transitions/review counters.
+- An optional sport check-in becomes eligible after **28 days AND four meaningful
+  sessions** since programme start or prior response/dismissal. No check-in is
+  required for a workout. `engine.sportReview(definition, state, now)` reads its
+  eligibility; `engine.recordSportReview(definition, state, response, now)` returns
+  changed state. The controller's `saveSportReview(response)` uses the same durable
+  Store write safeguards as settings changes. `null` dismisses; otherwise supply
+  `{movement, endurance, comfort}` with `better`/`same`/`worse`/`unsure`. The optional
+  Coach card labels `unsure` as Not sure. Only the last feedback and prompt timestamp
+  are retained; both gates reset even on dismissal, so it does not recur on render.
+- Feedback confidence is **subjective**, absent feedback **unknown**; performed
+  phase counts and coverage are **derived**, comparable actuals remain the only
+  exercise-progression evidence. One worse answer requests an easier review
+  session without diagnosing injury, changing phase or downgrading load. Real
+  meaningful work in that session consumes the suggestion; preview/skip does not.
+
+`rebuildDerivedState` preserves deliberate phase/review state as well as anchor
+targets and lifecycle while rebuilding dose/count/reconciliation evidence. Raw
+results and existing instance history remain unchanged. Revise pilot thresholds
+only in a new definition version with corresponding namespace validation/tests.
+
 ## Local persistence and recovery
 
 `coach-recovery.js` centralises the production transaction: save immutable result,

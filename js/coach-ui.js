@@ -47,7 +47,7 @@
         const reference = await store.loadActiveProgramme();
         state = reference ? await store.loadProgrammeState(reference.programmeInstanceId) : null;
         if (reference && (!state || !Model().sameRecord(reference, Model().createActiveProgramme(Model().programmeDefinitionRef(state))))) throw new Error('The saved active programme reference does not match its state. Records have been retained.');
-        if (state) definition();
+        if (state) engine.validateProgrammeState(definition(),state);
         await recentHistory();
       } catch (error) { errors.push(error); blocked = true; state = null; }
       return snapshot();
@@ -98,6 +98,11 @@
       const substitutions = preview.today.anchorSubstitutions || {};
       plannedWork.forEach(item => { if (substitutions[item.requirementId]) item.exerciseId = state.anchors.find(anchor => anchor.requirementId === item.requirementId).exerciseId; });
       if (!tracker) {
+        const next = engine.beginSession(definition(),state,preview.plan.prescription,clock());
+        if (!Model().sameRecord(next,state)) {
+          await store.saveProgrammeState(next);
+          state = next;
+        }
         tracker = root.GarageFitSessionTracker.createTracker({store, clock, source: 'coach', draftId: id('draft'),
           programmeInstanceId: state.programmeInstanceId, prescriptionId: preview.plan.prescription.prescriptionId,
           workoutId: preview.workout.id, generatedAt: preview.generatedAt, plannedWork, meaningful,
@@ -133,10 +138,10 @@
       else throw new Error('Unknown programme action.');
       await store.saveProgrammeState(next); state = next; preview = null;
     }
-    async function saveProgrammeSettings(patch) {
-      if (blocked || !state) throw new Error('Load a valid programme before changing settings.');
-      if (draft || tracker || pendingResult) throw new Error('Save the session before changing programme settings.');
-      if (await store.loadSessionDraft()) throw new Error('Save the session before changing programme settings.');
+    async function saveProgrammeChange(change) {
+      if (blocked || !state) throw new Error('Load a valid programme before changing it.');
+      if (draft || tracker || pendingResult) throw new Error('Save the session before changing the programme.');
+      if (await store.loadSessionDraft()) throw new Error('Save the session before changing the programme.');
       // Read the durable state, so saving preferences cannot overwrite reconciled work.
       const reference = await store.loadActiveProgramme();
       const previous = await store.loadProgrammeState(state.programmeInstanceId);
@@ -145,13 +150,16 @@
         || !Model().sameRecord(Model().programmeDefinitionRef(previous), Model().programmeDefinitionRef(state))) {
         throw new Error('The active programme changed. Reload Coach before saving settings.');
       }
-      const next = engine.updateProgrammeSettings(definitionFor(previous), previous, patch);
+      const next = change(definitionFor(previous), previous);
       await store.saveProgrammeState(next);
       state = next; preview = null; preparationContext = null;
       await recentHistory();
       return clone(next);
     }
+    const saveProgrammeSettings = patch => saveProgrammeChange((def,previous) => engine.updateProgrammeSettings(def,previous,patch));
+    const saveSportReview = response => saveProgrammeChange((def,previous) => engine.recordSportReview(def,previous,response,clock()));
     return {load, snapshot, assess, start, plan, prepare, alternatives, substitute, begin, finish, manage, saveProgrammeSettings,
+      saveSportReview, sportReview: () => engine.sportReview(definition(),state,clock()),
       review: () => engine.programmeReview(definition(), state, clock())};
   }
 
@@ -201,6 +209,9 @@
     function rationale(plan) {
       const adaptation = plan.rationale.priorities.adaptation;
       if (adaptation && adaptation.recommendation) return adaptation.recommendation;
+      const phase = plan.rationale.priorities.phase;
+      if (phase) return phase.rationale+' '+phase.evidenceNote
+        +(adaptation && adaptation.reasons.length ? ' '+adaptation.reasons.join(' · ')+'.' : '');
       if (adaptation && adaptation.reasons.length && plan.prescription) return adaptation.reasons.join(' · ')+'. Selected work fits '+plan.prescription.duration+' minutes with preparation and rest.';
       if (plan.prescription && plan.prescription.programmeContext.roleLabel) return plan.prescription.programmeContext.roleLabel+' today: selected targets fit '+plan.prescription.duration+' minutes with preparation and rest. Keep about 2 reps in reserve on strength anchors.';
       const patterns = plan.rationale.priorities.movements.filter(item => item.deficit > 0).map(item => patternNames[item.pattern]);
@@ -270,6 +281,7 @@
         card.append(heading('Up next'),paragraph(plan.prescription?rationale(plan):conflictText(plan.conflicts)));
         if (!plan.conflicts.some(item => item.code === 'tennis-rest-recommended')) card.append(button('Start session', prepare,true));
         wrap.append(card); renderAdjust(wrap);
+        if (def.sportReviewPolicy) renderSportReview(wrap,controller.sportReview());
       }
       const progress=document.createElement('details'), summary=document.createElement('summary'); summary.textContent='Programme progress and management'; progress.append(summary);
       state.anchors.forEach(anchor => progress.append(paragraph(catalogue[anchor.exerciseId].name+' · '+(anchor.currentTarget || anchor).targetSets+' × '+(anchor.currentTarget || anchor).target.maxReps+' reps · '+(anchor.currentTarget.progressionIntent || 'Confirm actual work'))));
@@ -277,6 +289,26 @@
       progress.append(button(state.status==='paused'?'Resume':'Pause',() => manage(state.status==='paused'?'resume':'pause')));
       if (def.supportsMaintenanceMode !== false) progress.append(button(state.mode==='maintenance'?'Return to development':'Move to maintenance',() => manage(state.mode==='maintenance'?'development':'maintenance')));
       progress.append(button('Finish programme',() => manage('finish'))); wrap.append(progress);
+    }
+    function renderSportReview(wrap, review) {
+      if (review.latestFeedback) wrap.append(paragraph('Last sport check-in · '+new Date(review.latestFeedback.timestamp).toLocaleDateString()
+        +' · movement: '+review.latestFeedback.movement+', endurance: '+review.latestFeedback.endurance+', comfort: '+review.latestFeedback.comfort
+        +'. Your impressions are context; exercise progress comes from confirmed performed work.'));
+      if (!review.due) return;
+      const details=document.createElement('details'), summary=document.createElement('summary');
+      summary.textContent='Optional tennis progress check-in'; details.append(summary,
+        paragraph('How has tennis felt lately? No recent tennis experience can be Not sure. A worse answer suggests an easier session for review; it does not diagnose injury or change your load baseline.'));
+      const answers={movement:'unsure',endurance:'unsure',comfort:'unsure'};
+      [['movement','Court movement'],['endurance','Match endurance'],['comfort','Physical comfort']].forEach(([key,label]) => {
+        const select=document.createElement('select'); select.setAttribute('aria-label',label);
+        [['unsure','Not sure'],['better','Better'],['same','Same'],['worse','Worse']].forEach(([value,text]) => {
+          const option=document.createElement('option'); option.value=value; option.textContent=text; select.append(option);
+        });
+        select.value='unsure'; select.onchange=()=>{answers[key]=select.value;}; details.append(paragraph(label),select);
+      });
+      const save=async response=>{await controller.saveSportReview(response);render();};
+      details.append(button('Save tennis check-in',()=>save(answers)),button('Skip check-in',()=>save(null)));
+      wrap.append(details);
     }
     function overview() {
       const assessment=controller.assess(def,getEquipment()), wrap=el('coachContent'); wrap.innerHTML='';

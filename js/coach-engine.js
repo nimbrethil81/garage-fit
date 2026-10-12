@@ -24,11 +24,16 @@
       const settings = state.currentTargets && state.currentTargets.programmeSettings;
       const policy = policies.get(definition.type);
       if (settings && policy.validateProgrammeSettings) policy.validateProgrammeSettings({definition: snapshot(definition), settings: snapshot(settings)});
+      if (policy.validateState) policy.validateState({definition: snapshot(definition), state: snapshot(state)});
+    }
+    function validateProgrammeState(definition, state) {
+      policyFor(definition); validateState(definition,state);
+      return clone(state);
     }
     function atTime(state, now) {
       if (now !== undefined && now !== null) {
-        // Timestamp validation shares the existing record contract, including timezone.
-        Model.createProgrammeState({...clone(state), startedAt: now});
+        // Validate the supplied timestamp independently of enduring target chronology.
+        Model.createProgrammeState({...clone(state), startedAt: now, currentTargets: null});
         if (state.startedAt) state.nominalProgress = Math.max(state.nominalProgress || 0, (Date.parse(now) - Date.parse(state.startedAt)) / DAY, 0);
       }
       return state;
@@ -131,7 +136,7 @@
         rationale: {nominalProgress: projected.nominalProgress, priorities: clone(priorities), missedSessionResponse: clone(missedSessionResponse)}};
     }
 
-    function applySessionResult(definition, state, sessionResult, trainingHistory) {
+    function applySessionResult(definition, state, sessionResult, trainingHistory, rebuilding = false) {
       const policy = policyFor(definition), def = snapshot(definition);
       validateState(def, state); Model.assertValid('session-result', sessionResult);
       if (sessionResult.source !== 'coach' || sessionResult.programmeInstanceId !== state.programmeInstanceId) throw new Error('Session Result does not belong to this Coach programme.');
@@ -195,6 +200,8 @@
       next.recentOverrides = next.recentOverrides.slice(-32);
       next.recentSubstitutions = next.recentSubstitutions.slice(-32);
       next.lastAppliedSessionResultId = result.sessionResultId;
+      if (!rebuilding && policy.applyPerformedState) next.currentTargets = clone(policy.applyPerformedState({
+        ...base, state: snapshot(next), meaningful}));
       if (policy.isComplete && policy.isComplete({...base, mode, state: snapshot(next)})) next.status = 'completed';
       return Model.assertValid('programme-state', next);
     }
@@ -216,7 +223,7 @@
       const history = History.createHistory(trainingHistory, exercises);
       const sessions = history.sessionsForProgramme(state.programmeInstanceId).filter(result => result.source === 'coach');
       for (const result of sessions) {
-        rebuilt = applySessionResult(definition, rebuilt, result, []);
+        rebuilt = applySessionResult(definition, rebuilt, result, [], true);
         rebuilt.anchors = clone(state.anchors); rebuilt.status = state.status;
       }
       return Model.assertValid('programme-state', rebuilt);
@@ -236,6 +243,23 @@
       next.currentTargets.programmeSettings = settings;
       validateState(definition, next);
       return next;
+    }
+    function beginSession(definition, state, prescription, now) {
+      const policy = policyFor(definition); validateState(definition,state);
+      Model.assertValid('session-prescription',prescription);
+      if (state.status !== 'active' || prescription.programmeInstanceId !== state.programmeInstanceId) throw new Error('Invalid programme for session start.');
+      atTime(clone(state),now);
+      return policy.beginSession ? Model.assertValid('programme-state',policy.beginSession({
+        definition: snapshot(definition), state: snapshot(state), prescription: snapshot(prescription), now})) : clone(state);
+    }
+    function sportReview(definition, state, now) {
+      const policy = policyFor(definition); validateState(definition,state); atTime(clone(state),now);
+      return policy.sportReviewRecommendation ? clone(policy.sportReviewRecommendation({definition: snapshot(definition), state: snapshot(state), now})) : null;
+    }
+    function recordSportReview(definition, state, response, now) {
+      const policy = policyFor(definition); validateState(definition,state); atTime(clone(state),now);
+      if (!policy.recordSportReview) throw new Error('This programme has no sport check-in.');
+      return Model.assertValid('programme-state',policy.recordSportReview({definition: snapshot(definition), state: snapshot(state), response: snapshot(response), now}));
     }
     function programmeReview(definition, state, now) {
       policyFor(definition); validateState(definition, state);
@@ -265,6 +289,7 @@
         catalogue: exercises, context: snapshot(context), requirementId})) : [];
     }
     return Object.freeze({assessProgrammeFeasibility, startProgramme, planNextSession, applySessionResult, rebuildDerivedState, updateProgrammeSettings,
+      beginSession, sportReview, recordSportReview, validateProgrammeState,
       programmeReview, acknowledgeBlockReview, getAnchorAlternatives,
       finishProgramme: state => transition(state, 'status', 'completed'),
       pauseProgramme: state => transition(state, 'status', 'paused'), resumeProgramme: state => transition(state, 'status', 'active'),
