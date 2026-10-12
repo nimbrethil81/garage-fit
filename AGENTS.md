@@ -17,6 +17,7 @@ GarageFit is a dependency-free browser PWA for fixed and generated workouts.
 - Add or update regression tests for generator behaviour changes.
 - Keep the implementation dependency-free unless explicitly authorised.
 - Do not introduce new product decisions merely to complete a task.
+- New primary tabs must reuse the shared masthead (`js/masthead.js`, `data-masthead` host) and the existing `showScreen()` / `#bottomNav` behaviour, and extend `tests/primary-masthead.test.js`. Inspect existing components and styles before creating new patterns.
 - When adding or editing exercises, follow the catalogue and editorial rules in data/EXERCISE_METADATA.md, including the exercise-instruction standard.
 
 ## Catalogue reachability
@@ -33,6 +34,7 @@ GarageFit is a dependency-free browser PWA for fixed and generated workouts.
 - `data/programmes.js`: immutable versioned production Coach programme definitions; never change a released policy in place
 - `js/generator.js`: workout construction and selection
 - `js/rampup-ui.js`: ramp-up presentation
+- `js/masthead.js`: canonical GarageFit logo/wordmark, mounted into primary-tab `data-masthead` hosts
 - `js/coach-model.js`: versioned Coach record contracts and validation (Programme State, Session Prescription, Session Result, Session Draft)
 - `js/coach-store.js`: Coach persistence behind an injected storage adapter; all other code reads and writes Coach records only through this module, never Coach localStorage keys directly
 - `js/training-history.js`: immutable performed-evidence views derived from Session Results and the canonical catalogue; exact-exercise/protocol/side comparability

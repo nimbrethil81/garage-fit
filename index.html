@@ -30,7 +30,7 @@
   .brand{display:flex;align-items:center;gap:9px;color:var(--text)}
   .brand-mark{width:43px;height:30px;flex:none}.brand-name{font-size:21px;font-weight:850;letter-spacing:-.035em}.brand-name strong{color:var(--work);font-weight:850}
 
-  #home,#workouts,#generator,#equipment,#generatedPreview,#more,#exerciseLibrary,#exerciseDetail{padding:20px 20px 14px;overflow-y:auto}
+  #home,#workouts,#generator,#coach,#equipment,#generatedPreview,#more,#exerciseLibrary,#exerciseDetail{padding:20px 20px 14px;overflow-y:auto}
   #exerciseDetail .page-header h1{min-width:0;overflow-wrap:anywhere;font-size:clamp(22px,7vw,32px);line-height:1.15}.library-entry{width:100%;min-height:58px;border:0;border-radius:14px;background:var(--card);color:var(--card-text);padding:16px;text-align:left;font-weight:850;font-size:16px}
   .library-controls{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-bottom:16px}.library-controls label{display:flex;flex-direction:column;gap:6px;color:var(--text-muted);font-size:12px;font-weight:750}.library-controls input,.library-controls select{width:100%;min-width:0;border:1px solid var(--surface-2);border-radius:10px;background:var(--surface);color:var(--text);padding:12px;font:inherit;font-size:16px}
   .library-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}.library-row{width:100%;min-height:58px;border:0;border-radius:12px;background:var(--card);color:var(--card-text);padding:12px 15px;text-align:left;display:flex;flex-direction:row;align-items:center;gap:12px}.library-row strong{font-size:15px;line-height:1.3;min-width:0;overflow-wrap:anywhere}.equipment-icon{flex:0 0 32px;width:32px;display:inline-flex;align-items:center;justify-content:center}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.library-empty{color:var(--text-muted)}.library-detail-section{margin:0 0 22px}.library-detail-section h2{font-size:14px;color:var(--rest);margin:0 0 7px}.library-detail-section p{line-height:1.5;margin:0;overflow-wrap:anywhere}
@@ -100,8 +100,8 @@
   @media (min-width:720px){#app{width:720px;left:50%;right:auto;transform:translateX(-50%);border-left:1px solid var(--surface);border-right:1px solid var(--surface)}.modal{width:720px;left:50%;right:auto;transform:translateX(-50%)}}
   @media (max-height:700px){.home-header{margin-bottom:14px}.home-intro{margin-bottom:12px}.workout-stage{padding:10px 0 4px}.workout-exercise{font-size:30px}.workout-target{margin-top:10px}.workout-stats{margin-top:10px}.workout-actions{gap:14px;margin-top:10px}.ctrl-btn{padding-top:13px;padding-bottom:13px}.ring-wrap{width:min(60vh,280px);height:min(60vh,280px)}}
   @media (max-width:500px){.duration-row{grid-template-columns:repeat(3,1fr)}.body-focus-row{grid-template-columns:repeat(2,1fr)}.equipment-list{grid-template-columns:1fr 1fr}}
-  @media (max-width:380px){#home,#workouts,#generator,#equipment,#generatedPreview{padding-left:14px;padding-right:14px}.brand-name{font-size:18px}.brand-mark{width:37px}.routine-card{padding:17px}.routine-card .label{font-size:22px}.workout-launch{padding:17px}.workout-label{font-size:20px}.equipment-list{grid-template-columns:1fr}.bottom-nav{padding-left:12px;padding-right:12px}}
-  #coach,#coachPreview,#coachSubstitute,#coachResult{padding:22px 20px;overflow-y:auto;gap:14px}
+  @media (max-width:380px){#home,#workouts,#generator,#coach,#equipment,#generatedPreview{padding-left:14px;padding-right:14px}.brand-name{font-size:18px}.brand-mark{width:37px}.routine-card{padding:17px}.routine-card .label{font-size:22px}.workout-launch{padding:17px}.workout-label{font-size:20px}.equipment-list{grid-template-columns:1fr}.bottom-nav{padding-left:12px;padding-right:12px}}
+  #coachPreview,#coachSubstitute,#coachResult{padding:22px 20px;overflow-y:auto;gap:14px}#coach .coach-error{margin:0 0 14px}
   #coachContent,#coachPreviewContent,#coachSubstituteContent{display:flex;flex-direction:column;gap:14px}
   #coachContent p,#coachPreviewContent p,#coachSubstituteContent p{margin:0;color:var(--text-muted);font-size:14px;line-height:1.5}
   #coachContent h2,#coachPreviewContent h2{margin:8px 0;font-size:21px}
@@ -139,10 +139,7 @@
 <div id="app">
   <main id="home" class="screen">
     <div class="home-header">
-      <div class="brand" aria-label="GarageFit">
-        <svg class="brand-mark" viewBox="0 0 64 44" aria-hidden="true"><path d="M4 24V18L32 7l28 11v6" fill="none" stroke="#f3f5f3" stroke-width="5"/><rect x="17" y="31" width="7" height="8" fill="#d96b36"/><rect x="29" y="27" width="7" height="12" fill="#d96b36"/><rect x="41" y="22" width="7" height="17" fill="#d96b36"/></svg>
-        <span class="brand-name">Garage<strong>Fit</strong></span>
-      </div>
+      <div class="brand" data-masthead></div>
     </div>
     <div class="home-intro"><h1 class="screen-title">Choose a routine</h1></div>
     <div class="routine-mode" role="group" aria-label="Routine type"><button id="routineModeBodyweight" type="button" aria-pressed="true" onclick="setRoutineVariant('bodyweight')">Bodyweight</button><button id="routineModeEquipment" type="button" aria-pressed="false" onclick="setRoutineVariant('equipment')">With equipment</button></div>
@@ -154,10 +151,7 @@
 
   <main id="workouts" class="screen hidden">
     <header class="workouts-heading">
-      <div class="brand" aria-label="GarageFit">
-        <svg class="brand-mark" viewBox="0 0 64 44" aria-hidden="true"><path d="M4 24V18L32 7l28 11v6" fill="none" stroke="#f3f5f3" stroke-width="5"/><rect x="17" y="31" width="7" height="8" fill="#d96b36"/><rect x="29" y="27" width="7" height="12" fill="#d96b36"/><rect x="41" y="22" width="7" height="17" fill="#d96b36"/></svg>
-        <span class="brand-name">Garage<strong>Fit</strong></span>
-      </div>
+      <div class="brand" data-masthead></div>
       <h1 class="screen-title">Workouts</h1>
       <p>Choose a challenge, from rep-based efforts to guided intervals.</p>
     </header>
@@ -202,10 +196,7 @@
 
   <main id="generator" class="screen hidden">
     <header class="page-header">
-      <div class="brand" aria-label="GarageFit">
-        <svg class="brand-mark" viewBox="0 0 64 44" aria-hidden="true"><path d="M4 24V18L32 7l28 11v6" fill="none" stroke="#f3f5f3" stroke-width="5"/><rect x="17" y="31" width="7" height="8" fill="#d96b36"/><rect x="29" y="27" width="7" height="12" fill="#d96b36"/><rect x="41" y="22" width="7" height="17" fill="#d96b36"/></svg>
-        <span class="brand-name">Garage<strong>Fit</strong></span>
-      </div>
+      <div class="brand" data-masthead></div>
     </header>
     <div class="home-intro"><h1 class="screen-title">Workout Generator</h1></div>
     <p class="page-header-copy">Choose your time and style. We’ll build the rest.</p>
@@ -339,7 +330,8 @@
   </main>
 
   <main id="coach" class="screen hidden">
-    <h1 class="screen-title">Coach</h1>
+    <div class="home-header"><div class="brand" data-masthead></div></div>
+    <div class="home-intro"><h1 class="screen-title">Coach</h1></div>
     <p id="coachError" class="coach-error" role="alert"></p>
     <div id="coachContent"></div>
   </main>
@@ -362,10 +354,7 @@
   </main>
   <main id="more" class="screen hidden">
     <div class="home-header">
-      <div class="brand" aria-label="GarageFit">
-        <svg class="brand-mark" viewBox="0 0 64 44" aria-hidden="true"><path d="M4 24V18L32 7l28 11v6" fill="none" stroke="#f3f5f3" stroke-width="5"/><rect x="17" y="31" width="7" height="8" fill="#d96b36"/><rect x="29" y="27" width="7" height="12" fill="#d96b36"/><rect x="41" y="22" width="7" height="17" fill="#d96b36"/></svg>
-        <span class="brand-name">Garage<strong>Fit</strong></span>
-      </div>
+      <div class="brand" data-masthead></div>
     </div>
     <div class="home-intro"><h1 class="screen-title">More</h1></div>
     <button class="library-entry" type="button" onclick="openExerciseLibrary()">Exercise Library →</button>
@@ -422,6 +411,7 @@
 <script src="js/coach-engine.js"></script>
 <script src="js/coach-recovery.js"></script>
 <script src="js/coach-ui.js"></script>
+<script src="js/masthead.js"></script>
 <script>
 const WORK_S=15,REST_S=5;
 const CATALOGUE=GarageFitData.exercises,EQUIPMENT=GarageFitData.equipment;
@@ -460,7 +450,7 @@ function loadEquipment(){
   if(Array.isArray(inventory)){state.ownedEquipment=inventory.filter(id=>EQUIPMENT.some(item=>item.id===id));state.equipmentConfigured=readPreference('gf_equipment_configured')==='true'}
   else{const legacy=readPreference('gf_equipment');if(legacy!==null){state.ownedEquipment=legacy==='true'?EQUIPMENT.map(item=>item.id):[];state.equipmentConfigured=true;saveEquipment()}else{state.ownedEquipment=[];state.equipmentConfigured=false}}
   const savedDuration=Number(readPreference('gf_generator_duration')),savedFocus=readPreference('gf_generator_focus');if([10,15,20,30,45].includes(savedDuration))generatorState.duration=savedDuration;if(['strength','balanced','cardio'].includes(savedFocus))generatorState.focus=savedFocus;const savedDifficulty=readPreference('gf_generator_difficulty');if(Object.keys(DIFFICULTY_LABELS).includes(savedDifficulty))generatorState.difficulty=savedDifficulty;const savedBodyFocus=readPreference('gf_generator_body_focus');if(Object.keys(BODY_FOCUS_LABELS).includes(savedBodyFocus))generatorState.bodyFocus=savedBodyFocus;
-  loadRoutineVariant();renderHome();renderWorkoutReview();renderCindyDetail();renderPersonalBest();renderGenerator();showScreen('home')
+  GarageFitMasthead.mount(document);loadRoutineVariant();renderHome();renderWorkoutReview();renderCindyDetail();renderPersonalBest();renderGenerator();showScreen('home')
 }
 function saveEquipment(){try{localStorage.setItem('gf_equipment_inventory',JSON.stringify(state.ownedEquipment));localStorage.setItem('gf_equipment_configured',String(state.equipmentConfigured))}catch(e){}}
 // Fixed Warm Up / Cool Down play an authored variant exactly as listed; the equipment inventory is not consulted.

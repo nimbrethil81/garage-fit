@@ -29,6 +29,7 @@ class Element {
   appendChild(child) { child.parentNode=this;this.children.push(child);return child; }
   insertBefore(child,before) { child.parentNode=this;const index=this.children.indexOf(before);if(index<0)this.children.push(child);else this.children.splice(index,0,child);return child; }
   querySelector() { return new Element(); }
+  querySelectorAll() { return []; }
   addEventListener() {}
   focus() {}
 }
@@ -54,7 +55,7 @@ test('Generator preview/player and both fixed players initialise without runtime
     Math:Object.assign(Object.create(Math),{random:(seed=>()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;})(7)}),
     JSON,
     Set,
-    document:{getElementById:id=>elements[id]||null,createElement:()=>new Element(),head:new Element(),addEventListener(){},querySelector(selector){return selector==='.preview-timing'?previewTiming:new Element()}},
+    document:{getElementById:id=>elements[id]||null,createElement:()=>new Element(),head:new Element(),addEventListener(){},querySelectorAll:()=>[],querySelector(selector){return selector==='.preview-timing'?previewTiming:new Element()}},
     localStorage:{getItem:key=>storage.has(key)?storage.get(key):null,setItem:(key,value)=>storage.set(key,String(value))},
     navigator:{},
     getComputedStyle:()=>({getPropertyValue:()=>'#000'}),
@@ -64,7 +65,7 @@ test('Generator preview/player and both fixed players initialise without runtime
   };
   context.window=context;context.globalThis=context;
   vm.createContext(context);
-  for (const file of ['data/equipment.js','data/exercises.js','data/workouts.js','js/generator.js','js/timed-cues.js','js/completion-signal.js','js/coach-model.js','js/coach-store.js','js/session-tracker.js']) vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),context,{filename:file});
+  for (const file of ['data/equipment.js','data/exercises.js','data/workouts.js','js/generator.js','js/timed-cues.js','js/completion-signal.js','js/coach-model.js','js/coach-store.js','js/session-tracker.js','js/masthead.js']) vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),context,{filename:file});
   const inline=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].at(-1)[1];
   vm.runInContext(inline,context,{filename:'index-inline.js'});
   vm.runInContext(fs.readFileSync(path.join(root,'js/rampup-ui.js'),'utf8'),context,{filename:'js/rampup-ui.js'});
