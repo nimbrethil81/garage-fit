@@ -36,7 +36,7 @@
       : ['reps','unilateral-reps'].includes(prescription.type) ? 'reps'
       : ['timed','unilateral-timed'].includes(prescription.type) ? 'time' : null);
     return {
-      sessionResultId: result.sessionResultId, programmeInstanceId: result.programmeInstanceId || null,
+      sessionResultId: result.sessionResultId, source: result.source, programmeInstanceId: result.programmeInstanceId || null,
       occurredAt: when(result), occurrenceId: outcome.occurrenceId,
       exerciseId: outcome.exerciseId || null, requirementId: planned && planned.requirementId || null,
       section: planned && planned.section || null, status: outcome.status,
@@ -123,9 +123,14 @@
         .map(outcome => performanceFor(result, outcome, planned.get(outcome.occurrenceId), catalogue));
     });
     Model.deepFreeze(sessions); Model.deepFreeze(performances);
+    // includeStandalone widens a programme filter to performed work recorded outside any
+    // programme (e.g. completed standalone generated workouts). Such sessions keep their
+    // source; they are context for a programme, never its sessions or anchor evidence.
+    const inScope = (item, options) => !options.programmeInstanceId || item.programmeInstanceId === options.programmeInstanceId
+      || options.includeStandalone === true && !item.programmeInstanceId;
     const filter = (items, options = {}, sessionItem = false) => items.filter(item => {
       const time = sessionItem ? when(item) : item.occurredAt;
-      return (!options.programmeInstanceId || item.programmeInstanceId === options.programmeInstanceId)
+      return inScope(item, options)
         && (!options.since || time && Date.parse(time) >= Date.parse(options.since))
         && (!options.until || time && Date.parse(time) <= Date.parse(options.until))
         && (sessionItem || !options.sections || options.sections.includes(item.section));
@@ -136,7 +141,7 @@
     };
     return Object.freeze({
       sessions, performances,
-      sessionsForProgramme(programmeInstanceId, options = {}) { return filter(sessions, {...options, programmeInstanceId}, true); },
+      sessionsForProgramme(programmeInstanceId, options = {}) { return filter(sessions, {...options, programmeInstanceId, includeStandalone: false}, true); },
       recentPerformedSessions(options = {}) {
         const ids = new Set(filter(performances, options).filter(item => item.exposure.value > 0 || item.exposure.confidence === 'unknown').map(item => item.sessionResultId));
         return recent(filter(sessions, options, true).filter(item => ids.has(item.sessionResultId)), options);

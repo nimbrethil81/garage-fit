@@ -211,5 +211,24 @@
     };
   }
 
-  root.GarageFitCoachStore = { createStore };
+  // A view of a Coach store for an execution context whose unfinished work is never saved
+  // (standalone generated workouts). Its Session Draft lives only in memory, so it can neither
+  // be resumed after reload nor replace the single persisted active draft (e.g. an interrupted
+  // Coach session). Only a final Session Result reaches the wrapped store, through its usual
+  // validated, idempotent path.
+  function withEphemeralDraft(store) {
+    if (!store || typeof store.saveSessionResult !== 'function') throw new Error('withEphemeralDraft needs a Coach store.');
+    const Model = root.GarageFitCoachModel;
+    let draft = null;
+    return {
+      async loadSessionDraft() { return draft; },
+      async saveSessionDraft(value) { Model.assertValid('session-draft', value); draft = value; },
+      async clearSessionDraft() { draft = null; },
+      saveSessionResult: result => store.saveSessionResult(result),
+      getSessionResult: sessionResultId => store.getSessionResult(sessionResultId),
+      listSessionResults: () => store.listSessionResults()
+    };
+  }
+
+  root.GarageFitCoachStore = { createStore, withEphemeralDraft };
 })(typeof window !== 'undefined' ? window : globalThis);

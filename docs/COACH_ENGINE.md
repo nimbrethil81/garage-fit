@@ -58,7 +58,7 @@ The General Strength strategy requires these explicit inputs:
 | Field | Meaning |
 | --- | --- |
 | `recommendedFrequency` | `minSessionsPerWeek` / `maxSessionsPerWeek` |
-| `coverageTargets` | Rolling `windowDays`, broad `patterns` and optional `bodyRegions` exposure targets |
+| `coverageTargets` | Rolling `windowDays`, broad `patterns` and optional `bodyRegions` exposure targets; optional boolean `includeStandaloneHistory` (see below) |
 | `doseTargets` | Eligible `sections` and `meaningfulExposure` threshold |
 | `anchorSelectionPolicy.requirements` | Ordered candidate `exerciseIds`, `pattern`, `role` (`primary` / `accessory`), and bounded Generator anchor fields |
 | `progressionPolicy` | Explicit `minimumRepsImprovement`, `minimumLoadImprovement`, `minimumSecondsImprovement` thresholds; each positive or null to disable that progression category |
@@ -169,7 +169,11 @@ Conflicting contents under the same result ID are rejected. It provides:
 - `sessionEvidence(sessionResultId)`;
 - `contextualEvidence(options)`.
 
-Options support `programmeInstanceId` and inclusive `since` / `until`. Observation
+Options support `programmeInstanceId` and inclusive `since` / `until`. With a
+`programmeInstanceId`, `includeStandalone: true` also includes performed work
+recorded outside any programme (e.g. completed standalone generated workouts) as
+context; `sessionsForProgramme` never includes it. Each performance carries its
+result's `source`. Observation
 and recent-performed queries also support `sections`; recent queries support
 `limit` and return newest first. Unknown timestamps do
 not satisfy a time window. Sessions for a programme and anchor series are ordered
@@ -192,6 +196,30 @@ pattern/region contributions **derived**, and absent performance/load **unknown*
 Explicit `feedback.contextualContribution` is retained separately with its supplied
 confidence (including **approximate**). External activity never enters resistance
 performance or dose queries.
+
+## Standalone generated workouts
+
+A standalone generated workout that reaches normal completion is saved through Coach
+Store as a `source: 'generator'` Session Result with no programme or prescription
+link. Its tracker draft stays in memory (`GarageFitCoachStore.withEphemeralDraft`),
+so it never replaces a persisted Coach draft and nothing is saved before completion.
+A confirmed early exit keeps the existing "progress won't be saved" behaviour and
+discards the run. Previews and starts earn nothing. `gf_generator_history` is still
+written separately by the player as the Generator's recency record.
+
+The lightweight player records rep work as Done without actual reps/load, timed
+work as measured seconds, and never copies a planned or catalogue load. Such results
+contribute broad exact-exercise, pattern and body-region exposure. They are not
+programme sessions: the engine refuses to apply them, so they cannot change
+`meaningfulSessionsCompleted`, dose, reconciliation or anchor progression.
+`comparePerformanceEvidence` is source-agnostic, so a standalone performance with
+confirmed comparable actuals is valid evidence for a future policy that explicitly
+grants it credit; coarse completion is `insufficient-evidence`.
+
+A General Strength definition opts in to counting standalone work towards its
+rolling coverage priorities with `coverageTargets.includeStandaloneHistory: true`.
+Released `general-strength-4w` version 1 does not set it, so its planning is
+unchanged; adopting it requires a new definition version.
 
 ## Comparability and reconciliation
 

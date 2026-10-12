@@ -57,6 +57,7 @@
       if (!Model.MOVEMENT_PATTERNS.includes(pattern)) throw new Error('Unknown broad movement pattern.');
       positive(value, 'pattern dose target');
     });
+    if (definition.coverageTargets.includeStandaloneHistory !== undefined && typeof definition.coverageTargets.includeStandaloneHistory !== 'boolean') throw new Error('Standalone coverage history must be an explicit boolean.');
     Object.entries(definition.coverageTargets.bodyRegions || {}).forEach(([region, value]) => {
       if (!Model.WORKOUT_BODY_FOCUSES.includes(region)) throw new Error('Unknown body region.');
       positive(value, 'body-region target');
@@ -212,8 +213,11 @@
       currentTarget: anchorRequest(anchor, anchor.exerciseId), comparisonBaseline: null, substitutionHistory: []})), currentTargets: {anchorTargets: {}}};
   }
 
+  // A definition may opt in to counting performed standalone work (outside any programme)
+  // towards rolling coverage. It informs priorities only: never sessions, dose or anchors.
   function calculatePriorities({definition, state, history, today, mode}) {
     const options = {programmeInstanceId: state.programmeInstanceId, sections: definition.doseTargets.sections,
+      includeStandalone: definition.coverageTargets.includeStandaloneHistory === true,
       since: new Date(Date.parse(today.now) - definition.coverageTargets.windowDays * DAY).toISOString(), until: today.now};
     const movements = Object.entries(definition.coverageTargets.patterns).map(([pattern, target], index) => {
       const exposure = history.movementPatternExposure(pattern, options);
