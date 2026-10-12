@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 global.window = global;
 require('../data/exercises.js');
+require('../data/sport-profiles.js');
 require('../js/coach-model.js');
 require('../js/training-history.js');
 require('../js/coach-policies.js');
@@ -31,13 +32,18 @@ test('strategy registry dispatches all programme decisions for a future programm
   const calls = [], policy = {};
   for (const name of [...Policies.requiredHooks, ...Policies.optionalHooks]) policy[name] = args => {
     calls.push(name);
+    if (name === 'validateProgrammeSettings') {
+      assert.equal(args.settings.sportId, 'tennis');
+      assert.ok(Object.isFrozen(args.settings));
+      return;
+    }
     const result = Policies.generalStrengthPolicy[name](args);
     return name === 'buildPrescription' ? {...result, sessionRole: 'future-sport-session'} : result;
   };
   const registry = Policies.createRegistry({'future-sport': policy});
   const custom = GarageFitCoachEngine.createEngine({catalogue, registry});
   const def = definition({type: 'future-sport'});
-  const state = custom.startProgramme(def, context(), NOW).state;
+  const state = custom.startProgramme(def, {...context(), programmeSettings: {sportId: 'tennis'}}, NOW).state;
   assert.equal(custom.planNextSession(def, state, [], today()).prescription.sessionRole, 'future-sport-session');
   custom.applySessionResult(def, state, performance(), []);
   assert.deepEqual(new Set(calls), new Set([...Policies.requiredHooks, ...Policies.optionalHooks]));
