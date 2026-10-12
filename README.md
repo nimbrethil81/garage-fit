@@ -140,8 +140,11 @@ tennis progress check-ins require 28 days and four meaningful sessions since sta
 or the last check-in/skip. Impressions remain separate from exercise progress.
 Training intent and event controls prepare for an explicit local-date event with
 conservative horizons, then return to ongoing development on the same instance.
-Saved v1–v3 programmes retain their policies. Broader sport/readiness setup remains
-follow-up work; the engine/controller APIs supply these inputs. See the [Coach contract](docs/COACH_ENGINE.md).
+Saved v1–v3 programmes retain their policies. Coach groups Strength & fitness and
+Cross-training → Tennis, with focus/frequency, usual playing days, intensity and
+local-date event setup. Settings preserve the same anchors/history; optional daily
+readiness, short-session preflight and performed capability coverage use the existing
+player and Store. See the [Coach contract](docs/COACH_ENGINE.md).
 
 Coach history is local to this browser/device. Clearing browser or site data can
 remove it; replacing a device does not automatically migrate it. Cloud durability

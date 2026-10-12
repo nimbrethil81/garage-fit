@@ -81,3 +81,20 @@ test('Coach masthead is static markup, independent of the asynchronous programme
   assert.match(coach,/^\s*<div class="home-header"><div class="brand" data-masthead><\/div><\/div>\s*<div class="home-intro"><h1 class="screen-title">Coach<\/h1><\/div>/);
   assert.doesNotMatch(fs.readFileSync(path.join(root,'js/coach-ui.js'),'utf8'),/data-masthead|brand-mark/);
 });
+
+test('Tennis setup and daily training keep the shared Coach navigation; preview returns to the same primary screen',async()=>{
+  const vm=require('node:vm'), app=loadAppContext(new Map(),{ownIntrinsics:true});
+  const run=source=>vm.runInContext(source,app);
+  await run("state.ownedEquipment=['dumbbells'];coachUI.open()");
+  run("function coachButton(text){const visit=node=>node.textContent===text&&node.onclick?node:(node.children||[]).map(visit).find(Boolean);return visit(document.getElementById('coachContent'));}");
+  await run("coachButton('Tennis').onclick()");
+  assert.equal(app.document.getElementById('bottomNav').classList.contains('hidden'),false);
+  assert.equal(app.document.getElementById('coachNav').attributes['aria-current'],'page');
+  await run("coachButton('Start programme').onclick()");
+  assert.equal(app.document.getElementById('bottomNav').classList.contains('hidden'),false);
+  await run("coachButton('Start session').onclick()");
+  assert.equal(app.document.getElementById('bottomNav').classList.contains('hidden'),true);
+  run('coachUI.back()');
+  assert.equal(app.document.getElementById('bottomNav').classList.contains('hidden'),false);
+  assert.equal(app.document.getElementById('coachNav').attributes['aria-current'],'page');
+});

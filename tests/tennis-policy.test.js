@@ -308,7 +308,7 @@ test('Tennis entry and player distinguish stable progression anchors from rep an
   const p = pilot(new Map(),'tennis-conditioning');
   p.run("state.ownedEquipment=['dumbbells']"); await p.run('coachUI.open()');
   const element = id => p.app.document.getElementById(id);
-  await element('coachContent').children.find(node => node.textContent === 'Tennis Conditioning').onclick();
+  await element('coachContent').children.find(node => node.textContent === 'Tennis').onclick();
   assert.ok(element('coachContent').children.some(node => /Four stable knee, hinge, push and pull/.test(node.textContent)));
   await p.run("coachUI.controller.start(pilotDef,['dumbbells'])"); await p.run('coachUI.open()');
   p.run(`function tennisButton(id,text){const visit=node=>node.textContent===text&&node.onclick?node:(node.children||[]).map(visit).find(Boolean);return visit(document.getElementById(id));}`);

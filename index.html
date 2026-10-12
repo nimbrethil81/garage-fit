@@ -67,7 +67,7 @@
   .workout-review li::before{content:counter(movement,decimal-leading-zero);color:var(--rest);font-size:12px;font-weight:800;padding-top:2px}.review-name{font-size:14px;font-weight:750;line-height:1.35}.review-note{display:block;color:var(--text-muted);font-size:12px;font-weight:600;margin-top:2px}.review-reps{color:var(--work-light);font-size:13px;font-weight:900;white-space:nowrap}
   .workout-detail{border:1px solid var(--surface-2);border-radius:14px;padding:14px 15px}.workout-detail h2{margin:0 0 10px;font-size:15px}.workout-detail ul{margin:0;padding-left:20px;color:var(--text-muted);font-size:13px;line-height:1.6}.workout-detail .provenance{margin:11px 0 0;color:var(--text-muted);font-size:11px;line-height:1.45}
 
-  .bottom-nav{flex:0 0 auto;display:grid;grid-template-columns:repeat(5,1fr);gap:4px;padding:8px 12px calc(8px + env(safe-area-inset-bottom));background:#202b30;border-top:1px solid var(--surface)}
+  .bottom-nav{flex:0 0 auto;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;padding:8px 12px calc(8px + env(safe-area-inset-bottom));background:#202b30;border-top:1px solid var(--surface)}
   .nav-btn{border:0;border-radius:12px;background:transparent;color:#899694;padding:8px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;font-weight:850;letter-spacing:.05em;text-transform:uppercase}.nav-btn .icon{width:21px;height:21px}
   .nav-btn.active{color:var(--rest);background:rgba(79,138,131,.12)}
 
@@ -112,6 +112,12 @@
   #coachContent .generator-options{padding:14px}
   #coachContent label{display:flex;align-items:center;gap:10px;margin:14px 0}
   #coachContent select,.coach-fields input,.coach-fields select{width:100%;min-height:44px;padding:9px;border:1px solid var(--surface-2);border-radius:8px;background:var(--ink);color:var(--text);font:inherit}
+  #coachContent input[type=date],#coachContent input[type=text]{width:100%;min-width:0;min-height:44px;padding:9px;border:1px solid var(--surface-2);border-radius:8px;background:var(--ink);color:var(--text);font:inherit}
+  #coachContent .coach-setting{display:flex;flex-direction:column;align-items:stretch;gap:6px;margin:8px 0}
+  .coach-settings{display:flex;flex-direction:column;gap:10px;min-width:0}.coach-settings fieldset{min-width:0;margin:0;padding:12px;border:1px solid var(--surface-2);border-radius:12px}
+  #coachContent .coach-settings fieldset label{margin:8px 0;min-height:32px}.coach-settings input[type=checkbox]{width:20px;height:20px;flex-shrink:0}
+  #coachContent .coach-setting[hidden]{display:none}#coachContent button{white-space:normal;overflow-wrap:anywhere;min-width:0}
+  #coachContent button:disabled{opacity:.55}#coachContent .coach-card h2{margin:0}.coach-settings legend{font-weight:700}
   #coachContent button[aria-pressed="true"]{background:var(--rest-strong);color:white}
   #coachAnchorLog{max-width:500px;margin:12px auto;text-align:left;border:1px solid var(--surface-2);padding:12px;border-radius:12px;font-size:13px;line-height:1.5}
   #coachAnchorLog p{margin:0 0 8px}#coachAnchorLog summary{cursor:pointer;color:var(--rest);font-weight:800}
@@ -121,6 +127,7 @@
   .coach-error{color:var(--danger);font-size:14px;line-height:1.4}.coach-error:empty{display:none}
   #coachSkipBtn{margin-top:10px}#coach .choice-row button{font-size:13px;padding:10px}
   #coachResult .coach-feedback{display:flex;flex-direction:column;gap:12px}
+  @media(max-width:380px){.nav-btn{min-width:0;padding:8px 2px;font-size:9px;letter-spacing:0}}
 </style>
 </head>
 <body>
@@ -414,6 +421,7 @@
 <script src="js/coach-tennis-policy.js"></script>
 <script src="js/coach-engine.js"></script>
 <script src="js/coach-recovery.js"></script>
+<script src="js/coach-tennis-ui.js"></script>
 <script src="js/coach-ui.js"></script>
 <script src="js/masthead.js"></script>
 <script>
