@@ -131,8 +131,11 @@ the instance-settings API supports one, two or three weekly sessions. Session ro
 omission rotation and supporting choices follow performed work and rolling 14-day
 capability coverage, with explicit equipment/time limitations and no catch-up debt.
 The third role at three sessions is conditioning/resilience without required strength
-anchors. Sport/event/readiness setup screens remain follow-up work; the existing Coach
-entry/player can run the default programme. See the [Coach contract](docs/COACH_ENGINE.md).
+anchors. New Tennis programmes use v2's conservative schedule/readiness policy:
+planned commitments stay separate from explicitly reported activity, lighter work
+holds progression, and rest recommendations create no workout result. Saved v1
+programmes retain their policy. Sport/event/readiness setup screens remain follow-up
+work; the engine/controller APIs supply these inputs. See the [Coach contract](docs/COACH_ENGINE.md).
 
 Coach history is local to this browser/device. Clearing browser or site data can
 remove it; replacing a device does not automatically migrate it. Cloud durability

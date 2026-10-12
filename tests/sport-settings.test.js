@@ -116,7 +116,7 @@ for (const programme of ['general-strength-4w','build-arms']) {
     delete configured.currentTargets.programmeSettings;
     assert.deepEqual(configured, initial); assert.deepEqual([...p.storage.keys()], keys);
     const expected = settings(p), beforePreview = p.json('pilot.snapshot().state');
-    p.run('pilot.prepare({...pilotOptions,easyToday:true,sessionContext:{readiness:{},reportedSportActivity:[{sportId:"tennis",localDate:"2026-10-01",intensity:"hard"}]}})');
+    p.run('pilot.prepare({...pilotOptions,easyToday:true,sessionContext:{readiness:{value:"tired",localDate:"2026-10-01"},reportedSportActivity:[{sportId:"tennis",localDate:"2026-10-01",intensity:"hard"}]}})');
     assert.deepEqual(p.json('pilot.snapshot().state'), beforePreview);
     // Released programmes ignore future sport settings/context when making prescriptions.
     const withChoices = p.json('pilot.plan(pilotOptions).prescription');
@@ -238,7 +238,7 @@ test('invalid saved settings are retained and block writes; released programmes 
 
 test('session context is optional, isolated, explicitly reported and does not become performed evidence', () => {
   assert.doesNotThrow(() => Model.assertSessionContext({}));
-  const context = {readiness:{note:'Tired today'},reportedSportActivity:[{sportId:'tennis',localDate:'2026-10-12',intensity:'light'}]};
+  const context = {readiness:{value:'tired',localDate:'2026-10-12'},reportedSportActivity:[{sportId:'tennis',localDate:'2026-10-12',intensity:'light'}]};
   assert.equal(Model.assertSessionContext(context), context);
   for (const invalid of [null,{usualPlayingDays:['monday']},{readiness:2},
     {reportedSportActivity:[{sportId:'unknown',localDate:'2026-10-12',intensity:'hard'}]},

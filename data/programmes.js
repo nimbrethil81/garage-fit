@@ -109,7 +109,13 @@
     completionCriteria: {minimumMeaningfulSessions: null, requireNominalDuration: false, explicitFinish: true},
     supportsMaintenanceMode: false
   };
+  // Version 1 stays available for saved programmes. These are transparent pilot
+  // preferences, not a fatigue score or a claim of physiological recovery.
+  const tennisContext = {...JSON.parse(JSON.stringify(tennis)), version: 2,
+    contextPolicy: {nearbyDays: 1, recentReportDays: 7, lighterDurationMinutes: 20,
+      tiredDurationMinutes: 15, lighterAnchorLimit: 1, tiredAnchorSets: 1,
+      lighterImpact: ['low','medium'], homeSmallSpace: true}};
   function freeze(value) { Object.values(value).forEach(item => { if (item && typeof item === 'object') freeze(item); }); return Object.freeze(value); }
   root.GarageFitData = root.GarageFitData || {};
-  root.GarageFitData.programmes = freeze({'general-strength-4w': {1: strength}, 'build-arms': {1: arms}, 'tennis-conditioning': {1: tennis}});
+  root.GarageFitData.programmes = freeze({'general-strength-4w': {1: strength}, 'build-arms': {1: arms}, 'tennis-conditioning': {1: tennis, 2: tennisContext}});
 })(typeof window !== 'undefined' ? window : globalThis);

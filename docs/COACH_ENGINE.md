@@ -208,8 +208,10 @@ The policy reuses exact exercise/protocol/side/actual-load double progression (6
 about two reps in reserve). Explicitly confirmed nonnumeric setups use the shared
 band/TRX contract. Temporary substitutes use eligible candidates for the same role,
 retain the programme anchor, and start a separate series with no inherited load.
-Sport/event/readiness setup and scheduling refinements remain subsequent issues;
-the existing controller's settings API supports frequency/focus now.
+Tennis v1 remains pinned for existing programmes. New programmes use v2's bounded
+schedule/readiness adaptation described below; setup screens remain follow-up work.
+The existing controller's settings API supports frequency/focus and usual playing
+days/intensity without resetting anchors.
 
 ## History and confidence
 
@@ -388,12 +390,53 @@ dose and result reconciliation; it creates no training credit. Controller update
 invalidate previews, reject an in-flight session or changed active reference, and
 publish new in-memory state only after the store write succeeds.
 
-Optional `todayContext.sessionContext` is a transient boundary with `readiness`
-(reserved plain JSON) and `reportedSportActivity` (explicit entries with `sportId`,
-`localDate`, `intensity`). Coach Model's `assertSessionContext` validates it before
-planning. Current policies do not interpret it. It is separate from enduring
-settings, per-session overrides and Session Results. Usual calendar slots never
-become reported sport activity or performed workouts, and this context awards no dose.
+Optional `todayContext.sessionContext` is a closed, transient boundary. Readiness
+is `{value: 'fresh' | 'normal' | 'tired', localDate: 'YYYY-MM-DD'}`; absent/null or a
+previous-day check-in means Normal. Future readiness rejects. Explicit
+`reportedSportActivity` entries contain only `sportId`, `localDate`, `intensity`;
+at most seven entries, one per sport/day. Tennis v2 requires reports within the
+last seven local days, including today, and rejects future reports. Optional
+`plannedMatchDate` is a date-only planned commitment, never confirmation of play.
+Coach Model validates the boundary before planning. No diary or new store is added.
+
+Tennis v2 planning accepts an explicit `todayContext.localDate`. The browser
+controller supplies its local calendar date from the injected clock. Pure callers
+using UTC instants for local planning must supply it too; when omitted, the date
+label of `now` is used (including an explicit timestamp offset). Weekday and day
+distance arithmetic uses calendar dates, so midnight, week/year boundaries and
+DST do not fabricate another day of reported activity.
+
+`GarageFitCoachTennisPolicy.classifyContext({definition, state, today})` exposes
+`usual`, `lighter` or `rest`, separate planned slots/confirmed reports, readiness
+and short truthful reasons. Pilot rules in immutable Tennis v2 are:
+
+- Hard usual tennis today/tomorrow, an explicit match/event today/tomorrow, or
+  reported hard tennis today/yesterday prefers lighter work. A past usual weekday
+  never becomes evidence that tennis occurred. Light/moderate preferences and
+  reports remain visible context without asserting a demanding recovery need.
+- Lighter work caps available time at 20 minutes and strength anchors at one,
+  prioritises upper/trunk work, limits impact to low/medium and removes demanding
+  conditioning, power and additional primary-strength filler, while permitting
+  intrinsically easy core work. Tired caps time at
+  15 minutes and uses one anchor set. A shorter requested budget stays shorter;
+  unsupported budgets and stricter caller avoids/impact limits still fail visibly.
+- Tired plus reported hard tennis today/yesterday, or a match/event today, offers
+  rest: `prescription: null`, conflict `tennis-rest-recommended`, and an explainable
+  recommendation in `rationale.priorities.adaptation`. No result/draft is created;
+  a failed preparation clears any previous preview. Starting a preview after local
+  midnight requires a fresh plan. It creates no debt or failure.
+- Fresh/Normal grants no bonus load. Deliberately lighter work uses `easy-today`
+  to hold double progression, preserving persistent targets and baselines. A later
+  Normal session resumes the same targets. Hard constraints are set before target
+  selection; preparation, rest, side exposures and timing ceilings remain enforced.
+- Home small-space constraints apply by default. Explicit `smallSpace: false`
+  permits existing mapped lateral exercises; no acceleration/shuttle drills or
+  outdoor exercise catalogue is introduced.
+
+Adaptation is prescription context, not a physiological score. Only relevant
+decisions become bounded `tennis-adaptation` overrides; readiness/reports are never
+persisted as ongoing fitness state. Session Results remain the only performed-work
+authority. General Strength, Build Arms and saved Tennis v1 ignore sport context.
 
 ## Local persistence and recovery
 
