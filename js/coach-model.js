@@ -170,13 +170,20 @@
     if (new Set(value.usualPlayingDays).size !== value.usualPlayingDays.length) fail(errors, path+'.usualPlayingDays', 'must be unique');
     if (value.intent !== 'event' && !isMissing(value.significantEventDate)) fail(errors, path+'.significantEventDate', 'requires event intent');
   });
-  // Optional, transient todayContext boundary. Readiness is reserved plain JSON;
-  // reported activity is explicit context, never a Session Result or credited work.
-  const sessionContext = shape({readiness: nullable(jsonObject),
+  // Optional, transient context. A dated check-in expires at the local day boundary.
+  // Explicit sport reports are bounded context, never performed Coach work.
+  const sessionContext = shape({readiness: nullable(shape({value: oneOf(['fresh','normal','tired']), localDate})),
+    plannedMatchDate: nullable(localDate),
     reportedSportActivity: nullable(arrayOf(shape({sportId: knownSport, localDate,
       intensity: text}, (value, path, errors) => {
         oneOf(sportProfile(value.sportId).configuration.sportIntensities)(value.intensity, path+'.intensity', errors);
       })))
+  }, (value, path, errors) => {
+    const reports = value.reportedSportActivity || [];
+    if (reports.length > 7) fail(errors, path+'.reportedSportActivity', 'must contain at most seven recent reports');
+    if (new Set(reports.map(item => item.sportId+':'+item.localDate)).size !== reports.length) {
+      fail(errors, path+'.reportedSportActivity', 'must contain at most one report per sport and local day');
+    }
   });
   function assertBoundary(check, value, path) {
     const errors = []; check(value, path, errors);

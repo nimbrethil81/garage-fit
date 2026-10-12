@@ -1,11 +1,11 @@
 const vm = require('node:vm');
 const {loadAppContext} = require('./app-context');
 
-function pilot(storage = new Map(), programmeId = 'general-strength-4w') {
+function pilot(storage = new Map(), programmeId = 'general-strength-4w', version = 1) {
   const app = loadAppContext(storage, {ownIntrinsics:true});
   const run = source => vm.runInContext(source, app);
   run(`
-    const pilotDef=GarageFitData.programmes[${JSON.stringify(programmeId)}][1];
+    const pilotDef=GarageFitData.programmes[${JSON.stringify(programmeId)}][${version}];
     const pilotStore=GarageFitCoachStore.createStore(localStorage);
     const pilotEngine=GarageFitCoachEngine.createEngine({catalogue:CATALOGUE,assessSessionPrescription:GarageFitGenerator.assessSessionPrescription});
     let pilotNow='2026-10-01T08:00:00Z',pilotId=0;

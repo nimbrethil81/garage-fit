@@ -1,6 +1,10 @@
 (function (root) {
   const clone = value => JSON.parse(JSON.stringify(value));
   const Model = () => root.GarageFitCoachModel;
+  const localDay = now => {
+    const date = new Date(now);
+    return [String(date.getFullYear()).padStart(4,'0'), String(date.getMonth()+1).padStart(2,'0'), String(date.getDate()).padStart(2,'0')].join('-');
+  };
   // Application orchestration. Programme decisions stay in the pure engine;
   // records go through the store and execution evidence through the tracker.
   function createController({store, engine, catalogue, buildTimeline, clock = () => new Date().toISOString(),
@@ -61,10 +65,14 @@
       await store.saveActiveProgramme(Model().createActiveProgramme(Model().programmeDefinitionRef(started.state)));
       state = started.state; preview = null; return started;
     }
-    function today(input = {}) { return {...input, now: clock(), prescriptionId: id('prescription')}; }
+    function today(input = {}) {
+      const now = clock(), localDate = localDay(now);
+      return {...input, ...(definition().contextPolicy ? {localDate} : {}), now, prescriptionId: id('prescription')};
+    }
     function plan(input) { return engine.planNextSession(definition(), state, results, today(input)); }
     function prepare(input) {
       if (draft || tracker) throw new Error('Save the current session before preparing another.');
+      preview = null;
       const context = today(input), plan = engine.planNextSession(definition(), state, results, context);
       preparationContext = context;
       if (!plan.prescription) return {status: 'infeasible', plan, today: context};
@@ -82,6 +90,10 @@
     }
     async function begin() {
       if (!preview || draft) throw new Error('Prepare a session before beginning.');
+      if (!tracker && definition().contextPolicy && localDay(clock()) !== localDay(preview.today.now)) {
+        preview = null;
+        throw new Error('The local day changed. Prepare today’s session again.');
+      }
       const plannedWork = tracker ? tracker.plannedWork() : root.GarageFitSessionTracker.plannedWorkFromTimeline(buildTimeline(preview.workout));
       const substitutions = preview.today.anchorSubstitutions || {};
       plannedWork.forEach(item => { if (substitutions[item.requirementId]) item.exerciseId = state.anchors.find(anchor => anchor.requirementId === item.requirementId).exerciseId; });
@@ -174,6 +186,7 @@
     const patternNames = {squat: 'squat', hinge: 'hinge', lunge: 'lunge', push: 'push', pull: 'pull', core: 'core', carry: 'carry'};
     function conflictText(conflicts) {
       return [...new Set((conflicts || []).map(item => {
+        if (item.code === 'tennis-rest-recommended') return item.message;
         if (item.code === 'missing-pattern') return 'Add equipment for '+item.pattern+' work.';
         if (item.code === 'anchor-unavailable' && item.message) return item.message;
         if (item.code === 'tennis-no-useful-session' || item.code === 'tennis-preflight-required') return item.message || 'No useful Tennis session can be prescribed with these options.';
@@ -186,6 +199,9 @@
       }))].join(' ');
     }
     function rationale(plan) {
+      const adaptation = plan.rationale.priorities.adaptation;
+      if (adaptation && adaptation.recommendation) return adaptation.recommendation;
+      if (adaptation && adaptation.reasons.length && plan.prescription) return adaptation.reasons.join(' · ')+'. Selected work fits '+plan.prescription.duration+' minutes with preparation and rest.';
       if (plan.prescription && plan.prescription.programmeContext.roleLabel) return plan.prescription.programmeContext.roleLabel+' today: selected targets fit '+plan.prescription.duration+' minutes with preparation and rest. Keep about 2 reps in reserve on strength anchors.';
       const patterns = plan.rationale.priorities.movements.filter(item => item.deficit > 0).map(item => patternNames[item.pattern]);
       if (plan.prescription && plan.prescription.sessionRole==='maintenance') return 'Keep your anchor challenge with fewer sets and less supporting work in '+plan.prescription.duration+' minutes.';
@@ -250,7 +266,10 @@
         wrap.append(heading('Four-week review'),paragraph(review.meaningfulSessions+' meaningful sessions in this block'+(review.targetMet?' · Block target met':'')),
           button('Continue building',() => manage('continue'),true),button('Move to maintenance',() => manage('maintenance')),button('Finish programme',() => manage('finish')));
       } else {
-        const plan=controller.plan(options), card=document.createElement('section'); card.className='coach-card'; card.append(heading('Up next'),paragraph(plan.prescription?rationale(plan):conflictText(plan.conflicts)),button('Start session', prepare,true)); wrap.append(card); renderAdjust(wrap);
+        const plan=controller.plan(options), card=document.createElement('section'); card.className='coach-card';
+        card.append(heading('Up next'),paragraph(plan.prescription?rationale(plan):conflictText(plan.conflicts)));
+        if (!plan.conflicts.some(item => item.code === 'tennis-rest-recommended')) card.append(button('Start session', prepare,true));
+        wrap.append(card); renderAdjust(wrap);
       }
       const progress=document.createElement('details'), summary=document.createElement('summary'); summary.textContent='Programme progress and management'; progress.append(summary);
       state.anchors.forEach(anchor => progress.append(paragraph(catalogue[anchor.exerciseId].name+' · '+(anchor.currentTarget || anchor).targetSets+' × '+(anchor.currentTarget || anchor).target.maxReps+' reps · '+(anchor.currentTarget.progressionIntent || 'Confirm actual work'))));
@@ -276,6 +295,9 @@
       renderPreview(preview);
     }
     function showBlocked(preview) {
+        if (preview.plan.conflicts.some(item => item.code === 'tennis-rest-recommended')) {
+          el('coachContent').append(paragraph(rationale(preview.plan))); return;
+        }
         el('coachContent').append(paragraph('Blocked · '+conflictText(preview.plan.conflicts)));
         controller.snapshot().state.anchors.forEach(anchor => el('coachContent').append(button('Substitute '+catalogue[anchor.exerciseId].name,() => showSubstitutes(anchor.requirementId,preview.today))));
     }
