@@ -181,11 +181,20 @@
     return !!(first && second && (first.id===second.id || sameFamily(first,second)));
   }
 
+  // Main policy: families whose equipment variants are interchangeable enough that one
+  // workout should never contain two of them (dumbbell and kettlebell sumo squat). Other
+  // families stay subject only to the soft repeat and recency scoring.
+  const MAIN_SINGLE_VARIANT_FAMILIES = new Set(['sumo-squat']);
+
   // Main policy: an "occasional" family (e.g. farmer carry across dumbbell/kettlebell
-  // variants) is capped at one exposure across the whole Main phase. Shared by initial
-  // generation and swaps so a swap cannot introduce what generation would have refused.
+  // variants) or a single-variant family is capped at one exposure across the whole Main
+  // phase. Shared by initial generation, Coach composition and swaps so a swap cannot
+  // introduce what generation would have refused.
+  function mainFamilyCapped(exercise) {
+    return !!(exercise && exercise.family && (exercise.frequency==='occasional' || MAIN_SINGLE_VARIANT_FAMILIES.has(exercise.family)));
+  }
   function mainFamilyCapReached(exercise, mainExercises) {
-    return !!(exercise && exercise.frequency==='occasional' && exercise.family && (mainExercises || []).some(item => sameFamily(item,exercise)));
+    return mainFamilyCapped(exercise) && (mainExercises || []).some(item => sameFamily(item,exercise));
   }
 
   // Preparation policy (Warm-up, Ramp-up and their swaps): repeating an exercise or a direct
@@ -821,7 +830,7 @@
     const issues=[];
     const familyCounts=new Map();
     for(const block of blocks)for(const exercise of block.exercises||[]){
-      if(exercise.frequency==='occasional'&&exercise.family)
+      if(mainFamilyCapped(exercise))
         familyCounts.set(exercise.family,(familyCounts.get(exercise.family)||0)+1);
     }
     for(const [family,count] of familyCounts)if(count>1)issues.push('main:family-cap:'+family);
@@ -1506,8 +1515,10 @@
     for(const protocol of protocols){
       const compatible=eligible.filter(exercise=>protocolCompatible(exercise,protocol)).sort((a,b)=>a.estimatedSeconds-b.estimatedSeconds||a.id.localeCompare(b.id));
       const count=protocol==='paired_sets'?2:1;
-      if(compatible.length<count)continue;
-      const exercises=compatible.slice(0,count).map(copyExercise);
+      const picked=[];
+      for(const exercise of compatible)if(picked.length<count&&!mainFamilyCapReached(exercise,picked))picked.push(exercise);
+      if(picked.length<count)continue;
+      const exercises=picked.map(copyExercise);
       const prescription=protocol==='rounds'?{rounds:1,exerciseRestSeconds:rest.exercise,roundRestSeconds:rest.round}:
         protocol==='paired_sets'?{sets:1,betweenExercisesSeconds:Math.min(10,rest.exercise),betweenSetsSeconds:rest.round}:
         {cycles:1,workSeconds:30,transitionSeconds:rest.exercise};
@@ -1568,6 +1579,10 @@
         if(repeats==null)add('target-exposure-mismatch');
         protocols=permittedProtocols(rx,anchor).filter(protocol=>protocolCompatible(source,protocol)&&(protocol!=='timed_intervals'||sideCount(exercise)===1&&anchor.prescriptionMode!=='reps'));
         if(!protocols.length)add('protocol-incompatible',{requirementIds:[anchor.requirementId,...prescriptionList(rx,'protocolConstraints').filter(item=>item.importance==='hard'&&constraintApplies(item,anchor)).map(item=>item.requirementId)]});
+        // Main's family cap holds for Coach work too: a required anchor cannot be joined by
+        // another member of a capped family (required anchors precede preferred ones).
+        const rival=entries.find(other=>other.anchor.importance==='required'&&other.anchor.exerciseId!==anchor.exerciseId&&mainFamilyCapReached(source,[catalogue[other.anchor.exerciseId]]));
+        if(rival)add('family-cap-conflict',{requirementIds:[anchor.requirementId,rival.anchor.requirementId],exerciseIds:[anchor.exerciseId,rival.anchor.exerciseId]});
       }
       entries.push({anchor,exercise,repeats,protocols,issues});
       (anchor.importance==='required'?assessment.hardConflicts:assessment.softConflicts).push(...issues);
@@ -1583,7 +1598,7 @@
         else if(allowPair){
           const partner=required.find(other=>other!==entry&&!planned.has(other)&&!other.issues.length&&other.anchor.exerciseId!==entry.anchor.exerciseId&&other.repeats===entry.repeats&&other.protocols.includes(protocol));
           if(partner)candidates.push({block:anchorBlock(protocol,[entry.exercise,partner.exercise],entry.repeats,rest,index),entries:[entry,partner]});
-          const generic=eligible.filter(exercise=>!anchorIds.has(exercise.id)&&protocolCompatible(exercise,protocol)&&permittedProtocols(rx,null).includes(protocol)).sort((a,b)=>a.estimatedSeconds-b.estimatedSeconds||a.id.localeCompare(b.id))[0];
+          const generic=eligible.filter(exercise=>!anchorIds.has(exercise.id)&&!mainFamilyCapReached(exercise,[entry.exercise])&&protocolCompatible(exercise,protocol)&&permittedProtocols(rx,null).includes(protocol)).sort((a,b)=>a.estimatedSeconds-b.estimatedSeconds||a.id.localeCompare(b.id))[0];
           if(generic)candidates.push({block:anchorBlock(protocol,[entry.exercise,generic],entry.repeats,rest,index),entries:[entry]});
         }
       }
@@ -1636,7 +1651,7 @@
       const choices=candidatesFor(entry,reserved.length,false);
       // Preferred paired sets can use an optional partner too; never absorb required work.
       if(entry.protocols.includes('paired_sets')&&!entry.issues.length){
-        const partner=eligible.filter(exercise=>!anchorIds.has(exercise.id)&&protocolCompatible(exercise,'paired_sets')&&genericProtocols.includes('paired_sets')).sort((a,b)=>a.estimatedSeconds-b.estimatedSeconds||a.id.localeCompare(b.id))[0];
+        const partner=eligible.filter(exercise=>!anchorIds.has(exercise.id)&&!mainFamilyCapReached(exercise,[entry.exercise])&&protocolCompatible(exercise,'paired_sets')&&genericProtocols.includes('paired_sets')).sort((a,b)=>a.estimatedSeconds-b.estimatedSeconds||a.id.localeCompare(b.id))[0];
         if(partner)choices.push({block:anchorBlock('paired_sets',[entry.exercise,partner],entry.repeats,rest,reserved.length),entries:[entry]});
       }
       choices.sort((a,b)=>Number(!permittedProtocols(rx,entry.anchor,true).includes(a.block.protocol))-Number(!permittedProtocols(rx,entry.anchor,true).includes(b.block.protocol))||simpleRank(a.block.protocol)-simpleRank(b.block.protocol)||a.block.estimatedDurationSeconds-b.block.estimatedDurationSeconds);
@@ -1691,6 +1706,7 @@
     // Only after winning that optional selection do their exact targets reserve time.
     for(const {entry,block} of prepared.preferred){
       if(mainSeconds(blocks.concat(block))>budget.main)continue;
+      if(block.exercises.some(exercise=>mainFamilyCapReached(exercise,blocks.flatMap(item=>item.exercises))))continue;
       const state=prescriptionState(blocks,prepared,history),desired=(RECIPES[context.focus]||RECIPES.balanced)[state.exercises.length%(RECIPES[context.focus]||RECIPES.balanced).length];
       const scored=[entry.exercise,...generic.filter(exercise=>!mainFamilyCapReached(exercise,state.exercises))].map(exercise=>({exercise,score:scoreCandidate(exercise,desired,state.exercises,context.focus,history,catalogue)+sessionPriorityCredit(exercise,rx,history,catalogue)+(exercise===entry.exercise?28:0)}));
       const selected=controlledPick(scored,random,SHORTLIST_MARGIN);

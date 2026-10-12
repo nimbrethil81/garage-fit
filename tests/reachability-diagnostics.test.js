@@ -17,10 +17,15 @@ const LABELS=new Set(['phase/metadata mismatch','supporting-role crowding','fixe
   'equipment-context limitation','duplicate/family/repetition filtering','later-stage rejection','insufficient evidence']);
 
 // Bodyweight catalogue plus a synthetic supporting-role core exercise with minimal strength and
-// cardio: eligible for Main, but outscored in every slot of this small matrix.
+// cardio: eligible for Main, but outscored in every slot of this small matrix. The Main pool is
+// pinned so later bodyweight catalogue additions do not change the synthetic's competitors.
+const FIXTURE_MAIN=new Set(['air-squat','reverse-lunge','walking-lunge','push-up','pike-push-up','plank','side-plank','abdominal-crunch',
+  'bicycle-crunch','leg-raises','mountain-climbers','jumping-jacks','high-knees','burpees','squat-jumps','skater-jumps','cossack-squat',
+  'switch-kicks','glute-bridge','ski-abs','curtsy-lunge','kick-through','bear-crawl']);
 function fixtureCatalogue(rename=id=>id){
   const catalogue={};
-  for(const exercise of Object.values(real))if(!exercise.equipment.length)catalogue[rename(exercise.id)]=Object.assign({},exercise,{id:rename(exercise.id)});
+  for(const exercise of Object.values(real))if(!exercise.equipment.length&&(!exercise.generator||FIXTURE_MAIN.has(exercise.id)))
+    catalogue[rename(exercise.id)]=Object.assign({},exercise,{id:rename(exercise.id)});
   const synthetic=Object.assign({},real['abdominal-crunch'],{id:rename('synthetic-weak-core'),name:'Synthetic weak core',strength:1,cardio:1,mainRole:'supporting'});
   catalogue[synthetic.id]=synthetic;
   return catalogue;

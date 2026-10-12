@@ -101,8 +101,9 @@ test('a body focus is a preference, not a filter: other areas stay in the workou
     const focused = workoutsFor(area);
     const others = AREAS.filter(other => other!==area);
     assert.ok(others.reduce((sum,other) => sum+share(focused,other), 0) >= .2, area+' crowds out the other areas');
-    // Workouts of 20 minutes or more keep exercises outside the focus area.
-    for (const workout of focused) assert.ok(mainOf(workout).some(exercise => others.includes(exercise.bodyFocus)), `${area} ${workout.duration} ${workout.focus}: ${mainOf(workout).map(exercise => exercise.id).join(', ')}`);
+    // Workouts of 20 minutes or more keep exercises outside the focus area (another area, or
+    // full-body work that only shares it).
+    for (const workout of focused) assert.ok(mainOf(workout).some(exercise => exercise.bodyFocus!==area), `${area} ${workout.duration} ${workout.focus}: ${mainOf(workout).map(exercise => exercise.id).join(', ')}`);
   }
 });
 
@@ -175,6 +176,8 @@ test('swaps keep the workout body focus', () => {
       G.swap(workout,0,0,{ catalogue, equipment:ALL_EQUIPMENT, random:random(seed*17) });
       count(workout.main.blocks[0].exercises[0].bodyFocus===area ? 1 : 0);
     }
-    assert.ok(focused > neutral, `${area} swaps ${focused} vs Full Body ${neutral}`);
+    // Lower swaps already land on lower work in nearly every neutral run, since a swap favours the
+    // replaced exercise's patterns; the focus cannot raise a share that is already complete.
+    assert.ok(focused > neutral || focused===30, `${area} swaps ${focused} vs Full Body ${neutral}`);
   }
 });

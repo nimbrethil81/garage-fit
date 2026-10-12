@@ -141,10 +141,20 @@ test('zero accessory candidates: the route is never drawn, even with conditionin
   }
 });
 
+// The Main-eligible catalogue for `equipment` with only the named accessories kept, so these
+// tests fix the accessory count however the shipped catalogue grows.
+function withAccessories(equipment,keep){
+  const source={};
+  for(const exercise of Object.values(catalogue))
+    if(G.generatedPhaseEligible(exercise,'main',equipment)&&(!accessory(exercise)||keep.includes(exercise.id)))source[exercise.id]=exercise;
+  return source;
+}
+
 test('one accessory candidate: kettlebell-only and bands-only Mains never draw the route',()=>{
-  for(const equipment of [['kettlebell'],['bands']]){
-    assert.equal(accessoriesFor(catalogue,equipment).length,1,equipment.join('+'));
-    for(const run of longRuns(catalogue,equipment)){
+  for(const [equipment,keep] of [[['kettlebell'],['kettlebell-russian-twist']],[['bands'],['band-pallof-press']]]){
+    const source=withAccessories(equipment,keep);
+    assert.equal(accessoriesFor(source,equipment).length,1,equipment.join('+'));
+    for(const run of longRuns(source,equipment)){
       assert.equal(run.result.supportingRoute,false,equipment.join('+'));
       assert.equal(routeStages(run).length,0);
     }
@@ -152,9 +162,10 @@ test('one accessory candidate: kettlebell-only and bands-only Mains never draw t
 });
 
 test('two accessory candidates: TRX-only Mains can draw the route and narrow to both',()=>{
-  const both=accessoriesFor(catalogue,['trx']).map(exercise=>exercise.id).sort();
+  const source=withAccessories(['trx'],['trx-y-fly','trx-good-morning']);
+  const both=accessoriesFor(source,['trx']).map(exercise=>exercise.id).sort();
   assert.equal(both.length,2);
-  const runs=longRuns(catalogue,['trx'],20);
+  const runs=longRuns(source,['trx'],20);
   assert.ok(runs.some(run=>run.result.supportingRoute),'drawn');
   const narrowed=runs.flatMap(routeStages);
   assert.ok(narrowed.length>0,'narrowed');
@@ -164,8 +175,7 @@ test('two accessory candidates: TRX-only Mains can draw the route and narrow to 
 test('the route needs two accessories left after the slot filters, not just two in the Main',()=>{
   // Two accessories in the Main, but no block protocol admits both: the twist allows rounds and
   // paired sets, its synthetic copy only timed intervals.
-  const source={};
-  for(const exercise of Object.values(catalogue))if(G.generatedPhaseEligible(exercise,'main',['kettlebell']))source[exercise.id]=exercise;
+  const source=withAccessories(['kettlebell'],['kettlebell-russian-twist']);
   source['timed-twist']=Object.assign({},catalogue['kettlebell-russian-twist'],{id:'timed-twist',name:'Timed twist',mainProtocols:['timed_intervals']});
   G.assertValidCatalogue(source);
   assert.equal(accessoriesFor(source,['kettlebell']).length,2);

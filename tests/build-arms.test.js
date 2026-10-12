@@ -18,7 +18,7 @@ function pilot(storage = new Map()) {
       clock:()=>armsNow,id:prefix=>prefix+':'+(++armsId)});
     const armsOptions={equipment:['dumbbells','bands','trx','bench'],duration:30};
   `);
-  const start = () => run('arms.start(armsDef,armsOptions.equipment)');
+  const start = (equipment='armsOptions.equipment') => run(`arms.start(armsDef,${equipment})`);
   const begin = async (options='armsOptions') => {
     run(`arms.prepare(${options})`);
     await run('arms.begin().then(value=>{armsTracker=value;})');
@@ -56,7 +56,7 @@ test('approved versioned programme registers, pins exactly two direct anchors an
 
 test('missing direct actions cannot be replaced by compound work; unsuitable anchors and unsupported time fail', () => {
   const p=pilot();
-  for (const [equipment,missing] of [[[], 'flexion'],[['dumbbells'],'extension'],[['bench'],'flexion'],[['pullup-bar'],'extension']]) {
+  for (const [equipment,missing] of [[[], 'flexion'],[['kettlebell'],'extension'],[['bench'],'flexion'],[['pullup-bar'],'extension']]) {
     const assessment=p.json(`armsEngine.assessProgrammeFeasibility(armsDef,{equipment:${JSON.stringify(equipment)}})`);
     assert.equal(assessment.status,'infeasible');
     assert.ok(assessment.conflicts.some(item=>item.directElbowAction===missing));
@@ -105,25 +105,29 @@ test('numeric double progression requires all three comparable sets, suggests av
   assert.equal(p.run('arms.snapshot().state.anchors[0].progression.decision'),'reset-after-load');
 });
 
+// Without dumbbells both direct anchors are setup-progressed (bands).
+const SETUP_KIT="['bands','trx','bench']", SETUP_OPTIONS=`{equipment:${SETUP_KIT},duration:30}`;
+
 test('setup anchors progress only with explicit comparable confirmation and reset only after ready plus confirmed harder setup', async () => {
-  const p=pilot(); await p.start();
+  const p=pilot(); await p.start(SETUP_KIT);
+  assert.equal(p.run('arms.snapshot().state.anchors[1].exerciseId'),'band-triceps-extension');
   for(let reps=8;reps<=12;reps++) {
-    await p.begin();await p.log('anchor-extension',{resistanceSetup:'initial'});await p.finish();
+    await p.begin(SETUP_OPTIONS);await p.log('anchor-extension',{resistanceSetup:'initial'});await p.finish();
   }
   assert.equal(p.run('arms.snapshot().state.anchors[1].currentTarget.progressionIntent'),'Ready for more resistance');
-  await p.begin();await p.log('anchor-extension',{resistanceSetup:'initial'});await p.finish();
+  await p.begin(SETUP_OPTIONS);await p.log('anchor-extension',{resistanceSetup:'initial'});await p.finish();
   assert.equal(p.run('arms.snapshot().state.anchors[1].currentTarget.target.maxReps'),12);
-  await p.begin();await p.log('anchor-extension',{reps:8,resistanceSetup:'harder-confirmed'});await p.finish();
+  await p.begin(SETUP_OPTIONS);await p.log('anchor-extension',{reps:8,resistanceSetup:'harder-confirmed'});await p.finish();
   assert.equal(p.run('arms.snapshot().state.anchors[1].currentTarget.target.maxReps'),8);
   assert.equal(p.run('arms.snapshot().state.anchors[1].comparisonBaseline.resistanceSetup'),'harder-confirmed');
-  await p.begin();await p.log('anchor-extension',{resistanceSetup:'unapproved-second-change'});await p.finish();
+  await p.begin(SETUP_OPTIONS);await p.log('anchor-extension',{resistanceSetup:'unapproved-second-change'});await p.finish();
   assert.equal(p.run('arms.snapshot().state.anchors[1].currentTarget.target.maxReps'),8);
 });
 
 test('common performance comparison uses confirmed setup identity and never transfers it across exercise or resistance changes', async () => {
-  const p=pilot();await p.start();
-  await p.begin();await p.log('anchor-extension',{resistanceSetup:'initial'});await p.finish();
-  await p.begin();await p.log('anchor-extension',{resistanceSetup:'initial'});await p.finish();
+  const p=pilot();await p.start(SETUP_KIT);
+  await p.begin(SETUP_OPTIONS);await p.log('anchor-extension',{resistanceSetup:'initial'});await p.finish();
+  await p.begin(SETUP_OPTIONS);await p.log('anchor-extension',{resistanceSetup:'initial'});await p.finish();
   const comparison=p.json(`(()=>{const h=GarageFitTrainingHistory.createHistory(arms.snapshot().results,CATALOGUE),s=h.exactExercisePerformances('band-triceps-extension');return GarageFitTrainingHistory.comparePerformanceEvidence(s[3],s[0]);})()`);
   assert.equal(comparison.comparable,true);assert.equal(comparison.change,'improved-reps');assert.equal(comparison.loadDelta,null);
   const changed=p.json(`(()=>{const h=GarageFitTrainingHistory.createHistory(arms.snapshot().results,CATALOGUE),s=h.exactExercisePerformances('band-triceps-extension'),c=JSON.parse(JSON.stringify(s[0]));c.sets[0].resistanceSetup='changed';return GarageFitTrainingHistory.comparePerformanceEvidence(s[3],c);})()`);
