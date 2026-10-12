@@ -67,7 +67,7 @@
   .workout-review li::before{content:counter(movement,decimal-leading-zero);color:var(--rest);font-size:12px;font-weight:800;padding-top:2px}.review-name{font-size:14px;font-weight:750;line-height:1.35}.review-note{display:block;color:var(--text-muted);font-size:12px;font-weight:600;margin-top:2px}.review-reps{color:var(--work-light);font-size:13px;font-weight:900;white-space:nowrap}
   .workout-detail{border:1px solid var(--surface-2);border-radius:14px;padding:14px 15px}.workout-detail h2{margin:0 0 10px;font-size:15px}.workout-detail ul{margin:0;padding-left:20px;color:var(--text-muted);font-size:13px;line-height:1.6}.workout-detail .provenance{margin:11px 0 0;color:var(--text-muted);font-size:11px;line-height:1.45}
 
-  .bottom-nav{flex:0 0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:8px 20px calc(8px + env(safe-area-inset-bottom));background:#202b30;border-top:1px solid var(--surface)}
+  .bottom-nav{flex:0 0 auto;display:grid;grid-template-columns:repeat(5,1fr);gap:4px;padding:8px 12px calc(8px + env(safe-area-inset-bottom));background:#202b30;border-top:1px solid var(--surface)}
   .nav-btn{border:0;border-radius:12px;background:transparent;color:#899694;padding:8px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;font-weight:850;letter-spacing:.05em;text-transform:uppercase}.nav-btn .icon{width:21px;height:21px}
   .nav-btn.active{color:var(--rest);background:rgba(79,138,131,.12)}
 
@@ -101,6 +101,24 @@
   @media (max-height:700px){.home-header{margin-bottom:14px}.home-intro{margin-bottom:12px}.workout-stage{padding:10px 0 4px}.workout-exercise{font-size:30px}.workout-target{margin-top:10px}.workout-stats{margin-top:10px}.workout-actions{gap:14px;margin-top:10px}.ctrl-btn{padding-top:13px;padding-bottom:13px}.ring-wrap{width:min(60vh,280px);height:min(60vh,280px)}}
   @media (max-width:500px){.duration-row{grid-template-columns:repeat(3,1fr)}.body-focus-row{grid-template-columns:repeat(2,1fr)}.equipment-list{grid-template-columns:1fr 1fr}}
   @media (max-width:380px){#home,#workouts,#generator,#equipment,#generatedPreview{padding-left:14px;padding-right:14px}.brand-name{font-size:18px}.brand-mark{width:37px}.routine-card{padding:17px}.routine-card .label{font-size:22px}.workout-launch{padding:17px}.workout-label{font-size:20px}.equipment-list{grid-template-columns:1fr}.bottom-nav{padding-left:12px;padding-right:12px}}
+  #coach,#coachPreview,#coachSubstitute,#coachResult{padding:22px 20px;overflow-y:auto;gap:14px}
+  #coachContent,#coachPreviewContent,#coachSubstituteContent{display:flex;flex-direction:column;gap:14px}
+  #coachContent p,#coachPreviewContent p,#coachSubstituteContent p{margin:0;color:var(--text-muted);font-size:14px;line-height:1.5}
+  #coachContent h2,#coachPreviewContent h2{margin:8px 0;font-size:21px}
+  .coach-card,.coach-preview-row{border:1px solid var(--surface-2);border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:12px}
+  .coach-card{background:var(--surface)}
+  #coachContent details>button,#coachContent details>p{margin-top:12px}
+  #coachContent summary{font-weight:800;padding:12px 0;cursor:pointer}
+  #coachContent .generator-options{padding:14px}
+  #coachContent label{display:flex;align-items:center;gap:10px;margin:14px 0}
+  #coachContent select,.coach-fields input,.coach-fields select{width:100%;min-height:44px;padding:9px;border:1px solid var(--surface-2);border-radius:8px;background:var(--ink);color:var(--text);font:inherit}
+  #coachContent button[aria-pressed="true"]{background:var(--rest-strong);color:white}
+  #coachAnchorLog{max-width:500px;margin:12px auto;text-align:left;border:1px solid var(--surface-2);padding:12px;border-radius:12px;font-size:13px;line-height:1.5}
+  #coachAnchorLog p{margin:0 0 8px}#coachAnchorLog summary{cursor:pointer;color:var(--rest);font-weight:800}
+  .coach-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}.coach-fields label{display:flex;flex-direction:column;gap:4px}
+  .coach-error{color:var(--danger);font-size:14px;line-height:1.4}.coach-error:empty{display:none}
+  #coachSkipBtn{margin-top:10px}#coach .choice-row button{font-size:13px;padding:10px}
+  #coachResult .coach-feedback{display:flex;flex-direction:column;gap:12px}
 </style>
 </head>
 <body>
@@ -267,6 +285,18 @@
       <details class="exercise-instruction hidden" id="workoutInstruction"><summary>How to do it</summary><p id="workoutInstructionText"></p></details>
       <div class="workout-target" id="workoutTarget">25 reps</div>
       <div class="workout-side-note" id="workoutSideNote"></div>
+      <section id="coachAnchorLog" class="hidden" aria-label="Anchor result">
+        <p id="coachAnchorPlanned"></p><p id="coachActualSummary" aria-live="polite"></p>
+        <details id="coachAnchorEdit"><summary>Edit result</summary>
+          <div class="coach-fields">
+            <label>Actual reps<input id="coachActualReps" type="number" min="0" step="1" inputmode="numeric" oninput="coachUI.updateActualSummary()"></label>
+            <label>Actual load (blank = unknown)<input id="coachActualLoad" type="number" min="0" step="any" inputmode="decimal" oninput="coachUI.updateActualSummary()"></label>
+            <label>Unit<select id="coachLoadUnit" onchange="coachUI.updateActualSummary()"><option value="kg">kg</option><option value="lb">lb</option></select></label>
+            <label>Load means<select id="coachLoadInterpretation" onchange="coachUI.updateActualSummary()"><option value="per-item">Each weight</option><option value="total">Total load</option></select></label>
+          </div>
+        </details>
+      </section>
+      <p id="coachPlayerError" class="coach-error" role="alert"></p>
       <div class="timed-cue hidden" id="workoutTimedCue" aria-live="assertive"></div>
       <div class="generated-next hidden" id="generatedNext"></div>
       <div class="workout-paused" id="workoutPausedState" aria-live="polite"></div>
@@ -285,6 +315,7 @@
         <button class="ctrl-btn ctrl-secondary" id="workoutPauseBtn" type="button" onclick="toggleWorkoutPause()">Pause</button>
       </div>
       <button class="ctrl-btn ctrl-primary complete-btn" id="completeMovementBtn" type="button" onclick="completeWorkoutMovement()">Complete 25 reps</button>
+      <button class="ctrl-btn ctrl-secondary hidden" id="coachSkipBtn" type="button" onclick="coachAdvance('skip')">Skip work</button>
     </div>
   </main>
 
@@ -299,6 +330,28 @@
     <button class="ctrl-btn ctrl-primary" id="doneBtn" type="button" onclick="goDoneHome()">Back to routines</button>
   </main>
 
+  <main id="coach" class="screen hidden">
+    <h1 class="screen-title">Coach</h1>
+    <p id="coachError" class="coach-error" role="alert"></p>
+    <div id="coachContent"></div>
+  </main>
+  <main id="coachPreview" class="screen hidden">
+    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Coach" onclick="coachUI.back()">←</button><h1>Coach workout</h1><span class="header-spacer"></span></header>
+    <p id="coachPreviewError" class="coach-error" role="alert"></p><div id="coachPreviewContent"></div>
+  </main>
+  <main id="coachSubstitute" class="screen hidden">
+    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Coach" onclick="coachUI.back()">←</button><h1>Anchor substitute</h1><span class="header-spacer"></span></header>
+    <div id="coachSubstituteContent"></div>
+  </main>
+  <main id="coachResult" class="screen hidden">
+    <h1>Save session</h1><p id="coachResultSummary"></p><p id="coachResultError" class="coach-error" role="alert"></p>
+    <p>How did the session feel?</p>
+    <div class="coach-feedback">
+      <button class="ctrl-btn ctrl-secondary" type="button" onclick="coachUI.saveFeedback('easy')">Easy</button>
+      <button class="ctrl-btn ctrl-primary" type="button" onclick="coachUI.saveFeedback('about-right')">About right</button>
+      <button class="ctrl-btn ctrl-secondary" type="button" onclick="coachUI.saveFeedback('hard')">Hard</button>
+    </div>
+  </main>
   <main id="more" class="screen hidden">
     <div class="home-header">
       <div class="brand" aria-label="GarageFit">
@@ -324,6 +377,7 @@
   <nav class="bottom-nav" id="bottomNav" aria-label="Main navigation">
     <button class="nav-btn active" id="routinesNav" type="button" aria-current="page" onclick="showLanding('home')"><svg class="icon" aria-hidden="true"><use href="#icon-routines"></use></svg><span>Routines</span></button>
     <button class="nav-btn" id="workoutsNav" type="button" onclick="showLanding('workouts')"><svg class="icon" aria-hidden="true"><use href="#icon-workouts"></use></svg><span>Workouts</span></button>
+    <button class="nav-btn" id="coachNav" type="button" onclick="showLanding('coach')"><svg class="icon" aria-hidden="true"><use href="#icon-workouts"></use></svg><span>Coach</span></button>
     <button class="nav-btn" id="generatorNav" type="button" onclick="showLanding('generator')"><svg class="icon" aria-hidden="true"><use href="#icon-shuffle"></use></svg><span>Generator</span></button>
     <button class="nav-btn" id="moreNav" type="button" onclick="openMore()"><span aria-hidden="true" style="font-size:21px;line-height:21px">⋯</span><span>More</span></button>
   </nav>
@@ -354,6 +408,11 @@
 <script src="js/coach-model.js"></script>
 <script src="js/coach-store.js"></script>
 <script src="js/session-tracker.js"></script>
+<script src="data/programmes.js"></script>
+<script src="js/training-history.js"></script>
+<script src="js/coach-policies.js"></script>
+<script src="js/coach-engine.js"></script>
+<script src="js/coach-ui.js"></script>
 <script>
 const WORK_S=15,REST_S=5;
 const CATALOGUE=GarageFitData.exercises,EQUIPMENT=GarageFitData.equipment;
@@ -450,11 +509,11 @@ function openExerciseDetail(id){
   showScreen('exerciseDetail');
 }
 function showScreen(id){
-  ['home','workouts','generator','equipment','generatedPreview','snackpick','player','workoutPlayer','done','more','exerciseLibrary','exerciseDetail'].forEach(s=>document.getElementById(s).classList.toggle('hidden',s!==id));
-  const landing=['home','workouts','generator','more'].includes(id),nav=document.getElementById('bottomNav');nav.classList.toggle('hidden',!landing);
-  [['home','routinesNav'],['workouts','workoutsNav'],['generator','generatorNav'],['more','moreNav']].forEach(pair=>{const active=id===pair[0],button=document.getElementById(pair[1]);button.classList.toggle('active',active);active?button.setAttribute('aria-current','page'):button.removeAttribute('aria-current')});
+  ['home','workouts','generator','equipment','generatedPreview','snackpick','player','workoutPlayer','done','more','exerciseLibrary','exerciseDetail','coach','coachPreview','coachSubstitute','coachResult'].forEach(s=>document.getElementById(s).classList.toggle('hidden',s!==id));
+  const landing=['home','workouts','generator','more','coach'].includes(id),nav=document.getElementById('bottomNav');nav.classList.toggle('hidden',!landing);
+  [['home','routinesNav'],['workouts','workoutsNav'],['coach','coachNav'],['generator','generatorNav'],['more','moreNav']].forEach(pair=>{const active=id===pair[0],button=document.getElementById(pair[1]);button.classList.toggle('active',active);active?button.setAttribute('aria-current','page'):button.removeAttribute('aria-current')});
 }
-function showLanding(id){if(id==='workouts')renderPersonalBest();if(id==='generator')renderGenerator();showScreen(id)}
+function showLanding(id){if(id==='coach'&&coachUI)return coachUI.open();if(id==='workouts')renderPersonalBest();if(id==='generator')renderGenerator();showScreen(id)}
 function goHome(){stopTimer();stopGeneratedPhaseTimer();stopWorkoutClock();state.running=false;workoutState.running=false;state.paused=false;releaseWake();cancelSpeech();showScreen('home')}
 function goWorkouts(){stopTimer();stopGeneratedPhaseTimer();stopWorkoutClock();state.running=false;workoutState.running=false;workoutState.paused=false;releaseWake();cancelSpeech();renderPersonalBest();showScreen('workouts')}
 function goGenerator(){stopTimer();stopGeneratedPhaseTimer();stopWorkoutClock();state.running=false;workoutState.running=false;workoutState.paused=false;releaseWake();cancelSpeech();renderGenerator();showScreen('generator')}
@@ -481,7 +540,7 @@ function selectGeneratorDifficulty(value){generatorState.difficulty=value;try{lo
 function openEquipment(returnTo){generatorState.equipmentReturn=returnTo||'generator';renderEquipment();showScreen('equipment')}
 function renderEquipment(){const wrap=document.getElementById('equipmentList');wrap.innerHTML='';EQUIPMENT.forEach(item=>{const selected=state.ownedEquipment.includes(item.id),button=document.createElement('button');button.type='button';button.className='equipment-item'+(selected?' selected':'');button.textContent=item.name;button.setAttribute('aria-pressed',String(selected));button.onclick=()=>toggleEquipmentItem(item.id);wrap.appendChild(button)})}
 function toggleEquipmentItem(id){state.ownedEquipment=state.ownedEquipment.includes(id)?state.ownedEquipment.filter(item=>item!==id):state.ownedEquipment.concat(id);state.equipmentConfigured=true;saveEquipment();renderEquipment();renderHome();renderGenerator()}
-function closeEquipment(markConfigured){if(markConfigured){state.equipmentConfigured=true;saveEquipment()}renderHome();renderGenerator();showScreen(generatorState.equipmentReturn==='home'?'home':'generator')}
+function closeEquipment(markConfigured){if(markConfigured){state.equipmentConfigured=true;saveEquipment()}renderHome();renderGenerator();if(generatorState.equipmentReturn==='coach'&&coachUI){coachUI.open();return}showScreen(generatorState.equipmentReturn==='home'?'home':'generator')}
 function getGeneratedHistory(){try{const value=JSON.parse(localStorage.getItem('gf_generator_history'));return Array.isArray(value)?value.slice(0,4):[]}catch(e){return []}}
 function generateWorkout(){
   generatorState.workout=GarageFitGenerator.generate({catalogue:CATALOGUE,duration:generatorState.duration,focus:generatorState.focus,bodyFocus:generatorState.bodyFocus,difficulty:generatorState.difficulty,equipment:state.ownedEquipment,history:getGeneratedHistory()});renderGeneratedPreview();showScreen('generatedPreview');
@@ -576,7 +635,7 @@ function resumeWorkoutClock(){if(!workoutState.running||!workoutState.paused)ret
 function stopWorkoutClock(){if(workoutState.running&&!workoutState.paused)workoutState.elapsedMs=currentWorkoutElapsedMs();clearInterval(workoutState.timer);workoutState.timer=null}
 function startWorkout(){startFixedWorkout('workout300')}
 function startFixedWorkout(workoutId){
-  const workout=FIXED_WORKOUTS[workoutId];if(!workout||!workout.exercises)return;beginInstructionSession();stopTimer();stopGeneratedPhaseTimer();stopWorkoutClock();state.running=false;state.doneDestination='workouts';workoutState={mode:'fixed',workout,idx:0,round:1,completedRounds:0,additionalReps:0,history:[],completed:workout.exercises.map(()=>false),elapsedMs:0,startedAt:Date.now(),timer:null,paused:false,running:true,expired:false,result:null};const player=document.getElementById('workoutPlayer');player.classList.remove('generated-player','rest-phase');document.getElementById('workoutPlayerTitle').textContent=workout.name;document.getElementById('generatedNext').classList.add('hidden');document.getElementById('doneStats').classList.add('hidden');document.getElementById('generatedDoneStats').classList.add('hidden');document.getElementById('amrapDoneStats').classList.add('hidden');document.getElementById('workoutPauseBtn').disabled=false;document.getElementById('completeMovementBtn').disabled=false;document.querySelector('#workoutPlayer .progress-label span:first-child').textContent=isAmrapWorkout()?'Time progress':'Total progress';document.getElementById('previousWorkoutBtn').querySelector('.previous-copy span').textContent='Previous movement';const track=document.getElementById('workoutProgressTrack'),totalFixedReps=workout.exercises.reduce((total,exercise)=>total+exercise.reps,0)*(workout.termination.rounds||1);track.setAttribute('aria-valuemax',isAmrapWorkout()?String(workout.termination.durationSeconds):String(totalFixedReps));showScreen('workoutPlayer');renderWorkout();startWorkoutClock();requestWake();beep(880);const first=fixedWorkoutExercises(workout)[0];announceExercise(first,workout.name+'. '+first.reps+' '+first.name+'. Go.');
+  const workout=FIXED_WORKOUTS[workoutId];if(!workout||!workout.exercises)return;document.getElementById('coachAnchorLog').classList.add('hidden');document.getElementById('coachSkipBtn').classList.add('hidden');document.getElementById('coachPlayerError').textContent='';beginInstructionSession();stopTimer();stopGeneratedPhaseTimer();stopWorkoutClock();state.running=false;state.doneDestination='workouts';workoutState={mode:'fixed',workout,idx:0,round:1,completedRounds:0,additionalReps:0,history:[],completed:workout.exercises.map(()=>false),elapsedMs:0,startedAt:Date.now(),timer:null,paused:false,running:true,expired:false,result:null};const player=document.getElementById('workoutPlayer');player.classList.remove('generated-player','rest-phase');document.getElementById('workoutPlayerTitle').textContent=workout.name;document.getElementById('generatedNext').classList.add('hidden');document.getElementById('doneStats').classList.add('hidden');document.getElementById('generatedDoneStats').classList.add('hidden');document.getElementById('amrapDoneStats').classList.add('hidden');document.getElementById('workoutPauseBtn').disabled=false;document.getElementById('completeMovementBtn').disabled=false;document.querySelector('#workoutPlayer .progress-label span:first-child').textContent=isAmrapWorkout()?'Time progress':'Total progress';document.getElementById('previousWorkoutBtn').querySelector('.previous-copy span').textContent='Previous movement';const track=document.getElementById('workoutProgressTrack'),totalFixedReps=workout.exercises.reduce((total,exercise)=>total+exercise.reps,0)*(workout.termination.rounds||1);track.setAttribute('aria-valuemax',isAmrapWorkout()?String(workout.termination.durationSeconds):String(totalFixedReps));showScreen('workoutPlayer');renderWorkout();startWorkoutClock();requestWake();beep(880);const first=fixedWorkoutExercises(workout)[0];announceExercise(first,workout.name+'. '+first.reps+' '+first.name+'. Go.');
 }
 function activeFixedExercises(){return fixedWorkoutExercises(workoutState.workout||FIXED_WORKOUTS.workout300)}
 function repsPerFixedRound(){return activeFixedExercises().reduce((total,ex)=>total+ex.reps,0)}
@@ -594,7 +653,7 @@ function updateWorkoutPauseUI(){
 }
 function toggleWorkoutPause(){workoutState.paused?resumeWorkoutClock():pauseWorkoutClock();if(workoutState.mode==='generated')renderGeneratedPhase()}
 function completeWorkoutMovement(){
-  if(workoutState.mode==='generated'){generatedPrimaryAction();return}
+  if(workoutState.mode==='generated')return generatedPrimaryAction();
   if(!workoutState.running||workoutState.paused)return;const exercises=activeFixedExercises(),index=workoutState.idx,ex=exercises[index];workoutState.history.push({idx:index,round:workoutState.round,completedRounds:workoutState.completedRounds,additionalReps:workoutState.additionalReps,completed:workoutState.completed.slice()});
   if(isAmrapWorkout()){
     workoutState.additionalReps+=ex.reps;if(index===exercises.length-1){workoutState.completedRounds++;workoutState.additionalReps=0;workoutState.round++;workoutState.idx=0}else workoutState.idx++;if(amrapRemainingMs()<=0){expireAmrap(false);return}playCompletionChime();renderWorkout();const next=exercises[workoutState.idx];announceExercise(next,'Round '+workoutState.round+'. '+next.name+'. '+next.reps+' reps');return
@@ -602,7 +661,7 @@ function completeWorkoutMovement(){
   workoutState.completed[index]=true;if(index===exercises.length-1){if(workoutState.round>=workoutState.workout.termination.rounds){finishWorkout();return}workoutState.round++;workoutState.idx=0;workoutState.completed=exercises.map(()=>false)}else workoutState.idx++;playCompletionChime();renderWorkout();const next=exercises[workoutState.idx];announceExercise(next,next.name+'. '+next.reps+' reps'+(next.note?'. '+next.note:''));
 }
 function previousWorkoutMovement(){
-  if(workoutState.mode==='generated'){previousGeneratedPhase();return}
+  if(workoutState.mode==='generated')return previousGeneratedPhase();
   if(!workoutState.running||!workoutState.history.length)return;const prior=workoutState.history.pop();workoutState.idx=prior.idx;workoutState.round=prior.round;workoutState.completedRounds=prior.completedRounds;workoutState.additionalReps=prior.additionalReps;workoutState.completed=prior.completed;renderWorkout();const ex=activeFixedExercises()[workoutState.idx];announceExercise(ex,ex.name+'. '+ex.reps+' reps'+(ex.note?'. '+ex.note:''));
 }
 function finishWorkout(){
@@ -625,7 +684,8 @@ function makeGeneratedExercisePhases(exercise,section,round,exerciseIndex,metada
   return sides.map(side=>{const phase=Object.assign({kind:'exercise',section,exercise,round,exerciseIndex,side,timed,seconds:Number.isFinite(intervalSeconds)?intervalSeconds:(timed?exercise.prescription.value:null)},metadata);phase.occurrenceId=GarageFitSessionTracker.occurrenceIdFor(phase);return phase});
 }
 function appendBlockTimeline(timeline,block,blockIndex,totalBlocks){
-  const meta={blockIndex,totalBlocks,protocol:block.protocol};
+  const conditions={...block.prescription};delete conditions.rounds;delete conditions.sets;delete conditions.cycles;
+  const meta={blockIndex,totalBlocks,protocol:block.protocol,protocolConditions:conditions};
   GarageFitGenerator.resolveBlockSteps(block).forEach(step=>{
     if(step.kind==='exercise'){
       const exercise=block.exercises[step.exerciseIndex],stepMeta=Object.assign({},meta,{set:step.set,cycle:step.cycle});
@@ -653,7 +713,7 @@ function buildGeneratedTimeline(workout){
 function startGeneratedWorkout(tracking){
   if(!generatorState.workout)return;beginInstructionSession();generatorState.workout=GarageFitGenerator.normaliseWorkout(generatorState.workout);stopTimer();stopGeneratedPhaseTimer();stopWorkoutClock();state.running=false;state.doneDestination='generator';workoutState={mode:'generated',idx:0,completed:[],elapsedMs:0,startedAt:Date.now(),timer:null,paused:false,running:true};generatorState.timeline=buildGeneratedTimeline(generatorState.workout);startGeneratedTracking(tracking);generatorState.timelineIndex=0;generatorState.remaining=0;generatorState.completedMain=0;const player=document.getElementById('workoutPlayer');player.classList.add('generated-player');document.getElementById('workoutPlayerTitle').textContent=FOCUS_LABELS[generatorState.workout.focus]+' · '+generatorState.workout.duration+' min';document.getElementById('generatedNext').classList.remove('hidden');document.getElementById('doneStats').classList.add('hidden');document.getElementById('generatedDoneStats').classList.add('hidden');document.getElementById('amrapDoneStats').classList.add('hidden');showScreen('workoutPlayer');startWorkoutClock();requestWake();enterGeneratedPhase(0);speak('Get ready. '+generatorState.workout.warmup.exercises[0].name);
 }
-function startGeneratedTracking(tracking){generatorState.tracker=null;generatorState.trackedResult=null;generatorState.trackerError=null;if(!tracking)return;const tracker=GarageFitSessionTracker.createTracker(Object.assign({workoutId:generatorState.workout.id,plannedWork:GarageFitSessionTracker.plannedWorkFromTimeline(generatorState.timeline,tracking)},tracking));generatorState.tracker=tracker;trackGenerated(()=>tracker.start())}
+function startGeneratedTracking(tracking){generatorState.tracker=null;generatorState.trackedResult=null;generatorState.trackerError=null;if(!tracking)return;if(tracking.tracker){generatorState.tracker=tracking.tracker;return}const tracker=GarageFitSessionTracker.createTracker(Object.assign({workoutId:generatorState.workout.id,plannedWork:GarageFitSessionTracker.plannedWorkFromTimeline(generatorState.timeline,tracking)},tracking));generatorState.tracker=tracker;trackGenerated(()=>tracker.start())}
 // Tracking never interrupts playback: failures are kept for the tracked context to inspect.
 function trackGenerated(action){try{const write=action();if(write&&write.catch)write.catch(error=>{generatorState.trackerError=error});return write}catch(error){generatorState.trackerError=error;return null}}
 // Record the current exercise occurrence's outcome before the timeline moves on. Timed work is
@@ -662,7 +722,7 @@ function recordGeneratedOutcome(action){const tracker=generatorState.tracker,pha
 function finishGeneratedTracking(kind){const tracker=generatorState.tracker;if(!tracker||!tracker.started||tracker.finalised||generatorState.trackedResult)return null;const options={actualDurationSeconds:Math.floor(currentWorkoutElapsedMs()/1000)};generatorState.trackedResult=trackGenerated(()=>kind==='complete'?tracker.complete(options):tracker.exitEarly(options));return generatorState.trackedResult}
 function currentGeneratedPhase(){return generatorState.timeline[generatorState.timelineIndex]}
 function stopGeneratedPhaseTimer(){clearInterval(generatorState.phaseTimer);generatorState.phaseTimer=null}
-function startGeneratedCountdown(seconds){stopGeneratedPhaseTimer();const phase=currentGeneratedPhase();generatorState.remaining=seconds;generatorState.cueTracker=GarageFitTimedCues.createTracker(phase&&phase.kind==='exercise'?phase.exercise.timedCues:[],seconds);renderGeneratedCountdown();generatorState.phaseTimer=setInterval(()=>{if(workoutState.paused)return;generatorState.remaining--;renderGeneratedCountdown();showDueTimedCues(generatorState.cueTracker,seconds-generatorState.remaining,'workoutTimedCue');if(generatorState.remaining<=0){stopGeneratedPhaseTimer();recordGeneratedOutcome('timer');advanceGeneratedPhase()}},1000)}
+function startGeneratedCountdown(seconds){stopGeneratedPhaseTimer();const phase=currentGeneratedPhase();generatorState.remaining=seconds;generatorState.cueTracker=GarageFitTimedCues.createTracker(phase&&phase.kind==='exercise'?phase.exercise.timedCues:[],seconds);renderGeneratedCountdown();generatorState.phaseTimer=setInterval(()=>{if(workoutState.paused)return;generatorState.remaining--;renderGeneratedCountdown();showDueTimedCues(generatorState.cueTracker,seconds-generatorState.remaining,'workoutTimedCue');if(generatorState.remaining<=0){stopGeneratedPhaseTimer();if(isCoachPlayer())coachAdvance('timer');else{recordGeneratedOutcome('timer');advanceGeneratedPhase()}}},1000)}
 function renderGeneratedCountdown(){const phase=currentGeneratedPhase();if(!phase)return;if(phase.timed||['ready','rest','round-rest','set-rest','set-change','interval-rest','block-transition','transition'].includes(phase.kind))document.getElementById('workoutTarget').textContent=Math.max(0,generatorState.remaining)}
 function enterGeneratedPhase(index){
   stopGeneratedPhaseTimer();generatorState.cueTracker=null;clearTimedCue('workoutTimedCue');const previousIndex=generatorState.timelineIndex;if(GarageFitCompletionSignal.shouldSignalUnitComplete(previousIndex,index))playCompletionChime();generatorState.timelineIndex=index;if(index>=generatorState.timeline.length){finishGeneratedWorkout();return}const phase=currentGeneratedPhase();renderGeneratedPhase();if(phase.seconds!==null&&phase.seconds!==undefined)startGeneratedCountdown(phase.seconds);
@@ -686,7 +746,7 @@ function generatedPhaseLabel(phase){
   if(phase.section==='cooldown')return 'Cool-down · Exercise '+(phase.exerciseIndex+1)+' of '+workout.cooldown.exercises.length;
   return 'Get ready';
 }
-function generatedLoadText(exercise){if(!exercise.load)return '';const usesDumbbells=(exercise.equipment||[]).some(group=>group.includes('dumbbells'));return exercise.load+(usesDumbbells?' dumbbells':'')}
+function generatedLoadText(exercise){const target=exercise.coachAnchor&&exercise.coachAnchor.plannedTarget;if(target&&target.suggestedLoad!=null)return target.suggestedLoad+' '+target.loadUnit+(target.loadInterpretation==='per-item'?' each':' total');if(!exercise.load)return '';const usesDumbbells=(exercise.equipment||[]).some(group=>group.includes('dumbbells'));return exercise.load+(usesDumbbells?' dumbbells':'')}
 function nextGeneratedExerciseIndex(){for(let i=generatorState.timelineIndex+1;i<generatorState.timeline.length;i++)if(generatorState.timeline[i].kind==='exercise')return i;return -1}
 function previousGeneratedExerciseIndex(){for(let i=generatorState.timelineIndex-1;i>=0;i--)if(generatorState.timeline[i].kind==='exercise')return i;return -1}
 function renderGeneratedPhase(){
@@ -705,26 +765,62 @@ function renderGeneratedPhase(){
   }else if(phase.kind==='transition'){
     name.textContent=phase.label;target.textContent=String(generatorState.remaining||phase.seconds);next.textContent=phase.nextExercise?'NEXT · '+phase.nextExercise.name:'';primary.textContent='Skip';
   }else{name.textContent='Get ready';target.textContent=String(generatorState.remaining||phase.seconds);next.textContent='First up · '+generatorState.workout.warmup.exercises[0].name;primary.textContent='Skip'}
-  document.getElementById('workoutPausedState').textContent=workoutState.paused?'Paused':'';primary.disabled=workoutState.paused;document.getElementById('workoutPauseBtn').textContent=workoutState.paused?'Resume':'Pause';previousButton.disabled=previousIndex<0;document.getElementById('previousWorkoutName').textContent=previousIndex<0?'None yet':generatorState.timeline[previousIndex].exercise.name;previousButton.querySelector('.previous-copy span').textContent='Previous';const percent=Math.round(generatorState.timelineIndex/Math.max(1,generatorState.timeline.length)*100);document.getElementById('workoutProgressPercent').textContent=percent+'%';const track=document.getElementById('workoutProgressTrack');track.setAttribute('aria-valuemin','0');track.setAttribute('aria-valuemax',String(generatorState.timeline.length));track.setAttribute('aria-valuenow',String(generatorState.timelineIndex));document.getElementById('workoutProgressFill').style.width=percent+'%';document.querySelector('#workoutPlayer .progress-label span:first-child').textContent='Session progress';
+  document.getElementById('workoutPausedState').textContent=workoutState.paused?'Paused':'';primary.disabled=workoutState.paused;document.getElementById('workoutPauseBtn').textContent=workoutState.paused?'Resume':'Pause';previousButton.disabled=previousIndex<0;document.getElementById('previousWorkoutName').textContent=previousIndex<0?'None yet':generatorState.timeline[previousIndex].exercise.name;previousButton.querySelector('.previous-copy span').textContent='Previous';const percent=Math.round(generatorState.timelineIndex/Math.max(1,generatorState.timeline.length)*100);document.getElementById('workoutProgressPercent').textContent=percent+'%';const track=document.getElementById('workoutProgressTrack');track.setAttribute('aria-valuemin','0');track.setAttribute('aria-valuemax',String(generatorState.timeline.length));track.setAttribute('aria-valuenow',String(generatorState.timelineIndex));document.getElementById('workoutProgressFill').style.width=percent+'%';document.querySelector('#workoutPlayer .progress-label span:first-child').textContent='Session progress';if(coachUI)coachUI.renderAnchor(phase,generatorState.tracker);
 }
-function generatedPrimaryAction(){if(!workoutState.running||workoutState.paused)return;recordGeneratedOutcome(currentGeneratedPhase()&&currentGeneratedPhase().timed?'skip':'done');advanceGeneratedPhase()}
+function generatedPrimaryAction(){if(!workoutState.running||workoutState.paused)return;if(isCoachPlayer())return coachAdvance(currentGeneratedPhase()&&currentGeneratedPhase().timed?'skip':'done');recordGeneratedOutcome(currentGeneratedPhase()&&currentGeneratedPhase().timed?'skip':'done');advanceGeneratedPhase()}
 function advanceGeneratedPhase(){const phase=currentGeneratedPhase();if(phase&&phase.kind==='exercise'&&phase.section==='main')generatorState.completedMain++;enterGeneratedPhase(generatorState.timelineIndex+1)}
-function previousGeneratedPhase(){const index=previousGeneratedExerciseIndex();if(index<0)return;enterGeneratedPhase(index)}
+function previousGeneratedPhase(){const index=previousGeneratedExerciseIndex();if(index<0)return;if(isCoachPlayer())return coachPrevious(index);enterGeneratedPhase(index)}
 function finishGeneratedWorkout(){
+  if(isCoachPlayer()){coachUI.showEnd('complete',Math.floor(currentWorkoutElapsedMs()/1000));return}
   stopGeneratedPhaseTimer();workoutState.elapsedMs=currentWorkoutElapsedMs();workoutState.running=false;clearInterval(workoutState.timer);workoutState.timer=null;releaseWake();finishGeneratedTracking('complete');const workout=GarageFitGenerator.normaliseWorkout(generatorState.workout),blocks=workout.main.blocks,elapsedSeconds=Math.max(1,Math.floor(workoutState.elapsedMs/1000));try{const history=getGeneratedHistory();history.unshift([...new Set(blocks.flatMap(block=>block.exercises.map(exercise=>exercise.id)))]);localStorage.setItem('gf_generator_history',JSON.stringify(history.slice(0,4)))}catch(e){}state.doneDestination='generator';document.getElementById('doneTitle').textContent='Done';document.getElementById('doneSub').textContent='Workout and cool-down complete.';document.getElementById('doneStats').classList.add('hidden');document.getElementById('generatedDoneTime').textContent=formatTime(elapsedSeconds);document.getElementById('generatedDoneRounds').textContent=blocks.length;document.getElementById('generatedDoneExercises').textContent=blocks.reduce((sum,block)=>sum+block.exercises.length,0);document.getElementById('generatedDoneStats').classList.remove('hidden');document.getElementById('amrapDoneStats').classList.add('hidden');document.getElementById('doneBest').classList.add('hidden');document.getElementById('doneBtn').textContent='Back to Generator';showScreen('done');speak('Workout complete. Nice work.');
 }
 
 function openExitDialog(type){
   if(type==='routine'&&!state.running||type==='workout'&&!workoutState.running)return;exitState.type=type;exitState.lastFocus=document.activeElement;exitState.wasPaused=type==='workout'?workoutState.paused:state.paused;
   if(type==='workout'&&!workoutState.paused)pauseWorkoutClock();if(type==='routine'&&!state.paused)togglePause();
-  const isWorkout=type==='workout';document.getElementById('exitDialogTitle').textContent=isWorkout?'Exit workout?':'Exit routine?';document.getElementById('exitDialogCopy').textContent=isWorkout?'Your current progress and elapsed time won’t be saved.':'Your current routine progress won’t be saved.';document.getElementById('exitDialog').classList.remove('hidden');setTimeout(()=>document.getElementById('stayBtn').focus(),0);
+  const isWorkout=type==='workout';document.getElementById('exitDialogTitle').textContent=isWorkout?'Exit workout?':'Exit routine?';document.getElementById('exitDialogCopy').textContent=isWorkout?'Your current progress and elapsed time won’t be saved.':'Your current routine progress won’t be saved.';if(type==='workout'&&isCoachPlayer())document.getElementById('exitDialogCopy').textContent='Your performed work will be saved. Add session feedback before leaving.';document.getElementById('exitDialog').classList.remove('hidden');setTimeout(()=>document.getElementById('stayBtn').focus(),0);
 }
 function closeExitDialog(){document.getElementById('exitDialog').classList.add('hidden')}
 function cancelExit(){const type=exitState.type,wasPaused=exitState.wasPaused,lastFocus=exitState.lastFocus;closeExitDialog();if(type==='workout'&&!wasPaused)resumeWorkoutClock();if(type==='routine'&&!wasPaused&&state.running&&state.paused)togglePause();exitState.type=null;if(lastFocus&&lastFocus.focus)lastFocus.focus()}
-function confirmExitChoice(){const type=exitState.type;closeExitDialog();exitState.type=null;if(type==='workout'&&workoutState.mode==='generated'){finishGeneratedTracking('exit');goGenerator()}else if(type==='workout'||state.doneDestination==='workouts')goWorkouts();else goHome()}
+function confirmExitChoice(){if(exitState.type==='workout'&&isCoachPlayer())return coachExit();const type=exitState.type;closeExitDialog();exitState.type=null;if(type==='workout'&&workoutState.mode==='generated'){finishGeneratedTracking('exit');goGenerator()}else if(type==='workout'||state.doneDestination==='workouts')goWorkouts();else goHome()}
 function handleModalBackdrop(event){if(event.target===document.getElementById('exitDialog'))cancelExit()}
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!document.getElementById('exitDialog').classList.contains('hidden'))cancelExit()});
+let coachUI=null,coachAdvancing=false;
+function isCoachPlayer(){return !!(coachUI&&coachUI.isActive()&&generatorState.tracker)}
+function coachPlayerTracker(){return generatorState.tracker}
+function stopCoachPlayer(){stopGeneratedPhaseTimer();stopWorkoutClock();workoutState.running=false;releaseWake();cancelSpeech()}
+async function coachAdvance(action){
+  if(coachAdvancing||!isCoachPlayer()||!workoutState.running||workoutState.paused)return;
+  coachAdvancing=true;document.getElementById('completeMovementBtn').disabled=true;document.getElementById('previousWorkoutBtn').disabled=true;document.getElementById('coachSkipBtn').disabled=true;
+  try{const phase=currentGeneratedPhase();stopGeneratedPhaseTimer();if(await coachUI.record(phase,generatorState.tracker,action,phase&&phase.seconds-Math.max(0,generatorState.remaining)))advanceGeneratedPhase()}
+  finally{coachAdvancing=false;document.getElementById('coachSkipBtn').disabled=false;if(workoutState.running)renderGeneratedPhase()}
+}
+async function coachPrevious(index){
+  if(coachAdvancing||workoutState.paused)return;coachAdvancing=true;
+  try{const phase=currentGeneratedPhase();stopGeneratedPhaseTimer();if(await coachUI.record(phase,generatorState.tracker,'skip',phase&&phase.seconds-Math.max(0,generatorState.remaining)))enterGeneratedPhase(index)}finally{coachAdvancing=false}
+}
+async function coachSkipRampup(){
+  if(coachAdvancing||workoutState.paused)return;coachAdvancing=true;stopGeneratedPhaseTimer();
+  try{
+    const phase=currentGeneratedPhase(),tracker=generatorState.tracker;
+    if(!await coachUI.record(phase,tracker,'skip',phase&&phase.seconds-Math.max(0,generatorState.remaining)))return;
+    for(let i=generatorState.timelineIndex+1;i<generatorState.timeline.length;i++){
+      const next=generatorState.timeline[i];
+      if(next.kind==='exercise'&&next.section==='main'){enterGeneratedPhase(i);return}
+      if(next.kind==='exercise'&&next.section==='rampup')await tracker.recordSkip(next.occurrenceId);
+    }
+  }catch(error){document.getElementById('coachPlayerError').textContent='Could not save. '+error.message+' Try again before leaving.'}finally{coachAdvancing=false}
+}
+async function coachExit(){
+  if(coachAdvancing)return;coachAdvancing=true;
+  try{const phase=currentGeneratedPhase();stopGeneratedPhaseTimer();if(phase&&phase.kind==='exercise'&&phase.timed){if(!await coachUI.record(phase,generatorState.tracker,'skip',phase.seconds-Math.max(0,generatorState.remaining)))return}closeExitDialog();exitState.type=null;coachUI.showEnd('exit',Math.floor(currentWorkoutElapsedMs()/1000))}finally{coachAdvancing=false}
+}
 loadEquipment();
+if(typeof GarageFitCoachUI!=='undefined'){
+  coachUI=GarageFitCoachUI.mount({catalogue:CATALOGUE,equipment:EQUIPMENT,getEquipment:()=>state.ownedEquipment,buildTimeline:workout=>buildGeneratedTimeline(workout),showScreen,stopPlayer:stopCoachPlayer,
+    play:(workout,tracker)=>{generatorState.workout=workout;startGeneratedWorkout({tracker});state.doneDestination='coach';document.getElementById('workoutPlayerTitle').textContent='Coach · '+workout.duration+' min'}});
+  coachUI.init();
+}
 </script>
 </body>
 </html>

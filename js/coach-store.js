@@ -185,6 +185,14 @@
       // missing record is reported in errors rather than hiding every other result.
       async listSessionResults() {
         const index = readIndexOrRecover();
+        // A quota failure can leave a valid immutable result written before its
+        // index entry. Include such evidence on reload so it can still be applied.
+        if (!index.recovered && typeof storage.key === 'function' && Number.isInteger(storage.length)) {
+          const recovered = recoverIndex();
+          const indexedKeys = new Set(index.ids.map(sessionResultKey));
+          index.errors.push(...recovered.errors.filter(error => !indexedKeys.has(error.details && error.details.key)));
+          recovered.ids.forEach(id => { if (!index.ids.includes(id)) index.ids.push(id); });
+        }
         const results = [], errors = index.errors.slice();
         index.ids.forEach(sessionResultId => {
           try {

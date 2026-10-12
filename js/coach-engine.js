@@ -43,6 +43,13 @@
         assessment.conflicts.push(...(generatorAssessment.hardConflicts || []));
         assessment.status = assessment.conflicts.length ? 'infeasible' : generatorAssessment.status;
         if (assessSessionPrescription) assessment.generatorAssessment = clone(generatorAssessment);
+        if (def.supportedDurations && !input.duration && assessment.status !== 'infeasible') {
+          assessment.durationAssessments = def.supportedDurations.map(duration => ({duration,
+            assessment: clone(preflight(Model.createSessionPrescription({...assessment.prescription, duration})))}));
+          assessment.durationAssessments.forEach(item => assessment.conflicts.push(...(item.assessment.hardConflicts || []).map(conflict => ({...conflict, duration: item.duration}))));
+          if (assessment.conflicts.length) assessment.status = 'infeasible';
+          else if (assessment.durationAssessments.some(item => item.assessment.status === 'partially-feasible')) assessment.status = 'partially-feasible';
+        }
       }
       return assessment;
     }
@@ -55,7 +62,7 @@
         programmeDefinitionId: def.id, programmeDefinitionVersion: def.version,
         status: 'active', mode: 'development', startedAt: now, nominalProgress: 0, meaningfulSessionsCompleted: 0,
         anchors: [], currentTargets: {}, recentSessionSummaries: [], recentOverrides: [], recentSubstitutions: [], lastAppliedSessionResultId: null});
-      const additions = policy.initialiseState({definition: def, catalogue: exercises, context: input, assessment: snapshot(assessment), state: snapshot(state)});
+      const additions = policy.initialiseState({definition: def, catalogue: exercises, context: snapshot({...input, now}), assessment: snapshot(assessment), state: snapshot(state)});
       // Identity, lifecycle and reconciliation are engine-owned, never policy additions.
       state.anchors = clone(additions.anchors || []);
       state.currentTargets = clone(additions.currentTargets || {});
@@ -73,7 +80,15 @@
       if (state.status !== 'active') throw new Error('Only an active programme can plan a session.');
       const today = snapshot(todayContext);
       if (!today.now) throw new Error('Planning needs an explicit todayContext.now.');
-      const projected = snapshot(atTime(clone(state), today.now));
+      const sessionState = atTime(clone(state), today.now);
+      for (const [requirementId, exerciseId] of Object.entries(today.anchorSubstitutions || {})) {
+        if (!policy.anchorAlternatives || !policy.anchorAlternatives({definition: def, state: snapshot(sessionState), catalogue: exercises, context: today, requirementId}).includes(exerciseId)) throw new Error('Invalid Coach anchor substitute.');
+        const anchor = sessionState.anchors.find(item => item.requirementId === requirementId);
+        const requirement = def.anchorSelectionPolicy.requirements.find(item => item.requirementId === requirementId);
+        Object.assign(anchor, {exerciseId, currentTarget: clone(requirement), comparisonBaseline: null});
+        if (sessionState.currentTargets && sessionState.currentTargets.anchorTargets) delete sessionState.currentTargets.anchorTargets[requirementId];
+      }
+      const projected = snapshot(sessionState);
       const history = History.createHistory(trainingHistory, exercises);
       const base = {definition: def, catalogue: exercises, state: projected, history, today};
       const mode = policy.getModeSettings ? snapshot(policy.getModeSettings(base)) : snapshot({});
@@ -94,6 +109,7 @@
         && (Date.parse(today.now) - Date.parse(last.endedAt || last.startedAt)) / 3600000 < minimumRecoveryHours) conflicts.push({code: 'recovery-interval'});
       const minimumDuration = def.feasibilityRequirements && def.feasibilityRequirements.minimumDurationMinutes;
       if (minimumDuration && prescription.duration < minimumDuration) conflicts.push({code: 'insufficient-duration'});
+      if (def.supportedDurations && !def.supportedDurations.includes(prescription.duration)) conflicts.push({code: 'unsupported-duration'});
       const assessment = preflight(prescription);
       conflicts.push(...(assessment.hardConflicts || []));
       return {status: conflicts.length ? 'infeasible' : assessment.status,
@@ -152,7 +168,33 @@
       if (state.status === 'completed') throw new Error('A completed programme cannot change lifecycle or mode.');
       return Model.createProgrammeState({...clone(state), [field]: value});
     }
+    function programmeReview(definition, state, now) {
+      policyFor(definition); validateState(definition, state);
+      const progress = atTime(clone(state), now).nominalProgress || 0;
+      const block = definition.openEnded ? 0 : Math.floor(progress / definition.nominalDurationDays);
+      const acknowledged = state.currentTargets && state.currentTargets.blockReview && state.currentTargets.blockReview.acknowledgedBlocks || 0;
+      const start = Date.parse(state.startedAt) + Math.max(0, block-1) * definition.nominalDurationDays * DAY;
+      const end = start + definition.nominalDurationDays * DAY;
+      const meaningfulSessions = (state.recentSessionSummaries || []).filter(item => item.meaningful && Date.parse(item.endedAt) >= start && Date.parse(item.endedAt) < end).length;
+      return {due: state.status === 'active' && block > acknowledged, block, nominalProgress: progress,
+        meaningfulSessions, targetMet: meaningfulSessions >= definition.completionCriteria.blockMeaningfulSessionTarget};
+    }
+    function acknowledgeBlockReview(definition, state, now) {
+      if (state.status === 'completed') throw new Error('A completed programme cannot acknowledge a block review.');
+      const review = programmeReview(definition, state, now);
+      const next = atTime(clone(state), now);
+      next.currentTargets = next.currentTargets || {};
+      next.currentTargets.blockReview = {acknowledgedBlocks: review.block, acknowledgedAt: now};
+      return Model.assertValid('programme-state', next);
+    }
+    function getAnchorAlternatives(definition, state, context, requirementId) {
+      const policy = policyFor(definition); validateState(definition, state);
+      return policy.anchorAlternatives ? clone(policy.anchorAlternatives({definition: snapshot(definition), state: snapshot(state),
+        catalogue: exercises, context: snapshot(context), requirementId})) : [];
+    }
     return Object.freeze({assessProgrammeFeasibility, startProgramme, planNextSession, applySessionResult,
+      programmeReview, acknowledgeBlockReview, getAnchorAlternatives,
+      finishProgramme: state => transition(state, 'status', 'completed'),
       pauseProgramme: state => transition(state, 'status', 'paused'), resumeProgramme: state => transition(state, 'status', 'active'),
       enterMaintenanceMode: state => transition(state, 'mode', 'maintenance'), exitMaintenanceMode: state => transition(state, 'mode', 'development')});
   }

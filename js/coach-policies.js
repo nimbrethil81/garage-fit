@@ -12,7 +12,7 @@
       register(type, policy) {
         if (typeof type !== 'string' || !type.trim() || policies.has(type)) throw new Error('Policy types must be non-empty and registered once.');
         requiredHooks.forEach(name => { if (!policy || typeof policy[name] !== 'function') throw new Error('Policy must implement '+name+'.'); });
-        optionalHooks.forEach(name => { if (policy[name] !== undefined && typeof policy[name] !== 'function') throw new Error('Invalid policy hook '+name+'.'); });
+        [...optionalHooks, 'anchorAlternatives'].forEach(name => { if (policy[name] !== undefined && typeof policy[name] !== 'function') throw new Error('Invalid policy hook '+name+'.'); });
         policies.set(type, Object.freeze({...policy}));
         return registry;
       },
@@ -61,7 +61,7 @@
       if (!Model.WORKOUT_BODY_FOCUSES.includes(region)) throw new Error('Unknown body region.');
       positive(value, 'body-region target');
     });
-    positive(definition.doseTargets && definition.doseTargets.meaningfulExposure, 'meaningful performed exposure');
+    if (!definition.doseTargets || definition.doseTargets.meaningfulRule !== 'any-performed-main-work') positive(definition.doseTargets && definition.doseTargets.meaningfulExposure, 'meaningful performed exposure');
     if (!Array.isArray(definition.doseTargets.sections) || !definition.doseTargets.sections.length
       || definition.doseTargets.sections.some(section => typeof section !== 'string' || !section)) throw new Error('Dose needs explicit eligible sections.');
     const requirements = definition.anchorSelectionPolicy && definition.anchorSelectionPolicy.requirements;
@@ -102,6 +102,10 @@
     if (!maintenance || typeof maintenance.allowProgression !== 'boolean' || typeof maintenance.keepAccessories !== 'boolean') throw new Error('Explicit maintenance policy required.');
     frequency(maintenance.frequency);
     positive(maintenance.coverageMultiplier, 'maintenance coverage multiplier');
+    if (maintenance.maximumDurationMinutes !== undefined) {
+      positive(maintenance.maximumDurationMinutes, 'maintenance duration');
+      if (definition.supportedDurations && !definition.supportedDurations.includes(maintenance.maximumDurationMinutes)) throw new Error('Unsupported maintenance duration.');
+    }
     const overrides = maintenance.anchorTargetOverrides;
     if (!overrides || typeof overrides !== 'object') throw new Error('Explicit maintenance anchor targets required.');
     Object.keys(overrides).forEach(id => { if (!ids.has(id)) throw new Error('Unknown maintenance anchor requirement.'); });
@@ -112,6 +116,11 @@
     });
     const progression = definition.progressionPolicy;
     if (!progression) throw new Error('Explicit progression policy required.');
+    if (progression.strategy === 'double-progression') {
+      positive(progression.minReps, 'minimum reps'); positive(progression.maxReps, 'maximum reps');
+      positive(progression.repIncrement, 'rep increment');
+      if (progression.maxReps < progression.minReps) throw new Error('Invalid progression rep range.');
+    }
     ['minimumRepsImprovement','minimumLoadImprovement','minimumSecondsImprovement'].forEach(key => {
       if (progression[key] !== null) positive(progression[key], key);
     });
@@ -147,6 +156,17 @@
         && !(mode === 'reps' && protocol === 'timed_intervals'));
   }
 
+  function anchorEligible(definition, exercise, context, requirement) {
+    return eligible(exercise, context, requirement) && (!definition.anchorSelectionPolicy.strengthOnly
+      || exercise.mainRole === 'primary' && exercise.strength >= exercise.cardio && !exercise.conditioning);
+  }
+  function anchorAlternatives({definition, catalogue, context, state, requirementId}) {
+    const requirement = definition.anchorSelectionPolicy.requirements.find(item => item.requirementId === requirementId);
+    if (!requirement) throw new Error('Unknown anchor requirement.');
+    const today = {...definition.sessionTemplate, ...context, difficulty: context.easyToday ? 'easy' : context.difficulty || definition.sessionTemplate.difficulty};
+    return requirement.exerciseIds.filter(id => anchorEligible(definition, catalogue[id], today, requirement)
+      && !(state.anchors || []).some(anchor => anchor.requirementId !== requirementId && anchor.exerciseId === id));
+  }
   function assessFeasibility({definition, catalogue, context}) {
     context = {...definition.sessionTemplate, ...context, difficulty: context.easyToday ? 'easy' : context.difficulty || definition.sessionTemplate.difficulty};
     const conflicts = [], anchors = [], selected = context.anchorSelections || {}, used = new Set();
@@ -155,12 +175,13 @@
       if (!available.some(exercise => (exercise.patterns || []).includes(pattern))) conflicts.push({code: 'missing-pattern', pattern});
     }
     if ((context.duration || definition.sessionTemplate.duration) < definition.feasibilityRequirements.minimumDurationMinutes) conflicts.push({code: 'insufficient-duration'});
+    if (definition.supportedDurations && !definition.supportedDurations.includes(context.duration)) conflicts.push({code: 'unsupported-duration'});
     Object.keys(selected).forEach(requirementId => {
       if (!definition.anchorSelectionPolicy.requirements.some(item => item.requirementId === requirementId)) conflicts.push({code: 'unknown-anchor-selection', requirementId});
     });
     for (const requirement of definition.anchorSelectionPolicy.requirements) {
       const ids = selected[requirement.requirementId] ? [selected[requirement.requirementId]] : requirement.exerciseIds;
-      const exerciseId = ids.find(id => requirement.exerciseIds.includes(id) && !used.has(id) && eligible(catalogue[id], context, requirement));
+      const exerciseId = ids.find(id => requirement.exerciseIds.includes(id) && !used.has(id) && anchorEligible(definition, catalogue[id], context, requirement));
       if (!exerciseId) conflicts.push({code: 'anchor-unavailable', requirementId: requirement.requirementId, exerciseIds: ids.slice()});
       else { used.add(exerciseId); anchors.push({...clone(requirement), exerciseId}); }
     }
@@ -186,8 +207,9 @@
     }
     return {conflicts};
   }
-  function initialiseState({assessment}) {
-    return {anchors: clone(assessment.anchors), currentTargets: {anchorTargets: {}}};
+  function initialiseState({assessment, context}) {
+    return {anchors: assessment.anchors.map(anchor => ({...clone(anchor), selectedAt: context.now || null,
+      currentTarget: anchorRequest(anchor, anchor.exerciseId), comparisonBaseline: null, substitutionHistory: []})), currentTargets: {anchorTargets: {}}};
   }
 
   function calculatePriorities({definition, state, history, today, mode}) {
@@ -204,24 +226,29 @@
     }));
     return {movements, bodyRegions};
   }
-  function buildPrescription({definition, state, today, mode, priorities}) {
+  function buildPrescription({definition, state, today, mode, priorities, catalogue}) {
     const requiredAnchors = [], preferredAnchors = [];
     (state.anchors || []).forEach(anchor => {
       if (anchor.role === 'accessory' && !mode.keepAccessories && anchor.importance !== 'required') return;
-      const targets = {...((state.currentTargets || {}).anchorTargets || {})[anchor.requirementId], ...(mode.anchorTargetOverrides[anchor.requirementId] || {})};
+      const targets = {...anchor.currentTarget, ...((state.currentTargets || {}).anchorTargets || {})[anchor.requirementId], ...(mode.anchorTargetOverrides[anchor.requirementId] || {})};
       const request = anchorRequest(anchor, anchor.exerciseId, targets);
       if (!mode.allowProgression) delete request.progressionIntent;
       (anchor.importance === 'required' ? requiredAnchors : preferredAnchors).push(request);
     });
     return root.GarageFitCoachModel.createSessionPrescription({
       ...clone(definition.sessionTemplate), prescriptionId: today.prescriptionId, programmeInstanceId: state.programmeInstanceId,
-      sessionRole: state.mode, duration: today.duration || definition.sessionTemplate.duration,
+      sessionRole: state.mode, duration: Math.min(today.duration || definition.sessionTemplate.duration, mode.maximumDurationMinutes || Infinity),
       equipment: clone(today.equipment || []),
       difficulty: today.easyToday ? 'easy' : definition.sessionTemplate.difficulty,
       bodyFocus: today.bodyFocus || definition.sessionTemplate.bodyFocus,
       requiredAnchors, preferredAnchors,
       movementPriorities: priorities.movements.map(({requirementId, pattern, priority}) => ({requirementId, pattern, priority})),
       bodyRegionPriorities: clone(priorities.bodyRegions),
+      ...(!mode.keepAccessories && catalogue ? {avoidConstraints: [
+        ...(definition.sessionTemplate.avoidConstraints || []),
+        ...Object.values(catalogue).filter(exercise => exercise.mainRole === 'supporting')
+          .map(exercise => ({requirementId: 'maintenance-support-'+exercise.id, importance: 'soft', exerciseId: exercise.id}))
+      ]} : {}),
       programmeContext: {objective: definition.objective, mode: state.mode, frequency: mode.frequency,
         essentialConstraints: clone(definition.sequencingRules), nominalProgress: state.nominalProgress,
         overrides: [...(today.easyToday ? [{type: 'easy-today'}] : []), ...(today.bodyFocus ? [{type: 'body-focus', value: today.bodyFocus}] : []),
@@ -265,10 +292,69 @@
       item.patterns.forEach(pattern => { patterns[pattern] = (patterns[pattern] || 0) + credit; });
       if (item.bodyRegion) bodyRegions[item.bodyRegion] = (bodyRegions[item.bodyRegion] || 0) + credit;
     });
-    return {meaningful: exposure.value >= definition.doseTargets.meaningfulExposure, exposure, patterns, bodyRegions};
+    return {meaningful: definition.doseTargets.meaningfulRule === 'any-performed-main-work' ? exposure.value > 0 : exposure.value >= definition.doseTargets.meaningfulExposure, exposure, patterns, bodyRegions};
   }
 
-  function interpretProgression({definition, state, history, result, mode}) {
+  function doubleProgression({definition, state, evidence, result, mode, catalogue}) {
+    const History = root.GarageFitTrainingHistory, rule = definition.progressionPolicy;
+    return (state.anchors || []).map(original => {
+      const anchor = clone(original), at = result.endedAt || result.startedAt;
+      if (anchor.progression && Date.parse(anchor.progression.lastOccurredAt) > Date.parse(at)) return anchor;
+      const work = evidence.performances.filter(item => item.requirementId === anchor.requirementId && item.section === 'main');
+      if (!work.length) return anchor;
+      const substituted = work.filter(item => item.exerciseId !== anchor.exerciseId);
+      if (substituted.length) {
+        anchor.substitutionHistory = [...(anchor.substitutionHistory || []), {sessionResultId: result.sessionResultId,
+          exerciseId: substituted[0].exerciseId, occurredAt: at}];
+        anchor.latestSubstitution = {exerciseId: substituted[0].exerciseId, decision: 'new-exercise-series'};
+        return anchor;
+      }
+      let decision = 'hold';
+      const target = anchor.currentTarget || anchorRequest(anchor, anchor.exerciseId);
+      const reps = target.target.maxReps;
+      const expected = target.targetSets * (catalogue[anchor.exerciseId].sidedness === 'per-side' ? 2 : 1);
+      const planned = (result.plannedWork || []).filter(item => item.requirementId === anchor.requirementId && item.section === 'main');
+      const full = planned.length === expected && work.length === expected && work.every(item => item.status === 'completed' && item.sets.length === 1
+        && History.comparePerformances(item,item).comparable);
+      const sets = work.flatMap(item => item.sets);
+      const loadKnown = full && sets.every(set => set.reps.value !== null && set.load.value !== null && set.loadUnit && set.loadInterpretation);
+      const sameLoad = loadKnown && sets.every(set => set.load.value === sets[0].load.value && set.loadUnit === sets[0].loadUnit && set.loadInterpretation === sets[0].loadInterpretation);
+      const baseline = anchor.comparisonBaseline;
+      const compatible = !baseline || work.every(item => {
+        const previous = baseline.performances.find(prior => prior.side === item.side);
+        return previous && History.comparePerformances(previous, item).comparable;
+      });
+      if (!mode.allowProgression) decision = 'hold-maintenance';
+      else if ((result.overrides || []).some(item => item.type === 'easy-today')) decision = 'hold-easy-today';
+      else if (sameLoad && compatible) {
+        const load = sets[0].load.value, unit = sets[0].loadUnit, interpretation = sets[0].loadInterpretation;
+        const unchanged = !baseline || load === baseline.load && unit === baseline.loadUnit && interpretation === baseline.loadInterpretation;
+        const heavier = baseline && load > baseline.load && unit === baseline.loadUnit && interpretation === baseline.loadInterpretation;
+        const meets = sets.every(set => set.reps.value >= reps);
+        if (target.progressionIntent === 'Use the next heavier weight' && heavier && sets.every(set => set.reps.value >= rule.minReps)) {
+          target.target = {type: 'reps', minReps: rule.minReps, maxReps: rule.minReps};
+          target.progressionIntent = 'Heavier load confirmed; build reps again'; decision = 'reset-after-load';
+        } else if (unchanged && meets) {
+          if (reps < rule.maxReps) {
+            const next = Math.min(rule.maxReps, reps + rule.repIncrement);
+            target.target = {type: 'reps', minReps: next, maxReps: next};
+            target.progressionIntent = 'Try '+next+' reps at the confirmed load'; decision = 'add-rep';
+          } else { target.progressionIntent = 'Use the next heavier weight'; decision = 'suggest-load'; }
+        }
+        if (unchanged || decision === 'reset-after-load') {
+          anchor.comparisonBaseline = {load, loadUnit: unit, loadInterpretation: interpretation, performances: clone(work)};
+          Object.assign(target, {suggestedLoad: load, loadUnit: unit, loadInterpretation: interpretation});
+        }
+      } else if (!loadKnown) decision = 'hold-unknown-load';
+      anchor.currentTarget = target;
+      anchor.progression = {decision, lastSessionResultId: result.sessionResultId, lastOccurredAt: at};
+      return anchor;
+    });
+  }
+
+  function interpretProgression(input) {
+    const {definition, state, history, result, mode} = input;
+    if (definition.progressionPolicy.strategy === 'double-progression') return doubleProgression(input);
     const History = root.GarageFitTrainingHistory;
     return (state.anchors || []).map(anchor => {
       const occurredAt = result.endedAt || result.startedAt || null;
@@ -318,7 +404,7 @@
 
   const generalStrengthPolicy = Object.freeze({validateDefinition: validateStrengthDefinition, assessFeasibility, initialiseState,
     getModeSettings, assessPlannedSession, calculatePriorities, buildPrescription, reduceForShortSession, interpretDose, interpretProgression,
-    respondToMissedSessions, isComplete});
+    respondToMissedSessions, isComplete, anchorAlternatives});
   const createDefaultRegistry = () => createRegistry({'general-strength': generalStrengthPolicy});
   root.GarageFitCoachPolicies = {createRegistry, createDefaultRegistry, assertDefinition, generalStrengthPolicy, requiredHooks, optionalHooks};
 })(typeof window !== 'undefined' ? window : globalThis);

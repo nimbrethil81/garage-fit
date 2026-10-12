@@ -58,6 +58,7 @@
           reps: phase.timed ? null : (Number.isFinite(prescription.value) ? prescription.value : null),
           side: phase.side || null,
           protocol: phase.protocol || null,
+          ...(phase.protocolConditions ? {protocolConditions: clone(phase.protocolConditions)} : {}),
           round: Number.isInteger(phase.round) ? phase.round : null,
           set: Number.isInteger(phase.set) ? phase.set : null,
           cycle: Number.isInteger(phase.cycle) ? phase.cycle : null,
@@ -113,6 +114,7 @@
       workoutId: origin.workoutId,
       generatedAt: origin.generatedAt
     };
+    if (origin.overrides) link.overrides = clone(origin.overrides);
     Object.keys(link).forEach(key => { if (link[key] === undefined) delete link[key]; });
     const plannedWork = clone(resumed ? resumed.plannedWork || [] : options.plannedWork || []);
     const plannedById = new Map(plannedWork.map(planned => [planned.occurrenceId, planned]));
@@ -309,7 +311,7 @@
       recordSkip(occurrenceId) {
         requireStarted();
         planned(occurrenceId);
-        if (skipKeepsPerformed(occurrenceId)) return writes;
+        if (skipKeepsPerformed(occurrenceId)) return checkpoint();
         return setOutcome(occurrenceId, {status: 'skipped'});
       },
       // Partial needs genuine evidence: logged sets or a note describing what was done.
@@ -322,7 +324,7 @@
         requireStarted();
         planned(occurrenceId);
         const {status, actualSeconds} = timedOutcome(plannedSeconds, elapsedSeconds);
-        if (status === 'skipped' && skipKeepsPerformed(occurrenceId)) return writes;
+        if (status === 'skipped' && skipKeepsPerformed(occurrenceId)) return checkpoint();
         return setOutcome(occurrenceId, {status, sets: [{seconds: actualSeconds}]});
       },
       // Anchor confirmation: per-set actual reps/time and load as supplied. Anything not

@@ -14,11 +14,13 @@ Live: https://nimbrethil81.github.io/garage-fit/
 - `data/EXERCISE_METADATA.md` — meaning of every exercise field and how to author new exercises
 - `data/equipment.js` — equipment catalogue
 - `data/workouts.js` — fixed workouts
+- `data/programmes.js` — immutable, versioned production Coach definitions
 - `js/generator.js` — workout generation rules
 - `js/rampup-ui.js` — ramp-up UI
 - `js/coach-model.js`, `js/coach-store.js` — versioned Coach records and their local persistence
 - `js/session-tracker.js` — records what actually happened during a tracked generated workout
 - `js/coach-engine.js`, `js/coach-policies.js`, `js/training-history.js` — pure programme decisions, policy strategies and performed-training evidence
+- `js/coach-ui.js` — Coach screens and recoverable engine/store/generator/tracker orchestration
 - `tests/` — generator and UI regression tests
 
 ## Tests
@@ -91,6 +93,16 @@ Programme State, immutable Session Results and today's context. It produces a
 Session Prescription for the Generator and applies performed results idempotently.
 Policies own feasibility, priorities, progression, short sessions and maintenance.
 
-See [the Coach API and policy contract](docs/COACH_ENGINE.md). The General Strength
-strategy is exercised with test-only definitions; no production programme or Coach
-UI is supplied. Coach UI/UX design must precede implementation of issue #58.
+Coach is the fifth navigation destination. Its first programme is 4-Week General
+Strength: three stable squat/push/pull anchors, 2×6–10 double progression, and
+20/30/45-minute sessions. Anchor Done explicitly confirms the visible actual
+reps/load; blank values stay unknown. Temporary substitutes preserve the programme
+anchor and begin a separate performance series. Controlled early exit saves performed
+work, and interrupted drafts can be saved after reloading.
+
+The four-week review separates calendar position from performed evidence and offers
+Continue building, Maintenance or Finish. Maintenance retains the same instance and
+load history with one anchor set, 20-minute sessions and less supporting pressure.
+
+See [the Coach API and policy contract](docs/COACH_ENGINE.md) and
+[the production pilot verification](docs/COACH_PILOT.md).
