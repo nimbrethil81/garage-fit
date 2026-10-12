@@ -363,11 +363,17 @@ members of a class are not variants of each other.
 `frequency: 'occasional'` asks Main to use at most one member of the exercise's
 family per workout (farmer carries). It requires a `family`.
 
+A few families have the same Main cap as generator policy rather than metadata, because
+their equipment variants are interchangeable enough that two in one workout would be a
+repeat, not variety: `sumo-squat` (dumbbell and kettlebell sumo squat). The list is
+`MAIN_SINGLE_VARIANT_FAMILIES` in `js/generator.js`; it says nothing about how often the
+family should appear, so do not use `frequency` to obtain this.
+
 ### Phase policy (in `js/generator.js`)
 
 | Phase | Same family | Same repetition class |
 | --- | --- | --- |
-| Main | Hard cap of one per workout for `occasional` families, shared by generation and swaps. Recent use of a variant counts towards recency penalties. | Soft score penalty when the immediately preceding Main exercise shares it; never an exclusion. |
+| Main | Hard cap of one per workout for `occasional` and single-variant families, shared by generation, Coach Session Prescriptions (two required anchors from one capped family are a hard conflict) and swaps. Recent use of a variant counts towards recency penalties. | Soft score penalty when the immediately preceding Main exercise shares it; never an exclusion. |
 | Warm-up | Never two members. | — |
 | Ramp-up | Avoided (soft-mandatory) against earlier Ramp-up and Warm-up picks, including in swaps. | Soft score penalty against Warm-up and earlier Ramp-up picks. |
 | Cool-down | Never two members. | — |
