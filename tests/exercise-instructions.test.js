@@ -44,6 +44,31 @@ test('reviewed kettlebell movements and separated stretches have clear instructi
   assert.equal(vm.runInContext("CATALOGUE['trx-glute-standing'].name",context),'TRX glute stretch');
 });
 
+test("Runner's stretch is the plank-based lunge stretch in the Library and per-side player", () => {
+  const { context, el }=setup();
+  const stretch=context.GarageFitData.exercises['runners-stretch'];
+  assert.equal(stretch.name,"Runner's stretch");
+  assert.equal(stretch.bodyPosition,'floor');
+  assert.equal(stretch.sidedness,'per-side');
+  assert.deepEqual(JSON.parse(JSON.stringify(stretch.prescription)),{type:'unilateral-timed',value:15});
+  assert.equal(stretch.estimatedSeconds,30);
+  assert.match(stretch.instruction,/straight-arm plank.*foot outside the hand on that side.*back leg extended.*return to plank.*other side/);
+  assert.doesNotMatch(stretch.instruction,/wall|calf/);
+  context.openExerciseDetail(stretch.id);
+  assert.equal(el('libraryDetailName').textContent,"Runner's stretch");
+  assert.equal(el('libraryDetailInstruction').textContent,stretch.instruction);
+  context.startRoutine('cooldown','bodyweight');
+  const steps=vm.runInContext('state.list',context),names=[];
+  for(let i=0;i<steps.length;i++)if(steps[i].id===stretch.id){
+    vm.runInContext(`state.idx=${i}`,context);context.enterWork();
+    names.push(el('exerciseName').textContent);
+    assert.equal(el('routineInstructionText').textContent,stretch.instruction);
+  }
+  assert.deepEqual(names,["Runner's stretch - Right","Runner's stretch - Left"]);
+  const phases=context.makeGeneratedExercisePhases(stretch,'cooldown',null,0);
+  assert.deepEqual(Array.from(phases,phase=>[phase.side,phase.seconds]),[['right',15],['left',15]]);
+});
+
 test('generated preview adds a collapsed disclosure for familiar and complex exercises', () => {
   const { context, el } = setup();
   vm.runInContext("generatorState.workout=GarageFitGenerator.generate({catalogue:CATALOGUE,duration:10,focus:'balanced',equipment:['trx'],random:()=>0.4});generatorState.workout.main.blocks[0].exercises[0]=CATALOGUE['trx-knee-tuck'];generatorState.workout.main.blocks[0].exercises[1]=CATALOGUE['air-squat']",context);

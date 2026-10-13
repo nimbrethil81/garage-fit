@@ -69,14 +69,14 @@ test('the downshift is a brief timed recovery step of roughly 30-60 seconds', ()
 });
 
 const EXPECTED_STRETCH_PAIRS = [
-  ['runners-stretch', 'Standing calf stretch'],
+  ['runners-stretch', "Runner's stretch"],
   ['standing-quads', 'Standing quad stretch'],
   ['hip-flexor-arm-stretch', 'Hip-flexor lunge stretch'],
   ['kneeling-hamstring', 'Hamstring stretch'],
   ['glute-stretch', 'Figure-four / glute stretch']
 ];
 
-test('calf, quad, hip-flexor, hamstring and glute stretches are all included for both sides, once each', () => {
+test('runner, quad, hip-flexor, hamstring and glute stretches are all included for both sides, once each', () => {
   for (const [id] of EXPECTED_STRETCH_PAIRS) {
     const entries = workout.exercises.filter(exercise => exercise.id === id);
     assert.equal(entries.length, 2, id + ' should appear exactly twice (left and right)');
@@ -240,9 +240,9 @@ test('playback moves through the timed sequence linearly with no looping or roun
   tick(intervals, vm.runInContext('state.timer', context), 45);
   tick(intervals, vm.runInContext('state.timer', context), 8);
 
-  assert.equal(elements.exerciseName.textContent, 'Standing calf stretch - Left');
+  assert.equal(elements.exerciseName.textContent, "Runner's stretch - Left");
   tick(intervals, vm.runInContext('state.timer', context), 30); // no transition delay between left/right sides
-  assert.equal(elements.exerciseName.textContent, 'Standing calf stretch - Right');
+  assert.equal(elements.exerciseName.textContent, "Runner's stretch - Right");
 
   // Verify the whole sequence visits each remaining name exactly once, ending on the chest opener.
   const remainingNames = [
