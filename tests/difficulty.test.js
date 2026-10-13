@@ -44,11 +44,11 @@ test('difficulty is validated and required when authoring generated exercises', 
   const copy = JSON.parse(JSON.stringify(catalogue));
   copy['push-up'].difficulty = 'normal';
   assert.ok(G.validateCatalogue(copy).includes('push-up: invalid difficulty "normal"'));
-  const definition = { id:'unrated', name:'Unrated', generator:true, main:true, prescription:{ type:'timed', value:30 },
+  const definition = { instruction:catalogue.plank.instruction, id:'unrated', name:'Unrated', generator:true, main:true, prescription:{ type:'timed', value:30 },
     patterns:['core'], conditioning:false, strength:2, cardio:2, bodyFocus:'core' };
   assert.throws(() => GarageFitData.buildExerciseCatalogue([definition]), /unrated: generated Main and Ramp-up exercises must declare difficulty/);
   assert.equal(GarageFitData.buildExerciseCatalogue([Object.assign({ difficulty:'easy' }, definition)]).unrated.difficulty, 'easy');
-  assert.equal(GarageFitData.buildExerciseCatalogue([{ id:'fixed-only', name:'Fixed only', main:true, prescription:{ type:'timed', value:30 } }])['fixed-only'].difficulty, null);
+  assert.equal(GarageFitData.buildExerciseCatalogue([{ id:'fixed-only', name:'Fixed only', instruction:catalogue.plank.instruction, main:true, prescription:{ type:'timed', value:30 } }])['fixed-only'].difficulty, null);
 });
 
 // ---- Workout option ----

@@ -246,9 +246,9 @@ test('playback moves through the timed sequence linearly with no looping or roun
 
   // Verify the whole sequence visits each remaining name exactly once, ending on the chest opener.
   const remainingNames = [
-    'Standing quad stretch - Left','Standing quad stretch - Right',
+    'Standing quadriceps stretch - Left','Standing quadriceps stretch - Right',
     'Hip-flexor lunge stretch - Left','Hip-flexor lunge stretch - Right',
-    'Hamstring stretch - Left','Hamstring stretch - Right',
+    'Kneeling hamstring stretch - Left','Kneeling hamstring stretch - Right',
     'Figure-four / glute stretch - Left','Figure-four / glute stretch - Right',
     'Chest / shoulder opener'
   ];

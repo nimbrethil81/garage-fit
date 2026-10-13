@@ -12,14 +12,18 @@ function setup() {
   return { context, spoken, cancelled, el:id=>context.document.getElementById(id) };
 }
 
-test('the same disclosure displays instructions only where the catalogue has one', () => {
+test('the shared disclosure displays canonical instructions and resets between exercises', () => {
   const { context, el } = setup();
-  assert.equal(context.createInstructionDisclosure(vm.runInContext("CATALOGUE['air-squat']",context)), null);
+  const squat = context.createInstructionDisclosure(vm.runInContext("CATALOGUE['air-squat']",context));
+  assert.equal(squat.children[0].textContent, 'How to do it');
+  assert.match(squat.children[1].textContent, /knees in line with your toes/);
+  assert.equal(context.createInstructionDisclosure({id:'unknown'}), null);
   const info = context.createInstructionDisclosure(vm.runInContext("CATALOGUE['trx-knee-tuck']",context));
   assert.equal(info.children[0].textContent, 'How to do it');
   assert.match(info.children[1].textContent, /feet in the TRX straps/);
   context.setInstructionDisclosure('workoutInstruction', { id:'air-squat' });
-  assert.equal(el('workoutInstruction').classList.contains('hidden'), true);
+  assert.equal(el('workoutInstruction').classList.contains('hidden'), false);
+  assert.equal(el('workoutInstructionText').textContent, squat.children[1].textContent);
   context.setInstructionDisclosure('workoutInstruction', { id:'trx-knee-tuck' });
   assert.equal(el('workoutInstruction').classList.contains('hidden'), false);
   assert.match(el('workoutInstructionText').textContent, /feet in the TRX straps/);
@@ -40,13 +44,13 @@ test('reviewed kettlebell movements and separated stretches have clear instructi
   assert.equal(vm.runInContext("CATALOGUE['trx-glute-standing'].name",context),'TRX glute stretch');
 });
 
-test('generated preview adds a collapsed disclosure only for instructed exercises', () => {
+test('generated preview adds a collapsed disclosure for familiar and complex exercises', () => {
   const { context, el } = setup();
   vm.runInContext("generatorState.workout=GarageFitGenerator.generate({catalogue:CATALOGUE,duration:10,focus:'balanced',equipment:['trx'],random:()=>0.4});generatorState.workout.main.blocks[0].exercises[0]=CATALOGUE['trx-knee-tuck'];generatorState.workout.main.blocks[0].exercises[1]=CATALOGUE['air-squat']",context);
   context.renderGeneratedPreview();
   const rows=el('previewList').children.filter(row=>row.className!=='preview-block-heading');
   assert.equal(rows[0].children[1].children.some(child=>child.className==='exercise-instruction'),true);
-  assert.equal(rows[1].children[1].children.some(child=>child.className==='exercise-instruction'),false);
+  assert.equal(rows[1].children[1].children.some(child=>child.className==='exercise-instruction'),true);
 });
 
 test('quiet instructions stay on screen; spoken ones queue behind the name once per exercise id and reset per session', () => {
@@ -118,4 +122,63 @@ test('fixed timed and mixed sequences retain exercise ids for the shared player'
   context.GarageFitWorkoutUI.startFixedSequenceWorkout('postRunReset');
   assert.equal(vm.runInContext('state.list[0].id',context),'push-up');
   assert.equal(vm.runInContext('state.list[0].work',context),30);
+});
+
+test('both fixed warm-up and cool-down variants display instructions on every player step', () => {
+  const { context, el }=setup();
+  const catalogue=context.GarageFitData.exercises;
+  for (const kind of ['warmup','cooldown']) for (const variant of ['bodyweight','equipment']) {
+    context.startRoutine(kind,variant);
+    const steps=vm.runInContext('state.list',context);
+    for (let i=0;i<steps.length;i++) {
+      vm.runInContext(`state.idx=${i}`,context);
+      context.enterWork();
+      assert.equal(el('routineInstruction').classList.contains('hidden'),false,steps[i].id);
+      assert.equal(el('routineInstructionText').textContent,catalogue[steps[i].id].instruction,steps[i].id);
+      assert.equal(el('exerciseName').textContent,steps[i].name);
+    }
+    const hamstrings=steps.filter(step=>step.id==='kneeling-hamstring');
+    if (kind==='cooldown') assert.deepEqual(Array.from(hamstrings,step=>step.name),[
+      'Kneeling hamstring stretch - Right','Kneeling hamstring stretch - Left'
+    ]);
+  }
+});
+
+test('generated player instructions cover preparation, Main and unilateral timed cool-downs', () => {
+  const { context, el }=setup();
+  vm.runInContext("generatorState.workout=GarageFitGenerator.generate({catalogue:CATALOGUE,duration:10,focus:'balanced',equipment:['trx'],random:()=>0.4});generatorState.workout.cooldown.exercises=[CATALOGUE['kneeling-hamstring'],CATALOGUE['side-stretch']]",context);
+  context.startGeneratedWorkout();
+  const timeline=vm.runInContext('generatorState.timeline',context);
+  const sections=new Set(),hamstrings=[];
+  for (let i=0;i<timeline.length;i++) {
+    const phase=timeline[i];if(phase.kind!=='exercise')continue;
+    context.enterGeneratedPhase(i);sections.add(phase.section);
+    assert.equal(el('workoutInstruction').classList.contains('hidden'),false,phase.exercise.id);
+    assert.equal(el('workoutInstructionText').textContent,context.GarageFitData.exercises[phase.exercise.id].instruction);
+    if(phase.exercise.id==='kneeling-hamstring')hamstrings.push([phase.side,phase.seconds]);
+    if(phase.exercise.id==='side-stretch'){
+      assert.match(el('workoutInstructionText').textContent,/changing sides halfway/);
+      const tracker=context.GarageFitTimedCues.createTracker(phase.exercise.timedCues,phase.seconds);
+      context.showDueTimedCues(tracker,phase.seconds/2,'workoutTimedCue');
+      assert.equal(el('workoutTimedCue').textContent,'Change sides');
+    }
+  }
+  assert.deepEqual([...sections],['warmup','main','cooldown']);
+  assert.deepEqual(hamstrings,[['right',15],['left',15]]);
+  assert.match(context.GarageFitData.exercises['kneeling-hamstring'].instruction,/straight in front.*straight back.*other side/);
+});
+
+test('fixed post-run stretches use clarified names and canonical instructions on each side', () => {
+  const { context, el }=setup();
+  context.document.readyState='loading';
+  vm.runInContext(fs.readFileSync(path.join(__dirname,'../js/workouts-ui.js'),'utf8'),context);
+  context.GarageFitWorkoutUI.startFixedSequenceWorkout('postRunReset');
+  const steps=vm.runInContext('state.list',context);
+  for(let i=0;i<steps.length;i++){
+    vm.runInContext(`state.idx=${i}`,context);context.enterWork();
+    assert.equal(el('routineInstruction').classList.contains('hidden'),false,steps[i].id);
+    assert.equal(el('routineInstructionText').textContent,context.GarageFitData.exercises[steps[i].id].instruction);
+    if(steps[i].id==='kneeling-hamstring')assert.match(el('exerciseName').textContent,/Kneeling hamstring stretch - (Left|Right)/);
+    if(steps[i].id==='standing-quads')assert.match(el('exerciseName').textContent,/Standing quadriceps stretch - (Left|Right)/);
+  }
 });

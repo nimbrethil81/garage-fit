@@ -24,31 +24,31 @@ const bothSumo=ids=>SUMO.every(id=>ids.includes(id));
 // [id, name, equipment, patterns, bodyFocus, difficulty, mainRole, prescription, load, sidedness, instruction]
 const BATCH=[
   ['dumbbell-hammer-curl','Dumbbell hammer curl',[['dumbbells']],['pull'],'upper','easy','supporting',{type:'reps',value:10},'Medium','bilateral',
-    'Hold the dumbbells with palms facing inward, curl them towards your shoulders, then lower slowly.'],
+    'Stand holding dumbbells with palms facing inward, curl towards your shoulders and lower slowly, keeping elbows beside your body.'],
   ['dumbbell-overhead-triceps-extension','Dumbbell overhead triceps extension',[['dumbbells']],['push'],'upper','easy','supporting',{type:'reps',value:10},'Medium','bilateral',
-    'Hold one dumbbell overhead with both hands, bend your elbows to lower it behind your head, then straighten your arms.'],
+    'Hold one dumbbell overhead with both hands, bend elbows to lower it behind your head and straighten your arms, keeping upper arms still and ribs down.'],
   ['dumbbell-reverse-fly','Dumbbell reverse fly',[['dumbbells']],['pull'],'upper','moderate','supporting',{type:'reps',value:12},'Light','bilateral',
-    'Hinge forward with soft knees, raise the dumbbells out to your sides with slightly bent elbows, then lower.'],
+    'Stand holding dumbbells, bend forward at your hips with soft knees, raise arms out to the sides and lower, keeping elbows slightly bent and your back straight.'],
   ['dumbbell-sumo-squat','Dumbbell sumo squat',[['dumbbells']],['squat'],'lower','moderate','primary',{type:'reps',value:10},'Heavy','bilateral',
-    'Stand with feet wide and toes turned slightly out, hold a dumbbell between your legs, then squat and stand.'],
+    'Stand with feet wide and toes turned slightly out, hold a dumbbell between your legs, squat and stand, keeping knees in line with toes.'],
   ['alternating-lateral-lunge','Alternating lateral lunge',[],['lunge'],'lower','moderate','primary',{type:'reps',value:12},null,'alternating',
     'Step sideways, bend the stepping knee while keeping the other leg straight, then return and switch sides.'],
   ['squat-pulses','Squat pulses',[],['squat'],'lower','moderate','supporting',{type:'timed',value:30},null,'bilateral',
-    'Lower into a squat and make small controlled up-and-down movements without standing fully upright.'],
+    'Stand with feet shoulder-width apart, lower into a squat and make small up-and-down movements, keeping knees in line with toes without standing fully upright.'],
   ['dead-bug','Dead bug',[],['core'],'core','easy','primary',{type:'reps',value:12},null,'alternating',
-    'Lie on your back with arms and knees raised, extend opposite arm and leg towards the floor, then return and switch sides.'],
+    'Lie on your back with arms raised and knees bent above hips, extend the opposite arm and leg, then return and switch sides, keeping your lower back against the floor.'],
   ['plank-up-downs','Plank up-downs',[],['core','push'],'core','moderate','primary',{type:'timed',value:30},null,'alternating',
-    'From a forearm plank, press up onto your hands one arm at a time, then lower back down and alternate the leading arm.'],
+    'From a forearm plank, press onto your hands one arm at a time, lower and alternate the leading arm, keeping hips steady.'],
   ['trx-t-fly','TRX T fly',[['trx']],['pull'],'upper','moderate','supporting',{type:'reps',value:10},null,'bilateral',
-    'Face the anchor and lean back with straight arms, then open your arms into a T shape to raise your body.'],
+    'Face the anchor and lean back holding the handles with straight arms, open arms into a T to raise your body and lower slowly, keeping shoulders down.'],
   ['trx-glute-bridge','TRX glute bridge',[['trx']],['hinge'],'lower','moderate','primary',{type:'reps',value:12},null,'bilateral',
-    'Lie on your back with heels in the TRX straps and knees bent, then lift your hips while keeping your feet steady.'],
+    'Lie on your back with heels in the TRX straps and knees bent, lift and lower your hips with feet steady, stopping before your lower back arches.'],
   ['kettlebell-suitcase-deadlift','Kettlebell suitcase deadlift',[['kettlebell']],['hinge'],'lower','moderate','primary',{type:'unilateral-reps',value:8},'Medium','per-side',
-    'Stand with the kettlebell beside one foot, hinge and bend your knees to grip it, then stand without leaning sideways.'],
+    'Stand with the kettlebell beside one foot, bend hips and knees to grip it, then stand without leaning sideways; lower and repeat on the other side.'],
   ['kettlebell-around-the-body-pass','Kettlebell around-the-body pass',[['kettlebell']],['core'],'core','easy','supporting',{type:'timed',value:30},'Light','none',
     'Stand tall and pass the kettlebell around your waist from hand to hand, reversing direction halfway.'],
   ['kettlebell-sumo-squat','Kettlebell sumo squat',[['kettlebell']],['squat'],'lower','moderate','primary',{type:'reps',value:10},'Heavy','bilateral',
-    'Stand with feet wide and toes turned slightly out, hold the kettlebell between your legs, then squat and stand.']
+    'Stand with feet wide and toes turned slightly out, hold the kettlebell between your legs, squat and stand, keeping knees in line with toes.']
 ];
 const IDS=BATCH.map(row=>row[0]);
 

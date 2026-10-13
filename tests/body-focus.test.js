@@ -47,11 +47,11 @@ test('body focus is validated and required when authoring generated exercises', 
   const copy = JSON.parse(JSON.stringify(catalogue));
   copy['push-up'].bodyFocus = 'arms';
   assert.ok(G.validateCatalogue(copy).includes('push-up: invalid bodyFocus "arms"'));
-  const definition = { id:'unplaced', name:'Unplaced', generator:true, main:true, prescription:{ type:'timed', value:30 },
+  const definition = { instruction:catalogue.plank.instruction, id:'unplaced', name:'Unplaced', generator:true, main:true, prescription:{ type:'timed', value:30 },
     patterns:['core'], conditioning:false, strength:2, cardio:2, difficulty:'easy' };
   assert.throws(() => GarageFitData.buildExerciseCatalogue([definition]), /unplaced: generated Main exercises must declare bodyFocus/);
   assert.equal(GarageFitData.buildExerciseCatalogue([Object.assign({ bodyFocus:'core' }, definition)]).unplaced.bodyFocus, 'core');
-  assert.equal(GarageFitData.buildExerciseCatalogue([{ id:'fixed-only', name:'Fixed only', main:true, prescription:{ type:'timed', value:30 } }])['fixed-only'].bodyFocus, null);
+  assert.equal(GarageFitData.buildExerciseCatalogue([{ id:'fixed-only', name:'Fixed only', instruction:catalogue.plank.instruction, main:true, prescription:{ type:'timed', value:30 } }])['fixed-only'].bodyFocus, null);
 });
 
 // ---- Workout option ----

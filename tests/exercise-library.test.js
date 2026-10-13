@@ -47,14 +47,15 @@ test('name search, equipment alternatives, bodyweight and combined filters',()=>
   }
 });
 
-test('detail shows canonical instruction and readable equipment and contexts, including exercises without instructions',()=>{
+test('every library detail shows a canonical instruction with readable equipment and contexts',()=>{
   const app=loadAppContext(),catalogue=app.GarageFitData.exercises;
   app.openExerciseLibrary();app.openExerciseDetail('walking-lunge');
   assert.equal(app.document.getElementById('libraryDetailInstruction').textContent,catalogue['walking-lunge'].instruction);
   assert.equal(app.document.getElementById('libraryInstructionSection').classList.contains('hidden'),false);
   assert.match(app.document.getElementById('libraryDetailContexts').textContent,/Main workout/);
   app.openExerciseDetail('air-squat');
-  assert.equal(app.document.getElementById('libraryInstructionSection').classList.contains('hidden'),true);
+  assert.equal(app.document.getElementById('libraryInstructionSection').classList.contains('hidden'),false);
+  assert.equal(app.document.getElementById('libraryDetailInstruction').textContent,catalogue['air-squat'].instruction);
   assert.equal(app.document.getElementById('libraryDetailEquipment').textContent,'Bodyweight');
   assert.match(app.document.getElementById('libraryDetailContexts').textContent,/Warm-up.*Ramp-up/);
   const loaded=Object.values(catalogue).find(ex=>ex.equipment.length);
@@ -62,6 +63,12 @@ test('detail shows canonical instruction and readable equipment and contexts, in
   assert.equal(app.document.getElementById('libraryDetailEquipment').textContent,app.libraryEquipmentLabel(loaded));
   assert.doesNotMatch(app.document.getElementById('libraryDetailEquipment').textContent,/\[|\]|voiceInstruction|family|strength/);
   assert.match(app.libraryContexts(catalogue['childs-pose']),/Fixed workouts|Cool-down/);
+  for(const exercise of Object.values(catalogue)){
+    app.openExerciseDetail(exercise.id);
+    assert.equal(app.document.getElementById('libraryDetailName').textContent,exercise.name);
+    assert.equal(app.document.getElementById('libraryInstructionSection').classList.contains('hidden'),false,exercise.id);
+    assert.equal(app.document.getElementById('libraryDetailInstruction').textContent,exercise.instruction,exercise.id);
+  }
 });
 
 test('library rows show a primary equipment icon and keep full equipment meaning accessible',()=>{

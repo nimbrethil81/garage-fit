@@ -12,7 +12,7 @@ test('Side stretch works both sides in one unchanged total interval', () => {
   assert.equal(stretch.prescription.value, 15);
   assert.equal(stretch.estimatedSeconds, 15);
   assert.equal(app.formatPrescription(stretch), '15 sec');
-  assert.match(stretch.instruction, /other side/);
+  assert.match(stretch.instruction, /changing sides halfway/);
   assert.deepEqual(JSON.parse(JSON.stringify(stretch.timedCues)), [
     { text:'Change sides', at:{ type:'fraction', value:0.5 } }
   ]);
