@@ -30,17 +30,37 @@ test('the shipped catalogue validates cleanly without generating a workout', () 
 
 test('instruction metadata defaults to quiet and accepts a concise sentence', () => {
   assert.equal(catalogue['air-squat'].voiceInstruction, false);
-  assert.equal(catalogue['air-squat'].instruction, undefined);
+  assert.match(catalogue['air-squat'].instruction, /knees in line with your toes/);
   assert.equal(catalogue['trx-knee-tuck'].voiceInstruction, true);
   assert.match(catalogue['trx-knee-tuck'].instruction, /feet in the TRX straps/);
   assert.deepEqual(errorsWith('air-squat', { instruction:'Stand tall and bend your knees into a squat.' }), []);
 });
 
-test('instructions must be short, non-empty, single-line text and voice requires one', () => {
-  for (const instruction of [null, 7, '', '  ', 'First line\nSecond line', 'x'.repeat(181)]) {
-    assertRejected(errorsWith('air-squat', { instruction }), /instruction must be a non-empty, single-line string/);
+test('every canonical exercise explicitly supplies useful instructional text', () => {
+  for (const exercise of Object.values(catalogue)) {
+    assert.ok(Object.hasOwn(exercise, 'instruction'), exercise.id);
+    assert.equal(typeof exercise.instruction, 'string', exercise.id);
+    assert.ok(exercise.instruction.trim().length > 20, exercise.id);
+    assert.ok(exercise.instruction.length <= 180, exercise.id);
+    assert.doesNotMatch(exercise.instruction, /[\r\n]/, exercise.id);
   }
-  assertRejected(errorsWith('air-squat', { voiceInstruction:true }), /voiceInstruction requires a valid instruction/);
+  // Validation also guards phases that are not generated Main work.
+  for (const id of ['air-squat','body-hoops','kneeling-hamstring','floor-wipers']) {
+    const copy=clone(catalogue);delete copy[id].instruction;
+    assertRejected(validateCatalogue(copy), new RegExp('^'+id+': instruction must be'));
+    assert.throws(() => assertValidCatalogue(copy), /instruction must be/);
+  }
+});
+
+test('instructions must be short, non-empty, single-line text and voice requires one', () => {
+  for (const instruction of [undefined, null, 7, '', '  ', 'First line\nSecond line', 'First line\rSecond line', 'x'.repeat(181)]) {
+    assertRejected(errorsWith('air-squat', { instruction }), /instruction must be a non-empty, single-line string/);
+    assert.throws(() => GarageFitData.buildExerciseCatalogue([{ id:'sample', name:'Sample', prescription:{type:'timed',value:20}, instruction }]), /instruction must be a non-empty, single-line string/);
+  }
+  const omitted=clone(catalogue);delete omitted['air-squat'].instruction;
+  assertRejected(validateCatalogue(omitted), /air-squat: instruction must be/);
+  assert.throws(() => GarageFitData.buildExerciseCatalogue([{ id:'sample', name:'Sample', prescription:{type:'timed',value:20} }]), /sample: instruction must be/);
+  assertRejected(errorsWith('air-squat', { instruction:undefined, voiceInstruction:true }), /voiceInstruction requires a valid instruction/);
   assertRejected(errorsWith('air-squat', { voiceInstruction:'yes' }), /voiceInstruction must be boolean/);
   assertRejected(errorsWith('air-squat', { instruction:' ', voiceInstruction:true }), /voiceInstruction requires a valid instruction/);
   assert.throws(() => GarageFitData.buildExerciseCatalogue([{ id:'sample', name:'Sample', prescription:{type:'timed',value:20}, instructionn:'Typo' }]), /unknown exercise field/);
@@ -55,7 +75,7 @@ test('duplicate exercise ids are rejected', () => {
 });
 
 test('duplicate ids fail loudly during catalogue authoring instead of overwriting', () => {
-  const definition = { id:'plank', name:'Plank', prescription:{ type:'timed', value:30 } };
+  const definition = { id:'plank', name:'Plank', instruction:catalogue.plank.instruction, prescription:{ type:'timed', value:30 } };
   assert.throws(() => GarageFitData.buildExerciseCatalogue([definition, Object.assign({}, definition, { name:'Plank again' })]), /Duplicate exercise id: plank/);
 });
 
@@ -63,13 +83,13 @@ test('catalogue authoring rejects unknown fields and incomplete definitions', ()
   const build = definition => GarageFitData.buildExerciseCatalogue([definition]);
   assert.throws(() => build({ id:'typo', name:'Typo', prescription:{ type:'timed', value:30 }, warmupAreass:['hips'] }), /typo: unknown exercise field\(s\) warmupAreass/);
   assert.throws(() => build({ id:'no-prescription', name:'No prescription' }), /missing prescription/);
-  assert.throws(() => build({ id:'reps-only', name:'Reps', prescription:{ type:'reps', value:10 } }), /rep-based prescriptions need estimatedSeconds/);
+  assert.throws(() => build({ id:'reps-only', name:'Reps', instruction:catalogue['air-squat'].instruction, prescription:{ type:'reps', value:10 } }), /rep-based prescriptions need estimatedSeconds/);
   assert.throws(() => build({ id:'unscored', name:'Unscored', generator:true, main:true, prescription:{ type:'timed', value:30 } }), /must declare patterns, conditioning, strength, cardio/);
 });
 
 test('authoring derives estimates that budget every side', () => {
   const built = GarageFitData.buildExerciseCatalogue([
-    { id:'one-side', name:'One side', sidedness:'per-side', prescription:{ type:'unilateral-timed', value:20 },
+    { id:'one-side', name:'One side', instruction:catalogue['step-back-lunge'].instruction, sidedness:'per-side', prescription:{ type:'unilateral-timed', value:20 },
       patterns:['lunge'], conditioning:false, strength:2, cardio:2, difficulty:'easy', warmup:true, warmupPhase:'dynamic', warmupPrescription:{ type:'unilateral-timed', value:15 },
       rampup:true, rampupPrescription:{ type:'unilateral-timed', value:20, minValue:15, maxValue:25 }, prepIntensity:2, prepFatigue:2, prepComplexity:2 }
   ])['one-side'];

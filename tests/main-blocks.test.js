@@ -16,7 +16,7 @@ function create(options={}) {
 }
 function synthetic(id, pattern, equipment=[]) {
   return {
-    id,name:id,equipment:equipment.length?[[equipment]]:[],patterns:[pattern],
+    id,name:id,instruction:catalogue['air-squat'].instruction,equipment:equipment.length?[[equipment]]:[],patterns:[pattern],
     movementPlanes:['sagittal'],warmupAreas:[],bodyPosition:'standing',
     strength:4,cardio:2,prescription:{type:'reps',value:10},estimatedSeconds:30,
     impact:'low',load:null,generator:true,main:true,warmup:false,rampup:false,

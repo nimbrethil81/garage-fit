@@ -13,6 +13,7 @@ function syntheticExercise(id, pattern) {
   return {
     id,
     name:id,
+    instruction:catalogue['air-squat'].instruction,
     equipment:[],
     patterns:[pattern],
     movementPlanes:['sagittal'],

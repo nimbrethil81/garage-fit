@@ -23,7 +23,7 @@ given phase (Main, Warm-up, Ramp-up, Cool-down) is generator policy in
    neighbour. Generator and Ramp-up exercises must also state `difficulty`, and generator
    exercises `bodyFocus` (see below).
 6. Add `family` / `repetitionClass` only if the definitions below are met.
-7. Consider a short `instruction` if the name may be unfamiliar; follow the editorial standard below.
+7. Add a short, useful `instruction` for every exercise, including familiar movements and fixed-only exercises; follow the editorial standard below.
 8. Run `node --test tests/*.test.js`; it validates the catalogue.
 9. Prove reachability. For every generated phase the exercise is flagged for, add a
    bounded deterministic test (fixed seeds, at most a few hundred generated workouts)
@@ -61,9 +61,15 @@ selection trace (`--no-diagnostics` skips it; `--json` includes it as `diagnosti
 
 ## Exercise instructions
 
-`instruction` is optional. Add it when the exercise name alone may not tell an
-unfamiliar user what to do. Write **one concise sentence** describing essential
-setup and movement. For genuinely complex multi-step exercises where one sentence
+`instruction` is mandatory: every canonical exercise must explicitly declare a
+nonempty instruction, including warm-ups, ramp-ups, cool-downs and fixed-only
+movements. Authoring and catalogue validation reject missing or invalid text;
+there is no default instruction. Write **one concise sentence** in clear British
+English describing the starting position, execution and one essential technique
+or safety cue. Explain alternating legs/arms or execution on each side where
+needed; per-side work completes each side in turn, while a timed halfway cue
+changes sides or direction within one interval. Do not contradict those cues.
+For genuinely complex multi-step exercises where one sentence
 would reduce clarity, a second concise sentence is permitted as a strict exception.
 It must sound natural both on screen and spoken aloud, and fit within 180 characters
 on one line. Do not turn it into a coaching essay: omit benefits, motivational copy,
