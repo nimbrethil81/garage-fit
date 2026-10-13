@@ -98,3 +98,10 @@ test('Tennis setup and daily training keep the shared Coach navigation; preview 
   assert.equal(app.document.getElementById('bottomNav').classList.contains('hidden'),false);
   assert.equal(app.document.getElementById('coachNav').attributes['aria-current'],'page');
 });
+
+test('Coach and Workouts bottom-navigation items use distinct icons',()=>{
+  const icon=id=>html.match(new RegExp(`id="${id}"[^>]*>\\s*<svg[^>]*><use href="#([^"]+)"`))[1];
+  assert.equal(icon('workoutsNav'),'icon-workouts');
+  assert.equal(icon('coachNav'),'icon-user-round');
+  assert.match(html,/<symbol id="icon-user-round"[^>]*><circle cx="12" cy="8" r="5"\/><path d="M20 21a8 8 0 0 0-16 0"\/><\/symbol>/);
+});
