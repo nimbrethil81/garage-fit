@@ -106,6 +106,8 @@
   #coachContent p,#coachPreviewContent p,#coachSubstituteContent p{margin:0;color:var(--text-muted);font-size:14px;line-height:1.5}
   #coachContent h2,#coachPreviewContent h2{margin:8px 0;font-size:21px}
   .coach-card,.coach-preview-row{border:1px solid var(--surface-2);border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:12px}
+  .coach-preview-actions{display:grid;grid-template-columns:1fr 1.7fr;gap:10px}.coach-preview-actions button{min-width:0;white-space:normal;overflow-wrap:anywhere}
+  .coach-preview-row button{min-height:44px;white-space:normal;overflow-wrap:anywhere}
   .coach-card{background:var(--surface)}
   #coachContent details>button,#coachContent details>p{margin-top:12px}
   #coachContent summary{font-weight:800;padding:12px 0;cursor:pointer}
@@ -348,7 +350,7 @@
     <p id="coachPreviewError" class="coach-error" role="alert"></p><div id="coachPreviewContent"></div>
   </main>
   <main id="coachSubstitute" class="screen hidden">
-    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Coach" onclick="coachUI.back()">←</button><h1>Anchor substitute</h1><span class="header-spacer"></span></header>
+    <header class="page-header"><button class="back-btn" type="button" aria-label="Back from anchor substitutes" onclick="coachUI.backFromSubstitute()">←</button><h1>Anchor substitute</h1><span class="header-spacer"></span></header>
     <div id="coachSubstituteContent"></div>
   </main>
   <main id="coachResult" class="screen hidden">
