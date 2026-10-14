@@ -33,7 +33,8 @@ for (const player of ['routine', 'generated']) {
     const app = loadAppContext();
     const spoken = [];
     let tick;
-    app.setInterval = callback => { tick = callback; return 1; };
+    let timerNow=Date.now();app.Date=class extends Date { static now(){return timerNow;} };
+    app.setInterval = callback => { tick = ()=>{timerNow+=1000;callback();}; return 1; };
     app.speechSynthesis.speak = utterance => spoken.push(utterance.text);
     const cueElement = app.document.getElementById(player === 'routine' ? 'routineTimedCue' : 'workoutTimedCue');
     const duration = player === 'routine' ? 15 : 30;
@@ -49,7 +50,7 @@ for (const player of ['routine', 'generated']) {
           CATALOGUE['toe-touch']
         ];
         generatorState.timeline=buildGeneratedTimeline(generatorState.workout);
-        workoutState.paused=false;
+        workoutState.mode="generated";workoutState.paused=false;
       `, app);
       const index = vm.runInContext("generatorState.timeline.findIndex(phase=>phase.kind==='exercise'&&phase.exercise.id==='side-stretch')", app);
       app.enterGeneratedPhase(index);

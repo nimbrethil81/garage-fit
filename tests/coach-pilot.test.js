@@ -216,8 +216,8 @@ test('warm-up alone is abandoned without programme credit, and checkpoint failur
   await p.finish();assert.equal(p.run('pilot.snapshot().state.meaningfulSessionsCompleted'),1);
 });
 
-test('Coach player Done, Skip, Previous and measured timed exit save exactly the performed occurrences', async () => {
-  const p=pilot();
+test('Coach player Next, Skip, Previous and measured timed exit save exactly the performed occurrences', async () => {
+  const p=pilot();p.run('var playerNow=Date.now();Date.now=()=>playerNow');
   p.run("state.ownedEquipment=['dumbbells']");
   await p.run("coachUI.controller.start(pilotDef,['dumbbells'])");
   await p.run('coachUI.open()');
@@ -244,4 +244,23 @@ test('Coach player Done, Skip, Previous and measured timed exit save exactly the
   assert.equal(p.run('coachUI.controller.snapshot().state.anchors[0].currentTarget.target.maxReps'),6);
   await p.run('coachUI.open()');assert.equal(p.run('coachUI.controller.snapshot().state.meaningfulSessionsCompleted'),1);
   p.run('startWorkout()');assert.equal(p.run("document.getElementById('coachAnchorLog').classList.contains('hidden')"),true);
+});
+
+test('Coach panel pause preserves edited actuals and checkpoint failure protects Next until retry',async()=>{
+  const p=pilot();p.run("state.ownedEquipment=['dumbbells'];var uiNow=Date.now();Date.now=()=>uiNow");
+  await p.run("coachUI.controller.start(pilotDef,['dumbbells'])");await p.run('coachUI.open()');
+  p.run(`function playerAction(id,text){const visit=node=>node.textContent===text&&node.onclick?node:(node.children||[]).map(visit).find(Boolean);return visit(document.getElementById(id)).onclick();}`);
+  await p.run("playerAction('coachContent','Start session')");await p.run("playerAction('coachPreviewContent','Begin workout')");
+  const index=p.run("generatorState.timeline.findIndex(p=>p.kind==='exercise'&&p.section==='main'&&p.exercise.coachAnchor)");
+  p.run(`enterGeneratedPhase(${index});document.getElementById('coachActualReps').value='4';document.getElementById('coachActualLoad').value='17';toggleWorkoutPause();uiNow+=5000;toggleWorkoutPause()`);
+  assert.equal(p.run("document.getElementById('coachActualReps').value"),'4');assert.equal(p.run("document.getElementById('coachActualLoad').value"),'17');
+  p.run("var originalWrite=localStorage.setItem;localStorage.setItem=(key,value)=>{if(key==='gf_coach_session_draft')throw new Error('checkpoint unavailable');return originalWrite(key,value)}");
+  await p.run('completeWorkoutMovement()');assert.equal(p.run('generatorState.timelineIndex'),index);
+  assert.match(p.run("document.getElementById('coachPlayerError').textContent"),/Could not write Coach storage/);
+  assert.equal(p.run("document.getElementById('coachActualReps').value"),'4');assert.equal(p.run("document.getElementById('coachActualLoad').value"),'17');
+  assert.equal(p.run("document.getElementById('completeMovementBtn').disabled"),false);
+  p.run('localStorage.setItem=originalWrite');await p.run('completeWorkoutMovement()');assert.equal(p.run('generatorState.timelineIndex'),index+1);
+  const outcome=p.json(`generatorState.tracker.outcome(generatorState.timeline[${index}].occurrenceId)`);
+  assert.equal(outcome.sets[0].reps,4);assert.equal(outcome.sets[0].load,17);
+  assert.equal((await p.run('generatorState.tracker.flush().then(()=>true)')),true);
 });

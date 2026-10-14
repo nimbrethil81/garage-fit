@@ -57,14 +57,15 @@ function loadApp() {
   const storage = new Map();
   const spoken = [];
   const intervals = new Map(); let nextInterval = 1;
+  let timerNow=Date.now();class TimerDate extends Date { static now(){return timerNow;} }
   const context = {
-    console, Date, Math, JSON, Set,
+    console, Date:TimerDate, Math, JSON, Set,
     SpeechSynthesisUtterance: function (text) { this.text = text; },
     speechSynthesis: { cancel() {}, speak(utterance) { spoken.push(utterance.text); } },
     document: { getElementById: id => elements[id] || (elements[id] = new Element(id)), createElement: () => new Element(), addEventListener() {}, querySelector() { return new Element(); } },
     localStorage: { getItem: key => storage.has(key) ? storage.get(key) : null, setItem: (key, value) => storage.set(key, String(value)) },
     navigator: {}, getComputedStyle: () => ({ getPropertyValue: () => '#000' }),
-    setInterval: callback => { const id = nextInterval++; intervals.set(id, callback); return id; },
+    setInterval: callback => { const id = nextInterval++; intervals.set(id,()=>{timerNow+=1000;callback();}); return id; },
     clearInterval: id => intervals.delete(id), setTimeout: callback => callback()
   };
   context.window = context; context.globalThis = context;

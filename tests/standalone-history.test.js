@@ -18,7 +18,8 @@ function harness(options = {}) {
   const app = loadAppContext(storage, {ownIntrinsics: true});
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'rampup-ui.js'), 'utf8'), app, {filename: 'js/rampup-ui.js'});
   const intervals = new Map(); let nextInterval = 1;
-  app.setInterval = callback => { const id = nextInterval++; intervals.set(id, callback); return id; };
+  vm.runInContext('var timerNow=Date.now();Date.now=()=>timerNow',app);
+  app.setInterval = callback => { const id = nextInterval++; intervals.set(id,()=>{vm.runInContext('timerNow+=1000',app);callback();}); return id; };
   app.clearInterval = id => intervals.delete(id);
   const run = code => vm.runInContext(code, app);
   run(`state.ownedEquipment=${JSON.stringify(options.equipment || ['dumbbells','kettlebell','bench','trx','bands'])};
