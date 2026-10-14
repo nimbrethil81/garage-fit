@@ -29,7 +29,7 @@ test('the migrated conditioning set matches the previous pattern-based set', () 
   const expected = ['bicycle-crunch','mountain-climbers','jumping-jacks','high-knees','burpees','squat-jumps','skater-jumps',
     'dumbbell-thruster','dumbbell-clean-and-press','kettlebell-swing','kettlebell-single-arm-swing','kettlebell-clean','kettlebell-figure-eight',
     'trx-knee-tuck','trx-mountain-climber','barbell-clean','barbell-clean-and-press','step-ups','box-jumps','box-step-ups',
-    'chair-step-ups','knees-up','bum-kicks','star-jumps','devils-press','dumbbell-snatch','switch-kicks','ski-abs','kettlebell-snatch','kick-through','bear-crawl','dumbbell-push-press'];
+    'chair-step-ups','bum-kicks','star-jumps','devils-press','dumbbell-snatch','switch-kicks','ski-abs','kettlebell-snatch','kick-through','bear-crawl','dumbbell-push-press'];
   const actual = Object.values(catalogue).filter(exercise => exercise.conditioning).map(exercise => exercise.id);
   assert.deepEqual(actual.slice().sort(), expected.slice().sort());
   assert.deepEqual(catalogue['mountain-climbers'].patterns, ['core']);
@@ -59,9 +59,9 @@ test('cardio remains an independent scalar from the conditioning category', () =
   const early = ex => G.scoreRampupCandidate(ex, 0, [], [], [catalogue['burpees']], [], 'balanced');
   const asConditioning = Object.assign(clone(catalogue['dumbbell-farmer-carry']), { conditioning:true });
   assert.ok(early(asConditioning) > early(catalogue['dumbbell-farmer-carry']));
-  const higherCardio = Object.assign(clone(catalogue['knees-up']), { cardio:5 });
+  const higherCardio = Object.assign(clone(catalogue['bum-kicks']), { cardio:5 });
   const cardioScore = ex => G.scoreRampupCandidate(ex, 0, [], [], [catalogue['burpees']], [], 'cardio');
-  assert.ok(cardioScore(higherCardio) > cardioScore(catalogue['knees-up']));
+  assert.ok(cardioScore(higherCardio) > cardioScore(catalogue['bum-kicks']));
 });
 
 test('conditioning status alone does not count as lower-body demand', () => {

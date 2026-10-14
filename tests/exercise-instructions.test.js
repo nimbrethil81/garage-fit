@@ -44,6 +44,19 @@ test('reviewed kettlebell movements and separated stretches have clear instructi
   assert.equal(vm.runInContext("CATALOGUE['trx-glute-standing'].name",context),'TRX glute stretch');
 });
 
+test('Arm Circles and the two knee movements have unambiguous catalogue copy', () => {
+  const { context } = setup();
+  const armCircles=context.GarageFitData.exercises['arm-side-circles'];
+  const crossBody=context.GarageFitData.exercises['knee-to-opposite-elbow'];
+  const highKnees=context.GarageFitData.exercises['high-knees'];
+  assert.equal(armCircles.name,'Arm Circles');
+  assert.equal(armCircles.instruction,'Extend your arms out to the sides and make controlled circles, changing direction halfway through.');
+  assert.equal(crossBody.name,'Knee to Opposite Elbow');
+  assert.equal(crossBody.instruction,'Stand tall and bring each knee towards the opposite elbow, alternating sides with a gentle torso rotation.');
+  assert.equal(highKnees.name,'High Knees Running in Place');
+  assert.equal(highKnees.instruction,'Run on the spot, driving your knees upwards and pumping your arms to build your heart rate.');
+});
+
 test("Runner's stretch is the plank-based lunge stretch in the Library and per-side player", () => {
   const { context, el }=setup();
   const stretch=context.GarageFitData.exercises['runners-stretch'];

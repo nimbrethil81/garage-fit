@@ -30,7 +30,9 @@
   }
 
   function performanceFor(result, outcome, planned, catalogue) {
-    const exercise = catalogue[outcome.exerciseId];
+    const canonicalExerciseId = root.GarageFitData && root.GarageFitData.canonicalExerciseId;
+    const exerciseId = outcome.exerciseId && canonicalExerciseId ? canonicalExerciseId(outcome.exerciseId) : outcome.exerciseId;
+    const exercise = catalogue[exerciseId] || catalogue[outcome.exerciseId];
     const prescription = planned && planned.prescription;
     const mode = prescription && (prescription.timed === true ? 'time'
       : ['reps','unilateral-reps'].includes(prescription.type) ? 'reps'
@@ -38,7 +40,7 @@
     return {
       sessionResultId: result.sessionResultId, source: result.source, programmeInstanceId: result.programmeInstanceId || null,
       occurredAt: when(result), occurrenceId: outcome.occurrenceId,
-      exerciseId: outcome.exerciseId || null, requirementId: planned && planned.requirementId || null,
+      exerciseId: exerciseId || null, requirementId: planned && planned.requirementId || null,
       section: planned && planned.section || null, status: outcome.status,
       exposure: exposureFor(outcome, prescription),
       patterns: exercise ? (exercise.patterns || []).filter(pattern => root.GarageFitCoachModel.MOVEMENT_PATTERNS.includes(pattern)) : [],

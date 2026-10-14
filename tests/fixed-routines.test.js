@@ -7,12 +7,12 @@ const { loadAppContext } = require('./helpers/app-context');
 
 // Executable specification of the four authored Routines-tab variants.
 const WARM_UP_BODYWEIGHT = [
-  'knees-up','bum-kicks','open-close-gates','hand-opposite-toe','body-hoops','body-twists',
+  'knee-to-opposite-elbow','bum-kicks','open-close-gates','hand-opposite-toe','body-hoops','body-twists',
   'arm-circles-backwards','arm-circles-forwards','arm-side-circles','air-squat','step-back-lunge',
   'walk-plank-push-up','star-jumps','burpees'
 ];
 const WARM_UP_EQUIPMENT = [
-  'knees-up','bum-kicks','open-close-gates','hand-opposite-toe','body-hoops','body-twists',
+  'knee-to-opposite-elbow','bum-kicks','open-close-gates','hand-opposite-toe','body-hoops','body-twists',
   'arm-circles-backwards','arm-circles-forwards','arm-side-circles','air-squat','step-back-lunge',
   'walk-plank-push-up','star-jumps','burpees',
   'trx-squat-overhead','trx-lunge-warmup','band-pull-apart','hangout-pullup-bar','kettlebell-figure-eight'
