@@ -89,7 +89,14 @@
     function substitute(requirementId, exerciseId, context) {
       const input = context || preparationContext || preview && preview.today;
       if (!input) throw new Error('Prepare today’s session first.');
-      return prepare({...input, anchorSubstitutions: {...(preparationContext && preparationContext.anchorSubstitutions), ...input.anchorSubstitutions, [requirementId]: exerciseId}});
+      return prepare({...input, anchorSubstitutions: {...(preparationContext && preparationContext.anchorSubstitutions), [requirementId]: exerciseId}});
+    }
+    function restore(requirementId) {
+      const input = preparationContext || preview && preview.today;
+      if (!input) throw new Error('Prepare today’s session first.');
+      const anchorSubstitutions = {...input.anchorSubstitutions};
+      delete anchorSubstitutions[requirementId];
+      return prepare({...input, anchorSubstitutions});
     }
     async function begin() {
       if (!preview || draft) throw new Error('Prepare a session before beginning.');
@@ -164,7 +171,7 @@
       return engine.updateProgrammeSettings(def,previous,patch,{now,localDate:localDay(now)});
     });
     const saveSportReview = response => saveProgrammeChange((def,previous) => engine.recordSportReview(def,previous,response,clock()));
-    return {load, snapshot, assess, start, plan, prepare, alternatives, substitute, begin, finish, manage, saveProgrammeSettings,
+    return {load, snapshot, assess, start, plan, prepare, alternatives, substitute, restore, begin, finish, manage, saveProgrammeSettings,
       saveSportReview, sportReview: () => engine.sportReview(definition(),state,clock()),
       review: () => engine.programmeReview(definition(), state, clock())};
   }
@@ -178,7 +185,7 @@
     const programmes = Object.values(root.GarageFitData.programmes).map(versions => versions[Math.max(...Object.keys(versions).map(Number))]);
     let def = programmes[0], activeResistance = null, sessionSetups = {};
     const el = id => document.getElementById(id);
-    let options = null, busy = false, sessionActive = false, endKind = null, endSeconds = null, lastSaved = '', initialisation = Promise.resolve(), adjustmentOpen = false;
+    let options = null, busy = false, sessionActive = false, endKind = null, endSeconds = null, lastSaved = '', initialisation = Promise.resolve(), adjustmentOpen = false, previewEditing = false;
     function button(text, action, primary = false) {
       const node = document.createElement('button'); node.type = 'button'; node.textContent = text;
       node.className = primary ? 'generator-primary' : 'ctrl-btn ctrl-secondary'; node.onclick = () => run(action); return node;
@@ -195,6 +202,7 @@
       finally { busy = false; }
     }
     function resetOptions() {
+      previewEditing = false;
       const state = controller.snapshot().state;
       if (state) def = root.GarageFitData.programmes[state.programmeDefinitionId][state.programmeDefinitionVersion];
       options = {duration: def.sessionTemplate.duration, equipment: getEquipment().slice(), easyToday: false, bodyFocus: null};
@@ -451,6 +459,7 @@
       wrap.append(paragraph('History is local to this browser and device. Only actual performed work earns progress.'),button('Back',render));
     }
     function prepare() {
+      previewEditing = false;
       const preview=controller.prepare(options);
       if (preview.status==='infeasible') { showBlocked(preview); return; }
       renderPreview(preview);
@@ -479,9 +488,22 @@
           row.append(paragraph((anchor?(anchor.importance==='required'?(stableAnchor?'Required anchor · ':'Required support · '):'Maintenance · '):'')+exercise.name+' · '+(block.protocol==='timed_intervals'?block.prescription.workSeconds:exercise.prescription.value)+(timed?' sec':' reps')+(exercise.sidedness==='per-side'?' each side':'')));
           if (anchor) {
             row.append(paragraph(anchor.plannedTarget.targetSets+' sets · '+(anchor.plannedTarget.progressionIntent || 'Confirm actual work')));
-            if (stableAnchor) row.append(button('Substitute',() => showSubstitutes(anchor.requirementId,preview.today)));
           }
-          else row.append(button('Swap',() => { root.GarageFitGenerator.swap(workout,index,exerciseIndex,{catalogue,equipment:preview.today.equipment}); renderPreview(preview); }));
+          if (previewEditing && stableAnchor) {
+            const substituteButton=button('Substitute',() => showSubstitutes(anchor.requirementId,preview.today));
+            substituteButton.setAttribute('aria-label','Substitute '+exercise.name); row.append(substituteButton);
+            if (preview.today.anchorSubstitutions?.[anchor.requirementId]) {
+              const restoreButton=button('Restore prescribed exercise',() => {
+                const revised=controller.restore(anchor.requirementId); options={...revised.today};
+                if (!revised.workout) { previewEditing=false; showScreen('coach'); render(); showBlocked(revised); return; }
+                renderPreview(revised);
+              });
+              restoreButton.setAttribute('aria-label','Restore prescribed exercise for '+exercise.name); row.append(restoreButton);
+            }
+          } else if (previewEditing && (!anchor || anchor.importance!=='required')) {
+            const swapButton=button('Swap',() => { root.GarageFitGenerator.swap(workout,index,exerciseIndex,{catalogue,equipment:preview.today.equipment}); renderPreview(preview); });
+            swapButton.setAttribute('aria-label','Swap '+exercise.name); row.append(swapButton);
+          }
           wrap.append(row);
         });
       });
@@ -496,7 +518,11 @@
         if (deferred.length) wrap.append(paragraph('Not scheduled today · '+deferred.map(anchor=>catalogue[anchor.exerciseId].name).join(', ')+'. Their targets are retained; this is not failed or skipped work.'));
         tennisViews.coverage(wrap,preview.plan.rationale.priorities.coverage);
       }
-      wrap.append(button('Begin workout',async () => { const tracker=await controller.begin(); sessionSetups={}; sessionActive=true; await play(workout,tracker); },true),button('Back to Coach',() => { showScreen('coach'); render(); })); showScreen('coachPreview');
+      if (previewEditing) wrap.append(paragraph('Anchor substitutions are just for today. Replanning may change supporting exercises; review the revised workout before beginning.'));
+      const actions=document.createElement('div'); actions.className='coach-preview-actions';
+      actions.append(button(previewEditing?'Done Editing':'Edit Workout',() => { previewEditing=!previewEditing; renderPreview(preview); el('coachPreviewContent').querySelector('.coach-preview-actions button').focus(); }),
+        button('Begin workout',async () => { const tracker=await controller.begin(); sessionSetups={}; sessionActive=true; await play(workout,tracker); },true));
+      wrap.append(actions,button('Back to Coach',() => { previewEditing=false; showScreen('coach'); render(); })); showScreen('coachPreview');
     }
     function showSubstitutes(requirementId, context) {
       const wrap=el('coachSubstituteContent'); wrap.innerHTML='';
@@ -508,7 +534,12 @@
         if (!preview.workout) {showScreen('coach');render();showBlocked(preview);return;} renderPreview(preview);
       })));
       if (!alternatives.length) wrap.append(paragraph('No compatible alternative is available. Restore equipment or adjust today’s options.'));
+      wrap.append(button('Cancel',backFromSubstitute));
       showScreen('coachSubstitute');
+    }
+    function backFromSubstitute() {
+      const preview=controller.snapshot().preview;
+      if (preview) renderPreview(preview); else { showScreen('coach'); render(); }
     }
     async function manage(action) { await controller.manage(action); resetOptions(); render(); }
     function isProgressionAnchor(phase) {
@@ -574,7 +605,7 @@
         resetOptions(); showScreen('coach'); render(); });
     }
     return {open, overview, controller, renderAnchor, record, showEnd, saveFeedback, updateActualSummary,
-      isActive: () => sessionActive, run, back: () => {showScreen('coach');render();},
+      isActive: () => sessionActive, run, backFromSubstitute, back: () => {previewEditing=false;showScreen('coach');render();},
       init: () => { initialisation=run(() => controller.load()); return initialisation; }};
   }
   root.GarageFitCoachUI = {createController, mount};

@@ -92,6 +92,54 @@ test('today-only substitution keeps the programme anchor, records actual identit
   await p.begin();assert.equal(p.run('pilot.snapshot().preview.plan.prescription.requiredAnchors[0].exerciseId'),'goblet-squat');
 });
 
+test('restoring and replacing anchors clears only the selected today-only override', async () => {
+  const p=pilot();await p.start();p.run('pilot.prepare(pilotOptions)');
+  p.run("pilot.substitute('anchor-squat','dumbbell-front-squat')");
+  const original=p.json('pilot.snapshot().state.anchors');
+  p.run("pilot.restore('anchor-squat')");
+  assert.deepEqual(p.json('pilot.snapshot().preview.today.anchorSubstitutions'),{});
+  assert.equal(p.run('pilot.snapshot().preview.plan.prescription.requiredAnchors[0].exerciseId'),'goblet-squat');
+  p.run("pilot.substitute('anchor-squat','dumbbell-front-squat')");
+  p.run("pilot.restore('anchor-squat')");
+  assert.deepEqual(p.json('pilot.snapshot().state.anchors'),original);
+  await p.run('pilot.begin().then(value=>{pilotTracker=value;})');await p.log();await p.finish();
+  const result=p.json('pilot.snapshot().results[0]');
+  assert.equal(result.substitutions.length,0);
+  assert.equal(result.performedWork[0].exerciseId,'goblet-squat');
+  assert.equal(p.run('pilot.snapshot().state.anchors[0].latestSubstitution'),undefined);
+});
+
+test('Coach preview edit mode gates actions and keeps the revised workout for playback', async () => {
+  const p=pilot();p.run("state.ownedEquipment=['dumbbells']");
+  await p.run("coachUI.controller.start(pilotDef,['dumbbells'])");await p.run('coachUI.open()');
+  p.run(`function previewButtons(id='coachPreviewContent') { const visit=node=>[node,...(node.children||[]).flatMap(visit)]; return visit(document.getElementById(id)).filter(node=>node.onclick).map(node=>node.textContent); }
+    function clickPreview(label,id='coachPreviewContent') { const visit=node=>node.textContent===label&&node.onclick?node:(node.children||[]).map(visit).find(Boolean);return visit(document.getElementById(id)).onclick(); }`);
+  await p.run("clickPreview('Start session','coachContent')");
+  assert.equal(p.json('previewButtons()').filter(label=>label==='Edit Workout').length,1);
+  assert.ok(!p.json('previewButtons()').some(label=>['Swap','Substitute'].includes(label)));
+  await p.run("clickPreview('Edit Workout')");
+  assert.ok(p.json('previewButtons()').includes('Substitute'));
+  assert.ok(p.json('previewButtons()').includes('Swap'));
+  assert.match(p.run("(function visit(node){return [node.textContent,...(node.children||[]).map(visit)].join(' ')})(document.getElementById('coachPreviewContent'))"),/just for today.*supporting exercises/);
+  await p.run("clickPreview('Substitute')");
+  assert.equal(p.run("document.getElementById('coachSubstitute').classList.contains('hidden')"),false);
+  await p.run("clickPreview('Cancel','coachSubstituteContent')");
+  assert.ok(p.json('previewButtons()').includes('Done Editing'));
+  await p.run("clickPreview('Substitute')");
+  await p.run("clickPreview('Dumbbell front squat','coachSubstituteContent')");
+  assert.ok(p.json('previewButtons()').includes('Restore prescribed exercise'));
+  assert.equal(p.run('coachUI.controller.snapshot().preview.plan.prescription.requiredAnchors[0].exerciseId'),'dumbbell-front-squat');
+  await p.run("clickPreview('Restore prescribed exercise')");
+  assert.equal(p.run('coachUI.controller.snapshot().preview.plan.prescription.requiredAnchors[0].exerciseId'),'goblet-squat');
+  await p.run("clickPreview('Swap')");
+  const revised=p.json('coachUI.controller.snapshot().preview.workout.main.blocks');
+  await p.run("clickPreview('Done Editing')");
+  assert.ok(!p.json('previewButtons()').some(label=>['Swap','Substitute','Restore prescribed exercise'].includes(label)));
+  assert.deepEqual(p.json('coachUI.controller.snapshot().preview.workout.main.blocks'),revised);
+  await p.run("clickPreview('Begin workout')");
+  assert.deepEqual(p.json('generatorState.workout.main.blocks'),revised);
+});
+
 test('several equipment-blocked anchors can be resolved one at a time without relaxing hard work', async () => {
   const p=pilot();await p.start();
   assert.equal(p.run("pilot.prepare({equipment:['bands'],duration:20}).status"),'infeasible');

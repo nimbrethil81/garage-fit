@@ -97,6 +97,24 @@ test('readiness changes today’s plan, rest creates no session, and settings ed
   assert.deepEqual(p.state(),live);assert.deepEqual(await p.run('pilotStore.loadSessionDraft()'),draft);
 });
 
+test('Tennis short preview keeps deferred anchors visible while edit mode protects required work',async()=>{
+  const p=await ui();await start(p);await p.click('10 min');await p.click('Start session');
+  const preview=()=>p.run("copyText('coachPreviewContent')");
+  assert.match(preview(),/Not scheduled today/);
+  assert.ok(p.run("action('Edit Workout','coachPreviewContent')"));
+  assert.equal(p.run("action('Substitute','coachPreviewContent')"),undefined);
+  assert.equal(p.run("action('Swap','coachPreviewContent')"),undefined);
+  await p.click('Edit Workout','coachPreviewContent');
+  assert.ok(p.run("action('Substitute','coachPreviewContent')"));
+  assert.match(preview(),/Not scheduled today/);
+  await p.click('Substitute','coachPreviewContent');
+  await p.run('coachUI.backFromSubstitute()');
+  assert.ok(p.run("action('Done Editing','coachPreviewContent')"));
+  await p.click('Done Editing','coachPreviewContent');
+  assert.equal(p.run("action('Substitute','coachPreviewContent')"),undefined);
+  assert.match(preview(),/Not scheduled today/);
+});
+
 test('10-minute preview and the common player count actual selected anchors without marking deferred anchors skipped',async()=>{
   const p=await ui();await start(p);const initial=p.state();
   await p.click('10 min');assert.equal(p.run("action('10 min').disabled"),undefined);
