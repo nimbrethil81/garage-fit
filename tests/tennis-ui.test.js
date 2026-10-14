@@ -126,7 +126,7 @@ test('10-minute preview and the common player count actual selected anchors with
   await p.click('Begin workout','coachPreviewContent');
   p.run(`const mainIndex=generatorState.timeline.findIndex(phase=>phase.kind==='exercise'&&phase.exercise.coachAnchor?.requirementId===${JSON.stringify(selected[0].requirementId)});enterGeneratedPhase(mainIndex);
     document.getElementById('coachActualLoad').value='12';coachUI.updateActualSummary();`);
-  assert.match(p.run("document.getElementById('coachActualSummary').textContent"),/Done confirms:.*12 kg/);
+  assert.match(p.run("document.getElementById('coachActualSummary').textContent"),/Next confirms:.*12 kg/);
   await p.run("coachAdvance('done')");await p.run("coachUI.showEnd('exit',600);coachUI.saveFeedback('about-right')");
   const result=p.json('coachUI.controller.snapshot().results[0]'),after=p.state();
   assert.equal(after.meaningfulSessionsCompleted,1);assert.equal(after.anchors.length,4);

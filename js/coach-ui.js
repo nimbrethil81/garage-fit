@@ -579,7 +579,7 @@
       return set;
     }
     function updateActualSummary() {
-      try { const set=actualSet(); el('coachActualSummary').textContent='Done confirms: '+(set.reps===null?'unknown reps':set.reps+' reps')+' · '+(activeResistance && !activeResistance.numericLoad ? set.resistanceSetup?'resistance setup confirmed':'setup unknown; progression held' : set.load===null?'load unknown':set.load+' '+set.loadUnit+(set.loadInterpretation==='per-item'?' each':' total')); } catch(error) { el('coachActualSummary').textContent=error.message; }
+      try { const set=actualSet(); el('coachActualSummary').textContent='Next confirms: '+(set.reps===null?'unknown reps':set.reps+' reps')+' · '+(activeResistance && !activeResistance.numericLoad ? set.resistanceSetup?'resistance setup confirmed':'setup unknown; progression held' : set.load===null?'load unknown':set.load+' '+set.loadUnit+(set.loadInterpretation==='per-item'?' each':' total')); } catch(error) { el('coachActualSummary').textContent=error.message; }
     }
     async function record(phase, tracker, action, elapsed) {
       if (busy) return false; return run(async () => {

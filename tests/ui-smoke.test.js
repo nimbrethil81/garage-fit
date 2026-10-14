@@ -36,7 +36,8 @@ class Element {
 
 test('Generator preview/player and both fixed players initialise without runtime errors', () => {
   const root=path.join(__dirname,'..'),html=fs.readFileSync(path.join(root,'index.html'),'utf8');
-  assert.match(html,/<div class="workout-secondary-controls">\s*<button class="previous-btn" id="previousWorkoutBtn"[\s\S]*?<button class="ctrl-btn ctrl-secondary" id="workoutPauseBtn"[\s\S]*?<\/div>\s*<button class="ctrl-btn ctrl-primary complete-btn" id="completeMovementBtn"/);
+  assert.doesNotMatch(html,/id="workoutPauseBtn"/);
+  assert.match(html,/<div class="workout-secondary-controls">\s*<button class="previous-btn" id="previousWorkoutBtn"[\s\S]*?<button class="ctrl-btn ctrl-primary complete-btn" id="completeMovementBtn"[\s\S]*?<\/div>/);
   const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(match=>match[1]);
   elementRegistry={};
   ids.forEach(id=>new Element(id));
@@ -46,11 +47,12 @@ test('Generator preview/player and both fixed players initialise without runtime
   const storage=new Map();
   const spoken=[];
   const intervals=new Map();let nextInterval=1;
+  let timerNow=Date.now();class TimerDate extends Date { static now(){return timerNow;} }
   const context={
     console,
     SpeechSynthesisUtterance:function(text){this.text=text;},
     speechSynthesis:{cancel(){},speak(utterance){spoken.push(utterance.text);}},
-    Date,
+    Date:TimerDate,
     // Seeded so the unseeded generator calls in the app produce the same workouts on every run.
     Math:Object.assign(Object.create(Math),{random:(seed=>()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;})(7)}),
     JSON,
@@ -59,7 +61,7 @@ test('Generator preview/player and both fixed players initialise without runtime
     localStorage:{getItem:key=>storage.has(key)?storage.get(key):null,setItem:(key,value)=>storage.set(key,String(value))},
     navigator:{},
     getComputedStyle:()=>({getPropertyValue:()=>'#000'}),
-    setInterval:callback=>{const id=nextInterval++;intervals.set(id,callback);return id;},
+    setInterval:callback=>{const id=nextInterval++;intervals.set(id,()=>{timerNow+=1000;callback();});return id;},
     clearInterval:id=>intervals.delete(id),
     setTimeout:callback=>callback()
   };
