@@ -7,6 +7,14 @@ require('../js/training-history.js');
 const {performance} = require('./helpers/coach-policy-fixtures.js');
 const History = GarageFitTrainingHistory, Model = GarageFitCoachModel, catalogue = GarageFitData.exercises;
 const view = results => History.createHistory(results, catalogue);
+
+test('legacy Knees Up history resolves to the canonical high-knees identity', () => {
+  const result = performance({performedWork: [{occurrenceId:'main-1', exerciseId:'knees-up', status:'completed'}]});
+  const history = view([result]);
+  assert.equal(history.performances[0].exerciseId,'high-knees');
+  assert.equal(history.performances[0].semanticConfidence,'derived');
+  assert.equal(history.exactExercisePerformances('high-knees').length,1);
+});
 const work = result => view([result]).performances[0];
 const copy = value => JSON.parse(JSON.stringify(value));
 

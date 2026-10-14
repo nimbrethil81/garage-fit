@@ -139,7 +139,7 @@ test('invalid impact classifications are rejected on every exercise, not only wa
 test('invalid preparation enums and scales are rejected', () => {
   assertRejected(errorsWith('air-squat', { prepIntensity:7 }), /air-squat: prepIntensity must be an integer from 1 to 5/);
   assertRejected(errorsWith('air-squat', { prepFatigue:'high' }), /prepFatigue must be an integer/);
-  assertRejected(errorsWith('knees-up', { prepComplexity:0 }), /prepComplexity must be an integer/);
+  assertRejected(errorsWith('knee-to-opposite-elbow', { prepComplexity:0 }), /prepComplexity must be an integer/);
   assertRejected(errorsWith('air-squat', { warmupAreas:['hips','elbows'] }), /air-squat: invalid warm-up areas/);
   assertRejected(errorsWith('air-squat', { warmupPhase:'early' }), /air-squat: invalid warm-up phase "early"/);
   assertRejected(errorsWith('air-squat', { warmupPhase:null }), /warm-up exercise missing warm-up phase/);

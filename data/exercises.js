@@ -171,11 +171,11 @@
       warmup:true, warmupPhase:'dynamic', warmupPrescription:{type:'timed',value:20}, warmupAreas:['hips','knees','ankles'],
       rampup:true, rampupPrescription:{type:'timed',value:40,minValue:30,maxValue:45}, prepIntensity:4, prepFatigue:1, prepComplexity:1,
       instruction:'Stand with feet together and arms down, jump your feet apart as you raise your arms overhead, then jump back, landing softly.' },
-    { id:'high-knees', name:'High knees', repetitionClass:'knee-lifts',
+    { id:'high-knees', name:'High Knees Running in Place', repetitionClass:'knee-lifts',
       patterns:[], conditioning:true, strength:1, cardio:5, difficulty:'moderate', bodyFocus:'lower', impact:'high', sidedness:'alternating',
       prescription:{type:'timed',value:30}, generator:true, main:true, mainRole:'supporting', mainProtocols:WITH_TIMED_INTERVALS,
       rampup:true, rampupPrescription:{type:'timed',value:35,minValue:25,maxValue:45}, prepIntensity:5, prepFatigue:2, prepComplexity:1,
-      instruction:'Run on the spot, alternating left and right knee lifts towards hip height, keeping your torso upright and landing softly.' },
+      instruction:'Run on the spot, driving your knees upwards and pumping your arms to build your heart rate.' },
     { id:'burpees', name:'Burpees', repetitionClass:'plank-to-stand',
       patterns:['push'], conditioning:true, strength:2, cardio:5, difficulty:'hard', bodyFocus:'full-body', impact:'high', bodyPosition:'mixed',
       prescription:{type:'reps',value:10}, estimatedSeconds:35, generator:true, main:true, mainProtocols:WITH_TIMED_INTERVALS,
@@ -540,12 +540,12 @@
       instruction:'With your back against a wall and arms bent in a W, slide your arms up into a Y and back down.' },
 
     // ---- Warm-up and preparation movements ----
-    { id:'knees-up', name:'Knees up', repetitionClass:'knee-lifts',
-      patterns:[], conditioning:true, strength:1, cardio:3, difficulty:'easy', impact:'medium',
+    { id:'knee-to-opposite-elbow', name:'Knee to Opposite Elbow', repetitionClass:'knee-lifts',
+      patterns:[], conditioning:false, strength:1, cardio:1, movementPlanes:['sagittal','transverse'], sidedness:'alternating',
       prescription:{type:'timed',value:20},
       warmup:true, warmupPhase:'dynamic', warmupPrescription:{type:'timed',value:20}, warmupAreas:['hips','knees'],
-      rampup:true, rampupPrescription:{type:'timed',value:35,minValue:25,maxValue:45}, prepIntensity:3, prepFatigue:1, prepComplexity:1,
-      instruction:'Stand tall and alternately lift your knees in a gentle jogging rhythm, keeping your torso upright and landing softly.' },
+      prepIntensity:1, prepFatigue:1, prepComplexity:2,
+      instruction:'Stand tall and bring each knee towards the opposite elbow, alternating sides with a gentle torso rotation.' },
     { id:'bum-kicks', name:'Bum kicks',
       patterns:[], conditioning:true, strength:1, cardio:3, difficulty:'easy', impact:'medium',
       prescription:{type:'timed',value:20},
@@ -588,12 +588,12 @@
       warmup:true, warmupPhase:'basic', warmupPrescription:{type:'timed',value:20}, warmupAreas:['shoulders'],
       prepIntensity:1, prepFatigue:1, prepComplexity:1,
       instruction:'Stand tall and sweep both arms forwards in smooth circles beside your body, keeping your shoulders relaxed.' },
-    { id:'arm-side-circles', name:'Arm side circles',
+    { id:'arm-side-circles', name:'Arm Circles',
       patterns:[], conditioning:false, strength:1, cardio:1, movementPlanes:['frontal'],
-      prescription:{type:'timed',value:20},
+      prescription:{type:'timed',value:20}, timedCues:[{text:'Change direction',at:{type:'fraction',value:0.5}}],
       warmup:true, warmupPhase:'basic', warmupPrescription:{type:'timed',value:20}, warmupAreas:['shoulders'],
       prepIntensity:1, prepFatigue:1, prepComplexity:1,
-      instruction:'Stand tall, extend your arms out to the sides and make small circles with your hands, keeping your shoulders relaxed.' },
+      instruction:'Extend your arms out to the sides and make controlled circles, changing direction halfway through.' },
     { id:'walk-plank-push-up', name:'Walk to plank and push up', repetitionClass:'plank-to-stand',
       patterns:['push','core'], conditioning:false, strength:2, cardio:2, difficulty:'moderate', bodyPosition:'mixed',
       prescription:{type:'timed',value:20},
@@ -897,6 +897,15 @@
   ];
 
   root.GarageFitData = root.GarageFitData || {};
+  const EXERCISE_ALIASES = Object.freeze({'knees-up':'high-knees'});
+  const exercises = buildExerciseCatalogue(EXERCISES);
+  // Legacy ids remain readable for saved workouts and Session Results, but are not
+  // enumerable catalogue entries and therefore cannot re-enter exercise selection.
+  for (const [legacyId, canonicalId] of Object.entries(EXERCISE_ALIASES)) {
+    Object.defineProperty(exercises, legacyId, {value:exercises[canonicalId], enumerable:false});
+  }
   root.GarageFitData.buildExerciseCatalogue = buildExerciseCatalogue;
-  root.GarageFitData.exercises = buildExerciseCatalogue(EXERCISES);
+  root.GarageFitData.exerciseAliases = EXERCISE_ALIASES;
+  root.GarageFitData.canonicalExerciseId = id => EXERCISE_ALIASES[id] || id;
+  root.GarageFitData.exercises = exercises;
 })(window);

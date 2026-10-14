@@ -1225,7 +1225,7 @@
     const targetIntensity = 3 + 2*position;
     let score = credit(parts,'prep-demand',14 - Math.abs(exercise.prepIntensity-targetIntensity)*3 - exercise.prepFatigue*1.8 - Math.max(0,exercise.prepComplexity-2)*1.5);
     const specificity = contextSpecificity(exercise,mainExercises);
-    score += credit(parts,'main-specificity',specificity * (2 + 5*position));
+    score += credit(parts,'main-specificity',specificity * (2 + 7*position));
     // Conditioning prep suits the early, pulse-raising end of Ramp-up (categorical); the
     // Cardio-focus `cardio` term below grades how much it raises the pulse.
     if (exercise.conditioning) score += credit(parts,'conditioning-position',(1-position)*2 + (focus==='cardio'?2:focus==='strength'?-0.5:0.5));

@@ -8,6 +8,7 @@ require('../js/generator.js');
 
 const { cueOffsetSeconds, createTracker, takeDueCues } = GarageFitTimedCues;
 const bodyHoops = GarageFitData.exercises['body-hoops'];
+const armCircles = GarageFitData.exercises['arm-side-circles'];
 
 test('an exercise with no timed cues retains cue-free countdown behaviour', () => {
   const tracker = createTracker([], 30);
@@ -20,6 +21,17 @@ test('Body hoops declares a generic midpoint cue', () => {
     { text: 'Change direction', at: { type: 'fraction', value: 0.5 } }
   ]);
   assert.deepEqual(GarageFitGenerator.validateCatalogue(GarageFitData.exercises), []);
+});
+
+test('Arm Circles uses the shared midpoint direction cue exactly once', () => {
+  assert.deepEqual(armCircles.timedCues, [
+    { text: 'Change direction', at: { type: 'fraction', value: 0.5 } }
+  ]);
+  const tracker = createTracker(armCircles.timedCues, armCircles.prescription.value);
+  assert.deepEqual(takeDueCues(tracker, 9), []);
+  assert.equal(takeDueCues(tracker, 10)[0].text, 'Change direction');
+  assert.deepEqual(takeDueCues(tracker, 10), []);
+  assert.deepEqual(takeDueCues(tracker, 20), []);
 });
 
 test('a 30-second interval fires its midpoint cue at 15 seconds', () => {

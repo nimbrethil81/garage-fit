@@ -22,7 +22,8 @@ test('preparation exercises must declare strength, cardio, patterns and conditio
 
 test('reviewed prep exercises carry explicit scored metadata', () => {
   const expected = {
-    'knees-up':{ strength:1, cardio:3, patterns:['conditioning'] },
+    'knee-to-opposite-elbow':{ strength:1, cardio:1, patterns:[] },
+    'high-knees':{ strength:1, cardio:5, patterns:['conditioning'] },
     'bum-kicks':{ strength:1, cardio:3, patterns:['conditioning'] },
     'star-jumps':{ strength:1, cardio:5, patterns:['conditioning'] },
     'walk-plank-push-up':{ strength:2, cardio:2, patterns:['push','core'] },
@@ -53,7 +54,7 @@ test('walk to plank and push up now prepares for push-led Main work', () => {
 
 test('cardio-oriented prep movements are recognised as such by Cardio Ramp-up scoring', () => {
   const main = [catalogue['jumping-jacks'], catalogue['burpees']];
-  for (const id of ['star-jumps','knees-up','bum-kicks']) {
+  for (const id of ['star-jumps','high-knees','bum-kicks']) {
     const explicit = scoreRampupCandidate(catalogue[id], 0, [], [], main, [], 'cardio');
     const defaulted = scoreRampupCandidate(withGenericDefaults(catalogue[id]), 0, [], [], main, [], 'cardio');
     assert.ok(explicit > defaulted, id+': '+explicit+' > '+defaulted);

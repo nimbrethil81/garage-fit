@@ -11,12 +11,12 @@
   root.GarageFitData.fixedRoutines = Object.freeze({
     warmup: freezeVariants({
       bodyweight: [
-        'knees-up','bum-kicks','open-close-gates','hand-opposite-toe','body-hoops','body-twists',
+        'knee-to-opposite-elbow','bum-kicks','open-close-gates','hand-opposite-toe','body-hoops','body-twists',
         'arm-circles-backwards','arm-circles-forwards','arm-side-circles','air-squat','step-back-lunge',
         'walk-plank-push-up','star-jumps','burpees'
       ],
       equipment: [
-        'knees-up','bum-kicks','open-close-gates','hand-opposite-toe','body-hoops','body-twists',
+        'knee-to-opposite-elbow','bum-kicks','open-close-gates','hand-opposite-toe','body-hoops','body-twists',
         'arm-circles-backwards','arm-circles-forwards','arm-side-circles','air-squat','step-back-lunge',
         'walk-plank-push-up','star-jumps','burpees',
         'trx-squat-overhead','trx-lunge-warmup','band-pull-apart','hangout-pullup-bar','kettlebell-figure-eight'

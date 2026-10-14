@@ -313,7 +313,7 @@ combines freely with workout style and difficulty.
 | --- | --- | --- | --- |
 | 1 | Basic mobility (arm circles, body twists) | None (mobility, jumping jacks, dead hang) | Simple (arm circles, air squat, jacks) |
 | 2 | Gentle dynamic (plank, dead hang, step back lunge) | Light (air squat, plank, carries) | Moderate (push-up, lunge, deadlift) |
-| 3 | Moderate (air squat, knees up, loaded hinges) | Moderate (push-up, goblet squat, burpees, swings) | Technical (kettlebell swing and figure-of-eight, TRX mountain climber) |
+| 3 | Moderate (air squat, high knees, loaded hinges) | Moderate (push-up, goblet squat, burpees, swings) | Technical (kettlebell swing and figure-of-eight, TRX mountain climber) |
 | 4 | Brisk (jumping jacks, push-ups, goblet squat, star jumps) | Heavy; excluded from Ramp-up | Highly technical; excluded from Ramp-up |
 | 5 | Near-maximal (burpees, high knees, jumps, swings) | Very heavy; excluded from Ramp-up | Very technical; excluded from Ramp-up |
 

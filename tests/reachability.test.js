@@ -63,6 +63,12 @@ const mainIds=workout=>workout.main.blocks.flatMap(block=>block.exercises.map(ex
 const count=(workouts,id,phase='main')=>workouts.filter(workout=>(phase==='main'?mainIds(workout):workout[phase].exercises.map(ex=>ex.id)).includes(id)).length;
 const kettlebell=sample(['kettlebell'],80);
 const trx=sample(['trx']);
+const bodyweight=sample([]);
+
+test('Knee to Opposite Elbow is reachable in Warm-up and never leaks into Ramp-up',()=>{
+  assert.ok(count(bodyweight,'knee-to-opposite-elbow','warmup')>=2,'cross-body knee warm-up');
+  assert.equal(count(bodyweight,'knee-to-opposite-elbow','rampup'),0);
+});
 
 test('primary and supporting Main exercises in dense same-pattern pools are reachable, and supporting work stays secondary',()=>{
   const singleLeg=count(kettlebell,'kettlebell-single-leg-deadlift');
