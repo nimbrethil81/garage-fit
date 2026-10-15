@@ -145,14 +145,18 @@ test('Generator preview/player and both fixed players initialise without runtime
     const phase=timeline[index],before=spoken.length;
     context.enterGeneratedPhase(index);
     if(phase.kind==='exercise') {
-      assert.ok(spoken.length>=before+1 && spoken.length<=before+2);
-      assert.ok(spoken[before].includes(phase.exercise.name));
-      assert.ok(spoken[before].includes(phase.timed?'seconds':'reps'));
-      if(phase.side) assert.ok(spoken[before].includes(phase.side));
+      // A sided cue speaks "name, side" and the quantity as separate utterances; an optional
+      // spoken instruction follows.
+      const cue=spoken.slice(before),parts=phase.side?2:1,quantity=phase.timed?'seconds':'reps';
+      assert.ok(cue.length>=parts && cue.length<=parts+1);
+      assert.ok(cue[0].includes(phase.exercise.name));
+      assert.ok(cue[parts-1].includes(quantity));
+      if(phase.side) assert.ok(cue[0].includes(phase.side+' side') && !cue[0].includes(quantity));
     }
   }
+  const beforePrevious=spoken.length;
   context.previousGeneratedPhase();
-  assert.ok(spoken.at(-1).includes(vm.runInContext('currentGeneratedPhase().exercise.name',context)));
+  assert.ok(spoken[beforePrevious].includes(vm.runInContext('currentGeneratedPhase().exercise.name',context)));
 
   const timedIndex=vm.runInContext("generatorState.timeline.findIndex(phase=>phase.kind==='exercise'&&phase.timed)",context);
   vm.runInContext("generatorState.timeline["+timedIndex+"].exercise.timedCues=[{text:'Test cue',at:{type:'fraction',value:0.5}}]",context);

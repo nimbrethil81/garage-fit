@@ -323,9 +323,31 @@ Main exercise.
 
 ### `warmupAreas`
 
-One or more of `hips`, `knees`, `ankles`, `shoulders` and `trunk`. Covering at least
-two of hips/knees/ankles makes an exercise meaningful lower-body preparation. The
-Warm-up guarantees a minimum amount of it and caps upper/trunk-only movements.
+One or more of `hips`, `knees`, `ankles`, `shoulders` and `trunk`: the joints or regions the
+movement genuinely mobilises. Covering at least two of hips/knees/ankles makes an exercise
+meaningful lower-body preparation. The Warm-up guarantees a minimum amount of it, a minimum
+of shoulder or trunk preparation (one exercise, two in warm-ups of seven or more) and caps
+upper/trunk-only movements. A `knees` area alone does not make an exercise knee mobility
+(see `kneeMobility`).
+
+### `kneeMobility`
+
+Boolean, default `false`. Set it to `true` only for a warm-up movement whose purpose is
+controlled, unloaded flexion and extension of the knee through a comfortable range, such as
+standing knee curls. Squats and shallow knee bends (weight-bearing), lunges, jogging and
+jumping drills, marching and knee lifts (the knee bends only incidentally) do not qualify,
+even though they list `knees`. Validation requires a qualifying exercise to be a warm-up
+exercise with `impact: 'low'`, no equipment, `knees` in `warmupAreas`, no major pattern, no
+conditioning role, `prepIntensity` of at most 2 and `prepFatigue` of 1, so the obligation
+below is feasible with any equipment.
+
+Every generated warm-up contains a `kneeMobility` exercise. The Warm-up selects it first,
+ahead of coverage, specificity, equipment, recency and variety, and within the warm-up's
+existing budget and exercise count. Warm-up swaps replace the only qualifying exercise with
+another one or leave it in place, and the Warm-up's adjacency repair never removes it. If an
+artificially constrained catalogue has no eligible qualifier, the warm-up is still built but
+carries the diagnostic `warmup:knee-mobility-unavailable`, and `validatePreparation`
+reports `warmup:missing-knee-mobility`.
 
 ### `warmupPhase`
 
@@ -345,6 +367,8 @@ variants of substantially the same exercise:
   press, dumbbell/kettlebell swing);
 - phase-specific duplicates (step back lunge and reverse lunge, dead hang and hangout
   on a pull-up bar);
+- direction variants of the same movement (arm circles forwards, backwards and with a
+  direction change);
 - a stretch and its TRX version.
 
 These do not qualify:
@@ -380,7 +404,7 @@ family should appear, so do not use `frequency` to obtain this.
 | Phase | Same family | Same repetition class |
 | --- | --- | --- |
 | Main | Hard cap of one per workout for `occasional` and single-variant families, shared by generation, Coach Session Prescriptions (two required anchors from one capped family are a hard conflict) and swaps. Recent use of a variant counts towards recency penalties. | Soft score penalty when the immediately preceding Main exercise shares it; never an exclusion. |
-| Warm-up | Never two members. | — |
+| Warm-up | Never two members. | Soft score penalty against earlier Warm-up picks; never an exclusion. |
 | Ramp-up | Avoided (soft-mandatory) against earlier Ramp-up and Warm-up picks, including in swaps. | Soft score penalty against Warm-up and earlier Ramp-up picks. |
 | Cool-down | Never two members. | — |
 | Fixed Warm-up/Cool-down routines | Not applied. The Routines tab plays explicitly authored Bodyweight / With equipment lists (`fixedRoutines` in `data/workouts.js`); metadata never adds, removes or substitutes their exercises. | — |

@@ -302,6 +302,27 @@
     return lower/list.length;
   }
 
+  // Warm-up score penalty when an earlier pick shares a repetitionClass (soft, never an exclusion).
+  const WARMUP_REPETITION_CLASS_PENALTY = 4;
+
+  // Warm-up policy: every generated warm-up includes one `kneeMobility` exercise, a controlled,
+  // unloaded movement that genuinely flexes and extends the knee. A knees warm-up area alone
+  // does not qualify (squats, lunges and jogging drills load or bounce the knee). Catalogue
+  // validation keeps every such exercise gentle, low-impact and bodyweight, so the obligation
+  // is feasible with any equipment.
+  function kneeMobilityQualified(exercise) {
+    return !!(exercise && exercise.warmup && exercise.kneeMobility===true);
+  }
+
+  // Shoulder or trunk preparation. The warm-up keeps a minimum of it so the essential knee
+  // slot and the gentle lower-body options cannot crowd upper-body mobility out.
+  function upperTrunkPrep(exercise) {
+    return (exercise.warmupAreas || []).some(area => area==='shoulders' || area==='trunk');
+  }
+  function upperTrunkTarget(count) {
+    return count>=7 ? 2 : count>=3 ? 1 : 0;
+  }
+
   // How many meaningful lower-body warm-up exercises a warm-up of this size should contain.
   // Short warm-ups need one; medium/long warm-ups need two; substantial lower-body Main
   // demand adds one more once the warm-up is long enough to hold it without regional skew.
@@ -1155,6 +1176,10 @@
         if (!VALID_FREQUENCIES.has(exercise.frequency)) errors.push(id+': invalid frequency '+JSON.stringify(exercise.frequency));
         else if (!exercise.family) errors.push(id+': frequency requires a family');
       }
+      if (exercise.kneeMobility!==undefined && typeof exercise.kneeMobility!=='boolean') errors.push(id+': kneeMobility must be boolean');
+      if (exercise.kneeMobility===true && !(exercise.warmup && exercise.impact==='low' && Array.isArray(exercise.equipment) && !exercise.equipment.length &&
+        (exercise.warmupAreas || []).includes('knees') && !(exercise.patterns || []).some(pattern => MAJOR_REPEAT_PATTERNS.has(pattern)) &&
+        !exercise.conditioning && exercise.prepIntensity<=2 && exercise.prepFatigue===1)) errors.push(id+': kneeMobility requires a gentle, low-impact, unloaded bodyweight knee warm-up');
     }
     return errors;
   }
@@ -1216,6 +1241,7 @@
       if (sharedPatterns(previous,exercise).length) score += credit(parts,'adjacent-pattern',-1);
     }
     score += credit(parts,'repeated-pattern',-preparationPatternPenalty(exercise,selected));
+    if (selected.some(item=>sameRepetitionClass(item,exercise))) score += credit(parts,'repetition-class',-WARMUP_REPETITION_CLASS_PENALTY);
     return score;
   }
 
@@ -1306,18 +1332,30 @@
     const targetCount=Math.max(2,Math.min(candidates.length,Math.round((targetSeconds+5)/25)));
     const lowerDemand=lowerBodyDemand(options.mainDemandExercises||mainExercises,focus);
     const context={lowerDemand,lowerDemandThreshold:LOWER_DEMAND_THRESHOLD[focus]||LOWER_DEMAND_THRESHOLD.balanced,lowerTarget:lowerPrepTarget(targetCount,lowerDemand,focus)};
-    const upperCap=upperTrunkOnlyCap(targetCount);
+    const upperCap=upperTrunkOnlyCap(targetCount), upperTarget=upperTrunkTarget(targetCount);
     for(let slot=0;slot<targetCount && candidates.length;slot++) {
       const stages=activeTrace?[]:null;
       // Exercises an earlier pick removed as a duplicate or direct variant.
       if (stages) narrow(stages,'family-duplicate',eligible.filter(ex=>!selected.includes(ex)),candidates);
       let slotCandidates=candidates;
-      // Both coverage rules are soft-mandatory: they narrow the slot only while an eligible
+      // Essential knee mobility is constructed first and precedes every other rule, so a
+      // warm-up of any length holds it; it is infeasible only without an eligible qualifier.
+      if (!selected.some(kneeMobilityQualified)) {
+        const kneeCandidates=slotCandidates.filter(kneeMobilityQualified);
+        if (kneeCandidates.length) slotCandidates=narrow(stages,'knee-mobility',slotCandidates,kneeCandidates);
+      }
+      // The coverage rules are soft-mandatory: they narrow the slot only while an eligible
       // alternative exists, so a constrained catalogue still produces a warm-up.
       const lowerNeeded=context.lowerTarget-selected.filter(meaningfulLowerPrep).length;
       if (lowerNeeded>0 && lowerNeeded>=targetCount-slot) {
         const lowerCandidates=slotCandidates.filter(meaningfulLowerPrep);
         if (lowerCandidates.length) slotCandidates=narrow(stages,'lower-coverage',slotCandidates,lowerCandidates);
+      }
+      // Once the remaining slots are only just enough for both minimums, each slot serves one of them.
+      const upperNeeded=upperTarget-selected.filter(upperTrunkPrep).length;
+      if (upperNeeded>0 && upperNeeded+Math.max(0,lowerNeeded)>=targetCount-slot) {
+        const covering=slotCandidates.filter(ex=>upperTrunkPrep(ex) || (lowerNeeded>0 && meaningfulLowerPrep(ex)));
+        if (covering.length) slotCandidates=narrow(stages,'upper-trunk-coverage',slotCandidates,covering);
       }
       if (selected.filter(ex=>!lowerJointCoverage(ex).length).length>=upperCap) {
         const lowerInvolved=slotCandidates.filter(ex=>lowerJointCoverage(ex).length);
@@ -1348,8 +1386,11 @@
         !sharesMajorPattern(before,ex) && (!after || !sharesMajorPattern(ex,after)));
       const coverage=selected.filter(meaningfulLowerPrep).length;
       const upperOnly=selected.filter(ex=>!lowerJointCoverage(ex).length).length;
-      const viable=alternatives.filter(ex=>coverage-(meaningfulLowerPrep(current)?1:0)+(meaningfulLowerPrep(ex)?1:0)>=context.lowerTarget &&
-        upperOnly-(!lowerJointCoverage(current).length?1:0)+(!lowerJointCoverage(ex).length?1:0)<=upperCap);
+      const upperCoverage=selected.filter(upperTrunkPrep).length;
+      const soleKneeMobility=kneeMobilityQualified(current) && !selected.some(ex=>ex!==current && kneeMobilityQualified(ex));
+      const viable=alternatives.filter(ex=>(!soleKneeMobility || kneeMobilityQualified(ex)) && coverage-(meaningfulLowerPrep(current)?1:0)+(meaningfulLowerPrep(ex)?1:0)>=context.lowerTarget &&
+        upperOnly-(!lowerJointCoverage(current).length?1:0)+(!lowerJointCoverage(ex).length?1:0)<=upperCap &&
+        upperCoverage-(upperTrunkPrep(current)?1:0)+(upperTrunkPrep(ex)?1:0)>=Math.min(upperTarget,upperCoverage));
       if (viable.length) {
         viable.sort((a,b)=>Math.abs(a.prepIntensity-current.prepIntensity)-Math.abs(b.prepIntensity-current.prepIntensity) ||
           scoreWarmupCandidate(b,selected.slice(0,index),mainExercises,owned,context)-scoreWarmupCandidate(a,selected.slice(0,index),mainExercises,owned,context));
@@ -1359,7 +1400,10 @@
       }
     }
     const fitted=fitTimedDurations(selected,targetSeconds,restSeconds,'warmup');
-    return {exercises:fitted.exercises,restSeconds,estimatedSeconds:fitted.estimatedSeconds};
+    const result={exercises:fitted.exercises,restSeconds,estimatedSeconds:fitted.estimatedSeconds};
+    // An artificially constrained pool can lack every qualifier; say so rather than pass it off as complete.
+    if (selected.length && !selected.some(kneeMobilityQualified)) result.diagnostics=['warmup:knee-mobility-unavailable'];
+    return result;
   }
 
   function rampSequenceScore(exercises, warmup, mainExercises, owned, focus) {
@@ -1415,6 +1459,7 @@
     const issues=[];
     for(const ex of warmup.exercises.concat(rampup.exercises)) if(!preparationMetadataValid(ex)) issues.push('metadata:'+ex.id);
     if(warmup.exercises.length && !warmup.exercises.some(ex=>lowerJointCoverage(ex).length>=2)) issues.push('warmup:missing-lower-joint-coverage');
+    if(warmup.exercises.length && !warmup.exercises.some(kneeMobilityQualified)) issues.push('warmup:missing-knee-mobility');
     for(let i=1;i<rampup.exercises.length;i++) {
       const before=rampup.exercises[i-1], after=rampup.exercises[i];
       if(before.impact==='high'&&after.impact==='high') issues.push('impact:'+before.id+'>'+after.id);
@@ -1907,7 +1952,8 @@
     const estimatedSeconds=preparation.warmup.estimatedSeconds+preparation.rampup.estimatedSeconds+main.estimatedDurationSeconds+cooldown.estimatedSeconds;
     const workout={
       schemaVersion:2,id:'generated-'+Date.now(),duration,focus,bodyFocus,difficulty,estimatedSeconds,
-      warmup:{estimatedSeconds:preparation.warmup.estimatedSeconds,restSeconds:preparation.warmup.restSeconds,exercises:preparation.warmup.exercises.map(copyExercise)},
+      warmup:{estimatedSeconds:preparation.warmup.estimatedSeconds,restSeconds:preparation.warmup.restSeconds,exercises:preparation.warmup.exercises.map(copyExercise),
+        ...(preparation.warmup.diagnostics?{diagnostics:preparation.warmup.diagnostics.slice()}:{})},
       rampup:{estimatedSeconds:preparation.rampup.estimatedSeconds,restSeconds:preparation.rampup.restSeconds,exercises:preparation.rampup.exercises.map(copyExercise)},
       main,
       cooldown:{estimatedSeconds:cooldown.estimatedSeconds,restSeconds:cooldown.restSeconds,exercises:cooldown.exercises.map(copyExercise)}
@@ -1985,9 +2031,17 @@
     if(section==='warmup') {
       // A swap must not undo the warm-up's lower-body coverage or tip it into upper/trunk skew.
       const others=workout.warmup.exercises.filter((_,index)=>index!==exerciseIndex), count=workout.warmup.exercises.length;
+      // Essential knee mobility is a hard obligation: its only holder is replaced by another
+      // qualifier or kept.
+      if (kneeMobilityQualified(current) && !others.some(kneeMobilityQualified)) {
+        eligible=eligible.filter(kneeMobilityQualified); if(!eligible.length) return workout;
+      }
       const demand=lowerBodyDemand(mainBlocks(workout).flatMap(block=>block.exercises),workout.focus);
       if (meaningfulLowerPrep(current) && others.filter(meaningfulLowerPrep).length<lowerPrepTarget(count,demand,workout.focus)) {
         const lowerEligible=eligible.filter(meaningfulLowerPrep); if(lowerEligible.length) eligible=lowerEligible;
+      }
+      if (upperTrunkPrep(current) && others.filter(upperTrunkPrep).length<upperTrunkTarget(count)) {
+        const upperEligible=eligible.filter(upperTrunkPrep); if(upperEligible.length) eligible=upperEligible;
       }
       if (others.filter(ex=>!lowerJointCoverage(ex).length).length>=upperTrunkOnlyCap(count)) {
         const lowerInvolved=eligible.filter(ex=>lowerJointCoverage(ex).length); if(lowerInvolved.length) eligible=lowerInvolved;
@@ -2024,7 +2078,7 @@
     workout.estimatedSeconds=workout.warmup.estimatedSeconds+workout.rampup.estimatedSeconds+workout.main.estimatedDurationSeconds+workout.cooldown.estimatedSeconds;
   }
 
-  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, WORKOUT_DIFFICULTIES, EXERCISE_DIFFICULTIES, DIFFICULTY_POLICY, workoutDifficulty, difficultyExcluded, difficultyCredit, WORKOUT_BODY_FOCUSES, EXERCISE_BODY_FOCUSES, EXERCISE_DIRECT_ELBOW_ACTIONS, BODY_FOCUS_POLICY, workoutBodyFocus, bodyFocusCredit, SHORTLIST_SIZE, SHORTLIST_MARGIN, WINDOW_MAX_RANKS, SUPPORTING_ROUTE, candidateWindowRanks, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_PATTERNS, VALID_WARMUP_AREAS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, selectBlockExercises, selectWarmup, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, SessionPrescriptionError, assessSessionPrescription, generate, swap, swapPreparation };
+  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, WORKOUT_DIFFICULTIES, EXERCISE_DIFFICULTIES, DIFFICULTY_POLICY, workoutDifficulty, difficultyExcluded, difficultyCredit, WORKOUT_BODY_FOCUSES, EXERCISE_BODY_FOCUSES, EXERCISE_DIRECT_ELBOW_ACTIONS, BODY_FOCUS_POLICY, workoutBodyFocus, bodyFocusCredit, SHORTLIST_SIZE, SHORTLIST_MARGIN, WINDOW_MAX_RANKS, SUPPORTING_ROUTE, candidateWindowRanks, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_PATTERNS, VALID_WARMUP_AREAS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, selectBlockExercises, selectWarmup, kneeMobilityQualified, upperTrunkTarget, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, SessionPrescriptionError, assessSessionPrescription, generate, swap, swapPreparation };
 
   if (typeof window!=='undefined' && typeof document!=='undefined' && typeof window.addEventListener==='function') window.addEventListener('load',()=>{
     if (document.querySelector('script[data-garagefit-rampup-ui]')) return;
