@@ -87,7 +87,8 @@ test('generated Main uses the scaled window after its filters; Warm-up and Ramp-
     if(event.type!=='pick'||!event.scored)return;
     ranks[event.phase].add(event.window.ranks);
     if(event.phase==='main'){
-      assert.equal(event.window.ranks,G.candidateWindowRanks(event.scored.length));
+      // The supporting route's bounded accessory slot spans its whole pool (supporting-route.test.js).
+      assert.equal(event.window.ranks,event.route?Math.max(G.SHORTLIST_SIZE,event.scored.length):G.candidateWindowRanks(event.scored.length));
       const removed=new Set((event.stages||[]).flatMap(stage=>stage.removed));
       assert.ok(event.scored.every(entry=>!removed.has(entry.exercise)),'filters run before the window');
       if(event.window.ranks>G.SHORTLIST_SIZE)wider++;
