@@ -125,7 +125,8 @@ test('swapping into a per-side preparation exercise keeps the slot total and spl
   let workout;
   for (let seed = 3; !workout || workout.warmup.exercises.some(ex => ex.id==='step-back-lunge'); seed++)
     workout = GarageFitGenerator.generate({ catalogue, duration:30, focus:'balanced', equipment:allEquipment, random:random(seed) });
-  const slot = workout.warmup.exercises.findIndex(ex => ex.sidedness!=='per-side' && ex.estimatedSeconds % 10 === 0);
+  // The essential knee-mobility slot only accepts another knee-mobility exercise.
+  const slot = workout.warmup.exercises.findIndex(ex => ex.sidedness!=='per-side' && !ex.kneeMobility && ex.estimatedSeconds % 10 === 0);
   assert.ok(slot >= 0);
   const before = workout.warmup.estimatedSeconds, total = workout.warmup.exercises[slot].estimatedSeconds;
   const onlyLunge = Object.fromEntries(Object.entries(catalogue).filter(([id, ex]) => !ex.warmup || id==='step-back-lunge' || workout.warmup.exercises.some(item => item.id===id)));

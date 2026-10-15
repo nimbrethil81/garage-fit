@@ -103,3 +103,22 @@ test('Ramp-up avoids consecutive high-impact work whenever a lower-impact altern
     for(let i=1;i<ramp.length;i++)assert.ok(!(ramp[i].impact==='high'&&ramp[i-1].impact==='high'),ramp.map(ex=>ex.id).join(' > '));
   }
 });
+
+// Warm-up expansion: every new warm-up movement is reachable in a bounded deterministic
+// sample for its equipment, and none leaks into Ramp-up.
+const bands=sample(['bands'],20);
+test('the warm-up expansion exercises are reachable in Warm-up and never in Ramp-up',()=>{
+  const reach={
+    bodyweight:['marching-on-the-spot','standing-knee-curls','shallow-knee-bends','heel-toe-rocks','ankle-circles','calf-raises',
+      'side-step-touches','leg-swings-forward-back','leg-swings-side','hamstring-sweeps','shoulder-rolls','standing-side-bends','body-hoops'],
+    trx:['trx-lateral-weight-shift'],
+    bands:['band-external-rotation']
+  };
+  const pools={bodyweight,trx,bands};
+  for(const [pool,ids] of Object.entries(reach))for(const id of ids){
+    assert.ok(count(pools[pool],id,'warmup')>=3,id+' in '+pool+' warm-ups: '+count(pools[pool],id,'warmup'));
+    assert.equal(count(bodyweight.concat(trx,bands),id,'rampup'),0,id+' in Ramp-up');
+  }
+  // The essential knee-mobility movement is in every warm-up.
+  for(const workout of bodyweight.concat(trx,bands))assert.ok(workout.warmup.exercises.some(ex=>ex.id==='standing-knee-curls'));
+});

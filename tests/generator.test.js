@@ -116,7 +116,8 @@ test('main swap preserves eligibility and avoids duplicates',()=>{
 
 test('preparation swap preserves phase eligibility, duration and metadata',()=>{
   for(const section of ['warmup','rampup']){
-    const workout=create({duration:30,equipment:['dumbbells','kettlebell','trx'],random:random(7)}),before=workout[section].estimatedSeconds,current=workout[section].exercises[0].id;GarageFitGenerator.swapPreparation(workout,section,0,{catalogue,equipment:['dumbbells','kettlebell','trx'],random:random(13)});const replacement=workout[section].exercises[0];assert.equal(replacement[section],true);assert.equal(GarageFitGenerator.preparationMetadataValid(replacement),true);assert.equal(workout[section].estimatedSeconds,before);assert.notEqual(replacement.id,current);
+    // The warm-up's only knee-mobility exercise is replaced only by another, so swap a different slot.
+    const workout=create({duration:30,equipment:['dumbbells','kettlebell','trx'],random:random(7)}),index=workout[section].exercises.findIndex(ex=>!ex.kneeMobility),before=workout[section].estimatedSeconds,current=workout[section].exercises[index].id;GarageFitGenerator.swapPreparation(workout,section,index,{catalogue,equipment:['dumbbells','kettlebell','trx'],random:random(13)});const replacement=workout[section].exercises[index];assert.equal(replacement[section],true);assert.equal(GarageFitGenerator.preparationMetadataValid(replacement),true);assert.equal(workout[section].estimatedSeconds,before);assert.notEqual(replacement.id,current);
   }
 });
 
