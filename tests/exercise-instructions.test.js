@@ -220,3 +220,14 @@ test('fixed post-run stretches use clarified names and canonical instructions on
     if(steps[i].id==='standing-quads')assert.match(el('exerciseName').textContent,/Standing quadriceps stretch - (Left|Right)/);
   }
 });
+
+test('spoken exercise cues separate side and quantity into queued utterances without timers', () => {
+  const { context, spoken, cancelled } = setup();
+  const parts = (...a) => JSON.parse(vm.runInContext(`JSON.stringify(exerciseCueParts(${a.map(x => JSON.stringify(x)).join(',')}))`, context));
+  assert.deepEqual(parts('Kneeling hamstring stretch - Left', '30 seconds'), ['Kneeling hamstring stretch, left side.', '30 seconds']);
+  assert.deepEqual(parts('Kneeling hamstring stretch', '30 seconds', 'Right'), ['Kneeling hamstring stretch, right side.', '30 seconds']);
+  assert.deepEqual(parts('Body hoops', '12 seconds'), ['Body hoops. 12 seconds']);
+  context.announceExercise({ id: 'none' }, parts('Runner\'s stretch - Left', '30 seconds'), 30);
+  assert.deepEqual(spoken, ['Runner\'s stretch, left side.', '30 seconds']);
+  assert.equal(cancelled.length, 1, 'one cancel per cue clears stale speech');
+});
