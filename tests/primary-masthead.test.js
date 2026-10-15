@@ -8,7 +8,7 @@ const root=path.join(__dirname,'..');
 const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
 const screens=[...html.matchAll(/<main id="([^"]+)"[^>]*>([\s\S]*?)<\/main>/g)].map(m=>({id:m[1],body:m[2]}));
 const NAV={home:'routinesNav',workouts:'workoutsNav',coach:'coachNav',generator:'generatorNav',more:'moreNav'};
-const TITLES={home:'Choose a routine',workouts:'Workouts',coach:'Coach',generator:'Workout Generator',more:'More'};
+const TITLES={home:'Warm-up &amp; Cool-down',workouts:'Workouts',coach:'Coach',generator:'Workout Generator',more:'More'};
 
 // Primary screens are discovered through the real showScreen() behaviour: those that show the bottom nav.
 function classify(app){
@@ -30,7 +30,7 @@ test('the five primary tabs are exactly the screens that show the bottom navigat
 test('every primary tab hosts exactly one shared masthead and one page title, and secondary screens none',()=>{
   const {primary,secondary}=classify(loadAppContext());
   for(const {id,body} of screens){
-    const hosts=(body.match(/data-masthead/g)||[]).length,titles=[...body.matchAll(/<h1 class="screen-title">([^<]*)<\/h1>/g)];
+    const hosts=(body.match(/data-masthead/g)||[]).length,titles=[...body.matchAll(/<h1 class="screen-title">([\s\S]*?)<\/h1>/g)].map(match=>[match[0],match[1].replace(/<[^>]+>/g,'')]);
     if(primary.includes(id)){
       assert.equal(hosts,1,id+' masthead host');
       assert.equal(titles.length,1,id+' title count');

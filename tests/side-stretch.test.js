@@ -16,11 +16,15 @@ test('Side stretch works both sides in one unchanged total interval', () => {
   assert.deepEqual(JSON.parse(JSON.stringify(stretch.timedCues)), [
     { text:'Change sides', at:{ type:'fraction', value:0.5 } }
   ]);
-  const routine = app.routineList('cooldown', 'bodyweight');
-  const entries = routine.filter(exercise => exercise.id === stretch.id);
+  // A Prep & Recover cool-down plays it as one interval with its halfway cue.
+  const plans = Array.from({length:40}, () => app.generateRoutinePlan('cooldown', 'bodyweight'));
+  const plan = plans.find(item => item.phases.some(phase => phase.id === stretch.id));
+  assert.ok(plan, 'side stretch reachable in a bodyweight cool-down');
+  const entries = plan.phases.filter(phase => phase.id === stretch.id);
   assert.equal(entries.length, 1);
   assert.equal(entries[0].name, 'Side stretch');
-  assert.equal(entries[0].work, 15);
+  assert.equal(entries[0].side, null);
+  assert.deepEqual(JSON.parse(JSON.stringify(entries[0].timedCues)), JSON.parse(JSON.stringify(stretch.timedCues)));
   const phases = app.makeGeneratedExercisePhases(stretch, 'cooldown', null, 0);
   assert.equal(phases.length, 1);
   assert.equal(phases[0].side, null);
@@ -40,7 +44,8 @@ for (const player of ['routine', 'generated']) {
     const duration = player === 'routine' ? 15 : 30;
     if (player === 'routine') {
       app.startRoutine('cooldown', 'bodyweight');
-      vm.runInContext("state.idx=state.list.findIndex(ex=>ex.id==='side-stretch')", app);
+      // A plan holding both stretches at 15 s, in the player's playlist shape.
+      vm.runInContext("state.list=[{id:'side-stretch',name:'Side stretch',side:null,work:15,rest:5,timedCues:CATALOGUE['side-stretch'].timedCues},{id:'toe-touch',name:'Standing toe-touch stretch',side:null,work:15,rest:0,timedCues:[]}];state.idx=0", app);
       app.enterWork();
     } else {
       app.generateWorkout();

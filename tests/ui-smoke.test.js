@@ -67,7 +67,7 @@ test('Generator preview/player and both fixed players initialise without runtime
   };
   context.window=context;context.globalThis=context;
   vm.createContext(context);
-  for (const file of ['data/equipment.js','data/exercises.js','data/workouts.js','js/generator.js','js/timed-cues.js','js/completion-signal.js','js/coach-model.js','js/coach-store.js','js/session-tracker.js','js/masthead.js']) vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),context,{filename:file});
+  for (const file of ['data/equipment.js','data/exercises.js','data/workouts.js','js/generator.js','js/routine-generator.js','js/timed-cues.js','js/completion-signal.js','js/coach-model.js','js/coach-store.js','js/session-tracker.js','js/masthead.js']) vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),context,{filename:file});
   const inline=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].at(-1)[1];
   vm.runInContext(inline,context,{filename:'index-inline.js'});
   vm.runInContext(fs.readFileSync(path.join(root,'js/rampup-ui.js'),'utf8'),context,{filename:'js/rampup-ui.js'});
@@ -75,20 +75,25 @@ test('Generator preview/player and both fixed players initialise without runtime
   context.setRoutineVariant('bodyweight');
   context.startPreferredRoutine('cooldown');
   assert.equal(elements.player.classList.contains('hidden'),false);
-  assert.ok(vm.runInContext('state.list',context).some(item=>item.id==='childs-pose'));
-  assert.equal(vm.runInContext('state.list',context).some(item=>item.id.startsWith('trx-')),false);
+  // Prep & Recover plays a fresh five-minute plan: bodyweight needs no equipment.
+  const bodyweightCooldown=vm.runInContext('state.list',context);
+  assert.equal(bodyweightCooldown.reduce((sum,item)=>sum+item.work+item.rest,0),300);
+  assert.equal(bodyweightCooldown.some(item=>vm.runInContext('CATALOGUE',context)[item.id].equipment.length),false);
   context.goHome();
+  vm.runInContext("state.ownedEquipment=['trx']",context);
   context.setRoutineVariant('equipment');
   context.startPreferredRoutine('cooldown');
   const cooldownRoutine=vm.runInContext('state.list',context);
-  assert.ok(cooldownRoutine.some(item=>item.name==='TRX glute stretch - Right'));
-  assert.ok(cooldownRoutine.some(item=>item.name==='TRX glute stretch - Left'));
-  assert.equal(cooldownRoutine.some(item=>item.id==='glute-stretch'),false);
+  assert.equal(cooldownRoutine.reduce((sum,item)=>sum+item.work+item.rest,0),300);
+  assert.ok(cooldownRoutine.every(item=>vm.runInContext('CATALOGUE',context)[item.id].equipment.every(group=>group.includes('trx'))));
   context.goHome();
   context.startPreferredRoutine('warmup');
   assert.equal(elements.routineName.textContent,'Warm Up');
-  assert.ok(vm.runInContext('state.list',context).some(item=>item.id==='kettlebell-figure-eight'));
+  assert.ok(vm.runInContext('state.list',context).some(item=>item.id==='standing-knee-curls'));
   context.goHome();
+  vm.runInContext("state.ownedEquipment=[]",context);
+  // Routine plans draw from the shared seeded random source; restart it so the Generator checks below see the same workouts.
+  context.Math.random=(seed=>()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;})(7);
   context.showLanding('generator');
   // Workout style is labelled Strength / Mixed / Cardio; Body focus and Difficulty sit collapsed under
   // Additional options, defaulting to Full Body and Normal.
