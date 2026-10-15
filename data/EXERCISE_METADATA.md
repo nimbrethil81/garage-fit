@@ -356,6 +356,56 @@ generator role is as a tie-breaker when ordering the Warm-up: exercises are sort
 `prepIntensity`, then by phase (basic, then dynamic, then late). Otherwise it is
 descriptive. A redesign is deferred.
 
+## Cool-down metadata
+
+### `stretchTargets`
+
+Required on every `cooldown` exercise and forbidden on every other exercise. It lists the
+regions the stretch primarily lengthens, from `hamstrings`, `glutes`, `calves`,
+`quadriceps`, `hip-flexors`, `adductors`, `chest`, `shoulders`, `triceps`, `back` and `trunk`
+(abdominals, obliques and spinal rotation or side bending). List only the regions a user
+would say the stretch is for, not every tissue it touches: a standing quadriceps stretch is
+`['quadriceps']`, a downward-to-upward dog flow `['hamstrings','calves','chest','trunk']`.
+`cooldown: true` and `family` say nothing about regional coverage; standalone cool-down
+routines read this field.
+
+## Standalone routines (generator policy)
+
+`js/routine-generator.js` builds one-tap, five-minute warm-up and cool-down routines,
+independent of any Main workout, Coach prescription or workout budget. The policy is
+generator code, not metadata:
+
+- **Eligibility** reuses `generatedPhaseEligible` for the phase. Bodyweight routines use no
+  equipment; equipment routines may use only the configured inventory and fall back to
+  bodyweight without it. Warm-ups exclude `prepFatigue` above 2.
+- **Warm-up coverage**: a `kneeMobility` exercise; ankle, hip, shoulder and trunk
+  `warmupAreas`; pulse raising (`cardio` 2 or more without a major pattern); and dynamic
+  preparation (`prepIntensity` 3 or more). Exercises are ordered by `prepIntensity`, then
+  `warmupPhase`, so preparation never steps down.
+- **Cool-down coverage**: posterior lower body (hamstrings, glutes, calves), anterior lower
+  body (quadriceps, hip flexors), upper body (chest, shoulders, triceps) and trunk/back. A
+  stretch contributes `1/n` of itself to each region among its `n` targets, and each region
+  needs at least one half, so a dedicated stretch covers its region and a broad flow only
+  part of several. Stretches are ordered standing equipment set-ups first, then standing,
+  then floor, so each set-up appears once.
+- **Selection**: essential coverage is selected first, scarcest requirement first, and is
+  verified (with a diagnostic such as `warmup:missing-knee-mobility`) rather than assumed.
+  The same id and two members of one `family` never appear together. At most two exercises
+  share a `repetitionClass` (or, in cool-downs, a stretch target) unless coverage needs
+  more, and similar ones are scored down; shared `warmupAreas` alone are never penalised.
+- **Timing**: exactly 300 seconds of work and transitions; the pre-start countdown is
+  outside it. Transitions are 5 seconds between sides or exercises and 10 seconds for a
+  change of equipment or standing/floor position. Work is fitted in whole seconds within
+  warm-up bounds of 20–40 seconds (15–30 per side) and cool-down bounds of 30–60 seconds
+  (20–45 per side), spreading the remainder evenly; an odd remainder that only per-side work
+  could absorb lengthens one transition by a second. Per-side work plays right then left
+  with equal durations; halfway `timedCues` keep their fraction for odd durations.
+- **Recency**: `gf_routine_recent_v1` keeps the ids of the last three completed sessions of
+  each kind, shared by both variants and separate from Generator Main and Coach history.
+  Recent exact use and recent family or repetition-class overlap are scored down after
+  coverage. Only occurrences that ran to completion in a normally finished run are
+  recorded; skipped occurrences and abandoned runs are not.
+
 ## Relationships
 
 ### `family`
