@@ -54,7 +54,10 @@
   // when it succeeds, the last slot of the accessory block is filled from the accessories that
   // pass every filter, if at least `minCandidates` do, once the exercises before it cover
   // `minRoles` recipe roles and none of them is supporting. The candidate minimum keeps the
-  // route a source of variety rather than a fixed insertion of the only accessory available.
+  // route a source of variety rather than a fixed insertion of the only accessory available:
+  // the route slot's shortlist spans every route candidate (still weighted by score), so a
+  // growing accessory pool shares the route instead of its top few scores taking it. A Main
+  // that drew the route keeps the fittest valid attempt that filled it (see composeMain).
   const SUPPORTING_ROUTE = { minDuration:30, probability:.25, minRoles:4, minCandidates:2 };
   const SCORE_TIE_EPSILON = 1e-9;
   // Main score penalty when the previous Main exercise shares a non-null repetitionClass (soft, never an exclusion).
@@ -679,9 +682,11 @@
         return score;
       };
       const scored=candidates.map(exercise=>({exercise,score:scoreFor(exercise,null)}));
+      // The route's candidates are already bounded to accessories, so its shortlist spans all of them.
       const picked=tracedPick(scored,random,SHORTLIST_MARGIN,()=>({phase:'main',desired,intent,protocol,stages,
-        route,explain:exercise=>{const parts={};scoreFor(exercise,parts);return parts;}}),candidateWindowRanks(scored.length));
+        route,explain:exercise=>{const parts={};scoreFor(exercise,parts);return parts;}}),route?scored.length:candidateWindowRanks(scored.length));
       if(!picked)break;
+      if(route)state.supportingRouteFilled=true;
       selected.push(picked);
     }
     return selected;
@@ -963,11 +968,14 @@
         const dominantBlockShare=Math.max(...state.blocks.map(block=>block.estimatedDurationSeconds))/estimated;
         if(dominantBlockShare>BLOCK_DOMINANCE_CAP)blockDominancePenalty=(dominantBlockShare-BLOCK_DOMINANCE_CAP)*300;
       }
-      attempts.push({attempt,blocks:state.blocks,estimated,fitness:Math.abs(estimated-budget.main)+mainQualityPenalty(state.blocks,budget.main,eligible.length)+dominancePenalty+blockDominancePenalty-varietyCredit-equipmentCredit});
+      attempts.push({attempt,blocks:state.blocks,estimated,routeFilled:!!state.supportingRouteFilled,fitness:Math.abs(estimated-budget.main)+mainQualityPenalty(state.blocks,budget.main,eligible.length)+dominancePenalty+blockDominancePenalty-varietyCredit-equipmentCredit});
       if(activeTrace)activeTrace({type:'main-attempt',attempt,issues:[],fitness:attempts[attempts.length-1].fitness});
     }
     attempts.sort((a,b)=>a.fitness-b.fitness);
-    const chosen=attempts[0];
+    // A drawn route keeps its accessory: the fittest valid attempt that filled the route slot is
+    // chosen over fitter attempts that never reached it (no accessory block, or too few roles
+    // before its last slot). Without such an attempt the fittest attempt is chosen as before.
+    const chosen=attempts.find(item=>item.routeFilled)||attempts[0];
     if(activeTrace)activeTrace({type:'main-result',attempt:chosen?chosen.attempt:null,supportingRoute});
     if(chosen)return {blocks:chosen.blocks,transitionSeconds:BLOCK_TRANSITION_SECONDS,estimatedDurationSeconds:chosen.estimated};
     const fallbackExercises=selectExercises(eligible,Math.min(3,eligible.length),focus,history,random,catalogue);

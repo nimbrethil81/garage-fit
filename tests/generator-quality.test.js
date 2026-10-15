@@ -254,7 +254,8 @@ test('the invalid circuit is repaired before being returned by the generator', (
     for (const block of workout.main.blocks) {
       if (block.protocol!=='rounds'||(block.prescription.rounds||0)<3) continue;
       const distinctFamilies=new Set(block.exercises.map(ex=>ex.id)).size;
-      const distinctPatterns=new Set(block.exercises.flatMap(ex=>ex.patterns||[])).size;
+      // Pattern variety counts the conditioning role, as mainVarietyIssues does (selectionTags).
+      const distinctPatterns=new Set(block.exercises.flatMap(GarageFitGenerator.selectionTags)).size;
       assert.ok(distinctFamilies>=3&&distinctPatterns>=2,seed+': '+block.exercises.map(ex=>ex.id).join(','));
     }
   }

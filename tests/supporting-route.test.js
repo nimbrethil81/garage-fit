@@ -24,7 +24,7 @@ function traced(options){
     if(event.type==='pick'&&event.route&&event.scored)event.explained=event.scored.map(entry=>event.explain(entry.exercise));
     events.push(event);
     if(event.type==='pick'&&event.phase==='main')current.push(event);
-    else if(event.type==='main-attempt'){attempts[event.attempt]={picks:current,issues:event.issues};current=[];}
+    else if(event.type==='main-attempt'){attempts[event.attempt]={picks:current,issues:event.issues,fitness:event.fitness};current=[];}
     else if(event.type==='main-result')result=event;
   }}));
   const chosen=result&&result.attempt!=null?attempts[result.attempt]:null;
@@ -80,7 +80,7 @@ test('at most one exercise per Main comes through the route, and inclusion is po
   assert.ok(used<longSample.length*ROUTE.probability,'used '+used);
 });
 
-test('route slots score only the filtered accessories, at least two, with the normal scorer and window',()=>{
+test('route slots score only the filtered accessories, at least two, with the normal scorer and a window spanning them all',()=>{
   let routeSlots=0;
   for(const run of longSample)for(const pick of run.events.filter(event=>event.type==='pick'&&event.route&&event.scored)){
     const routeStage=(pick.stages||[]).find(stage=>stage.label==='supporting-route');
@@ -97,10 +97,48 @@ test('route slots score only the filtered accessories, at least two, with the no
       assert.ok(Math.abs(Object.values(parts).reduce((sum,value)=>sum+value,0)-entry.score)<1e-9);
       assert.ok(parts['supporting-role']<0,'the supporting-role penalty still applies');
     });
-    assert.equal(pick.window.ranks,G.candidateWindowRanks(pick.scored.length));
+    // The route's pool is already bounded to accessories, so every one of them can be drawn.
+    assert.equal(pick.window.ranks,Math.max(G.SHORTLIST_SIZE,pick.scored.length));
+    assert.equal(pick.window.pool.length,pick.scored.length);
     assert.ok(pick.window.pool.some(entry=>entry.exercise===pick.picked));
   }
   assert.ok(routeSlots>0);
+  // Other Main slots keep the ordinary window.
+  for(const run of longSample)for(const pick of run.events.filter(event=>event.type==='pick'&&event.phase==='main'&&!event.route))
+    assert.equal(pick.window.ranks,G.candidateWindowRanks(pick.scored.length));
+});
+
+test('the route window still follows score: higher-scoring accessories are drawn more often, lower ones stay drawable',()=>{
+  let upper=0,lower=0,slots=0;
+  for(const run of longRuns(catalogue,['dumbbells'],30))for(const pick of routeStages(run)){
+    const ranks=G.selectionRanks(pick.window.sorted),index=pick.window.sorted.findIndex(entry=>entry.exercise===pick.picked);
+    const distinct=Math.max(...ranks);
+    if(distinct<4)continue;
+    slots++;
+    if(ranks[index]<=distinct/2)upper++;else lower++;
+  }
+  assert.ok(slots>=20,'route slots '+slots);
+  assert.ok(upper>lower*2,'upper '+upper+' lower '+lower);
+  assert.ok(lower>0,'lower-ranked accessories stay drawable');
+});
+
+test('a drawn route keeps its accessory whenever a valid attempt filled the route slot',()=>{
+  let kept=0,unfillable=0;
+  for(const run of longSample){
+    if(!run.result.supportingRoute)continue;
+    const filled=run.attempts.map((attempt,index)=>({attempt,index})).filter(({attempt})=>attempt&&!attempt.issues.length&&attempt.picks.some(pick=>pick.route));
+    if(!filled.length){unfillable++;assert.equal(run.routed.length,0);continue;}
+    // The fittest of the attempts that filled it, even when an attempt without it is fitter.
+    assert.equal(run.result.attempt,filled.reduce((best,item)=>item.attempt.fitness<best.attempt.fitness?item:best).index);
+    assert.equal(run.routed.length,1);
+    kept++;
+  }
+  assert.ok(kept>0,'kept '+kept);
+  // Mains that never draw the route choose purely by fitness, as before.
+  for(const run of longSample.filter(run=>!run.result.supportingRoute)){
+    const valid=run.attempts.map((attempt,index)=>({attempt,index})).filter(({attempt})=>attempt&&!attempt.issues.length);
+    assert.equal(run.result.attempt,valid.reduce((best,item)=>item.attempt.fitness<best.attempt.fitness?item:best).index);
+  }
 });
 
 test('workouts using the route keep Main validity, family caps, variety and duration rules',()=>{

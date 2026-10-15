@@ -90,7 +90,9 @@ test('only the two sumo variants share a family; near-similar movements stay sep
   assert.equal(catalogue['dumbbell-sumo-squat'].family,'sumo-squat');
   assert.equal(catalogue['kettlebell-sumo-squat'].family,'sumo-squat');
   assert.deepEqual(Object.values(catalogue).filter(ex=>ex.family==='sumo-squat').map(ex=>ex.id).sort(),SUMO);
-  for(const id of IDS.filter(id=>!SUMO.includes(id)))assert.equal(catalogue[id].family,null,id);
+  // Batch 2 (#110) adds the kettlebell lateral lunge as an equipment variant of the lateral lunge.
+  assert.deepEqual(Object.values(catalogue).filter(ex=>ex.family==='lateral-lunge').map(ex=>ex.id).sort(),['alternating-lateral-lunge','kettlebell-lateral-lunge']);
+  for(const id of IDS.filter(id=>!SUMO.includes(id)&&id!=='alternating-lateral-lunge'))assert.equal(catalogue[id].family,null,id);
   // Distinct from the bilateral deadlift family, the Cossack squat, the floor bridge, the Y fly and the biceps curl.
   assert.equal(G.sameFamily(catalogue['kettlebell-suitcase-deadlift'],catalogue['kettlebell-deadlift']),false);
   assert.equal(G.sameFamily(catalogue['alternating-lateral-lunge'],catalogue['cossack-squat']),false);
