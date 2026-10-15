@@ -254,7 +254,7 @@ Rules enforced by validation:
 ## Prescriptions
 
 - `prescription`: `{type, value}` with type `timed`, `unilateral-timed`, `reps` or
-  `unilateral-reps`. Used by Main and fixed routines.
+  `unilateral-reps`. Used by Main and fixed workouts.
 - `estimatedSeconds`: required for rep-based prescriptions; derived for timed ones.
 - `prescriptionModes`: optional restriction on permitted modes (`time`/`reps`).
 - `warmupPrescription` / `rampupPrescription`: timed only. They may carry
@@ -457,7 +457,7 @@ family should appear, so do not use `frequency` to obtain this.
 | Warm-up | Never two members. | Soft score penalty against earlier Warm-up picks; never an exclusion. |
 | Ramp-up | Avoided (soft-mandatory) against earlier Ramp-up and Warm-up picks, including in swaps. | Soft score penalty against Warm-up and earlier Ramp-up picks. |
 | Cool-down | Never two members. | — |
-| Fixed Warm-up/Cool-down routines | Not applied. The Routines tab plays explicitly authored Bodyweight / With equipment lists (`fixedRoutines` in `data/workouts.js`); metadata never adds, removes or substitutes their exercises. | — |
+| Prep & Recover routines | Never two members (see Standalone routines). | At most two per class unless coverage needs more; similar ones scored down. |
 
 `alternativeGroup` and `selectionFamily` are retired. Validation rejects them.
 

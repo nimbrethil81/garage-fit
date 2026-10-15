@@ -70,7 +70,9 @@ test("Runner's stretch is the plank-based lunge stretch in the Library and per-s
   context.openExerciseDetail(stretch.id);
   assert.equal(el('libraryDetailName').textContent,"Runner's stretch");
   assert.equal(el('libraryDetailInstruction').textContent,stretch.instruction);
-  context.startRoutine('cooldown','bodyweight');
+  // Plans are dynamic: start seeded bodyweight cool-downs until one includes the stretch.
+  context.Math=Object.assign(Object.create(Math),{random:(seed=>()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;})(3)});
+  for(let attempt=0;attempt<40&&!vm.runInContext('state.list',context).some(step=>step.id===stretch.id);attempt++)context.startRoutine('cooldown','bodyweight');
   const steps=vm.runInContext('state.list',context),names=[];
   for(let i=0;i<steps.length;i++)if(steps[i].id===stretch.id){
     vm.runInContext(`state.idx=${i}`,context);context.enterWork();
@@ -162,7 +164,7 @@ test('fixed timed and mixed sequences retain exercise ids for the shared player'
   assert.equal(vm.runInContext('state.list[0].work',context),30);
 });
 
-test('both fixed warm-up and cool-down variants display instructions on every player step', () => {
+test('every Prep & Recover warm-up and cool-down variant displays instructions on every player step', () => {
   const { context, el }=setup();
   const catalogue=context.GarageFitData.exercises;
   for (const kind of ['warmup','cooldown']) for (const variant of ['bodyweight','equipment']) {
@@ -175,10 +177,8 @@ test('both fixed warm-up and cool-down variants display instructions on every pl
       assert.equal(el('routineInstructionText').textContent,catalogue[steps[i].id].instruction,steps[i].id);
       assert.equal(el('exerciseName').textContent,steps[i].name);
     }
-    const hamstrings=steps.filter(step=>step.id==='kneeling-hamstring');
-    if (kind==='cooldown') assert.deepEqual(Array.from(hamstrings,step=>step.name),[
-      'Kneeling hamstring stretch - Right','Kneeling hamstring stretch - Left'
-    ]);
+    // Per-side stretches play as named right and left steps.
+    for (const step of Array.from(steps).filter(step=>step.side)) assert.equal(step.name,catalogue[step.id].name+' - '+(step.side==='right'?'Right':'Left'));
   }
 });
 
