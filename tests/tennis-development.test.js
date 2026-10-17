@@ -284,7 +284,7 @@ test('Coach renders an optional bounded sport review, persists dismissal, and st
   await p.run(`pilotStore.saveActiveProgramme(GarageFitCoachModel.createActiveProgramme(GarageFitCoachModel.programmeDefinitionRef(${JSON.stringify(state)})))`);
   await p.run('coachUI.open()');
   p.run("function findCoachButton(text){const visit=node=>node.textContent===text&&node.onclick?node:(node.children||[]).map(visit).find(Boolean);return visit(document.getElementById('coachContent'));}");
-  assert.ok(p.run("findCoachButton('Start session')"));
+  assert.ok(p.run("findCoachButton('View today’s workout')"));
   const text=()=>p.run("JSON.stringify(document.getElementById('coachContent'),(key,value)=>key==='onclick'?undefined:value)");
   assert.match(text(),/Optional tennis progress check-in/);
   assert.match(text(),/Court movement/);assert.match(text(),/Match endurance/);assert.match(text(),/Physical comfort/);
@@ -293,7 +293,7 @@ test('Coach renders an optional bounded sport review, persists dismissal, and st
   assert.doesNotMatch(text(),/Optional tennis progress check-in/);
   await p.run('coachUI.open()');
   assert.doesNotMatch(text(),/Optional tennis progress check-in/);
-  assert.ok(p.run("findCoachButton('Start session')"));
+  assert.ok(p.run("findCoachButton('View today’s workout')"));
   assert.equal(p.json('coachUI.controller.snapshot().state.meaningfulSessionsCompleted'),4);
 });
 

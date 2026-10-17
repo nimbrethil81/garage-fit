@@ -239,7 +239,7 @@ test('rendered event controls change, cancel and return after expiry on the same
   p.run("field('Important event date').value='2026-10-13'");await p.run("findButton('Prepare for event').onclick()");
   p.run("Date=class extends RealDate{constructor(...args){super(...(args.length?args:['2026-10-14T08:00:00Z']));}};");
   await p.run('coachUI.open()');assert.ok(p.run("findButton('Return to ongoing development')"));
-  assert.equal(p.run("findButton('Start session')"),undefined);
+  assert.equal(p.run("findButton('View today’s workout')"),undefined);
   await p.run("findButton('Return to ongoing development').onclick()");
   const after=p.json('coachUI.controller.snapshot().state');
   assert.equal(after.programmeInstanceId,before.programmeInstanceId);assert.equal(after.programmeDefinitionVersion,4);

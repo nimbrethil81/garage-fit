@@ -92,7 +92,7 @@ test('Tennis setup and daily training keep the shared Coach navigation; preview 
   assert.equal(app.document.getElementById('coachNav').attributes['aria-current'],'page');
   await run("coachButton('Start programme').onclick()");
   assert.equal(app.document.getElementById('bottomNav').classList.contains('hidden'),false);
-  await run("coachButton('Start session').onclick()");
+  await run("coachButton('View today’s workout').onclick()");
   assert.equal(app.document.getElementById('bottomNav').classList.contains('hidden'),true);
   run('coachUI.back()');
   assert.equal(app.document.getElementById('bottomNav').classList.contains('hidden'),false);
