@@ -218,5 +218,8 @@ test('existing Coach entry point lists both programmes and renders open-ended st
   assert.ok(el('coachContent').children.some(c=>/direct arm curl/.test(c.textContent)));
   await p.run("coachUI.controller.start(armsDef,['bands'])");await p.run('coachUI.open()');
   const text=el('coachContent').children.map(c=>c.textContent).join(' ');
-  assert.match(text,/Open-ended objective/);assert.match(text,/Curls · 0 \/ 9/);assert.match(text,/Extensions · 0 \/ 9/);
+  assert.match(text,/Open-ended objective/);
+  await el('coachContent').children.find(c=>c.textContent==='Your progress').onclick();
+  const progress=p.run("(function visit(node){return [node.textContent,...(node.children||[]).map(visit)].join(' ')})(document.getElementById('coachProgressContent'))");
+  assert.match(progress,/Curls · 0 \/ 9/);assert.match(progress,/Extensions · 0 \/ 9/);
 });

@@ -283,16 +283,22 @@ test('Coach renders an optional bounded sport review, persists dismissal, and st
   for (const result of results) await p.run(`pilotStore.saveSessionResult(${JSON.stringify(result)})`);
   await p.run(`pilotStore.saveActiveProgramme(GarageFitCoachModel.createActiveProgramme(GarageFitCoachModel.programmeDefinitionRef(${JSON.stringify(state)})))`);
   await p.run('coachUI.open()');
-  p.run("function findCoachButton(text){const visit=node=>node.textContent===text&&node.onclick?node:(node.children||[]).map(visit).find(Boolean);return visit(document.getElementById('coachContent'));}");
+  p.run("function findCoachButton(text,id='coachContent'){const visit=node=>node.textContent===text&&node.onclick?node:(node.children||[]).map(visit).find(Boolean);return visit(document.getElementById(id));}");
   assert.ok(p.run("findCoachButton('View today’s workout')"));
-  const text=()=>p.run("JSON.stringify(document.getElementById('coachContent'),(key,value)=>key==='onclick'?undefined:value)");
+  const text=(id='coachProgressContent')=>p.run(`JSON.stringify(document.getElementById('${id}'),(key,value)=>key==='onclick'?undefined:value)`);
+  // A due check-in is announced on Coach home and answered in Your progress.
+  assert.match(text('coachContent'),/optional tennis check-in is ready in Your progress/);
+  await p.run("findCoachButton('Your progress').onclick()");
   assert.match(text(),/Optional tennis progress check-in/);
   assert.match(text(),/Court movement/);assert.match(text(),/Match endurance/);assert.match(text(),/Physical comfort/);
   assert.match(text(),/Not sure/);
-  await p.run("findCoachButton('Skip check-in').onclick()");
+  await p.run("findCoachButton('Skip check-in','coachProgressContent').onclick()");
   assert.doesNotMatch(text(),/Optional tennis progress check-in/);
   await p.run('coachUI.open()');
+  assert.doesNotMatch(text('coachContent'),/check-in is ready/);
+  await p.run("findCoachButton('Your progress').onclick()");
   assert.doesNotMatch(text(),/Optional tennis progress check-in/);
+  await p.run('coachUI.back()');
   assert.ok(p.run("findCoachButton('View today’s workout')"));
   assert.equal(p.json('coachUI.controller.snapshot().state.meaningfulSessionsCompleted'),4);
 });

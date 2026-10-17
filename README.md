@@ -25,6 +25,7 @@ Live: https://nimbrethil81.github.io/garage-fit/
 - `js/coach-tennis-policy.js` — Tennis anchors, performed session roles and duration-specific prescriptions
 - `js/coach-recovery.js` — result/state/draft transaction and startup reconciliation
 - `js/coach-ui.js` — Coach screens and recoverable engine/store/generator/tracker orchestration
+- `js/coach-progress-ui.js` — read-only Your progress views shared by every Coach programme
 - `tests/` — generator and UI regression tests
 
 ## Tests
@@ -147,6 +148,13 @@ Cross-training → Tennis, with focus/frequency, usual playing days, intensity a
 local-date event setup. Settings preserve the same anchors/history; optional daily
 readiness, short-session preflight and performed capability coverage use the existing
 player and Store. See the [Coach contract](docs/COACH_ENGINE.md).
+
+Every programme's Coach home links to one shared **Your progress** screen: one
+tappable card per actual strength target (current prescription, last recorded
+performance, stored next progression), recent saved sessions and the programme's
+phase. General Strength shows its four-week block, Build Arms its seven-day
+curl/extension exposure and Tennis its six capability cards for performed coverage
+in the last two weeks plus any due check-in. It is read-only and invents no scores.
 
 Coach history is local to this browser/device. Clearing browser or site data can
 remove it; replacing a device does not automatically migrate it. Cloud durability

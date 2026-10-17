@@ -43,6 +43,7 @@ GarageFit is a dependency-free browser PWA for fixed and generated workouts.
 - `js/coach-policies.js`: programme-policy registry and parameterised General Strength strategy; production definitions are separate from policy code
 - `js/coach-engine.js`: pure programme lifecycle, planning and idempotent result application; see `docs/COACH_ENGINE.md` for the API and definition inputs
 - `js/coach-recovery.js`: central startup reconciliation and result → state → draft-clear transaction; interrupted Coach drafts finalise only durable outcomes
+- `js/coach-progress-ui.js`: read-only Your progress view helpers (strength target cards, evidence drill-down, Tennis capability grid, arm exposure, session history) shared by every Coach programme
 - `js/coach-ui.js`: Coach screens and orchestration of engine/store/generator/tracker; routine history queries use store metadata filters
 - `js/session-tracker.js`: execution semantics for one generated-workout run (occurrence ids, completed/partial/skipped outcomes, checkpointed Session Draft, finalisation into a Session Result); dormant unless an execution context opts in (Coach sessions, and standalone generated workouts, which persist only completed runs)
 - `tests/`: behavioural and UI regression tests

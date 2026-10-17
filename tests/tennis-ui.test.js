@@ -27,7 +27,7 @@ test('compact Tennis home orders the weekly progress, collapsed adjustments and 
   assert.match(p.run("nodes().find(node=>node.className==='coach-status').textContent"),/Development/);
   assert.match(p.run("nodes().find(node=>node.className==='coach-weekly').children[0].textContent"),/0 of 2 sessions this week/);
   assert.equal(p.run("nodes().find(node=>node.id==='coachAdjustToday').open"),false);
-  assert.equal(p.run("action('Your progress')"),undefined);
+  assert.ok(p.run("action('Your progress')"),'shared progress destination is live');
   assert.equal(p.run("action('Programme settings')"),undefined);
   const before=p.state(), durable=[...p.storage.entries()];
   await p.click('View today’s workout');
@@ -243,8 +243,10 @@ test('10-minute preview and the common player count actual selected anchors with
   const deferred=initial.anchors.filter(anchor=>!selected.some(item=>item.requirementId===anchor.requirementId));
   assert.ok(deferred.every(anchor=>!result.anchorResults.some(item=>item.requirementId===anchor.requirementId)));
   assert.ok(deferred.every(anchor=>JSON.stringify(after.anchors.find(item=>item.requirementId===anchor.requirementId))===JSON.stringify(anchor)));
-  assert.match(p.run('copyText()'),/Capability coverage.*Performed exposure observed/);
-  assert.doesNotMatch(p.run('copyText()'),/Week NaN|Four-week review|Move to maintenance/);
+  await p.click('Your progress');
+  assert.match(p.run("copyText('coachProgressContent')"),/Tennis fitness · last 14 days.*Performed/);
+  assert.doesNotMatch(p.run("copyText('coachProgressContent')")+p.run('copyText()'),/Week NaN|Four-week review|Move to maintenance/);
+  await p.run('coachUI.back()');
   await p.run('coachUI.open()');
   assert.doesNotMatch(p.run('copyText()'),/Session saved ·/,'save confirmation does not become a stale home notice');
 });
@@ -268,9 +270,11 @@ test('unknown partial coverage and an interrupted session recover once, with loc
   await p.run(`(async()=>{const work=coachPlayerTracker().plannedWork().find(item=>item.requirementId?.startsWith('tennis-anchor-'));
     await coachPlayerTracker().recordPartial(work.occurrenceId,{sets:[{reps:null,load:null}],note:'Some work performed; amount unknown'});})()`);
   const q=await ui(p.storage),before=q.state();
-  assert.match(q.run('copyText()'),/Exposure unknown.*some work is unmeasured/);
-  assert.match(q.run('copyText()'),/unachievable with today’s equipment and constraints|limited coverage/);
-  assert.match(q.run('copyText()'),/History is local to this browser and device/);
+  await q.click('Your progress');const progress=q.run("copyText('coachProgressContent')");
+  assert.match(progress,/Unmeasured.*recorded without an amount, so exposure is unknown/);
+  assert.match(progress,/Not possible with today’s equipment|Limited by equipment/);
+  assert.match(progress,/History is local to this browser and device/);
+  await q.run('coachUI.back()');
   assert.equal(before.meaningfulSessionsCompleted,0);
   assert.equal((await q.run('pilotStore.listSessionResults()')).results.length,1);
   await q.run('coachUI.open()');assert.deepEqual(q.state(),before);
