@@ -203,9 +203,7 @@
       review: () => engine.programmeReview(definition(), state, clock())};
   }
 
-  // Follow-up screens can supply real destination handlers. No link is rendered
-  // until its handler exists; current progress/settings remain usable disclosures.
-  function mount({catalogue, equipment, getEquipment, buildTimeline, play, showScreen, stopPlayer, destinations={}}) {
+  function mount({catalogue, equipment, getEquipment, buildTimeline, play, showScreen, stopPlayer}) {
     let storage;
     try { storage=root.localStorage; } catch (error) { storage=null; }
     const store = root.GarageFitCoachStore.createStore(storage);
@@ -222,16 +220,19 @@
     function paragraph(text) { const node = document.createElement('p'); node.textContent = text; return node; }
     function heading(text) { const node = document.createElement('h2'); node.textContent = text; return node; }
     const tennisViews = root.GarageFitCoachTennisUI.createViews({button,paragraph,heading,catalogue});
+    const progressViews = root.GarageFitCoachProgressUI.createViews({button,paragraph,heading,catalogue});
     const isTennis = () => def.type === 'tennis-conditioning';
     async function run(action) {
       if (busy) return; busy = true;
       const focused=document.activeElement, focusLabel=focused?.getAttribute?.('aria-label'), focusText=focused?.textContent;
-      ['coachError','coachPlayerError','coachPreviewError','coachResultError'].forEach(id => {el(id).textContent='';});
+      const messages=['coachError','coachPreviewError','coachResultError','coachProgressError'];
+      [...messages,'coachPlayerError'].forEach(id => {el(id).textContent='';});
       try { return await action(); }
-      catch (error) { ['coachError','coachPreviewError','coachResultError'].forEach(id => {el(id).textContent=error.message;}); el('coachPlayerError').textContent = 'Could not save. '+error.message+' Try again before leaving.'; }
+      catch (error) { messages.forEach(id => {el(id).textContent=error.message;}); el('coachPlayerError').textContent = 'Could not save. '+error.message+' Try again before leaving.'; }
       finally {
         busy = false;
-        if (isTennis() && focused?.isConnected===false) [...el('coachContent').querySelectorAll('button,select,input,summary')]
+        // A rerender replaces controls; return keyboard focus to the same control.
+        if (focused?.isConnected===false) ['coachContent','coachProgressContent'].flatMap(id=>[...el(id).querySelectorAll('button,select,input,summary')])
           .find(node=>focusLabel ? node.getAttribute('aria-label')===focusLabel : node.textContent===focusText)?.focus();
       }
     }
@@ -375,19 +376,6 @@
       const frequency=state.mode==='maintenance'?def.maintenancePolicy.frequency:def.recommendedFrequency;
       wrap.append(paragraph((def.openEnded?'Open-ended objective':review.due?'Four-week block complete':'Week '+Math.min(weeks,Math.floor(blockDays/7)+1)+' of '+weeks)+' · '+state.meaningfulSessionsCompleted+' meaningful sessions'),
         paragraph(tennisFrequency ? tennisFrequency+' Coach sessions per week. Priorities follow performed work; no catch-up debt.' : frequency.aimSessionsPerWeek ? 'Aim for '+frequency.aimSessionsPerWeek+' sessions per week; two is acceptable. No catch-up debt.' : (state.mode==='maintenance'?'Maintenance':'Development')+' · '+frequency.minSessionsPerWeek+'–'+frequency.maxSessionsPerWeek+' sessions per week'));
-      if (def.doseTargets.directElbowActions) {
-        const now=new Date().toISOString(), history=root.GarageFitTrainingHistory.createHistory(current.results,catalogue);
-        const scope={programmeInstanceId:state.programmeInstanceId, sections:def.doseTargets.sections,
-          since:new Date(Date.parse(now)-def.doseTargets.windowDays*86400000).toISOString(),until:now};
-        wrap.append(heading('Arm work · last '+def.doseTargets.windowDays+' days'));
-        Object.entries(def.doseTargets.directElbowActions).forEach(([action,target]) => {
-          const exposure=history.directElbowExposure(action,scope);
-          const unmeasured=history.performances.some(item=>item.directElbowAction===action && item.exposure.confidence==='unknown'
-            && scope.sections.includes(item.section) && Date.parse(item.occurredAt)>=Date.parse(scope.since) && Date.parse(item.occurredAt)<=Date.parse(scope.until));
-          wrap.append(paragraph((action==='flexion'?'Curls':'Extensions')+' · '+Number(exposure.value.toFixed(2))+' / '+target+' performed set exposures'+(unmeasured?' · some work is unmeasured':'')));
-        });
-        wrap.append(paragraph('Compound pushing and pulling support whole-body maintenance and are tracked separately from direct arm work.'));
-      }
       if (def.eventPolicy) renderEventSettings(wrap,state);
       if (state.status==='paused') { wrap.append(paragraph('Paused · anchors and history preserved.'),button('Resume',() => manage('resume'),true)); }
       else if (review.due) {
@@ -400,9 +388,8 @@
         wrap.append(card); renderAdjust(wrap);
         if (def.sportReviewPolicy) renderSportReview(wrap,controller.sportReview());
       }
-      const progress=document.createElement('details'), summary=document.createElement('summary'); summary.textContent='Programme progress and management'; progress.append(summary);
-      state.anchors.forEach(anchor => progress.append(paragraph(catalogue[anchor.exerciseId].name+' · '+(anchor.currentTarget || anchor).targetSets+' × '+(anchor.currentTarget || anchor).target.maxReps+' reps · '+(anchor.currentTarget.progressionIntent || 'Confirm actual work'))));
-      current.results.slice(-5).reverse().forEach(result => progress.append(paragraph(new Date(result.endedAt).toLocaleDateString()+' · '+result.finalStatus+' · '+result.performedWork.filter(work=>work.status!=='skipped').length+' work occurrences')));
+      wrap.append(progressLink());
+      const progress=document.createElement('details'), summary=document.createElement('summary'); summary.textContent='Programme management'; progress.append(summary);
       progress.append(button(state.status==='paused'?'Resume':'Pause',() => manage(state.status==='paused'?'resume':'pause')));
       if (def.supportsMaintenanceMode !== false) progress.append(button(state.mode==='maintenance'?'Return to development':'Move to maintenance',() => manage(state.mode==='maintenance'?'development':'maintenance')));
       progress.append(button('Finish programme',() => manage('finish'))); wrap.append(progress);
@@ -449,7 +436,7 @@
         }
         else if (expired) card.append(button('Continue ongoing training',async()=>{
           await controller.saveProgrammeSettings({intent:'ongoing',significantEventDate:null,significantEventLabel:null});render();
-        },true),button('Change event date',()=>{progress.open=true;const field=progress.querySelector('input[aria-label="Important event date"]');field?.focus();}));
+        },true),button('Change event date',()=>{settings.open=true;const field=settings.querySelector('input[aria-label="Important event date"]');field?.focus();}));
         else if (rest) card.append(paragraph(conflictText(plan.conflicts)));
         else {
           card.append(paragraph(conflictText(plan.conflicts)),paragraph('Try more time, restore equipment or choose a compatible substitute. You can also rest.'));
@@ -458,19 +445,89 @@
         wrap.append(card);
       }
       if (lastSaved) wrap.append(paragraph(lastSaved));
-      [['progress','Your progress'],['settings','Programme settings']].forEach(([key,label])=>{
-        if (typeof destinations[key]==='function') wrap.append(button(label,()=>destinations[key]()));
-      });
-      const progress=tennisViews.progress(wrap,{definition:def,state,results:current.results,now,localDate:localDay(now),plan,equipment:options.equipment});
-      retainDisclosure(progress,'progress');
-      const settings=document.createElement('details'), summary=document.createElement('summary'); summary.textContent='Tennis settings';
+      if (def.sportReviewPolicy && controller.sportReview()?.due) wrap.append(paragraph('An optional tennis check-in is ready in Your progress.'));
+      wrap.append(progressLink());
+      const settings=document.createElement('details'), summary=document.createElement('summary'); summary.textContent='Programme settings and management';
       const form=tennisViews.settingsForm(config); retainDisclosure(settings,'settings');
       settings.append(summary,form.wrap,paragraph('Settings keep the same programme, four anchors, progression and history. Save your current session before editing.'),
-        button('Save tennis settings',async()=>{await controller.saveProgrammeSettings(form.read());render();})); progress.append(settings);
-      if (def.eventPolicy) renderEventSettings(progress,state);
-      if (def.sportReviewPolicy) renderSportReview(progress,controller.sportReview());
-      progress.append(button(state.status==='paused'?'Resume':'Pause',()=>manage(state.status==='paused'?'resume':'pause')),
+        button('Save tennis settings',async()=>{await controller.saveProgrammeSettings(form.read());render();}));
+      if (def.eventPolicy) renderEventSettings(settings,state);
+      settings.append(button(state.status==='paused'?'Resume':'Pause',()=>manage(state.status==='paused'?'resume':'pause')),
         button('Finish programme',()=>manage('finish')));
+      wrap.append(settings);
+    }
+    function progressLink() {
+      const link=button('Your progress',openProgress); link.classList?.add('coach-destination'); return link;
+    }
+    function programmeStatus(state) {
+      if (state.status==='paused') return 'Paused';
+      if (sessionActive) return 'Workout in progress';
+      if (isTennis()) return state.currentTargets.programmeSettings.intent==='event'?'Event preparation'
+        : state.currentTargets.tennisDevelopment?.phase==='consolidation'?'Consolidation':'Development';
+      return state.mode==='maintenance'?'Maintenance':def.openEnded?'Ongoing':'Development';
+    }
+    function openProgress() {
+      renderProgress(); showScreen('coachProgress');
+      el('coachProgress').querySelector?.('.back-btn')?.focus?.();
+    }
+    // One progress destination for every programme; only supported features render.
+    function renderProgress() {
+      const wrap=el('coachProgressContent'); wrap.innerHTML='';
+      const current=controller.snapshot(), state=current.state;
+      if (!state || state.status==='completed' || current.blocked) {
+        wrap.append(paragraph('No active programme. Your saved history is retained.'),button('Back to Coach',()=>{showScreen('coach');render();}));
+        return;
+      }
+      def=root.GarageFitData.programmes[state.programmeDefinitionId][state.programmeDefinitionVersion];
+      const now=new Date().toISOString(), history=root.GarageFitTrainingHistory.createHistory(current.results,catalogue);
+      const plan=isTennis() && state.status==='active' && !sessionActive && !current.interruptedDraft ? controller.plan(options) : null;
+      const intro=document.createElement('div'), title=document.createElement('div'), status=document.createElement('span');
+      intro.className='coach-tennis-intro'; title.className='coach-programme-heading'; status.className='coach-status';
+      status.textContent=programmeStatus(state); title.append(heading(def.name),status); intro.append(title);
+      const phase=progressViews.section('Programme phase','coach-progress-phase');
+      let hold=null;
+      if (isTennis()) {
+        const development=state.currentTargets.tennisDevelopment, config=state.currentTargets.programmeSettings;
+        phase.append(paragraph('Training phase · '+(development?.phase==='consolidation'?'Consolidation':'Development')
+          +(plan?.rationale.priorities.phase?.phase==='consolidation' && development?.phase!=='consolidation'?' · consolidation recommended next':'')));
+        const event=root.GarageFitCoachTennisPolicy.eventHorizon({definition:def,state,today:{localDate:localDay(now)}});
+        if (event) {
+          phase.append(paragraph('Event · '+(event.label ? event.label+' · ' : '')+event.eventDate+' · '+(event.daysUntil<0?'date passed':event.daysUntil+' days away')),paragraph(event.rationale));
+          if (event.holdProgression) hold='Event preparation holds established resistance and reps.';
+        } else phase.append(paragraph('Ongoing development · no fixed end date'));
+        phase.append(paragraph(config.weeklyCoachFrequency+' GarageFit sessions per week · '+state.meaningfulSessionsCompleted+' meaningful sessions in total'));
+      } else if (def.openEnded) {
+        const frequency=def.recommendedFrequency;
+        phase.append(paragraph('Open-ended programme · aim for '+frequency.aimSessionsPerWeek+' sessions per week; '+frequency.minSessionsPerWeek+' is acceptable'),
+          paragraph(state.meaningfulSessionsCompleted+' meaningful sessions in total'));
+      } else {
+        const review=controller.review(), length=def.nominalDurationDays, weeks=Math.ceil(length/7), target=def.completionCriteria.blockMeaningfulSessionTarget;
+        const index=Math.floor(review.nominalProgress/length), counts=state.currentTargets.blockMeaningfulCounts;
+        const blockStart=Date.parse(state.startedAt)+index*length*86400000;
+        const inBlock=counts ? counts[index] || 0 : (state.recentSessionSummaries || []).filter(item=>item.meaningful
+          && Date.parse(item.endedAt)>=blockStart && Date.parse(item.endedAt)<blockStart+length*86400000).length;
+        const frequency=state.mode==='maintenance'?def.maintenancePolicy.frequency:def.recommendedFrequency;
+        phase.append(paragraph(review.due ? 'Four-week block complete · '+review.meaningfulSessions+' of '+target+' meaningful sessions'+(review.targetMet?' · block target met':'')+' · review on Coach home'
+          : 'Week '+Math.min(weeks,Math.floor(review.nominalProgress%length/7)+1)+' of '+weeks+' · '+inBlock+' of '+target+' meaningful sessions this block'),
+          paragraph((state.mode==='maintenance'?'Maintenance':'Development')+' · '+frequency.minSessionsPerWeek+'–'+frequency.maxSessionsPerWeek+' sessions per week · '
+            +state.meaningfulSessionsCompleted+' meaningful sessions in total'));
+      }
+      if (state.status==='paused') phase.append(paragraph('Paused · targets and history are preserved.'));
+      wrap.append(intro,phase,progressViews.strengthTargets({state,history,holdReason:hold}));
+      if (def.doseTargets.directElbowActions) wrap.append(progressViews.armsExposure({definition:def,state,history,now}));
+      if (isTennis()) {
+        const pin=def.sportPolicy, policy=root.GarageFitSportCoverage.createPolicy(root.GarageFitData.sportCapabilityPolicies[pin.sportId][pin.version],catalogue);
+        const summary=plan?.rationale.priorities.coverage || policy.summarize(history,{now,programmeInstanceId:state.programmeInstanceId,
+          focus:state.currentTargets.programmeSettings.focus,equipment:options.equipment,smallSpace:def.contextPolicy?.homeSmallSpace});
+        wrap.append(progressViews.capabilityGrid(summary));
+      }
+      if (def.sportReviewPolicy) {
+        const review=controller.sportReview();
+        if (review && (review.due || review.latestFeedback)) {
+          const check=progressViews.section('Tennis check-in'); renderSportReview(check,review,renderProgress); wrap.append(check);
+        }
+      }
+      wrap.append(progressViews.sessionHistory({state,results:current.results}));
     }
     function renderEventSettings(wrap, state) {
       const config=state.currentTargets.programmeSettings, details=document.createElement('details'), summary=document.createElement('summary');
@@ -492,7 +549,7 @@
       }));
       wrap.append(details);
     }
-    function renderSportReview(wrap, review) {
+    function renderSportReview(wrap, review, rerender=render) {
       if (review.latestFeedback) wrap.append(paragraph('Last sport check-in · '+new Date(review.latestFeedback.timestamp).toLocaleDateString()
         +' · movement: '+review.latestFeedback.movement+', endurance: '+review.latestFeedback.endurance+', comfort: '+review.latestFeedback.comfort
         +'. Your impressions are context; exercise progress comes from confirmed performed work.'));
@@ -508,7 +565,7 @@
         });
         select.value='unsure'; select.onchange=()=>{answers[key]=select.value;}; details.append(paragraph(label),select);
       });
-      const save=async response=>{await controller.saveSportReview(response);render();};
+      const save=async response=>{await controller.saveSportReview(response);rerender();};
       details.append(button('Save tennis check-in',()=>save(answers)),button('Skip check-in',()=>save(null)));
       wrap.append(details);
     }
@@ -696,7 +753,7 @@
         resetOptions(); showScreen('coach'); render(); });
     }
     return {open, overview, controller, renderAnchor, record, showEnd, saveFeedback, updateActualSummary,
-      isActive: () => sessionActive, run, backFromSubstitute, back: () => {previewEditing=false;showScreen('coach');render();},
+      isActive: () => sessionActive, run, backFromSubstitute, openProgress, back: () => {previewEditing=false;showScreen('coach');render();},
       init: () => { initialisation=run(() => controller.load()); return initialisation; }};
   }
   root.GarageFitCoachUI = {createController, mount, tennisWeeklyProgress};

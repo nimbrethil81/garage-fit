@@ -85,30 +85,7 @@
       details.append(paragraph('Exercise exposure describes performed conditioning work, not proven tennis skill improvement. Capabilities overlap; no catch-up debt.'));
       wrap.append(details);
     }
-    function progress(wrap, {definition, state, results, now, localDate, plan, equipment}) {
-      const details = document.createElement('details'), label = document.createElement('summary'); label.textContent = 'Programme progress and management'; details.append(label);
-      const phase = state.currentTargets.tennisDevelopment;
-      details.append(paragraph(state.meaningfulSessionsCompleted+' meaningful performed sessions'),
-        paragraph('Training phase · '+title(phase?.phase || 'development')+(plan?.rationale.priorities.phase?.phase === 'consolidation' && phase?.phase !== 'consolidation' ? ' · consolidation recommended next' : '')));
-      const event = root.GarageFitCoachTennisPolicy.eventHorizon({definition,state,today:{localDate}});
-      if (event) details.append(paragraph('Event horizon · '+(event.daysUntil < 0 ? 'date passed' : event.daysUntil+' days away')+' · '+event.eventDate),paragraph(event.rationale));
-      else details.append(paragraph('Ongoing development · no fixed end date'));
-      details.append(heading('Four persistent anchor targets'));
-      state.anchors.forEach(anchor => {
-        const target = anchor.currentTarget || anchor;
-        details.append(paragraph(catalogue[anchor.exerciseId].name+' · '+target.targetSets+' × '+target.target.maxReps+' reps · '+(target.progressionIntent || 'Confirm actual work')));
-      });
-      details.append(paragraph('These are programme targets. Only the selected anchors are required today; other anchors keep their progress.'));
-      const pin = definition.sportPolicy, policy = root.GarageFitSportCoverage.createPolicy(root.GarageFitData.sportCapabilityPolicies[pin.sportId][pin.version],catalogue);
-      const summary = plan?.rationale.priorities.coverage || policy.summarize(root.GarageFitTrainingHistory.createHistory(results,catalogue),
-        {now,programmeInstanceId:state.programmeInstanceId,focus:state.currentTargets.programmeSettings.focus,equipment,
-          smallSpace:definition.contextPolicy?.homeSmallSpace});
-      coverage(details,summary);
-      results.slice(-5).reverse().forEach(result => details.append(paragraph(new Date(result.endedAt).toLocaleDateString()+' · '+result.finalStatus+' · '+result.performedWork.filter(work => ['completed','partial'].includes(work.status)).length+' performed work occurrences')));
-      details.append(paragraph('History is local to this browser and device. Clearing site data or changing devices can remove access to it.'));
-      wrap.append(details); return details;
-    }
-    return {settingsForm,selectField,whyToday,coverage,progress,focusName: value=>focusNames[value] || value};
+    return {settingsForm,selectField,whyToday,coverage,focusName: value=>focusNames[value] || value};
   }
   root.GarageFitCoachTennisUI = {createViews};
 })(typeof window !== 'undefined' ? window : globalThis);
