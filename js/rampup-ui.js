@@ -7,13 +7,13 @@
   function injectStyles() {
     if (document.getElementById('rampupUiStyles')) return;
     const style=document.createElement('style'); style.id='rampupUiStyles';
-    style.textContent='#generatedPreview{overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y}#generatedPreview>*{flex-shrink:0}.preview-section-title{margin:16px 2px 7px;color:var(--text-muted);font-size:11px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}.preview-prep-list{margin-bottom:8px}.preview-block-heading{background:#e1e7e4}.preview-block-heading .preview-index{color:var(--work-dark)}.preview-block-heading .preview-exercise{font-size:13px;text-transform:uppercase;letter-spacing:.06em}.preview-block-heading .preview-prescription{text-transform:none;letter-spacing:0}.preview-timing{grid-template-columns:repeat(3,1fr)}#rampupSkipBtn{margin-top:-8px}@media(max-width:380px){.preview-timing{grid-template-columns:1fr 1fr}.preview-time-card:last-child{grid-column:1/-1}}';
+    style.textContent='#generatedPreview{overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y}#generatedPreview>*{flex-shrink:0}.preview-timing{grid-template-columns:repeat(3,1fr)}#rampupSkipBtn{margin-top:-8px}@media(max-width:380px){.preview-timing{grid-template-columns:1fr 1fr}.preview-time-card:last-child{grid-column:1/-1}}';
     document.head.appendChild(style);
   }
 
   function makeSectionList(id, title, beforeNode) {
     let heading=document.getElementById(id+'Title'), list=document.getElementById(id);
-    if (!heading) { heading=document.createElement('div'); heading.id=id+'Title'; heading.className='preview-section-title'; heading.textContent=title; beforeNode.parentNode.insertBefore(heading,beforeNode); }
+    if (!heading) { heading=GarageFitWorkoutPreview.sectionHeading(title); heading.id=id+'Title'; beforeNode.parentNode.insertBefore(heading,beforeNode); }
     if (!list) { list=document.createElement('ol'); list.id=id; list.className='preview-list preview-prep-list'; beforeNode.parentNode.insertBefore(list,beforeNode); }
     return list;
   }
@@ -21,15 +21,12 @@
   function renderExerciseList(list, exercises, section, swappable) {
     list.innerHTML='';
     exercises.forEach((exercise,index)=>{
-      const li=document.createElement('li'), number=document.createElement('span'), copy=document.createElement('span');
-      number.className='preview-index'; number.textContent=String(index+1).padStart(2,'0');
-      copy.className='preview-exercise'; copy.textContent=exercise.name;
-      const prescription=document.createElement('span'); prescription.className='preview-prescription'; prescription.textContent=formatPrescription(exercise); copy.appendChild(prescription);
-      li.append(number,copy);
+      const controls=[];
       if (swappable) {
-        const button=document.createElement('button'); button.type='button'; button.className='swap-btn'; button.textContent='Swap'; button.setAttribute('aria-label','Swap '+exercise.name); button.onclick=()=>window.swapGeneratedPreparation(section,index); li.appendChild(button);
+        const button=document.createElement('button'); button.type='button'; button.className='swap-btn'; button.textContent='Swap'; button.setAttribute('aria-label','Swap '+exercise.name); button.onclick=()=>window.swapGeneratedPreparation(section,index); controls.push(button);
       }
-      list.appendChild(li);
+      // Preparation retains its compact copy; Main opts into instructions and cues.
+      list.appendChild(GarageFitWorkoutPreview.exerciseRow({index,name:exercise.name,prescription:formatPrescription(exercise),controls}));
     });
   }
 
@@ -46,10 +43,10 @@
     const warmupList=makeSectionList('previewWarmupList','Warm-up',mainList);
     const rampupList=makeSectionList('previewRampupList','Ramp-up',mainList);
     let mainTitle=document.getElementById('previewMainTitle');
-    if(!mainTitle){mainTitle=document.createElement('div');mainTitle.id='previewMainTitle';mainTitle.className='preview-section-title';mainList.parentNode.insertBefore(mainTitle,mainList);}
+    if(!mainTitle){mainTitle=GarageFitWorkoutPreview.sectionHeading('');mainTitle.id='previewMainTitle';mainList.parentNode.insertBefore(mainTitle,mainList);}
     mainTitle.textContent='Main workout · '+blocks.length+' block'+(blocks.length===1?'':'s');
     let cooldownTitle=document.getElementById('previewCooldownListTitle'), cooldownList=document.getElementById('previewCooldownList');
-    if(!cooldownTitle){cooldownTitle=document.createElement('div');cooldownTitle.id='previewCooldownListTitle';cooldownTitle.className='preview-section-title';cooldownTitle.textContent='Cool-down';mainList.parentNode.insertBefore(cooldownTitle,timing);}
+    if(!cooldownTitle){cooldownTitle=GarageFitWorkoutPreview.sectionHeading('Cool-down');cooldownTitle.id='previewCooldownListTitle';mainList.parentNode.insertBefore(cooldownTitle,timing);}
     if(!cooldownList){cooldownList=document.createElement('ol');cooldownList.id='previewCooldownList';cooldownList.className='preview-list preview-prep-list';mainList.parentNode.insertBefore(cooldownList,timing);}
 
     renderExerciseList(warmupList,workout.warmup.exercises,'warmup',true);
