@@ -228,22 +228,30 @@ test('controller saves event changes atomically, invalidates previews, rejects a
 test('rendered event controls change, cancel and return after expiry on the same instance', async () => {
   const p=pilot(new Map(),'tennis-conditioning',4);await p.start();
   p.run(`const RealDate=Date;Date=class extends RealDate{constructor(...args){super(...(args.length?args:['2026-10-12T08:00:00Z']));}};
-    function findButton(text){const visit=node=>node.textContent===text&&node.onclick?node:(node.children||[]).map(visit).find(Boolean);return visit(document.getElementById('coachContent'));}
-    function field(label){const visit=node=>node.attributes?.['aria-label']===label?node:(node.children||[]).map(visit).find(Boolean);return visit(document.getElementById('coachContent'));}`);
+    function findButton(text,id='coachSettingsContent'){const visit=node=>node.textContent===text&&node.onclick?node:(node.children||[]).map(visit).find(Boolean);return visit(document.getElementById(id));}
+    function field(label){const visit=node=>node.attributes?.['aria-label']===label?node:(node.children||[]).map(visit).find(Boolean);return visit(document.getElementById('coachSettingsContent'));}`);
   await p.run('coachUI.open()');const before=p.json('coachUI.controller.snapshot().state');
+  await p.run("findButton('Programme settings','coachContent').onclick()");
   p.run("field('Important event date').value='2026-10-13';field('Event label (optional)').value='Club final'");
   await p.run("findButton('Prepare for event').onclick()");
   assert.equal(p.json('coachUI.controller.snapshot().state').currentTargets.programmeSettings.significantEventLabel,'Club final');
+  assert.match(p.run("JSON.stringify(document.getElementById('coachSettingsContent'))"),/Event saved/);
+  p.run("field('Event label (optional)').value='Club semi-final'");await p.run("findButton('Save event changes').onclick()");
+  assert.equal(p.json('coachUI.controller.snapshot().state').currentTargets.programmeSettings.significantEventLabel,'Club semi-final');
   await p.run("findButton('Cancel event preparation').onclick()");
   assert.deepEqual(p.json('coachUI.controller.snapshot().state').anchors,before.anchors);
   p.run("field('Important event date').value='2026-10-13'");await p.run("findButton('Prepare for event').onclick()");
   p.run("Date=class extends RealDate{constructor(...args){super(...(args.length?args:['2026-10-14T08:00:00Z']));}};");
-  await p.run('coachUI.open()');assert.ok(p.run("findButton('Return to ongoing development')"));
-  assert.equal(p.run("findButton('View today’s workout')"),undefined);
+  await p.run('coachUI.open()');assert.ok(p.run("findButton('Continue ongoing training','coachContent')"));
+  assert.equal(p.run("findButton('View today’s workout','coachContent')"),undefined);
+  await p.run("findButton('Change event date','coachContent').onclick()");
+  assert.equal(p.run("document.getElementById('coachSettings').classList.contains('hidden')"),false);
+  assert.match(p.run("JSON.stringify(document.getElementById('coachSettingsContent'))"),/Your event date has passed/);
   await p.run("findButton('Return to ongoing development').onclick()");
   const after=p.json('coachUI.controller.snapshot().state');
   assert.equal(after.programmeInstanceId,before.programmeInstanceId);assert.equal(after.programmeDefinitionVersion,4);
   assert.deepEqual(after.anchors,before.anchors);assert.equal(after.meaningfulSessionsCompleted,0);
+  assert.equal(after.currentTargets.programmeSettings.intent,'ongoing');
 });
 
 test('existing programmes and saved Tennis versions retain their prescriptions and policies', () => {

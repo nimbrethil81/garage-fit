@@ -9,11 +9,13 @@ async function ui(storage = new Map(), equipment = ['dumbbells']) {
     Date=class extends NativeDate {constructor(...args){super(...(args.length?args:[uiNow]));}};
     state.ownedEquipment=${JSON.stringify(equipment)};
     function nodes(id='coachContent'){const visit=node=>[node,...(node.children||[]).flatMap(visit)];return visit(document.getElementById(id));}
-    function field(label){return nodes().find(node=>node.attributes?.['aria-label']===label);}
-    function action(label,id='coachContent'){return nodes(id).find(node=>node.textContent===label&&node.onclick);}
+    // Controls are looked up on whichever Coach screen is showing.
+    function visible(){return [['coachSettings','coachSettingsContent'],['coachProgress','coachProgressContent']].find(([screen])=>!document.getElementById(screen).classList.contains('hidden'))?.[1]||'coachContent';}
+    function field(label){return nodes(visible()).find(node=>node.attributes?.['aria-label']===label);}
+    function action(label,id=visible()){return nodes(id).find(node=>node.textContent===label&&node.onclick);}
     function copyText(id='coachContent'){return nodes(id).map(node=>node.textContent).join(' ');}`);
   await p.run('coachUI.open()');
-  p.click = (label,id='coachContent') => p.run(`action(${JSON.stringify(label)},${JSON.stringify(id)}).onclick()`);
+  p.click = (label,id) => p.run(`action(${JSON.stringify(label)}${id?','+JSON.stringify(id):''}).onclick()`);
   p.change = (label,value) => p.run(`field(${JSON.stringify(label)}).value=${JSON.stringify(value)};field(${JSON.stringify(label)}).onchange?.()`);
   p.state = () => p.json('coachUI.controller.snapshot().state');
   return p;
@@ -28,7 +30,7 @@ test('compact Tennis home orders the weekly progress, collapsed adjustments and 
   assert.match(p.run("nodes().find(node=>node.className==='coach-weekly').children[0].textContent"),/0 of 2 sessions this week/);
   assert.equal(p.run("nodes().find(node=>node.id==='coachAdjustToday').open"),false);
   assert.ok(p.run("action('Your progress')"),'shared progress destination is live');
-  assert.equal(p.run("action('Programme settings')"),undefined);
+  assert.ok(p.run("action('Programme settings')"),'shared settings destination is live');
   const before=p.state(), durable=[...p.storage.entries()];
   await p.click('View today’s workout');
   assert.deepEqual(p.state(),before);assert.deepEqual([...p.storage.entries()],durable);
@@ -47,8 +49,10 @@ test('Adjust today summarizes real choices and persisted preferences, retains ex
   assert.equal(p.run("nodes().find(node=>node.id==='coachAdjustToday').open"),true);
   assert.deepEqual(p.json('state.ownedEquipment'),inventory);
   await p.click('Dumbbells');
+  await p.click('Programme settings');
   await p.change('Training focus','movement');await p.change('Typical tennis intensity','hard');
-  await p.click('Save tennis settings');
+  await p.click('Save tennis settings');assert.match(p.run("copyText('coachSettingsContent')"),/Tennis settings saved/);
+  await p.run('coachUI.back()');
   assert.match(p.run("nodes().find(node=>node.id==='coachAdjustToday').children[0].attributes['aria-label']"),/Focus: Movement & agility.*hard tennis/);
   p.run("const adjusted=nodes().find(node=>node.id==='coachAdjustToday');adjusted.open=false;adjusted.ontoggle();coachUI.back();");
   assert.equal(p.run("nodes().find(node=>node.id==='coachAdjustToday').open"),false);
@@ -167,11 +171,13 @@ test('equipment shortages and invalid event dates are actionable and cannot crea
 test('settings use Store, preserve targets through failure/retry and pause/resume, and invalidate obsolete previews',async()=>{
   const p=await ui();await start(p);await p.click('View today’s workout');
   const before=p.state();assert.ok(p.run('coachUI.controller.snapshot().preview'));
-  await p.run('coachUI.back()');
+  await p.run('coachUI.back()');await p.click('Programme settings');
+  assert.equal(p.run("document.getElementById('bottomNav').classList.contains('hidden')"),true,'secondary screen');
   await p.change('Training focus','movement');await p.change('GarageFit sessions per week','1');
   p.run("const write=localStorage.setItem;let fail=true;localStorage.setItem=(key,value)=>{if(fail){fail=false;throw new Error('quota');}write(key,value);}");
   await p.click('Save tennis settings');assert.deepEqual(p.state(),before);
-  assert.match(p.run("document.getElementById('coachError').textContent"),/Could not write/);
+  assert.match(p.run("document.getElementById('coachSettingsError').textContent"),/Could not write/);
+  assert.equal(p.run("field('Training focus').value"),'movement','unsaved choices stay in the form after a failure');
   assert.ok(p.run('coachUI.controller.snapshot().preview'));
   await p.click('Save tennis settings');const saved=p.state();
   assert.equal(saved.currentTargets.programmeSettings.focus,'movement');
@@ -182,9 +188,10 @@ test('settings use Store, preserve targets through failure/retry and pause/resum
   assert.equal(p.state().status,'active');assert.deepEqual(p.state().anchors,before.anchors);
   await p.change('GarageFit sessions per week','7');await p.click('Save tennis settings');
   assert.equal(p.state().currentTargets.programmeSettings.weeklyCoachFrequency,1);
-  assert.match(p.run("document.getElementById('coachError').textContent"),/programme-settings/);
+  assert.match(p.run("document.getElementById('coachSettingsError').textContent"),/programme-settings/);
   const q=await ui(p.storage);assert.equal(q.state().currentTargets.programmeSettings.focus,'movement');
-  await q.click('Finish programme');assert.match(q.run('copyText()'),/Previous programme finished/);
+  await q.click('Programme settings');await q.click('Finish programme');assert.equal(q.state().status,'active','finish needs confirmation');
+  await q.click('Confirm finish programme');assert.match(q.run('copyText()'),/Previous programme finished/);
   assert.equal(q.state().status,'completed');assert.deepEqual(q.state().anchors,before.anchors);
 });
 
@@ -193,12 +200,13 @@ test('readiness changes today’s plan, rest creates no session, and settings ed
   assert.equal(p.run("field('Readiness today (optional)').value"),'normal');
   await p.change('Readiness today (optional)','tired');
   assert.deepEqual(p.state().anchors,before.anchors);assert.match(p.run('copyText()'),/Tired/);
-  await p.change('Important event date','2026-10-12');await p.click('Prepare for event');
-  assert.match(p.run('copyText()'),/Rest today/);assert.equal(p.run("action('View today’s workout')"),undefined);
+  await p.click('Programme settings');await p.change('Important event date','2026-10-12');await p.click('Prepare for event');
+  await p.run('coachUI.back()');assert.match(p.run('copyText()'),/Rest today/);assert.equal(p.run("action('View today’s workout')"),undefined);
   assert.equal(p.state().meaningfulSessionsCompleted,0);
   assert.equal((await p.run('pilotStore.listSessionResults()')).results.length,0);
   assert.equal(await p.run('pilotStore.loadSessionDraft()'),null);
-  await p.click('Cancel event preparation');await p.change('Readiness today (optional)','fresh');
+  await p.click('Programme settings');await p.click('Cancel event preparation');await p.run('coachUI.back()');
+  await p.change('Readiness today (optional)','fresh');
   await p.click('View today’s workout');await p.click('Begin workout','coachPreviewContent');
   const live=p.state(),draft=await p.run('pilotStore.loadSessionDraft()');
   await assert.rejects(p.run("coachUI.controller.saveProgrammeSettings({focus:'power'})"),/Save the session/);

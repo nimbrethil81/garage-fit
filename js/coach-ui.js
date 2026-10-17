@@ -225,14 +225,14 @@
     async function run(action) {
       if (busy) return; busy = true;
       const focused=document.activeElement, focusLabel=focused?.getAttribute?.('aria-label'), focusText=focused?.textContent;
-      const messages=['coachError','coachPreviewError','coachResultError','coachProgressError'];
+      const messages=['coachError','coachPreviewError','coachResultError','coachProgressError','coachSettingsError'];
       [...messages,'coachPlayerError'].forEach(id => {el(id).textContent='';});
       try { return await action(); }
       catch (error) { messages.forEach(id => {el(id).textContent=error.message;}); el('coachPlayerError').textContent = 'Could not save. '+error.message+' Try again before leaving.'; }
       finally {
         busy = false;
         // A rerender replaces controls; return keyboard focus to the same control.
-        if (focused?.isConnected===false) ['coachContent','coachProgressContent'].flatMap(id=>[...el(id).querySelectorAll('button,select,input,summary')])
+        if (focused?.isConnected===false) ['coachContent','coachProgressContent','coachSettingsContent'].flatMap(id=>[...el(id).querySelectorAll('button,select,input,summary')])
           .find(node=>focusLabel ? node.getAttribute('aria-label')===focusLabel : node.textContent===focusText)?.focus();
       }
     }
@@ -376,7 +376,6 @@
       const frequency=state.mode==='maintenance'?def.maintenancePolicy.frequency:def.recommendedFrequency;
       wrap.append(paragraph((def.openEnded?'Open-ended objective':review.due?'Four-week block complete':'Week '+Math.min(weeks,Math.floor(blockDays/7)+1)+' of '+weeks)+' · '+state.meaningfulSessionsCompleted+' meaningful sessions'),
         paragraph(tennisFrequency ? tennisFrequency+' Coach sessions per week. Priorities follow performed work; no catch-up debt.' : frequency.aimSessionsPerWeek ? 'Aim for '+frequency.aimSessionsPerWeek+' sessions per week; two is acceptable. No catch-up debt.' : (state.mode==='maintenance'?'Maintenance':'Development')+' · '+frequency.minSessionsPerWeek+'–'+frequency.maxSessionsPerWeek+' sessions per week'));
-      if (def.eventPolicy) renderEventSettings(wrap,state);
       if (state.status==='paused') { wrap.append(paragraph('Paused · anchors and history preserved.'),button('Resume',() => manage('resume'),true)); }
       else if (review.due) {
         wrap.append(heading('Four-week review'),paragraph(review.meaningfulSessions+' meaningful sessions in this block'+(review.targetMet?' · Block target met':'')),
@@ -388,11 +387,7 @@
         wrap.append(card); renderAdjust(wrap);
         if (def.sportReviewPolicy) renderSportReview(wrap,controller.sportReview());
       }
-      wrap.append(progressLink());
-      const progress=document.createElement('details'), summary=document.createElement('summary'); summary.textContent='Programme management'; progress.append(summary);
-      progress.append(button(state.status==='paused'?'Resume':'Pause',() => manage(state.status==='paused'?'resume':'pause')));
-      if (def.supportsMaintenanceMode !== false) progress.append(button(state.mode==='maintenance'?'Return to development':'Move to maintenance',() => manage(state.mode==='maintenance'?'development':'maintenance')));
-      progress.append(button('Finish programme',() => manage('finish'))); wrap.append(progress);
+      wrap.append(progressLink(),settingsLink());
     }
     function retainDisclosure(details,key) {
       if (Object.prototype.hasOwnProperty.call(disclosureOpen,key)) details.open=disclosureOpen[key];
@@ -436,7 +431,7 @@
         }
         else if (expired) card.append(button('Continue ongoing training',async()=>{
           await controller.saveProgrammeSettings({intent:'ongoing',significantEventDate:null,significantEventLabel:null});render();
-        },true),button('Change event date',()=>{settings.open=true;const field=settings.querySelector('input[aria-label="Important event date"]');field?.focus();}));
+        },true),button('Change event date',()=>{openSettings();el('coachSettingsContent').querySelector('input[aria-label="Important event date"]')?.focus();}));
         else if (rest) card.append(paragraph(conflictText(plan.conflicts)));
         else {
           card.append(paragraph(conflictText(plan.conflicts)),paragraph('Try more time, restore equipment or choose a compatible substitute. You can also rest.'));
@@ -446,18 +441,99 @@
       }
       if (lastSaved) wrap.append(paragraph(lastSaved));
       if (def.sportReviewPolicy && controller.sportReview()?.due) wrap.append(paragraph('An optional tennis check-in is ready in Your progress.'));
-      wrap.append(progressLink());
-      const settings=document.createElement('details'), summary=document.createElement('summary'); summary.textContent='Programme settings and management';
-      const form=tennisViews.settingsForm(config); retainDisclosure(settings,'settings');
-      settings.append(summary,form.wrap,paragraph('Settings keep the same programme, four anchors, progression and history. Save your current session before editing.'),
-        button('Save tennis settings',async()=>{await controller.saveProgrammeSettings(form.read());render();}));
-      if (def.eventPolicy) renderEventSettings(settings,state);
-      settings.append(button(state.status==='paused'?'Resume':'Pause',()=>manage(state.status==='paused'?'resume':'pause')),
-        button('Finish programme',()=>manage('finish')));
-      wrap.append(settings);
+      wrap.append(progressLink(),settingsLink());
     }
     function progressLink() {
       const link=button('Your progress',openProgress); link.classList?.add('coach-destination'); return link;
+    }
+    function settingsLink() {
+      const link=button('Programme settings',openSettings); link.classList?.add('coach-destination'); return link;
+    }
+    let settingsNotice='', confirmingFinish=false;
+    function openSettings() {
+      settingsNotice=''; confirmingFinish=false;
+      renderSettings(); showScreen('coachSettings');
+      el('coachSettings').querySelector?.('.back-btn')?.focus?.();
+    }
+    // Rows that the programme definition fixes; they are shown, never edited.
+    function readOnlyRows(wrap, rows) {
+      const list=document.createElement('dl'); list.className='coach-settings-rows';
+      rows.forEach(([label,value])=>{
+        const term=document.createElement('dt'), detail=document.createElement('dd'); term.textContent=label; detail.textContent=value; list.append(term,detail);
+      });
+      wrap.append(list);
+    }
+    // One settings destination for every programme. Only the active programme's
+    // existing settings and lifecycle commands render; nothing new is editable.
+    function renderSettings() {
+      const wrap=el('coachSettingsContent'); wrap.innerHTML='';
+      const current=controller.snapshot(), state=current.state;
+      if (!state || state.status==='completed' || current.blocked) {
+        wrap.append(paragraph('No active programme. Your saved history is retained.'),button('Back to Coach',()=>{showScreen('coach');render();}));
+        return;
+      }
+      def=root.GarageFitData.programmes[state.programmeDefinitionId][state.programmeDefinitionVersion];
+      const locked=sessionActive || !!current.interruptedDraft;
+      const intro=document.createElement('div'), title=document.createElement('div'), status=document.createElement('span');
+      intro.className='coach-tennis-intro'; title.className='coach-programme-heading'; status.className='coach-status';
+      status.textContent=programmeStatus(state); title.append(heading(def.name),status); intro.append(title,paragraph(def.objective)); wrap.append(intro);
+      if (settingsNotice) { const notice=paragraph(settingsNotice); notice.setAttribute('role','status'); wrap.append(notice); }
+      if (locked) wrap.append(paragraph('Save or finish your current workout before changing programme settings. Your recorded work is safe.'));
+      const plan=progressViews.section('Training plan','coach-settings-plan');
+      const review=def.openEnded?null:controller.review();
+      const durations=def.sessionTemplate.duration+' min by default; '+def.supportedDurations.filter(value=>value!==def.sessionTemplate.duration).join(', ')+' min also supported';
+      if (isTennis()) {
+        const config=state.currentTargets.programmeSettings, development=state.currentTargets.tennisDevelopment;
+        readOnlyRows(plan,[['Training phase',development?.phase==='consolidation'?'Consolidation':'Development'],
+          ['Strength targets',state.anchors.length+' stable targets keep their progress when settings change']]);
+        if (locked) readOnlyRows(plan,[['Training focus',tennisViews.focusName(config.focus)],['GarageFit sessions per week',String(config.weeklyCoachFrequency)],
+          ['Usual tennis playing days',config.usualPlayingDays.length?config.usualPlayingDays.map(day=>day.charAt(0).toUpperCase()+day.slice(1,3)).join(', '):'Irregular / no fixed days'],
+          ['Typical tennis intensity',config.typicalSportIntensity.charAt(0).toUpperCase()+config.typicalSportIntensity.slice(1)],
+          ['Training intent',config.intent==='event'?'Event · '+(config.significantEventLabel?config.significantEventLabel+' · ':'')+config.significantEventDate:'Ongoing development']]);
+        else {
+          const form=tennisViews.settingsForm(config);
+          plan.append(form.wrap,button('Save tennis settings',async()=>{
+            await controller.saveProgrammeSettings(form.read()); settingsNotice='Tennis settings saved.'; renderSettings();
+          },true));
+          if (def.eventPolicy) renderEventSettings(plan,state);
+        }
+      } else {
+        const strength=!def.openEnded, frequency=def.recommendedFrequency;
+        plan.append(paragraph('Set by the programme; these are not editable.'));
+        readOnlyRows(plan,[
+          ['Sessions per week',strength ? frequency.minSessionsPerWeek+'–'+frequency.maxSessionsPerWeek+' in development; '
+            +def.maintenancePolicy.frequency.minSessionsPerWeek+'–'+def.maintenancePolicy.frequency.maxSessionsPerWeek+' in maintenance'
+            : 'Aim for '+frequency.aimSessionsPerWeek+'; '+frequency.minSessionsPerWeek+' is acceptable'],
+          ['Mode',strength ? (state.mode==='maintenance'?'Maintenance':'Development') : 'Open-ended development · no maintenance mode'],
+          ...(strength ? [['Four-week block',review.due?'Block complete · review due':'Week '+Math.min(Math.ceil(def.nominalDurationDays/7),Math.floor(review.nominalProgress%def.nominalDurationDays/7)+1)
+            +' of '+Math.ceil(def.nominalDurationDays/7)+' · aim for '+def.completionCriteria.blockMeaningfulSessionTarget+' meaningful sessions']] : []),
+          ...(def.doseTargets.directElbowActions ? [['Direct arm work',def.doseTargets.directElbowActions.flexion+' curl and '+def.doseTargets.directElbowActions.extension
+            +' extension set exposures per rolling '+def.doseTargets.windowDays+' days']] : []),
+          ['Session length',durations],
+          ['Strength targets',state.anchors.length+' stable targets']]);
+      }
+      wrap.append(plan);
+      const manageSection=progressViews.section('Programme management','coach-settings-management');
+      readOnlyRows(manageSection,[['Status',state.status==='paused'?'Paused · targets and history preserved':'Active']]);
+      if (!locked) {
+        const act=action=>async()=>{ await controller.manage(action); resetOptions(); settingsNotice=''; confirmingFinish=false; renderSettings(); };
+        if (review?.due && state.status==='active') {
+          manageSection.append(heading('Four-week review'),paragraph(review.meaningfulSessions+' meaningful sessions in this block'+(review.targetMet?' · Block target met':'')),
+            button('Continue building',act('continue'),true),button('Move to maintenance',act('maintenance')));
+        } else if (def.supportsMaintenanceMode!==false && !def.openEnded) {
+          manageSection.append(button(state.mode==='maintenance'?'Return to development':'Move to maintenance',act(state.mode==='maintenance'?'development':'maintenance')));
+        }
+        manageSection.append(button(state.status==='paused'?'Resume':'Pause',act(state.status==='paused'?'resume':'pause')));
+        if (!confirmingFinish) manageSection.append(button('Finish programme',()=>{confirmingFinish=true;renderSettings();el('coachSettingsContent').querySelector?.('.coach-finish-confirm button')?.focus?.();}));
+        else {
+          const confirm=document.createElement('div'); confirm.className='coach-finish-confirm'; confirm.setAttribute('role','group'); confirm.setAttribute('aria-label','Confirm finish programme');
+          confirm.append(paragraph('Finish '+def.name+'? This ends the programme. Your targets and session history stay saved, and you can start a new programme afterwards.'),
+            button('Confirm finish programme',async()=>{ await controller.manage('finish'); resetOptions(); confirmingFinish=false; showScreen('coach'); render(); },true),
+            button('Keep programme',()=>{confirmingFinish=false;renderSettings();}));
+          manageSection.append(confirm);
+        }
+      }
+      wrap.append(manageSection);
     }
     function programmeStatus(state) {
       if (state.status==='paused') return 'Paused';
@@ -530,22 +606,23 @@
       wrap.append(progressViews.sessionHistory({state,results:current.results}));
     }
     function renderEventSettings(wrap, state) {
-      const config=state.currentTargets.programmeSettings, details=document.createElement('details'), summary=document.createElement('summary');
+      const config=state.currentTargets.programmeSettings, details=document.createElement('div'); details.className='coach-settings-event';
       const now=new Date().toISOString(), localDate=localDay(now), expired=config.intent==='event' && config.significantEventDate<localDate;
-      summary.textContent='Training intent and event'; details.append(summary,
+      const saved=message=>{settingsNotice=message;renderSettings();};
+      details.append(heading('Training intent and event'),
         paragraph(config.intent==='event' ? 'Preparing for '+(config.significantEventLabel || 'your event')+' · '+config.significantEventDate : 'Ongoing development'),
         paragraph('Choose an important dated event explicitly. Usual tennis playing days remain routine commitments. Event preparation keeps the same anchors, programme and history.'));
-      if (expired) { details.open=true; details.append(paragraph('Your event date has passed. Return to ongoing development or choose a new date; no missed work needs repaying.')); }
+      if (expired) { details.append(paragraph('Your event date has passed. Return to ongoing development or choose a new date; no missed work needs repaying.')); }
       const date=document.createElement('input'); date.type='date'; date.min=localDate;
       date.value=config.significantEventDate || ''; date.setAttribute('aria-label','Important event date');
       const label=document.createElement('input'); label.type='text'; label.maxLength=60;
       label.value=config.significantEventLabel || ''; label.setAttribute('aria-label','Event label (optional)');
       details.append(paragraph('Event date'),date,paragraph('Short label (optional)'),label,
         button(config.intent==='event'?'Save event changes':'Prepare for event',async()=>{
-          await controller.saveProgrammeSettings({intent:'event',significantEventDate:date.value,significantEventLabel:label.value.trim() || null});render();
+          await controller.saveProgrammeSettings({intent:'event',significantEventDate:date.value,significantEventLabel:label.value.trim() || null});saved('Event saved.');
         }));
       if (config.intent==='event') details.append(button(expired?'Return to ongoing development':'Cancel event preparation',async()=>{
-        await controller.saveProgrammeSettings({intent:'ongoing',significantEventDate:null,significantEventLabel:null});render();
+        await controller.saveProgrammeSettings({intent:'ongoing',significantEventDate:null,significantEventLabel:null});saved('Returned to ongoing development.');
       }));
       wrap.append(details);
     }
@@ -753,7 +830,7 @@
         resetOptions(); showScreen('coach'); render(); });
     }
     return {open, overview, controller, renderAnchor, record, showEnd, saveFeedback, updateActualSummary,
-      isActive: () => sessionActive, run, backFromSubstitute, openProgress, back: () => {previewEditing=false;showScreen('coach');render();},
+      isActive: () => sessionActive, run, backFromSubstitute, openProgress, openSettings, back: () => {previewEditing=false;showScreen('coach');render();},
       init: () => { initialisation=run(() => controller.load()); return initialisation; }};
   }
   root.GarageFitCoachUI = {createController, mount, tennisWeeklyProgress};
