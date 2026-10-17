@@ -59,6 +59,7 @@
   }
 
   function protocolLabel(block) {
+    if(block.protocol==='emom')return 'EMOM · '+block.prescription.minutes+(block.prescription.minutes===1?' minute':' minutes')+' · One exercise each minute · Rest after the target';
     if (block.protocol==='paired_sets') {
       const p=block.prescription, sets=p.sets;
       return ['Superset · '+sets+(sets===1?' set':' sets')+' · A then B'+(p.betweenExercisesSeconds ? '' : ', no changeover'),
@@ -70,5 +71,10 @@
     return 'Mini-circuit · '+rounds+(rounds===1?' round':' rounds');
   }
 
-  root.GarageFitWorkoutPreview={sectionHeading,blockHeading,exerciseRow,instructionDisclosure,formatPrescription,protocolLabel,supersetMarker};
+  function emomTargetLabel(block,exerciseIndex){
+    const target=block.prescription.targets[exerciseIndex];
+    return target.value+(target.type==='timed'?' sec':' reps');
+  }
+
+  root.GarageFitWorkoutPreview={sectionHeading,blockHeading,exerciseRow,instructionDisclosure,formatPrescription,protocolLabel,supersetMarker,emomTargetLabel};
 })(typeof window==='undefined' ? globalThis : window);

@@ -3,9 +3,9 @@
 const copy = value => JSON.parse(JSON.stringify(value));
 
 // One canonical block per protocol, including per-side work where the protocol allows it.
-function blockFixtures(catalogue) {
+function blockFixtures(catalogue,{emom=false}={}) {
   const ex = id => copy(catalogue[id]);
-  return {
+  const blocks={
     rounds: {id: 'main-1', protocol: 'rounds', intent: 'strength',
       exercises: [ex('goblet-squat'), ex('side-plank'), ex('push-up')],
       prescription: {rounds: 3, exerciseRestSeconds: 15, roundRestSeconds: 45}},
@@ -16,6 +16,10 @@ function blockFixtures(catalogue) {
       exercises: [ex('mountain-climbers'), ex('jumping-jacks')],
       prescription: {workSeconds: 40, transitionSeconds: 20, cycles: 2}}
   };
+  // The saved-v2 characterisation deliberately retains its original three blocks.
+  if(emom)blocks.emom={id:'main-4',protocol:'emom',intent:'conditioning',exercises:[ex('push-up'),ex('plank')],
+    prescription:{minutes:5,slotSeconds:60,targets:[{type:'reps',value:6},{type:'timed',value:20}]}};
+  return blocks;
 }
 
 // A version-2 generated workout in the shape the current Generator produces, with one block
@@ -52,7 +56,10 @@ function traceBlock(Generator, block) {
       if (positions.has(key)) problems.push(index+':duplicate-position:'+key);
       positions.add(key);
       if (step.timed && !(Number.isFinite(step.seconds) && step.seconds > 0)) problems.push(index+':timed-seconds');
-      seconds += step.timed ? step.seconds : Number(exercise.estimatedSeconds) || 0;
+      if(block.protocol==='emom'){
+        if(step.startsAtSeconds!==index*60||step.endsAtSeconds!==(index+1)*60)problems.push(index+':minute-window');
+        seconds+=step.endsAtSeconds-step.startsAtSeconds;
+      }else seconds += step.timed ? step.seconds : Number(exercise.estimatedSeconds) || 0;
     } else {
       const next = steps[index + 1];
       if (!(Number.isFinite(step.seconds) && step.seconds > 0)) problems.push(index+':rest-seconds');
