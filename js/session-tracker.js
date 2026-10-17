@@ -46,19 +46,26 @@
       if (!phase.occurrenceId) throw new Error('Timeline exercise phase has no occurrenceId.');
       if (seen.has(phase.occurrenceId)) throw new Error('Duplicate occurrenceId '+JSON.stringify(phase.occurrenceId)+' in timeline.');
       seen.add(phase.occurrenceId);
-      const exercise = phase.exercise, prescription = exercise.prescription || {};
+      const exercise = phase.exercise, prescription = phase.plannedPrescription || exercise.prescription || {};
       const emom = phase.protocol === 'emom', target = emom && phase.target;
       if(emom&&(!target||!['reps','timed'].includes(target.type)||!Number.isFinite(target.value)||target.value<=0||target.type==='timed'&&target.value>=60
         ||target.type==='reps'&&!Number.isInteger(target.value)||!Number.isInteger(phase.minute)||phase.minute<1
         ||phase.slotIndex!==phase.minute-1||phase.startsAtSeconds!==phase.slotIndex*60||phase.endsAtSeconds!==phase.minute*60))
         throw new Error('EMOM planned work needs an explicit minute, window and target.');
       const timed=emom?target.type==='timed':!!phase.timed;
+      if(phase.plannedPrescription){
+        if(!root.GarageFitGenerator)throw new Error('Occurrence targets need the shared Generator resolver.');
+        root.GarageFitGenerator.resolveOccurrenceTarget(exercise,{plannedPrescription:phase.plannedPrescription,
+          ...(phase.plannedLoad?{plannedLoad:phase.plannedLoad}:{})},phase.protocol==='timed_intervals'?{timedIntervalSeconds:phase.protocolConditions.workSeconds}:{});
+        if(timed!==prescription.type.includes('timed')||timed&&phase.seconds!==prescription.value
+          ||emom&&(target.type!==prescription.type||target.value!==prescription.value))throw new Error('Contradictory occurrence target.');
+      }
       return {
         occurrenceId: phase.occurrenceId,
         exerciseId: exercise.id,
         section: phase.section,
         blockIndex: phase.section === 'main' ? (phase.blockIndex || 0) : null,
-        requirementId: requirementIdFor(phase) || null,
+        requirementId: phase.variableTarget ? null : requirementIdFor(phase) || null,
         prescription: {
           type: emom ? target.type : prescription.type || null,
           timed,
@@ -71,8 +78,11 @@
           set: Number.isInteger(phase.set) ? phase.set : null,
           cycle: Number.isInteger(phase.cycle) ? phase.cycle : null,
           exerciseIndex: phase.exerciseIndex,
+          ...(phase.variableTarget ? {variableTarget:true} : {}),
+          ...(phase.plannedPrescription ? {plannedPrescription:clone(phase.plannedPrescription)} : {}),
+          ...(phase.plannedLoad ? {plannedLoad:clone(phase.plannedLoad)} : {}),
           ...(emom ? {minute:phase.minute,slotIndex:phase.slotIndex,startsAtSeconds:phase.startsAtSeconds,endsAtSeconds:phase.endsAtSeconds,target:clone(target)} : {}),
-          ...(phase.section === 'main' && exercise.coachAnchor ? {plannedTarget: clone(exercise.coachAnchor.plannedTarget)} : {})
+          ...(phase.section === 'main' && exercise.coachAnchor && !phase.variableTarget ? {plannedTarget: clone(exercise.coachAnchor.plannedTarget)} : {})
         }
       };
     });
@@ -332,8 +342,8 @@
       recordTimed(occurrenceId, {plannedSeconds, elapsedSeconds}) {
         requireStarted();
         const entry=planned(occurrenceId);
-        if(entry.prescription&&entry.prescription.protocol==='emom'){
-          if(!entry.prescription.timed)throw new Error('EMOM rep work requires an explicit outcome.');
+        if(entry.prescription&&(entry.prescription.protocol==='emom'||entry.prescription.variableTarget)){
+          if(!entry.prescription.timed)throw new Error((entry.prescription.protocol==='emom'?'EMOM':'Occurrence')+' rep work requires an explicit outcome.');
           plannedSeconds=entry.prescription.seconds;
         }
         const {status, actualSeconds} = timedOutcome(plannedSeconds, elapsedSeconds);

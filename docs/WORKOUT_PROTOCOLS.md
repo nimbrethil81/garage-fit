@@ -50,6 +50,40 @@ Occurrence-specific targets (for example a ladder's reps per step) belong on the
 copied immutably onto its phase and its planned occurrence. EMOM defines that contract below;
 the player retains these fields rather than substituting catalogue targets.
 
+### Shared occurrence targets
+
+Explicit blocks may add `block.occurrenceTargets`: a dense array in resolved **exercise-step**
+order, before splitting per-side work. It has exactly one entry per step, at most 256 entries.
+`null` retains that step's default. An override is
+`{plannedPrescription: {type, value}, plannedLoad?: {suggestedLoad, loadUnit, loadInterpretation}}`.
+No other keys are accepted. This is planned guidance, never actual performance or catalogue
+metadata. No generator route or user control produces these overrides yet.
+
+`resolveOccurrenceTarget` and `validateOccurrenceTargets` validate this plain JSON contract.
+Types match the exercise, including `unilateral-` for per-side work. Interval overrides use
+`timed` and cannot exceed the block work interval. Values are positive (whole reps): at most
+100 reps or 300 seconds per side, with at most 600 estimated work seconds per step.
+Rep estimates scale the published estimate by target/default reps, rounding up separately
+for each side. Timed estimates count every side. Optional numeric guidance is positive and
+at most 1000, with `kg`/`lb` and `per-item`/`total`; it is never copied to actual load.
+EMOM additionally retains its eligibility, 40-second estimate and original target ceilings.
+
+Resolved steps carry frozen `plannedPrescription`, optional frozen `plannedLoad`, and
+`estimatedSeconds`. Every step in an overridden block carries `variableTarget: true`, including
+default entries. EMOM's existing `target` remains an alias for its resolved prescription.
+The player, preview, voice, next hints and Tracker read the resolved target. Rests and minute
+boundaries retain their existing semantics; occurrence IDs do not depend on targets.
+Invalid overrides resolve to no steps, estimate zero, and fail normalisation. Normalisation
+owns a copy of the input overrides and recomputes their estimates rather than trusting caches.
+
+Coach anchor blocks reject occurrence overrides. Variable-target phases cannot link to an
+anchor or open the anchor actuals UI. Their timed evidence is capped to the planned occurrence,
+and rep Done records completion without inventing measurements. Training History retains their
+targets as context and treats variable-target evidence as incomparable, even when two individual
+targets match: the surrounding variable dose does not establish comparable fatigue/recovery.
+Legacy rounds anchor comparisons are unchanged. Draft/Result schema version 1 stores the optional
+fields inside the existing JSON prescription; no migration or ladder/pyramid activation is needed.
+
 ### EMOM domain contract
 
 An explicit block uses `protocol: 'emom'`, an ordered `exercises` rotation (one to three

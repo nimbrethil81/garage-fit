@@ -256,6 +256,8 @@ Rules enforced by validation:
 - `prescription`: `{type, value}` with type `timed`, `unilateral-timed`, `reps` or
   `unilateral-reps`. Used by Main and fixed workouts.
 - `estimatedSeconds`: required for rep-based prescriptions; derived for timed ones.
+- Catalogue prescriptions are defaults. Explicit Main occurrence targets live on the block,
+  not on exercises; see [the shared occurrence contract](../docs/WORKOUT_PROTOCOLS.md#shared-occurrence-targets).
 - `prescriptionModes`: optional restriction on permitted modes (`time`/`reps`).
 - `warmupPrescription` / `rampupPrescription`: timed only. They may carry
   `minValue`/`maxValue`; fitting to the phase budget moves the value in 5-second steps
