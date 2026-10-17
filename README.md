@@ -155,6 +155,12 @@ performance, stored next progression), recent saved sessions and the programme's
 phase. General Strength shows its four-week block, Build Arms its seven-day
 curl/extension exposure and Tennis its six capability cards for performed coverage
 in the last two weeks plus any due check-in. It is read-only and invents no scores.
+A shared **Programme settings** screen groups the training plan and programme
+management. Tennis edits its existing focus, weekly frequency, playing days,
+intensity and event; General Strength and Build Arms show their definition-fixed
+plan read-only. Pause/Resume and a confirmed Finish work for all three; only
+General Strength offers maintenance and its four-week review choices. Settings are
+locked while a workout is in progress, and today-only adjustments stay on Coach home.
 
 Coach history is local to this browser/device. Clearing browser or site data can
 remove it; replacing a device does not automatically migrate it. Cloud durability
