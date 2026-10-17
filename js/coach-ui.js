@@ -824,11 +824,11 @@
               if (!revised.workout) { previewEditing=false; showScreen('coach'); render(); showBlocked(revised); return; }
               renderPreview(revised);
             }));
-          } else if (previewEditing && (!anchor || anchor.importance!=='required')) {
+          } else if (previewEditing && block.protocol!=='emom' && (!anchor || anchor.importance!=='required')) {
             controls.push(rowControl('Swap','Swap '+exercise.name,() => { root.GarageFitGenerator.swap(workout,index,exerciseIndex,{catalogue,equipment:preview.today.equipment}); renderPreview(preview); }));
           }
           main.append(ui.exerciseRow({index:exerciseIndex,marker:ui.supersetMarker(block,exerciseIndex),name:exercise.name,
-            prescription:target ? targetPrescription(exercise,block) : block.protocol==='timed_intervals' ? block.prescription.workSeconds+' sec' : ui.formatPrescription(exercise),
+            prescription:target ? targetPrescription(exercise,block) : block.protocol==='emom' ? ui.emomTargetLabel(block,exerciseIndex) : block.protocol==='timed_intervals' ? block.prescription.workSeconds+' sec' : ui.formatPrescription(exercise),
             targetLabel:target ? 'Strength target' : null, instruction:catalogue[exercise.id]?.instruction,
             cue:[target ? effortCue(anchor,context) : null,...(exercise.timedCues || []).map(cue=>cue.text)].filter(Boolean).join(' · '),controls}));
         });
@@ -911,7 +911,7 @@
       if (busy) return false; return run(async () => {
         if (!phase || phase.kind!=='exercise') return true;
         if (phase.timed) await tracker.recordTimed(phase.occurrenceId,{plannedSeconds:phase.seconds,elapsedSeconds:elapsed});
-        else if (action==='skip') await tracker.recordSkip(phase.occurrenceId);
+        else if (action==='skip' || phase.protocol==='emom' && action!=='done') await tracker.recordSkip(phase.occurrenceId);
         else if (isProgressionAnchor(phase)) { const set=actualSet(); await tracker.recordAnchor(phase.occurrenceId,{status:'completed',sets:[set],targetAchieved:set.reps===null?null:set.reps>=phase.exercise.prescription.value}); if (set.resistanceSetup) sessionSetups[activeResistance.requirementId]=set.resistanceSetup; }
         else await tracker.recordDone(phase.occurrenceId);
         return true;

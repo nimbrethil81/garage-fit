@@ -218,9 +218,11 @@ test('explicit optional EMOM candidates preserve Coach anchors, hard avoids, pro
     +G.BUDGETS[30].warmup+G.BUDGETS[30].rampup+G.BUDGETS[30].cooldown<=800);
 });
 
-test('the current player refuses domain-only EMOM rather than silently running it as intervals', () => {
+test('the player retains the explicit EMOM minute windows and occurrence targets', () => {
   const context = loadAppContext();context.emom = block();
-  assert.throws(() => vm.runInContext('appendBlockTimeline([],emom,0,1)',context),/minute-aware player/);
+  const phases=vm.runInContext('var emomTimeline=[];appendBlockTimeline(emomTimeline,emom,0,1);emomTimeline',context);
+  assert.deepEqual(copy(Tracker.plannedWorkFromTimeline(phases)),plan());
+  assert.ok(phases.every(phase=>Object.isFrozen(phase.target)));
 });
 
 test('EMOM planning alone earns no work; timed overrun is capped to the occurrence target', async () => {

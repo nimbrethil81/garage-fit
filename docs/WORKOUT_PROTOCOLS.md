@@ -1,7 +1,7 @@
 # Main block protocol contracts
 
-Playable protocols: `rounds`, `paired_sets`, `timed_intervals`. `emom` is accepted by the
-domain only (#77); the current player rejects it until minute-aware playback is implemented.
+Playable protocols: `rounds`, `paired_sets`, `timed_intervals`, `emom`. EMOM is explicit-only:
+automatic selection remains disabled pending the separate routing issue.
 These contracts are the extension seams for later block patterns (#75). `tests/protocol-contracts.test.js` and
 `tests/main-blocks.test.js` enforce them; shared fixtures and the step-trace check live in
 `tests/helpers/protocol-fixtures.js`.
@@ -49,7 +49,7 @@ Occurrence ids come from section, block, step position, exercise index and side
 
 Occurrence-specific targets (for example a ladder's reps per step) belong on the resolved step,
 copied immutably onto its phase and its planned occurrence. EMOM defines that contract below;
-its future player must retain these fields rather than substituting catalogue targets.
+the player retains these fields rather than substituting catalogue targets.
 
 ### EMOM domain contract
 
@@ -87,10 +87,29 @@ constraints apply, and anchors cannot become EMOM work. A supplied prefix must p
 reserved required blocks. `generate()` never calls this builder: automatic selection and
 EMOM-only prescribed generation remain gated. `GENERATED_PROTOCOLS` stays unchanged.
 
-EMOM history is explicitly incomparable, including with other EMOM work: planned minute
-windows alone do not establish performed pacing/recovery conditions. A later execution
-contract must define those before comparing progression. Domain regression coverage lives
-in `tests/emom.test.js`; the shared playback fixtures retain the three playable protocols.
+The existing player uses one block origin on monotonic active workout time (`performance.now`,
+with a Date fallback). Pause excludes time; Done/Skip ends work but never advances the minute.
+Reps require Done, otherwise they remain skipped/unknown; no partial-rep or load values are
+invented. Timed targets record only measured work before target/window end, then show recovery.
+Delayed callbacks skip unentered windows and join the live minute without backfilling timed
+credit. A hidden page never starts new exercise work; returning observes the live window.
+
+Previous is disabled during EMOM; expired EMOM occurrences cannot be replayed by Previous.
+Direct revisits rejoin the original clock and preserve settled outcomes. Navigation away
+stops timers; a back-forward-cache restoration stays paused for an explicit Resume. Coach
+reload recovery consults only durable outcomes. Standalone early exits retain the existing
+ephemeral policy. Pending saves capture evidence at the action, cannot shift the block origin,
+and cannot advance a different workout after navigation; failures offer Retry save.
+
+The same ring shows seconds remaining in the minute; targets remain visible beside work/rest
+status. Minute starts and actual work completion have distinct cues, with no backlog of stale
+completion cues. Explicit previews show EMOM targets; swapping these blocks is deferred until
+the routing integration can rebuild safe targets. No pattern selector or automatic route is added.
+
+EMOM history remains explicitly incomparable: actual rep pacing/recovery conditions are not
+recorded. `tests/emom.test.js` covers the domain; `tests/emom-player.test.js` adds fake-clock,
+tracker, recovery and UI coverage. `blockFixtures(catalogue, {emom:true})` includes the EMOM
+playback fixture; the saved-v2 characterisation retains its original three blocks.
 
 ### Presentation names
 
