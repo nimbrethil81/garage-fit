@@ -1,0 +1,17 @@
+/* Shared Generator-style presentation; callers own sections, ordering and actions. */
+.preview-section-title{margin:16px 2px 7px;color:var(--text-muted);font-size:11px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}
+.preview-list{list-style:none;padding:0;margin:0;background:var(--card);color:var(--card-text);border-radius:18px;overflow:hidden}
+.preview-list li{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:10px;align-items:center;padding:14px;border-bottom:1px solid #d5dbd8}
+.preview-list li:last-child{border-bottom:0}
+.preview-prep-list{margin-bottom:8px}
+.preview-index{font-size:11px;color:var(--rest-card);font-weight:900}
+.preview-exercise{min-width:0;margin:0;font-size:14px;font-weight:850;line-height:1.35;overflow-wrap:anywhere}
+.preview-prescription{display:block;color:var(--card-muted);font-size:12px;font-weight:650;margin-top:3px}
+.preview-target-label{font-size:11px}
+.preview-block-heading{background:#e1e7e4}
+.preview-block-heading .preview-index{color:var(--work-dark)}
+.preview-block-heading .preview-exercise{font-size:13px;text-transform:uppercase;letter-spacing:.06em}
+.preview-block-heading .preview-prescription{text-transform:none;letter-spacing:0}
+.preview-controls{display:flex;flex-direction:column;gap:6px}
+.swap-btn{border:1px solid #c4ccca;background:transparent;color:var(--card-muted);border-radius:9px;padding:8px;font-size:11px;font-weight:850}
+.preview-exercise .exercise-instruction{text-align:left;margin:4px 0 0;font-size:12px}
