@@ -76,5 +76,14 @@
     return target.value+(target.type==='timed'?' sec':' reps');
   }
 
-  root.GarageFitWorkoutPreview={sectionHeading,blockHeading,exerciseRow,instructionDisclosure,formatPrescription,protocolLabel,supersetMarker,emomTargetLabel};
+  function occurrenceTargetLabel(block,exerciseIndex){
+    if(!block.occurrenceTargets)return null;
+    const exercise=block.exercises[exerciseIndex];
+    return root.GarageFitGenerator.resolveBlockSteps(block).filter(step=>step.kind==='exercise'&&step.exerciseIndex===exerciseIndex).map(step=>{
+      const p=step.plannedPrescription||(step.timed?{type:'timed',value:step.seconds}:exercise.prescription),load=step.plannedLoad;
+      return formatPrescription({...exercise,prescription:p,load:null})+(load?' · '+load.suggestedLoad+' '+load.loadUnit+(load.loadInterpretation==='per-item'?' each':' total'):exercise.load?' · '+exercise.load:'');
+    }).join(' → ');
+  }
+
+  root.GarageFitWorkoutPreview={sectionHeading,blockHeading,exerciseRow,instructionDisclosure,formatPrescription,protocolLabel,supersetMarker,emomTargetLabel,occurrenceTargetLabel};
 })(typeof window==='undefined' ? globalThis : window);

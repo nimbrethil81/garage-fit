@@ -828,7 +828,7 @@
             controls.push(rowControl('Swap','Swap '+exercise.name,() => { root.GarageFitGenerator.swap(workout,index,exerciseIndex,{catalogue,equipment:preview.today.equipment}); renderPreview(preview); }));
           }
           main.append(ui.exerciseRow({index:exerciseIndex,marker:ui.supersetMarker(block,exerciseIndex),name:exercise.name,
-            prescription:target ? targetPrescription(exercise,block) : block.protocol==='emom' ? ui.emomTargetLabel(block,exerciseIndex) : block.protocol==='timed_intervals' ? block.prescription.workSeconds+' sec' : ui.formatPrescription(exercise),
+            prescription:ui.occurrenceTargetLabel(block,exerciseIndex)||(target ? targetPrescription(exercise,block) : block.protocol==='emom' ? ui.emomTargetLabel(block,exerciseIndex) : block.protocol==='timed_intervals' ? block.prescription.workSeconds+' sec' : ui.formatPrescription(exercise)),
             targetLabel:target ? 'Strength target' : null, instruction:catalogue[exercise.id]?.instruction,
             cue:[target ? effortCue(anchor,context) : null,...(exercise.timedCues || []).map(cue=>cue.text)].filter(Boolean).join(' · '),controls}));
         });
@@ -869,7 +869,7 @@
     }
     async function manage(action) { await controller.manage(action); resetOptions(); render(); }
     function isProgressionAnchor(phase) {
-      const anchor=phase && phase.kind==='exercise' && phase.section==='main' && !phase.timed && phase.exercise.coachAnchor;
+      const anchor=phase && phase.kind==='exercise' && phase.section==='main' && phase.protocol==='rounds' && !phase.variableTarget && !phase.timed && phase.exercise.coachAnchor;
       const state=controller.snapshot().state;
       return anchor && anchor.importance==='required' && state && state.anchors.some(item=>item.requirementId===anchor.requirementId);
     }

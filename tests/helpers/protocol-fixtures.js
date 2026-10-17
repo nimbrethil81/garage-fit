@@ -59,7 +59,7 @@ function traceBlock(Generator, block) {
       if(block.protocol==='emom'){
         if(step.startsAtSeconds!==index*60||step.endsAtSeconds!==(index+1)*60)problems.push(index+':minute-window');
         seconds+=step.endsAtSeconds-step.startsAtSeconds;
-      }else seconds += step.timed ? step.seconds : Number(exercise.estimatedSeconds) || 0;
+      }else seconds += step.estimatedSeconds ?? (step.timed ? step.seconds : Number(exercise.estimatedSeconds) || 0);
     } else {
       const next = steps[index + 1];
       if (!(Number.isFinite(step.seconds) && step.seconds > 0)) problems.push(index+':rest-seconds');

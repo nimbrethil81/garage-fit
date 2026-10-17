@@ -51,6 +51,9 @@
       directElbowAction: exercise && exercise.directElbowAction || null,
       semanticConfidence: exercise ? 'derived' : 'unknown',
       prescriptionMode: mode || null, protocol: prescription && prescription.protocol || null,
+      variableTarget: !!(prescription && prescription.variableTarget),
+      plannedPrescription: prescription && prescription.plannedPrescription ? clone(prescription.plannedPrescription) : null,
+      plannedLoad: prescription && prescription.plannedLoad ? clone(prescription.plannedLoad) : null,
       // Absent side/conditions are unknown, rather than silently bilateral or compatible.
       side: prescription && Object.prototype.hasOwnProperty.call(prescription, 'side') ? prescription.side : 'unknown',
       protocolConditions: prescription && prescription.protocolConditions ? {...clone(prescription.protocolConditions),
@@ -71,6 +74,9 @@
     if (!previous.exerciseId || previous.exerciseId !== current.exerciseId) reasons.push('different-exercise');
     if (!previous.prescriptionMode || previous.prescriptionMode !== current.prescriptionMode) reasons.push('prescription-mode');
     if (!previous.protocol || previous.protocol !== current.protocol) reasons.push('protocol');
+    // Variable doses change preceding fatigue/recovery too. Until a format establishes
+    // comparison conditions, even matching individual targets do not establish a series.
+    if (previous.variableTarget || current.variableTarget) reasons.push('occurrence-target-conditions');
     if (previous.side === 'unknown' || current.side === 'unknown' || previous.side !== current.side) reasons.push('side');
     const fields = Object.prototype.hasOwnProperty.call(protocolFields, current.protocol) ? protocolFields[current.protocol] : null;
     // A minute window does not establish actual work pace or recovery. Until those

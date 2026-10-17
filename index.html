@@ -646,7 +646,7 @@ function renderGeneratedPreview(){
       const button=document.createElement('button');
       button.type='button';button.className='swap-btn';button.textContent='Swap';button.setAttribute('aria-label','Swap '+exercise.name);button.onclick=()=>swapGeneratedExercise(blockIndex,exerciseIndex);
       list.appendChild(GarageFitWorkoutPreview.exerciseRow({index:exerciseIndex,marker:GarageFitWorkoutPreview.supersetMarker(block,exerciseIndex),name:exercise.name,
-        prescription:block.protocol==='emom'?GarageFitWorkoutPreview.emomTargetLabel(block,exerciseIndex):block.protocol==='timed_intervals'?block.prescription.workSeconds+' sec':formatPrescription(exercise),
+        prescription:GarageFitWorkoutPreview.occurrenceTargetLabel(block,exerciseIndex)||(block.protocol==='emom'?GarageFitWorkoutPreview.emomTargetLabel(block,exerciseIndex):block.protocol==='timed_intervals'?block.prescription.workSeconds+' sec':formatPrescription(exercise)),
         instruction:instructionFor(exercise),cue:(exercise.timedCues||[]).map(cue=>cue.text).join(' · '),controls:[button]}));
     });
   });
@@ -743,7 +743,7 @@ function nextGeneratedLabel(){
   if(isEmomPhase()&&emomWork()&&!emomWork().settled)return 'Rest until next minute';
   const next=generatorState.timeline[generatorState.timelineIndex+1];
   if(!next)return isCoachPlayer()?'Session feedback':'';
-  if(next.kind==='exercise')return next.exercise.name;
+  if(next.kind==='exercise')return next.exercise.name+(next.variableTarget?' · '+(next.timed?next.seconds+' sec':generatedPhasePrescription(next).value+' reps')+(next.plannedLoad?' · '+generatedLoadText(next.exercise,next.plannedLoad):''):'');
   if(next.kind==='interval-rest'||next.kind==='set-change')return 'Change over';
   if(next.kind==='block-transition')return 'Next block';
   if(next.kind==='transition'){const after=generatorState.timeline.slice(generatorState.timelineIndex+2).find(phase=>phase.kind==='exercise');return after?{warmup:'Warm-up',rampup:'Ramp-up',main:'Main workout',cooldown:'Cool-down'}[after.section]||'Next':'Next'}
@@ -813,8 +813,8 @@ function finishAmrap(partialReps){
 }
 
 function makeGeneratedExercisePhases(exercise,section,round,exerciseIndex,metadata){
-  metadata=metadata||{};const intervalSeconds=metadata.intervalSeconds,timed=Number.isFinite(intervalSeconds)||exercise.prescription.type.includes('timed'),perSide=exercise.sidedness==='per-side',sides=perSide?(exercise.sideOrder||['right','left']):[null];
-  return sides.map(side=>{const phase=Object.assign({kind:'exercise',section,exercise,round,exerciseIndex,side,timed,seconds:Number.isFinite(intervalSeconds)?intervalSeconds:(timed?exercise.prescription.value:null)},metadata);phase.occurrenceId=GarageFitSessionTracker.occurrenceIdFor(phase);return phase});
+  metadata=metadata||{};const intervalSeconds=metadata.intervalSeconds,prescription=metadata.plannedPrescription||exercise.prescription,timed=Number.isFinite(intervalSeconds)||prescription.type.includes('timed'),perSide=exercise.sidedness==='per-side',sides=perSide?(exercise.sideOrder||['right','left']):[null];
+  return sides.map(side=>{const phase=Object.assign({kind:'exercise',section,exercise,round,exerciseIndex,side,timed,seconds:Number.isFinite(intervalSeconds)?intervalSeconds:(timed?prescription.value:null)},metadata);if(metadata.plannedPrescription)phase.plannedPrescription=Object.freeze({...metadata.plannedPrescription});if(metadata.plannedLoad)phase.plannedLoad=Object.freeze({...metadata.plannedLoad});phase.occurrenceId=GarageFitSessionTracker.occurrenceIdFor(phase);return phase});
 }
 function appendBlockTimeline(timeline,block,blockIndex,totalBlocks){
   // Every Main phase is built from the block's resolved steps; the tracker reads its plan from these phases.
@@ -824,6 +824,7 @@ function appendBlockTimeline(timeline,block,blockIndex,totalBlocks){
   GarageFitGenerator.resolveBlockSteps(block).forEach(step=>{
     if(step.kind==='exercise'){
       const exercise=block.exercises[step.exerciseIndex],stepMeta=Object.assign({},meta,{set:step.set,cycle:step.cycle});
+      ['plannedPrescription','plannedLoad','variableTarget','estimatedSeconds'].forEach(key=>{if(step[key]!==undefined)stepMeta[key]=step[key]});
       if(block.protocol==='emom')Object.assign(stepMeta,step);
       timeline.push(...makeGeneratedExercisePhases(exercise,'main',step.round||null,step.exerciseIndex,Object.assign(stepMeta,{intervalSeconds:step.timed?step.seconds:undefined})));
     }else{
@@ -891,7 +892,7 @@ function observeEmomMinute(){
   const now=currentWorkoutElapsedMs();
   if(!workoutState.paused&&!work.settled&&!work.pending&&work.startedMs===null&&now<run.originMs+phase.endsAtSeconds*1000&&document.visibilityState!=='hidden'){
     work.startedMs=now;work.cueTracker=GarageFitTimedCues.createTracker(phase.exercise.timedCues,phase.target.value);
-    beep(660,.1);announceExercise(phase.exercise,['EMOM. Minute '+phase.minute+' of '+generatorState.workout.main.blocks[phase.blockIndex].prescription.minutes+'.',phase.exercise.name+'. '+phase.target.value+(phase.timed?' seconds.':' reps.')],phase.timed?phase.target.value:null);
+    beep(660,.1);announceExercise(phase.exercise,['EMOM. Minute '+phase.minute+' of '+generatorState.workout.main.blocks[phase.blockIndex].prescription.minutes+'.',phase.exercise.name+'. '+phase.target.value+(phase.timed?' seconds.':' reps.'),phase.plannedLoad?generatedLoadText(phase.exercise,phase.plannedLoad):null],phase.timed?phase.target.value:null);
   }
   generatorState.cueTracker=work.cueTracker||null;
 }
@@ -978,7 +979,7 @@ if(typeof window.addEventListener==='function')window.addEventListener('pageshow
 });
 function enterGeneratedPhase(index){
   stopGeneratedPhaseTimer();generatorState.cueTracker=null;clearTimedCue('workoutTimedCue');const previousIndex=generatorState.timelineIndex,previous=currentGeneratedPhase();if(!isEmomPhase(previous)&&!isEmomPhase(generatorState.timeline[index])&&GarageFitCompletionSignal.shouldSignalUnitComplete(previousIndex,index))playCompletionChime();generatorState.timelineIndex=index;if(index>=generatorState.timeline.length){finishGeneratedWorkout();return}const phase=currentGeneratedPhase();if(isEmomPhase(phase)){enterEmomMinute();return}generatorState.remaining=phase.seconds||0;renderGeneratedPhase();if(phase.seconds!==null&&phase.seconds!==undefined)startGeneratedCountdown(phase.seconds);
-  if(phase.kind==='exercise')announceExercise(phase.exercise,exerciseCueParts(phase.exercise.name,phase.timed?phase.seconds+' seconds':phase.exercise.prescription.value+' reps',phase.side),phase.timed?phase.seconds:null);
+  if(phase.kind==='exercise')announceExercise(phase.exercise,exerciseCueParts(phase.exercise.name,phase.timed?phase.seconds+' seconds':generatedPhasePrescription(phase).value+' reps',phase.side).concat(phase.plannedLoad?[generatedLoadText(phase.exercise,phase.plannedLoad)]:[]),phase.timed?phase.seconds:null);
   else if(phase.kind==='round-rest')speak('Round '+phase.round+' complete. Rest.');
   else if(phase.kind==='set-change')speak('Change over.');
   else if(phase.kind==='set-rest')speak('Superset set '+phase.set+' complete. Rest.');
@@ -1001,7 +1002,8 @@ function generatedPhaseLabel(phase){
   if(phase.section==='cooldown')return 'Cool-down · Exercise '+(phase.exerciseIndex+1)+' of '+workout.cooldown.exercises.length;
   return 'Get ready';
 }
-function generatedLoadText(exercise){const target=exercise.coachAnchor&&exercise.coachAnchor.plannedTarget;if(target&&target.suggestedLoad!=null)return target.suggestedLoad+' '+target.loadUnit+(target.loadInterpretation==='per-item'?' each':' total');if(!exercise.load)return '';const usesDumbbells=(exercise.equipment||[]).some(group=>group.includes('dumbbells'));return exercise.load+(usesDumbbells?' dumbbells':'')}
+function generatedPhasePrescription(phase){return phase.plannedPrescription||phase.exercise.prescription}
+function generatedLoadText(exercise,plannedLoad){const target=plannedLoad||exercise.coachAnchor&&exercise.coachAnchor.plannedTarget;if(target&&target.suggestedLoad!=null)return target.suggestedLoad+' '+target.loadUnit+(target.loadInterpretation==='per-item'?' each':' total');if(!exercise.load)return '';const usesDumbbells=(exercise.equipment||[]).some(group=>group.includes('dumbbells'));return exercise.load+(usesDumbbells?' dumbbells':'')}
 function nextGeneratedExerciseIndex(){for(let i=generatorState.timelineIndex+1;i<generatorState.timeline.length;i++)if(generatorState.timeline[i].kind==='exercise')return i;return -1}
 function previousGeneratedExerciseIndex(){for(let i=generatorState.timelineIndex-1;i>=0;i--){const phase=generatorState.timeline[i];if(phase.kind!=='exercise')continue;const run=isEmomPhase(phase)&&emomRun(phase);if(run&&currentWorkoutElapsedMs()>=run.originMs+phase.endsAtSeconds*1000)continue;return i}return -1}
 function renderGeneratedPhase(){
@@ -1010,13 +1012,13 @@ function renderGeneratedPhase(){
   document.getElementById('workoutEmomStatus').classList.toggle('hidden',!isEmomPhase(phase));
   note.classList.toggle('hidden',isEmomPhase(phase));
   if(isEmomPhase(phase)){
-    const work=emomWork(phase);name.textContent=phase.exercise.name;target.textContent=phase.target.value+(phase.timed?' sec work':' reps');
+    const work=emomWork(phase);name.textContent=phase.exercise.name;target.textContent=phase.target.value+(phase.timed?' sec work':' reps')+(phase.plannedLoad?' · '+generatedLoadText(phase.exercise,phase.plannedLoad):'');
     player.classList.toggle('rest-phase',work.settled);
     const status=work.retry?'Could not save. Retry this minute.':work.settled?(work.status==='completed'?'Work complete.':work.status==='partial'?'Timed work stopped.':'Work not confirmed.')+' Rest until next minute.':'Finish the target, then rest.';
     const statusEl=document.getElementById('workoutEmomStatus');if(statusEl.textContent!==status)statusEl.textContent=status;
     setPrimaryAction(work.retry?'Retry save':work.settled?'Rest until next minute':phase.timed?'Skip work':'Done');
   }else if(phase.kind==='exercise'){
-    name.textContent=phase.exercise.name;target.textContent=phase.timed?'':phase.exercise.prescription.value+' reps';const details=[];if(phase.side)details.push(phase.side.toUpperCase());const load=generatedLoadText(phase.exercise);if(load)details.push(load);note.textContent=details.join(' · ');setPrimaryAction(phase.timed?'Skip interval':generatorState.timelineIndex===generatorState.timeline.length-1&&!isCoachPlayer()?'Finish workout':'Next');
+    name.textContent=phase.exercise.name;target.textContent=phase.timed?'':generatedPhasePrescription(phase).value+' reps';const details=[];if(phase.side)details.push(phase.side.toUpperCase());const load=generatedLoadText(phase.exercise,phase.plannedLoad);if(load)details.push(load);note.textContent=details.join(' · ');setPrimaryAction(phase.timed?'Skip interval':generatorState.timelineIndex===generatorState.timeline.length-1&&!isCoachPlayer()?'Finish workout':'Next');
   }else if(phase.kind==='round-rest'){
     name.textContent='Round '+phase.round+' complete';target.textContent='';setPrimaryAction('Skip rest');
   }else if(phase.kind==='set-rest'){
