@@ -14,7 +14,7 @@
     cindy: { name:'Cindy', kicker:'AMRAP', number:'20', format:'20 min AMRAP', summary:'3-movement sequence' },
     workout300: { name:'Workout', kicker:'For time', number:'300', format:'7 movements', summary:'300 total reps' },
     eveningFullBodyReset: { name:'Full-Body Reset', kicker:'Evening', number:'7', format:'Low-impact · bodyweight', summary:'7 movements · 40s work / 10s change' },
-    postRunReset: { name:'Post-Run Reset', kicker:'Post-run', number:'', format:'Top-up + cooldown', summary:'Timed top-up, easy walk, full stretch' }
+    postRunReset: { name:'Post-Run Reset', kicker:'Post-run', number:'9', format:'Top-up + cooldown', summary:'Timed top-up, easy walk, full stretch' }
   };
 
   function detailDefinition(workoutId) {
