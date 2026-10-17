@@ -6,11 +6,13 @@
   const positive = value => Number.isFinite(value) && value > 0;
   const when = result => result.endedAt || result.startedAt || null;
   const measure = value => ({value: known(value) ? value : null, confidence: known(value) ? 'confirmed' : 'unknown'});
-  const protocolFields = {
-    rounds: ['exerciseRestSeconds','roundRestSeconds'],
-    paired_sets: ['betweenExercisesSeconds','betweenSetsSeconds'],
-    timed_intervals: ['workSeconds','transitionSeconds']
-  };
+  // Protocol conditions that must match for two performances to be comparable. An unlisted
+  // protocol is never comparable. Kept in step with GarageFitGenerator.PROTOCOL_SHAPES by tests.
+  const protocolFields = Object.freeze({
+    rounds: Object.freeze(['exerciseRestSeconds','roundRestSeconds']),
+    paired_sets: Object.freeze(['betweenExercisesSeconds','betweenSetsSeconds']),
+    timed_intervals: Object.freeze(['workSeconds','transitionSeconds'])
+  });
 
   function exposureFor(outcome, prescription) {
     const sets = outcome.sets || [];
@@ -69,7 +71,7 @@
     if (!previous.prescriptionMode || previous.prescriptionMode !== current.prescriptionMode) reasons.push('prescription-mode');
     if (!previous.protocol || previous.protocol !== current.protocol) reasons.push('protocol');
     if (previous.side === 'unknown' || current.side === 'unknown' || previous.side !== current.side) reasons.push('side');
-    const fields = protocolFields[current.protocol];
+    const fields = Object.prototype.hasOwnProperty.call(protocolFields, current.protocol) ? protocolFields[current.protocol] : null;
     if (!fields || !previous.protocolConditions || !current.protocolConditions
       || [previous, current].some(item => fields.some(field => !Number.isFinite(item.protocolConditions[field]) || item.protocolConditions[field] < 0))) reasons.push('unknown-protocol-conditions');
     else if (!Model.sameRecord(previous.protocolConditions, current.protocolConditions)) reasons.push('protocol-conditions');
@@ -196,5 +198,5 @@
     });
   }
 
-  root.GarageFitTrainingHistory = {createHistory, comparePerformances, comparePerformanceEvidence, sumExposure};
+  root.GarageFitTrainingHistory = {PROTOCOL_CONDITION_FIELDS: protocolFields, createHistory, comparePerformances, comparePerformanceEvidence, sumExposure};
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -33,7 +33,7 @@ GarageFit is a dependency-free browser PWA for fixed and generated workouts.
 - `data/`: exercise, equipment and fixed-workout data
 - `data/programmes.js`: immutable versioned production Coach programme definitions; never change a released policy in place
 - `data/sport-profiles.js`: immutable sport identities, capabilities and permitted user configuration; no Generator mappings
-- `js/generator.js`: workout construction and selection
+- `js/generator.js`: workout construction and selection; Main block protocol contracts (vocabulary, resolved steps, playback/tracker plan) are in `docs/WORKOUT_PROTOCOLS.md`
 - `js/routine-generator.js`: standalone five-minute warm-up/cool-down routines (coverage, exact 300 s timing) and their separate `gf_routine_recent_v1` recency
 - `js/rampup-ui.js`: ramp-up presentation
 - `js/masthead.js`: canonical GarageFit logo/wordmark, mounted into primary-tab `data-masthead` hosts

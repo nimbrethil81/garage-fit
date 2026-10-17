@@ -64,7 +64,24 @@
   const MAIN_REPETITION_CLASS_PENALTY = 10;
   const RECENT_EXACT_PENALTIES = [18,10,6,3];
   const RECENT_PATTERN_PENALTIES = [6,3,2,1];
-  const MAIN_PROTOCOLS = new Set(['rounds','paired_sets','timed_intervals']);
+  // Main block protocol structure. A block prescription describes structure only: one repeat
+  // count (`repeatKey`) plus the protocol conditions (`conditionFields`) that make two
+  // performances comparable. Each resolved exercise step records its repetition in `stepKey`,
+  // one of the positions Session Tracker occurrence ids encode (round, set or cycle).
+  // Training History (js/training-history.js) and the Coach model (js/coach-model.js) keep
+  // their own copies of this vocabulary; tests/protocol-contracts.test.js fails if they drift.
+  // See docs/WORKOUT_PROTOCOLS.md before adding a protocol.
+  const PROTOCOL_SHAPES = Object.freeze({
+    rounds:Object.freeze({repeatKey:'rounds',stepKey:'round',conditionFields:Object.freeze(['exerciseRestSeconds','roundRestSeconds'])}),
+    paired_sets:Object.freeze({repeatKey:'sets',stepKey:'set',conditionFields:Object.freeze(['betweenExercisesSeconds','betweenSetsSeconds'])}),
+    timed_intervals:Object.freeze({repeatKey:'cycles',stepKey:'cycle',conditionFields:Object.freeze(['workSeconds','transitionSeconds'])})
+  });
+  const MAIN_PROTOCOLS = new Set(Object.keys(PROTOCOL_SHAPES));
+  const PROTOCOL_REPEAT_KEYS = Object.values(PROTOCOL_SHAPES).map(shape=>shape.repeatKey);
+  // Generator policy: the protocols generation may choose by itself (standalone blocks and Coach
+  // optional blocks), in weighted-pick order. A protocol can be accepted and playable above
+  // before it is auto-selected; adding it here is a deliberate selection change.
+  const GENERATED_PROTOCOLS = Object.freeze(['rounds','paired_sets','timed_intervals']);
   const MAIN_INTENTS = new Set(['strength','conditioning','accessory','finisher']);
   const MAIN_ROLES = new Set(['primary','supporting']);
   const BLOCK_TRANSITION_SECONDS = 3;
@@ -517,6 +534,8 @@
       const block=Object.assign({},source);
       block.id=block.id||'main-'+(index+1);
       block.protocol=block.protocol||'rounds';
+      // An unknown protocol has no executable steps; fail loudly rather than play a silently empty block.
+      if(!MAIN_PROTOCOLS.has(block.protocol))throw new Error('Workout Main block '+block.id+' uses unsupported protocol '+JSON.stringify(block.protocol)+'.');
       block.intent=block.intent||((workout.focus||'balanced')==='cardio'?'conditioning':'strength');
       block.exercises=(block.exercises||[]).map(copyExercise);
       block.prescription=Object.assign({},block.prescription||{});
@@ -591,7 +610,7 @@
     if(remainingSeconds<300){base.timed_intervals+=3;base.rounds-=1;}
     const compatible=protocol=>eligible.filter(ex=>protocolCompatible(ex,protocol)).length;
     const previous=state.blocks[state.blocks.length-1];
-    return [...MAIN_PROTOCOLS].map(protocol=>{
+    return GENERATED_PROTOCOLS.map(protocol=>{
       let weight=base[protocol]||0;
       const minimum=protocol==='rounds'?3:2;
       if(compatible(protocol)<minimum)weight=0;
@@ -692,8 +711,12 @@
     return selected;
   }
 
+  // Must equal the time of the steps resolveBlockSteps() produces: each exercise step lasts its
+  // `seconds` (timed intervals) or the exercise's estimatedSeconds, plus every rest step.
+  // A block without a protocol is a legacy rounds block; an unknown protocol has no steps.
   function estimateBlockDuration(block) {
     if(!block||!Array.isArray(block.exercises)||!block.exercises.length)return 0;
+    if(block.protocol&&!MAIN_PROTOCOLS.has(block.protocol))return 0;
     const p=block.prescription||{};
     if(block.protocol==='timed_intervals'){
       const cycles=Math.max(1,Number(p.cycles)||1),work=Math.max(0,Number(p.workSeconds)||0),transition=Math.max(0,Number(p.transitionSeconds)||0);
@@ -709,6 +732,10 @@
     return rounds*(work+Math.max(0,block.exercises.length-1)*exerciseRest)+Math.max(0,rounds-1)*roundRest;
   }
 
+  // The single resolved plan of a block. The player builds its timeline from these steps and the
+  // Session Tracker reads its planned occurrences from that timeline, so presentation and evidence
+  // share one plan. Exercise steps carry their position (exerciseIndex plus round, set or cycle);
+  // rest steps sit only between exercise steps and never end a block.
   function resolveBlockSteps(block) {
     const steps=[],p=block.prescription||{},exercises=block.exercises||[];
     if(block.protocol==='rounds'){
@@ -756,7 +783,7 @@
     const consider=p=>{
       const candidate={protocol,exercises,prescription:p};
       const estimate=estimateBlockDuration(candidate);
-      const repeatCount=protocol==='rounds'?p.rounds:protocol==='paired_sets'?p.sets:p.cycles;
+      const repeatCount=p[PROTOCOL_SHAPES[protocol].repeatKey];
       const repeatPenalty=repetitionPenalty(protocol,exercises,repeatCount,allowExtendedRepetition);
       const fitness=Math.abs(estimate-targetSeconds)+repeatPenalty;
       if(!best||fitness<best.fitness)best={prescription:p,estimate,fitness};
@@ -795,8 +822,17 @@
   }
 
   function blockRepeatCount(block) {
-    const p=block.prescription||{};
-    return block.protocol==='rounds'?Number(p.rounds)||1:block.protocol==='paired_sets'?Number(p.sets)||1:Number(p.cycles)||1;
+    const p=block.prescription||{},shape=PROTOCOL_SHAPES[block.protocol];
+    return shape?Number(p[shape.repeatKey])||1:1;
+  }
+
+  // Protocol conditions shared by every occurrence of a block: its prescription without the
+  // repeat count. The player attaches them to each Main exercise phase; the Session Tracker
+  // records them in the planned occurrence for Training History comparability.
+  function protocolConditions(block) {
+    const conditions=Object.assign({},block&&block.prescription);
+    PROTOCOL_REPEAT_KEYS.forEach(key=>delete conditions[key]);
+    return conditions;
   }
 
   function mainQualityPenalty(blocks, targetSeconds, eligibleCount) {
@@ -1529,7 +1565,7 @@
     return !constraint.anchorRequirementId || !!anchor&&constraint.anchorRequirementId===anchor.requirementId;
   }
   function permittedProtocols(rx, anchor, includeSoft=false) {
-    let protocols=[...MAIN_PROTOCOLS];
+    let protocols=GENERATED_PROTOCOLS.slice();
     // Timed conversion of an anchor requires explicit permission, even if its catalogue
     // entry supports intervals. Generic timed work retains its normal protocol policy.
     if(anchor)protocols=anchor.allowedProtocols==null?['rounds','paired_sets']:anchor.allowedProtocols.slice();
@@ -1809,7 +1845,7 @@
           }
           if(!block)break;
           // Optional dose may shrink; required/preferred target blocks are never refitted.
-          const key=block.protocol==='rounds'?'rounds':block.protocol==='paired_sets'?'sets':'cycles';
+          const key=PROTOCOL_SHAPES[block.protocol].repeatKey;
           while(block.estimatedDurationSeconds>remaining&&block.prescription[key]>1){block.prescription[key]--;finishMainBlock(block);}
           if(block.estimatedDurationSeconds>remaining)break;
           state.blocks.push(block);state.exercises.push(...block.exercises);
@@ -2093,7 +2129,7 @@
     workout.estimatedSeconds=workout.warmup.estimatedSeconds+workout.rampup.estimatedSeconds+workout.main.estimatedDurationSeconds+workout.cooldown.estimatedSeconds;
   }
 
-  root.GarageFitGenerator = { BUDGETS, RESTS, MAIN_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, WORKOUT_DIFFICULTIES, EXERCISE_DIFFICULTIES, DIFFICULTY_POLICY, workoutDifficulty, difficultyExcluded, difficultyCredit, WORKOUT_BODY_FOCUSES, EXERCISE_BODY_FOCUSES, EXERCISE_DIRECT_ELBOW_ACTIONS, BODY_FOCUS_POLICY, workoutBodyFocus, bodyFocusCredit, SHORTLIST_SIZE, SHORTLIST_MARGIN, WINDOW_MAX_RANKS, SUPPORTING_ROUTE, candidateWindowRanks, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_PATTERNS, VALID_WARMUP_AREAS, VALID_STRETCH_TARGETS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, selectBlockExercises, selectWarmup, kneeMobilityQualified, upperTrunkTarget, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, SessionPrescriptionError, assessSessionPrescription, generate, swap, swapPreparation };
+  root.GarageFitGenerator = { BUDGETS, RESTS, PROTOCOL_SHAPES, MAIN_PROTOCOLS, GENERATED_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, WORKOUT_DIFFICULTIES, EXERCISE_DIFFICULTIES, DIFFICULTY_POLICY, workoutDifficulty, difficultyExcluded, difficultyCredit, WORKOUT_BODY_FOCUSES, EXERCISE_BODY_FOCUSES, EXERCISE_DIRECT_ELBOW_ACTIONS, BODY_FOCUS_POLICY, workoutBodyFocus, bodyFocusCredit, SHORTLIST_SIZE, SHORTLIST_MARGIN, WINDOW_MAX_RANKS, SUPPORTING_ROUTE, candidateWindowRanks, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_PATTERNS, VALID_WARMUP_AREAS, VALID_STRETCH_TARGETS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, protocolConditions, selectBlockExercises, selectWarmup, kneeMobilityQualified, upperTrunkTarget, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, SessionPrescriptionError, assessSessionPrescription, generate, swap, swapPreparation };
 
   if (typeof window!=='undefined' && typeof document!=='undefined' && typeof window.addEventListener==='function') window.addEventListener('load',()=>{
     if (document.querySelector('script[data-garagefit-rampup-ui]')) return;
