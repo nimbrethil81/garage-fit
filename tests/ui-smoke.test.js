@@ -130,6 +130,10 @@ test('Generator preview/player and both fixed players initialise without runtime
   assert.equal(vm.runInContext("generatorState.timeline.filter(phase=>phase.kind==='block-transition').length",context),blockCount-1);
   assert.equal(vm.runInContext("generatorState.timeline.filter(phase=>phase.kind==='transition'&&phase.section==='main').length",context),1);
   assert.ok(vm.runInContext("generatorState.timeline.some(phase=>phase.kind==='exercise'&&phase.section==='rampup')",context));
+  const firstRampup=vm.runInContext("generatorState.timeline.findIndex(phase=>phase.kind==='exercise'&&phase.section==='rampup')",context);
+  context.enterGeneratedPhase(firstRampup);
+  assert.equal(elements.rampupSkipBtn,undefined,'no skip-ramp-up control is injected');
+  if(vm.runInContext('currentGeneratedPhase().timed',context))assert.equal(elements.workoutRingWrap.classList.contains('hidden'),false);
   const firstSecondBlock=vm.runInContext("generatorState.timeline.findIndex(phase=>phase.kind==='exercise'&&phase.section==='main'&&phase.blockIndex===1)",context);
   context.enterGeneratedPhase(firstSecondBlock);
   context.previousGeneratedPhase();
