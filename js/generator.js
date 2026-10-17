@@ -67,24 +67,28 @@
   // Main block protocol structure. A block prescription describes structure only: one repeat
   // count (`repeatKey`) plus the protocol conditions (`conditionFields`) that make two
   // performances comparable. Each resolved exercise step records its repetition in `stepKey`,
-  // one of the positions Session Tracker occurrence ids encode (round, set or cycle).
+  // one of the positions Session Tracker occurrence ids encode (round, set, cycle or minute).
   // Training History (js/training-history.js) and the Coach model (js/coach-model.js) keep
   // their own copies of this vocabulary; tests/protocol-contracts.test.js fails if they drift.
   // See docs/WORKOUT_PROTOCOLS.md before adding a protocol.
   const PROTOCOL_SHAPES = Object.freeze({
     rounds:Object.freeze({repeatKey:'rounds',stepKey:'round',conditionFields:Object.freeze(['exerciseRestSeconds','roundRestSeconds'])}),
     paired_sets:Object.freeze({repeatKey:'sets',stepKey:'set',conditionFields:Object.freeze(['betweenExercisesSeconds','betweenSetsSeconds'])}),
-    timed_intervals:Object.freeze({repeatKey:'cycles',stepKey:'cycle',conditionFields:Object.freeze(['workSeconds','transitionSeconds'])})
+    timed_intervals:Object.freeze({repeatKey:'cycles',stepKey:'cycle',conditionFields:Object.freeze(['workSeconds','transitionSeconds'])}),
+    emom:Object.freeze({repeatKey:'minutes',stepKey:'minute',conditionFields:Object.freeze(['slotSeconds','targets'])})
   });
   const MAIN_PROTOCOLS = new Set(Object.keys(PROTOCOL_SHAPES));
   const PROTOCOL_REPEAT_KEYS = Object.values(PROTOCOL_SHAPES).map(shape=>shape.repeatKey);
   // Generator policy: the protocols generation may choose by itself (standalone blocks and Coach
-  // optional blocks), in weighted-pick order. A protocol can be accepted and playable above
+  // optional blocks), in weighted-pick order. A protocol can be accepted in the domain above
   // before it is auto-selected; adding it here is a deliberate selection change.
   const GENERATED_PROTOCOLS = Object.freeze(['rounds','paired_sets','timed_intervals']);
   const MAIN_INTENTS = new Set(['strength','conditioning','accessory','finisher']);
   const MAIN_ROLES = new Set(['primary','supporting']);
   const BLOCK_TRANSITION_SECONDS = 3;
+  // Domain-only first wave; deliberately absent from GENERATED_PROTOCOLS. Keep at least
+  // twenty seconds for recovery/setup, without inventing a fixed recovery duration.
+  const EMOM_POLICY = Object.freeze({slotSeconds:60,maxMinutes:12,maxExercises:3,maxWorkSeconds:40});
   const VALID_IMPACT_LEVELS = new Set(['low','medium','high']);
   const PRESCRIPTION_MODE_BY_TYPE = { 'timed':'time', 'unilateral-timed':'time', 'reps':'reps', 'unilateral-reps':'reps' };
   // Equipment diversity targets apply only to the Main phase, and only when enough of the
@@ -537,8 +541,13 @@
       // An unknown protocol has no executable steps; fail loudly rather than play a silently empty block.
       if(!MAIN_PROTOCOLS.has(block.protocol))throw new Error('Workout Main block '+block.id+' uses unsupported protocol '+JSON.stringify(block.protocol)+'.');
       block.intent=block.intent||((workout.focus||'balanced')==='cardio'?'conditioning':'strength');
-      block.exercises=(block.exercises||[]).map(copyExercise);
       block.prescription=Object.assign({},block.prescription||{});
+      if(block.protocol==='emom'){
+        const issues=validateEmomBlock(block);
+        if(issues.length)throw new Error('Invalid EMOM block '+block.id+': '+issues.join(', '));
+        block.prescription.targets=block.prescription.targets.map(target=>({...target}));
+      }
+      block.exercises=(block.exercises||[]).map(copyExercise);
       if(block.protocol==='rounds'){
         block.prescription.rounds=block.prescription.rounds||block.rounds||1;
         block.prescription.exerciseRestSeconds=Number.isFinite(block.prescription.exerciseRestSeconds)?block.prescription.exerciseRestSeconds:(block.rest&&block.rest.exercise)||0;
@@ -547,7 +556,7 @@
         block.rest={exercise:block.prescription.exerciseRestSeconds,round:block.prescription.roundRestSeconds};
       }
       const estimate=estimateBlockDuration(block);
-      block.estimatedDurationSeconds=Number.isFinite(block.estimatedDurationSeconds)?block.estimatedDurationSeconds:Number.isFinite(block.estimatedSeconds)?block.estimatedSeconds:estimate;
+      block.estimatedDurationSeconds=block.protocol==='emom'?estimate:Number.isFinite(block.estimatedDurationSeconds)?block.estimatedDurationSeconds:Number.isFinite(block.estimatedSeconds)?block.estimatedSeconds:estimate;
       block.estimatedSeconds=block.estimatedDurationSeconds;
       return block;
     });
@@ -560,9 +569,59 @@
 
   function protocolCompatible(exercise, protocol) {
     if (!exercise || !MAIN_PROTOCOLS.has(protocol)) return false;
+    if (protocol==='emom') return emomExerciseEligible(exercise);
     if (Array.isArray(exercise.mainProtocols)) return exercise.mainProtocols.includes(protocol);
     if (protocol==='timed_intervals') return exercise.sidedness!=='per-side' && !!(exercise.prescription&&exercise.prescription.type&&exercise.prescription.type.includes('timed'));
     return protocol==='rounds'||protocol==='paired_sets';
+  }
+
+  function emomExerciseEligible(exercise) {
+    if(!exercise||typeof exercise.id!=='string'||!exercise.generator||!exercise.main||exercise.coachAnchor)return false;
+    // Existing clock compatibility is necessary, never sufficient. Do not turn a heavy
+    // strength prescription into a race merely because its estimated duration is short.
+    if(!Array.isArray(exercise.mainProtocols)||!exercise.mainProtocols.includes('timed_intervals'))return false;
+    if(!['easy','moderate'].includes(exercise.difficulty)||!['low','medium'].includes(exercise.impact))return false;
+    if(!['bilateral','alternating','none'].includes(exercise.sidedness)||exercise.unilateral)return false;
+    if(!Number.isFinite(exercise.strength)||exercise.strength<1||exercise.strength>5
+      ||!Array.isArray(exercise.equipment)||!exercise.equipment.every(Array.isArray))return false;
+    const equipment=exercise.equipment.flat();
+    if(equipment.includes('barbell')||exercise.strength>=4&&equipment.some(id=>['dumbbells','kettlebell'].includes(id)))return false;
+    const p=exercise.prescription||{};
+    return ['reps','timed'].includes(p.type)&&Number.isFinite(p.value)&&p.value>0
+      &&(p.type!=='reps'||Number.isInteger(p.value))
+      &&Number.isFinite(exercise.estimatedSeconds)&&exercise.estimatedSeconds>0
+      &&exercise.estimatedSeconds<=EMOM_POLICY.maxWorkSeconds
+      &&(p.type!=='timed'||p.value<=EMOM_POLICY.maxWorkSeconds);
+  }
+
+  // The one EMOM validator used by normalisation, estimation, resolution and Main validation.
+  // Targets align with the ordered exercise rotation; minute N uses (N-1) % rotation.length.
+  // Passing the catalogue prevents copied exercise metadata from weakening safety checks.
+  function validateEmomBlock(block, catalogue) {
+    const issues=[],p=block&&block.prescription||{},exercises=block&&block.exercises;
+    if(!block||block.protocol!=='emom')issues.push('invalid-protocol');
+    if(!Number.isInteger(p.minutes)||p.minutes<1||p.minutes>EMOM_POLICY.maxMinutes)issues.push('invalid-minutes');
+    if(p.slotSeconds!==EMOM_POLICY.slotSeconds)issues.push('invalid-slot-seconds');
+    if(Object.keys(p).some(key=>!['minutes','slotSeconds','targets'].includes(key)))issues.push('invalid-prescription-fields');
+    if(!Array.isArray(exercises)||!exercises.length||exercises.length>EMOM_POLICY.maxExercises
+      ||exercises.length>p.minutes||new Set(exercises.map(ex=>ex&&ex.id)).size!==exercises.length)issues.push('invalid-rotation');
+    if(!Array.isArray(p.targets)||!Array.isArray(exercises)||p.targets.length!==exercises.length)issues.push('invalid-targets');
+    if(!Array.isArray(exercises))return issues;
+    exercises.forEach((exercise,index)=>{
+      const source=catalogue?catalogue[exercise&&exercise.id]:exercise;
+      if(!emomExerciseEligible(source)||!emomExerciseEligible(exercise))issues.push('ineligible-exercise:'+index);
+      const target=Array.isArray(p.targets)&&p.targets[index],canonical=source&&source.prescription;
+      if(!target||!canonical||target.type!==canonical.type||!['reps','timed'].includes(target.type)
+        ||Object.keys(target).some(key=>!['type','value'].includes(key))
+        ||!Number.isFinite(target.value)||target.value<=0||target.value>canonical.value
+        ||target.type==='reps'&&!Number.isInteger(target.value))issues.push('invalid-target:'+index);
+      else{
+        const seconds=Math.max(target.type==='timed'?target.value:0,Math.ceil(source.estimatedSeconds*target.value/canonical.value));
+        if(!Number.isFinite(seconds)||seconds<=0||seconds>EMOM_POLICY.maxWorkSeconds)issues.push('unsafe-target:'+index);
+      }
+      if(exercise&&mainFamilyCapReached(exercise,exercises.slice(0,index)))issues.push('family-cap:'+index);
+    });
+    return issues;
   }
 
   function weightedPick(items, random) {
@@ -711,13 +770,14 @@
     return selected;
   }
 
-  // Must equal the time of the steps resolveBlockSteps() produces: each exercise step lasts its
-  // `seconds` (timed intervals) or the exercise's estimatedSeconds, plus every rest step.
+  // Sequential steps last their work estimate plus rests. EMOM steps instead reserve their
+  // entire minute window: finishing work early never moves the next boundary.
   // A block without a protocol is a legacy rounds block; an unknown protocol has no steps.
   function estimateBlockDuration(block) {
     if(!block||!Array.isArray(block.exercises)||!block.exercises.length)return 0;
     if(block.protocol&&!MAIN_PROTOCOLS.has(block.protocol))return 0;
     const p=block.prescription||{};
+    if(block.protocol==='emom')return validateEmomBlock(block).length?0:p.minutes*EMOM_POLICY.slotSeconds;
     if(block.protocol==='timed_intervals'){
       const cycles=Math.max(1,Number(p.cycles)||1),work=Math.max(0,Number(p.workSeconds)||0),transition=Math.max(0,Number(p.transitionSeconds)||0);
       const steps=block.exercises.length*cycles;
@@ -735,10 +795,19 @@
   // The single resolved plan of a block. The player builds its timeline from these steps and the
   // Session Tracker reads its planned occurrences from that timeline, so presentation and evidence
   // share one plan. Exercise steps carry their position (exerciseIndex plus round, set or cycle);
-  // rest steps sit only between exercise steps and never end a block.
+  // rest steps sit only between exercise steps and never end a block. EMOM steps carry absolute
+  // block-relative minute windows; their targets never describe the length of the slot.
   function resolveBlockSteps(block) {
     const steps=[],p=block.prescription||{},exercises=block.exercises||[];
-    if(block.protocol==='rounds'){
+    if(block.protocol==='emom'){
+      if(validateEmomBlock(block).length)return steps;
+      for(let slotIndex=0;slotIndex<p.minutes;slotIndex++){
+        const exerciseIndex=slotIndex%exercises.length,target=Object.freeze({...p.targets[exerciseIndex]});
+        steps.push(Object.freeze({kind:'exercise',exerciseIndex,minute:slotIndex+1,slotIndex,
+          startsAtSeconds:slotIndex*60,endsAtSeconds:(slotIndex+1)*60,
+          target,completion:'explicit',timed:target.type==='timed',...(target.type==='timed'?{seconds:target.value}:{})}));
+      }
+    }else if(block.protocol==='rounds'){
       for(let round=1;round<=p.rounds;round++)exercises.forEach((exercise,index)=>{
         steps.push({kind:'exercise',exerciseIndex:index,round});
         if(index<exercises.length-1&&p.exerciseRestSeconds)steps.push({kind:'rest',seconds:p.exerciseRestSeconds,nextExerciseIndex:index+1,round});
@@ -830,7 +899,7 @@
   // repeat count. The player attaches them to each Main exercise phase; the Session Tracker
   // records them in the planned occurrence for Training History comparability.
   function protocolConditions(block) {
-    const conditions=Object.assign({},block&&block.prescription);
+    const conditions=block&&block.protocol==='emom'?jsonCopy(block.prescription):Object.assign({},block&&block.prescription);
     PROTOCOL_REPEAT_KEYS.forEach(key=>delete conditions[key]);
     return conditions;
   }
@@ -924,6 +993,10 @@
     if(!main||!Array.isArray(main.blocks)||!main.blocks.length)return ['main:no-blocks'];
     for(const block of main.blocks){
       if(!MAIN_PROTOCOLS.has(block.protocol)){issues.push(block.id+':invalid-protocol');continue;}
+      if(block.protocol==='emom'){
+        const invalid=validateEmomBlock(block,catalogue);
+        if(invalid.length){issues.push(...invalid.map(issue=>block.id+':'+issue));continue;}
+      }
       if(!MAIN_INTENTS.has(block.intent))issues.push(block.id+':invalid-intent');
       if(!Array.isArray(block.exercises)||!block.exercises.length)issues.push(block.id+':no-exercises');
       for(const exercise of block.exercises||[]){
@@ -940,6 +1013,7 @@
       if(!resolveBlockSteps(block).some(step=>step.kind==='exercise'))issues.push(block.id+':unplayable');
     }
     const estimate=main.blocks.reduce((sum,block)=>sum+estimateBlockDuration(block),0)+BLOCK_TRANSITION_SECONDS*Math.max(0,main.blocks.length-1);
+    if(main.blocks.some(block=>block.protocol==='emom')&&Number.isFinite(targetSeconds)&&estimate>targetSeconds)issues.push('main:duration-over-budget');
     if(Number.isFinite(targetSeconds)&&Math.abs(estimate-targetSeconds)>Math.max(240,targetSeconds*.38))issues.push('main:duration-out-of-tolerance');
     return issues;
   }
@@ -1679,7 +1753,7 @@
         exercise=anchorExercise(source,anchor,rx.prescriptionId);
         repeats=anchorRepeats(anchor,exercise);
         if(repeats==null)add('target-exposure-mismatch');
-        protocols=permittedProtocols(rx,anchor).filter(protocol=>protocolCompatible(source,protocol)&&(protocol!=='timed_intervals'||sideCount(exercise)===1&&anchor.prescriptionMode!=='reps'));
+        protocols=permittedProtocols(rx,anchor).filter(protocol=>GENERATED_PROTOCOLS.includes(protocol)&&protocolCompatible(source,protocol)&&(protocol!=='timed_intervals'||sideCount(exercise)===1&&anchor.prescriptionMode!=='reps'));
         if(!protocols.length)add('protocol-incompatible',{requirementIds:[anchor.requirementId,...prescriptionList(rx,'protocolConstraints').filter(item=>item.importance==='hard'&&constraintApplies(item,anchor)).map(item=>item.requirementId)]});
         // Main's family cap holds for Coach work too: a required anchor cannot be joined by
         // another member of a capped family (required anchors precede preferred ones).
@@ -1791,6 +1865,49 @@
   }
   function assessSessionPrescription(options) {
     return prepareSessionPrescription(options).assessment;
+  }
+
+  // Explicit domain candidate only: generate() never calls this. availableSeconds is the
+  // total Main budget, including preceding blocks and the normal external transition.
+  // Coach reserves exact required work first; EMOM can only supply permitted optional work.
+  function buildEmomBlock(options={}) {
+    let context=options,preceding=options.blocks||[],rx=options.sessionPrescription;
+    let available=options.availableSeconds,prepared;
+    if(!Number.isFinite(available)||available<60)return null;
+    if(rx){
+      prepared=prepareSessionPrescription(options);
+      if(prepared.assessment.status==='infeasible')return null;
+      context=prepared.context;
+      preceding=options.blocks||prepared.reserved;
+      available=Math.min(available,prepared.budget.main);
+      if(prescriptionList(rx,'protocolConstraints').some(item=>item.importance==='hard'&&!item.anchorRequirementId&&!item.allowedProtocols.includes('emom')))return null;
+    }
+    const catalogue=context.catalogue||{},owned=context.equipment||[],difficulty=workoutDifficulty(context.difficulty);
+    if(preceding.length&&validateMain({blocks:preceding},catalogue,owned).length)return null;
+    if(rx){
+      // A caller-supplied prefix must retain every reserved required occurrence unchanged.
+      const requiredPrefix=preceding.filter(block=>block.exercises.some(ex=>ex.coachAnchor&&ex.coachAnchor.importance==='required'));
+      if(requiredPrefix.length!==prepared.reserved.length||prepared.reserved.some(required=>!requiredPrefix.some(block=>root.GarageFitCoachModel.sameRecord(block,required))))return null;
+      if(preceding.some(block=>prescriptionList(rx,'protocolConstraints').some(item=>item.importance==='hard'
+        &&(!item.anchorRequirementId||block.exercises.some(ex=>ex.coachAnchor&&ex.coachAnchor.requirementId===item.anchorRequirementId))
+        &&!item.allowedProtocols.includes(block.protocol))||block.exercises.some(ex=>prescriptionList(rx,'avoidConstraints').some(item=>item.importance==='hard'&&avoidMatches(catalogue[ex.id],item)))))return null;
+    }
+    const remaining=available-mainSeconds(preceding)-(preceding.length?BLOCK_TRANSITION_SECONDS:0);
+    const minutes=Math.min(EMOM_POLICY.maxMinutes,Math.floor(remaining/60));
+    if(minutes<1)return null;
+    const anchorIds=new Set(rx?prescriptionList(rx,'requiredAnchors').concat(prescriptionList(rx,'preferredAnchors')).map(anchor=>anchor.exerciseId):[]);
+    const eligible=Object.values(catalogue).filter(exercise=>generatedPhaseEligible(exercise,'main',owned,difficulty)
+      &&emomExerciseEligible(exercise)&&!anchorIds.has(exercise.id)
+      &&!(rx&&prescriptionList(rx,'avoidConstraints').some(item=>item.importance==='hard'&&avoidMatches(exercise,item))))
+      .sort((a,b)=>a.id.localeCompare(b.id));
+    const prior=preceding.flatMap(block=>block.exercises),state={blocks:preceding,exercises:prior,usedIds:new Set(prior.map(ex=>ex.id)),
+      owned,difficulty,bodyFocus:workoutBodyFocus(context.bodyFocus),sessionPrescription:rx};
+    const exercises=selectBlockExercises(eligible,Math.min(minutes,EMOM_POLICY.maxExercises),context.focus||'balanced',options.intent||'conditioning',
+      'emom',state,options.history||[],options.random||(()=>0),catalogue).map(copyExercise);
+    if(!exercises.length)return null;
+    const block=finishMainBlock({id:'main-'+(preceding.length+1),protocol:'emom',intent:options.intent||'conditioning',exercises,
+      prescription:{minutes,slotSeconds:60,targets:exercises.map(exercise=>({...exercise.prescription}))}});
+    return validateMain({blocks:preceding.concat(block)},catalogue,owned).length?null:block;
   }
 
   function prescriptionState(blocks, prepared, history) {
@@ -2129,7 +2246,7 @@
     workout.estimatedSeconds=workout.warmup.estimatedSeconds+workout.rampup.estimatedSeconds+workout.main.estimatedDurationSeconds+workout.cooldown.estimatedSeconds;
   }
 
-  root.GarageFitGenerator = { BUDGETS, RESTS, PROTOCOL_SHAPES, MAIN_PROTOCOLS, GENERATED_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, WORKOUT_DIFFICULTIES, EXERCISE_DIFFICULTIES, DIFFICULTY_POLICY, workoutDifficulty, difficultyExcluded, difficultyCredit, WORKOUT_BODY_FOCUSES, EXERCISE_BODY_FOCUSES, EXERCISE_DIRECT_ELBOW_ACTIONS, BODY_FOCUS_POLICY, workoutBodyFocus, bodyFocusCredit, SHORTLIST_SIZE, SHORTLIST_MARGIN, WINDOW_MAX_RANKS, SUPPORTING_ROUTE, candidateWindowRanks, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_PATTERNS, VALID_WARMUP_AREAS, VALID_STRETCH_TARGETS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, protocolConditions, selectBlockExercises, selectWarmup, kneeMobilityQualified, upperTrunkTarget, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, SessionPrescriptionError, assessSessionPrescription, generate, swap, swapPreparation };
+  root.GarageFitGenerator = { BUDGETS, RESTS, PROTOCOL_SHAPES, MAIN_PROTOCOLS, GENERATED_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, EMOM_POLICY, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, WORKOUT_DIFFICULTIES, EXERCISE_DIFFICULTIES, DIFFICULTY_POLICY, workoutDifficulty, difficultyExcluded, difficultyCredit, WORKOUT_BODY_FOCUSES, EXERCISE_BODY_FOCUSES, EXERCISE_DIRECT_ELBOW_ACTIONS, BODY_FOCUS_POLICY, workoutBodyFocus, bodyFocusCredit, SHORTLIST_SIZE, SHORTLIST_MARGIN, WINDOW_MAX_RANKS, SUPPORTING_ROUTE, candidateWindowRanks, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_PATTERNS, VALID_WARMUP_AREAS, VALID_STRETCH_TARGETS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, validateEmomBlock, buildEmomBlock, protocolCompatible, protocolWeights, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, protocolConditions, selectBlockExercises, selectWarmup, kneeMobilityQualified, upperTrunkTarget, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, SessionPrescriptionError, assessSessionPrescription, generate, swap, swapPreparation };
 
   if (typeof window!=='undefined' && typeof document!=='undefined' && typeof window.addEventListener==='function') window.addEventListener('load',()=>{
     if (document.querySelector('script[data-garagefit-rampup-ui]')) return;

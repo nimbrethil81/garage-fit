@@ -88,7 +88,7 @@ test('invalid Session Prescriptions are rejected', () => {
   assertInvalidAt('session-prescription', prescription({bodyFocus: 'legs'}), 'session-prescription.bodyFocus');
   assertInvalidAt('session-prescription', prescription({duration: 0}), 'session-prescription.duration');
   assertInvalidAt('session-prescription', prescription({equipment: 'dumbbells'}), 'session-prescription.equipment');
-  assertInvalidAt('session-prescription', prescription({requiredAnchors: [anchor({allowedProtocols: ['emom']})]}), 'session-prescription.requiredAnchors[0].allowedProtocols[0]');
+  assertInvalidAt('session-prescription', prescription({requiredAnchors: [anchor({allowedProtocols: ['ladder']})]}), 'session-prescription.requiredAnchors[0].allowedProtocols[0]');
   assertInvalidAt('session-prescription', prescription({requiredAnchors: [anchor({loadInterpretation: 'each'})]}), 'session-prescription.requiredAnchors[0].loadInterpretation');
   // Anchor lists must agree with their importance, and requirement ids are unique across both.
   assertInvalidAt('session-prescription', prescription({preferredAnchors: [anchor({requirementId: 'req-2'})]}), 'session-prescription.preferredAnchors[0].importance');

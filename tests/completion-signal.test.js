@@ -262,9 +262,9 @@ test('nested boundaries (last exercise, round, and block ending together) produc
 
 test('manually navigating back to a previous exercise does not itself signal a completion', () => {
   const { context, getChimeCount } = loadApp();
-  context.toggleEquipmentItem('dumbbells'); context.toggleEquipmentItem('bench');
-  context.selectGeneratorDuration(30); context.generateWorkout(); context.startGeneratedWorkout();
+  startGeneratedWorkoutWithMultipleBlocks(context);
   const firstSecondBlock = vm.runInContext("generatorState.timeline.findIndex(phase=>phase.kind==='exercise'&&phase.section==='main'&&phase.blockIndex===1)", context);
+  assert.ok(firstSecondBlock > 0);
   context.enterGeneratedPhase(firstSecondBlock);
   const before = getChimeCount();
   context.previousGeneratedPhase();

@@ -799,6 +799,7 @@ function makeGeneratedExercisePhases(exercise,section,round,exerciseIndex,metada
   return sides.map(side=>{const phase=Object.assign({kind:'exercise',section,exercise,round,exerciseIndex,side,timed,seconds:Number.isFinite(intervalSeconds)?intervalSeconds:(timed?exercise.prescription.value:null)},metadata);phase.occurrenceId=GarageFitSessionTracker.occurrenceIdFor(phase);return phase});
 }
 function appendBlockTimeline(timeline,block,blockIndex,totalBlocks){
+  if(block.protocol==='emom')throw new Error('EMOM requires a minute-aware player.');
   // Every Main phase is built from the block's resolved steps; the tracker reads its plan from these phases.
   const meta={blockIndex,totalBlocks,protocol:block.protocol,protocolConditions:Object.freeze(GarageFitGenerator.protocolConditions(block))};
   GarageFitGenerator.resolveBlockSteps(block).forEach(step=>{

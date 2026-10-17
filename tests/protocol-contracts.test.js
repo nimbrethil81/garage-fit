@@ -47,7 +47,7 @@ test('Generator, Coach model and Training History accept the same protocol vocab
   for (const protocol of generator)
     assert.deepEqual([...History.PROTOCOL_CONDITION_FIELDS[protocol]], [...G.PROTOCOL_SHAPES[protocol].conditionFields], protocol);
   // Today's protocols are exactly these; a new protocol must update every copy and this test.
-  assert.deepEqual(generator, ['rounds','paired_sets','timed_intervals']);
+  assert.deepEqual(generator, ['rounds','paired_sets','timed_intervals','emom']);
   // Auto-selection is separate generator policy over accepted protocols, in a fixed pick order.
   assert.deepEqual([...G.GENERATED_PROTOCOLS], ['rounds','paired_sets','timed_intervals']);
   assert.ok(G.GENERATED_PROTOCOLS.every(protocol => G.MAIN_PROTOCOLS.has(protocol)));
