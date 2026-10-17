@@ -49,6 +49,14 @@ Occurrence-specific targets (for example a ladder's reps per step) belong on the
 copied immutably onto its phase and its planned occurrence. No protocol emits such targets yet.
 The ticket that adds one defines the field and how Training History reads it.
 
+### Presentation names
+
+`paired_sets` is shown to users as a **Superset**: exercises A then B each set, a changeover
+(`betweenExercisesSeconds`) between them, and rest (`betweenSetsSeconds`) only after each
+completed pair. `GarageFitWorkoutPreview.protocolLabel` and `supersetMarker` supply the preview
+copy; the player labels each step `Superset · Set N of M · A/B`. Naming never changes the stored
+protocol id, prescription or occurrence ids.
+
 ## 4. Unknown protocols
 
 An unknown protocol has no steps and an estimate of 0. `validateMain` reports

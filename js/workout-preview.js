@@ -28,14 +28,15 @@
     return details;
   }
 
-  function exerciseRow({index, name, prescription, instruction, cue, targetLabel, controls=[]}) {
+  // `marker` replaces the numbered index, e.g. A/B for the two exercises of a superset.
+  function exerciseRow({index, marker, name, prescription, instruction, cue, targetLabel, controls=[]}) {
     const row=root.document.createElement('li'), copy=text('div','preview-exercise',name);
     copy.appendChild(text('span','preview-prescription',prescription));
     if (targetLabel) copy.appendChild(text('span','preview-prescription preview-target-label',targetLabel));
     if (cue) copy.appendChild(text('span','review-note',cue));
     const disclosure=instructionDisclosure(instruction);
     if (disclosure) copy.appendChild(disclosure);
-    row.append(text('span','preview-index',String(index+1).padStart(2,'0')),copy);
+    row.append(text('span','preview-index',marker||String(index+1).padStart(2,'0')),copy);
     if (controls.length) {
       const actions=root.document.createElement('div'); actions.className='preview-controls';
       actions.append(...controls); row.appendChild(actions);
@@ -51,12 +52,23 @@
     return p.value+unit+each+(exercise.load?' · '+exercise.load:'');
   }
 
+  // `paired_sets` is presented as a superset: A then B, a short changeover, and the recovery
+  // after each completed pair (never after the last pair, matching resolveBlockSteps).
+  function supersetMarker(block, exerciseIndex) {
+    return block.protocol==='paired_sets' ? 'AB'.charAt(exerciseIndex) || null : null;
+  }
+
   function protocolLabel(block) {
-    if (block.protocol==='paired_sets') return 'Paired sets · '+block.prescription.sets+' sets';
+    if (block.protocol==='paired_sets') {
+      const p=block.prescription, sets=p.sets;
+      return ['Superset · '+sets+(sets===1?' set':' sets')+' · A then B'+(p.betweenExercisesSeconds ? '' : ', no changeover'),
+        p.betweenExercisesSeconds ? p.betweenExercisesSeconds+' sec changeover' : null,
+        sets>1 && p.betweenSetsSeconds ? p.betweenSetsSeconds+' sec rest after each pair' : null].filter(Boolean).join(' · ');
+    }
     if (block.protocol==='timed_intervals') return 'Timed intervals · '+block.prescription.workSeconds+' sec work / '+block.prescription.transitionSeconds+' sec change · '+block.prescription.cycles+' cycles';
     const rounds=block.prescription.rounds;
     return 'Mini-circuit · '+rounds+(rounds===1?' round':' rounds');
   }
 
-  root.GarageFitWorkoutPreview={sectionHeading,blockHeading,exerciseRow,instructionDisclosure,formatPrescription,protocolLabel};
+  root.GarageFitWorkoutPreview={sectionHeading,blockHeading,exerciseRow,instructionDisclosure,formatPrescription,protocolLabel,supersetMarker};
 })(typeof window==='undefined' ? globalThis : window);

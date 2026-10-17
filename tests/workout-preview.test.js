@@ -53,7 +53,16 @@ test('shared preview retains rep, timed, per-side and load formatting without ch
     assert.equal(row.children[1].children[0].textContent,expected);
   }
   assert.equal(ui.protocolLabel({protocol:'rounds',prescription:{rounds:3}}),'Mini-circuit · 3 rounds');
-  assert.equal(ui.protocolLabel({protocol:'paired_sets',prescription:{sets:2}}),'Paired sets · 2 sets');
+  // paired_sets is presented as a superset; the stored protocol id is unchanged.
+  assert.equal(ui.protocolLabel({protocol:'paired_sets',prescription:{sets:2}}),'Superset · 2 sets · A then B, no changeover');
+  assert.equal(ui.protocolLabel({protocol:'paired_sets',prescription:{sets:3,betweenExercisesSeconds:10,betweenSetsSeconds:60}}),
+    'Superset · 3 sets · A then B · 10 sec changeover · 60 sec rest after each pair');
+  assert.equal(ui.protocolLabel({protocol:'paired_sets',prescription:{sets:1,betweenExercisesSeconds:10,betweenSetsSeconds:60}}),
+    'Superset · 1 set · A then B · 10 sec changeover','one pair has no post-pair rest');
+  assert.deepEqual([0,1].map(index=>ui.supersetMarker({protocol:'paired_sets'},index)),['A','B']);
+  assert.equal(ui.supersetMarker({protocol:'rounds'},0),null);
+  assert.equal(ui.exerciseRow({index:1,marker:'B',name:'Row',prescription:'10 reps'}).children[0].textContent,'B');
+  assert.equal(ui.exerciseRow({index:1,name:'Row',prescription:'10 reps'}).children[0].textContent,'02');
   assert.equal(ui.protocolLabel({protocol:'timed_intervals',prescription:{workSeconds:40,transitionSeconds:10,cycles:3}}),
     'Timed intervals · 40 sec work / 10 sec change · 3 cycles');
 });

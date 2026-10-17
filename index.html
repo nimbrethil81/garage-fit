@@ -639,7 +639,7 @@ function renderGeneratedPreview(){
     block.exercises.forEach((exercise,exerciseIndex)=>{
       const button=document.createElement('button');
       button.type='button';button.className='swap-btn';button.textContent='Swap';button.setAttribute('aria-label','Swap '+exercise.name);button.onclick=()=>swapGeneratedExercise(blockIndex,exerciseIndex);
-      list.appendChild(GarageFitWorkoutPreview.exerciseRow({index:exerciseIndex,name:exercise.name,
+      list.appendChild(GarageFitWorkoutPreview.exerciseRow({index:exerciseIndex,marker:GarageFitWorkoutPreview.supersetMarker(block,exerciseIndex),name:exercise.name,
         prescription:block.protocol==='timed_intervals'?block.prescription.workSeconds+' sec':formatPrescription(exercise),
         instruction:instructionFor(exercise),cue:(exercise.timedCues||[]).map(cue=>cue.text).join(' · '),controls:[button]}));
     });
@@ -735,7 +735,7 @@ function nextGeneratedLabel(){
   const next=generatorState.timeline[generatorState.timelineIndex+1];
   if(!next)return isCoachPlayer()?'Session feedback':'';
   if(next.kind==='exercise')return next.exercise.name;
-  if(next.kind==='interval-rest')return 'Change over';
+  if(next.kind==='interval-rest'||next.kind==='set-change')return 'Change over';
   if(next.kind==='block-transition')return 'Next block';
   if(next.kind==='transition'){const after=generatorState.timeline.slice(generatorState.timelineIndex+2).find(phase=>phase.kind==='exercise');return after?{warmup:'Warm-up',rampup:'Ramp-up',main:'Main workout',cooldown:'Cool-down'}[after.section]||'Next':'Next'}
   return 'Rest';
@@ -862,7 +862,8 @@ function enterGeneratedPhase(index){
   stopGeneratedPhaseTimer();generatorState.cueTracker=null;clearTimedCue('workoutTimedCue');const previousIndex=generatorState.timelineIndex;if(GarageFitCompletionSignal.shouldSignalUnitComplete(previousIndex,index))playCompletionChime();generatorState.timelineIndex=index;if(index>=generatorState.timeline.length){finishGeneratedWorkout();return}const phase=currentGeneratedPhase();generatorState.remaining=phase.seconds||0;renderGeneratedPhase();if(phase.seconds!==null&&phase.seconds!==undefined)startGeneratedCountdown(phase.seconds);
   if(phase.kind==='exercise')announceExercise(phase.exercise,exerciseCueParts(phase.exercise.name,phase.timed?phase.seconds+' seconds':phase.exercise.prescription.value+' reps',phase.side),phase.timed?phase.seconds:null);
   else if(phase.kind==='round-rest')speak('Round '+phase.round+' complete. Rest.');
-  else if(phase.kind==='set-rest')speak('Set '+phase.set+' complete. Rest.');
+  else if(phase.kind==='set-change')speak('Change over.');
+  else if(phase.kind==='set-rest')speak('Superset set '+phase.set+' complete. Rest.');
   else if(phase.kind==='block-transition')speak(phase.label+'.');
   else if(phase.kind==='transition')speak(phase.label+'.');
 }
@@ -872,7 +873,8 @@ function generatedPhaseLabel(phase){
     if(phase.kind==='transition')return 'Main complete';
     if(phase.kind==='block-transition')return 'Main · Block '+(phase.blockIndex+1)+' of '+workout.main.blocks.length+' complete';
     const block=workout.main.blocks[phase.blockIndex||0],prefix='Block '+((phase.blockIndex||0)+1)+' of '+workout.main.blocks.length+' · ';
-    if(phase.protocol==='paired_sets')return prefix+'Set '+phase.set+' of '+block.prescription.sets;
+    // Superset (paired_sets): A then B per set. The changeover is not a completed set.
+    if(phase.protocol==='paired_sets')return prefix+'Superset · Set '+phase.set+' of '+block.prescription.sets+(phase.kind==='exercise'?' · '+GarageFitWorkoutPreview.supersetMarker(block,phase.exerciseIndex):phase.kind==='set-rest'?' complete':'');
     if(phase.protocol==='timed_intervals')return prefix+'Cycle '+phase.cycle+' of '+block.prescription.cycles+(phase.kind==='exercise'?' · Interval '+(phase.exerciseIndex+1)+' of '+block.exercises.length:' · Change over');
     return prefix+'Round '+phase.round+' of '+block.prescription.rounds+(phase.kind==='exercise'?' · Exercise '+(phase.exerciseIndex+1)+' of '+block.exercises.length:'');
   }
@@ -893,7 +895,7 @@ function renderGeneratedPhase(){
   }else if(phase.kind==='set-rest'){
     name.textContent='Set '+phase.set+' complete';target.textContent='';setPrimaryAction('Skip rest');
   }else if(['rest','set-change','interval-rest'].includes(phase.kind)){
-    name.textContent=phase.kind==='interval-rest'?'Change over':'Rest';target.textContent='';setPrimaryAction('Skip rest');
+    name.textContent=phase.kind==='rest'?'Rest':'Change over';target.textContent='';setPrimaryAction('Skip rest');
   }else if(phase.kind==='block-transition'){
     name.textContent=phase.label;target.textContent='';setPrimaryAction('Skip');
   }else if(phase.kind==='transition'){
