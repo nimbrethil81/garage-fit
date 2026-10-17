@@ -114,7 +114,7 @@ test('Coach preview edit mode gates actions and keeps the revised workout for pl
   await p.run("coachUI.controller.start(pilotDef,['dumbbells'])");await p.run('coachUI.open()');
   p.run(`function previewButtons(id='coachPreviewContent') { const visit=node=>[node,...(node.children||[]).flatMap(visit)]; return visit(document.getElementById(id)).filter(node=>node.onclick).map(node=>node.textContent); }
     function clickPreview(label,id='coachPreviewContent') { const visit=node=>node.textContent===label&&node.onclick?node:(node.children||[]).map(visit).find(Boolean);return visit(document.getElementById(id)).onclick(); }`);
-  await p.run("clickPreview('Start session','coachContent')");
+  await p.run("clickPreview('View today’s workout','coachContent')");
   assert.equal(p.json('previewButtons()').filter(label=>label==='Edit Workout').length,1);
   assert.ok(!p.json('previewButtons()').some(label=>['Swap','Substitute'].includes(label)));
   await p.run("clickPreview('Edit Workout')");
@@ -222,7 +222,7 @@ test('Coach player Next, Skip, Previous and measured timed exit save exactly the
   await p.run("coachUI.controller.start(pilotDef,['dumbbells'])");
   await p.run('coachUI.open()');
   p.run(`function pilotButton(id,text){const visit=node=>node.textContent===text&&node.onclick?node:(node.children||[]).map(visit).find(Boolean);return visit(document.getElementById(id));}`);
-  await p.run("pilotButton('coachContent','Start session').onclick()");
+  await p.run("pilotButton('coachContent','View today’s workout').onclick()");
   await p.run("pilotButton('coachPreviewContent','Begin workout').onclick()");
   assert.equal(p.run('isCoachPlayer()'),true);
   const anchors=p.json("generatorState.timeline.map((p,i)=>({p,i})).filter(({p})=>p.kind==='exercise'&&p.section==='main'&&p.exercise.coachAnchor)");
@@ -250,7 +250,7 @@ test('Coach panel pause preserves edited actuals and checkpoint failure protects
   const p=pilot();p.run("state.ownedEquipment=['dumbbells'];var uiNow=Date.now();Date.now=()=>uiNow");
   await p.run("coachUI.controller.start(pilotDef,['dumbbells'])");await p.run('coachUI.open()');
   p.run(`function playerAction(id,text){const visit=node=>node.textContent===text&&node.onclick?node:(node.children||[]).map(visit).find(Boolean);return visit(document.getElementById(id)).onclick();}`);
-  await p.run("playerAction('coachContent','Start session')");await p.run("playerAction('coachPreviewContent','Begin workout')");
+  await p.run("playerAction('coachContent','View today’s workout')");await p.run("playerAction('coachPreviewContent','Begin workout')");
   const index=p.run("generatorState.timeline.findIndex(p=>p.kind==='exercise'&&p.section==='main'&&p.exercise.coachAnchor)");
   p.run(`enterGeneratedPhase(${index});document.getElementById('coachActualReps').value='4';document.getElementById('coachActualLoad').value='17';toggleWorkoutPause();uiNow+=5000;toggleWorkoutPause()`);
   assert.equal(p.run("document.getElementById('coachActualReps').value"),'4');assert.equal(p.run("document.getElementById('coachActualLoad').value"),'17');

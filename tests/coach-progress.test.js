@@ -25,8 +25,8 @@ async function ui(storage = new Map(), equipment = ['dumbbells','bench']) {
     return {hidden:panel.hidden,expanded:button.attributes['aria-expanded'],text:[panel,...panel.children].map(node=>node.textContent).join(' ')};})()`);
   return p;
 }
-const programmes = {strength: ['4-Week General Strength', 'general-strength-4w', 'Start session'],
-  arms: ['Build Arms', 'build-arms', 'Start session'], tennis: ['Tennis', 'tennis-conditioning', 'View today’s workout']};
+const programmes = {strength: ['4-Week General Strength', 'general-strength-4w', 'View today’s workout'],
+  arms: ['Build Arms', 'build-arms', 'View today’s workout'], tennis: ['Tennis', 'tennis-conditioning', 'View today’s workout']};
 async function start(p, key) { await p.click(programmes[key][0]); await p.click('Start programme'); assert.equal(p.state().programmeDefinitionId, programmes[key][1]); }
 // Begin today's workout and record outcomes through the live tracker, then save.
 async function session(p, key, record, kind = 'exit') {
@@ -94,7 +94,7 @@ test('unknown loads hold progression honestly and a one-session substitute never
   assert.doesNotMatch(detail, /Planned load/);
   await p.run('coachUI.back()');
   // Today-only substitute: the stable target keeps its own last performance.
-  await p.click('Start session'); await p.run("coachUI.controller.substitute('anchor-squat','dumbbell-front-squat')");
+  await p.click('View today’s workout'); await p.run("coachUI.controller.substitute('anchor-squat','dumbbell-front-squat')");
   await p.run("coachUI.back()"); p.run('uiNow=\'2026-10-14T08:00:00Z\'');
   await p.run("coachUI.controller.begin().then(tracker=>{globalThis.subTracker=tracker;})");
   await p.run(`(async()=>{for(const work of subTracker.plannedWork().filter(item=>item.requirementId==='anchor-squat'))
@@ -185,7 +185,7 @@ test('Tennis progress shows six coverage cards with observed, unknown and infeas
 
 test('a live session draft is untouched by Your progress, and a recovered interruption shows only its performed work', async () => {
   const p = await ui(new Map(), ['dumbbells']); await start(p, 'strength');
-  await p.click('Start session'); await p.click('Begin workout', 'coachPreviewContent');
+  await p.click('View today’s workout'); await p.click('Begin workout', 'coachPreviewContent');
   await p.run(`(async()=>{const work=coachPlayerTracker().plannedWork().find(item=>item.requirementId==='anchor-squat');
     await coachPlayerTracker().recordDone(work.occurrenceId);})()`);
   const draft = await p.run('pilotStore.loadSessionDraft()'), state = p.state(); assert.ok(draft);

@@ -149,6 +149,10 @@ local-date event setup. Settings preserve the same anchors/history; optional dai
 readiness, short-session preflight and performed capability coverage use the existing
 player and Store. See the [Coach contract](docs/COACH_ENGINE.md).
 
+Every Coach home uses the same compact layout: title and status, this week's
+credited sessions (Tennis: its chosen weekly frequency; General Strength: 2–3, or
+1–2 in maintenance; Build Arms: aim 3, 2 acceptable), a collapsed Adjust today
+summary, View today's workout, and a due four-week review when there is one.
 Every programme's Coach home links to one shared **Your progress** screen: one
 tappable card per actual strength target (current prescription, last recorded
 performance, stored next progression), recent saved sessions and the programme's

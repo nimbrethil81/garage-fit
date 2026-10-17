@@ -129,7 +129,7 @@ test('Tennis settings edit only permitted values, keep targets and inventory, an
 });
 
 test('a live workout locks settings with a reason and leaves the draft untouched', async () => {
-  for (const [key, cta] of [['strength', 'Start session'], ['tennis', 'View today’s workout']]) {
+  for (const [key, cta] of [['strength', 'View today’s workout'], ['tennis', 'View today’s workout']]) {
     const p = await ui(new Map(), ['dumbbells']); await start(p, key);
     await p.click(cta); await p.click('Begin workout', 'coachPreviewContent');
     const draft = await p.run('pilotStore.loadSessionDraft()'), state = p.state(); assert.ok(draft);

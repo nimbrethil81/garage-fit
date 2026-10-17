@@ -297,7 +297,7 @@ test('General Strength and Build Arms keep overview copy, durations and the comm
     await p.click('Start programme');assert.equal(p.state().programmeDefinitionId,id);
     assert.ok(p.run("action('20 min')"));assert.equal(p.run("action('10 min')"),undefined);
     assert.equal(p.run("field('Readiness today (optional)')"),undefined);
-    await p.click('Start session');assert.ok(p.run("action('Begin workout','coachPreviewContent')"));
+    await p.click('View today’s workout');assert.ok(p.run("action('Begin workout','coachPreviewContent')"));
     assert.doesNotMatch(p.run("copyText('coachPreviewContent')"),/Not scheduled today|Capability coverage/);
     assert.equal(p.run("document.getElementById('bottomNav').classList.contains('hidden')"),true);
     await p.run('coachUI.back()');assert.equal(p.run("document.getElementById('bottomNav').classList.contains('hidden')"),false);
