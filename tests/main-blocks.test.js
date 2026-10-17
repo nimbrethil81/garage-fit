@@ -248,3 +248,39 @@ test('supporting conditioning movements remain selectable but are penalised when
     assert.ok(repeats<=3||block.protocol==='paired_sets',seed+': jumping-jacks x'+repeats);
   }
 });
+
+// Workout Patterns 0 (#75): protocol contracts on both composition paths. See
+// tests/protocol-contracts.test.js and docs/WORKOUT_PROTOCOLS.md.
+const {blockFixtures,traceBlock}=require('./helpers/protocol-fixtures.js');
+
+test('each protocol counts and refits its own repeat key',()=>{
+  for(const [protocol,block] of Object.entries(blockFixtures(catalogue))){
+    const key=GarageFitGenerator.PROTOCOL_SHAPES[protocol].repeatKey;
+    assert.equal(GarageFitGenerator.blockRepeatCount(block),{rounds:3,paired_sets:3,timed_intervals:2}[protocol]);
+    assert.equal(GarageFitGenerator.blockRepeatCount(Object.assign({},block,{prescription:{}})),1,protocol+' defaults to one pass');
+    const longer=Object.assign({},block,{prescription:Object.assign({},block.prescription,{[key]:block.prescription[key]+1})});
+    assert.ok(GarageFitGenerator.estimateBlockDuration(longer)>GarageFitGenerator.estimateBlockDuration(block),protocol);
+  }
+});
+
+test('Coach-prescribed Main blocks keep the executable step contract',()=>{
+  require('../js/coach-model.js');
+  const fixtures=require('./helpers/coach-fixtures.js');
+  const kit=GarageFitData.equipment.map(item=>item.id),protocols=new Set();
+  const anchors=[
+    [fixtures.anchor({allowedProtocols:['rounds']})],
+    [fixtures.anchor({allowedProtocols:['paired_sets']}),fixtures.anchor({requirementId:'row',exerciseId:'dumbbell-bent-over-row',allowedProtocols:['paired_sets']})],
+    [fixtures.anchor({exerciseId:'mountain-climbers',targetSets:null,targetExposures:4,target:{type:'timed',seconds:37},allowedProtocols:['timed_intervals']})]
+  ];
+  for(const requiredAnchors of anchors)for(const duration of [20,30,45])for(const seed of [1,2,3]){
+    const sessionPrescription=fixtures.prescription({duration,equipment:kit,movementPriorities:[],requiredAnchors});
+    const workout=GarageFitGenerator.generate({catalogue,sessionPrescription,random:random(seed)});
+    for(const block of workout.main.blocks){
+      const trace=traceBlock(GarageFitGenerator,block);
+      assert.deepEqual(trace.problems,[],block.protocol);
+      assert.equal(trace.seconds,block.estimatedDurationSeconds,block.protocol);
+      protocols.add(block.protocol);
+    }
+  }
+  assert.deepEqual([...protocols].sort(),['paired_sets','rounds','timed_intervals']);
+});
