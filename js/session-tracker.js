@@ -29,6 +29,8 @@
     if (Number.isInteger(phase.round)) parts.push('r'+phase.round);
     if (Number.isInteger(phase.set)) parts.push('s'+phase.set);
     if (Number.isInteger(phase.cycle)) parts.push('c'+phase.cycle);
+    if (Number.isInteger(phase.minute)) parts.push('m'+phase.minute);
+    if (Number.isInteger(phase.slotIndex)) parts.push('slot'+phase.slotIndex);
     parts.push('e'+phase.exerciseIndex);
     if (phase.side) parts.push(phase.side);
     return parts.join(':');
@@ -45,6 +47,12 @@
       if (seen.has(phase.occurrenceId)) throw new Error('Duplicate occurrenceId '+JSON.stringify(phase.occurrenceId)+' in timeline.');
       seen.add(phase.occurrenceId);
       const exercise = phase.exercise, prescription = exercise.prescription || {};
+      const emom = phase.protocol === 'emom', target = emom && phase.target;
+      if(emom&&(!target||!['reps','timed'].includes(target.type)||!Number.isFinite(target.value)||target.value<=0||target.type==='timed'&&target.value>=60
+        ||target.type==='reps'&&!Number.isInteger(target.value)||!Number.isInteger(phase.minute)||phase.minute<1
+        ||phase.slotIndex!==phase.minute-1||phase.startsAtSeconds!==phase.slotIndex*60||phase.endsAtSeconds!==phase.minute*60))
+        throw new Error('EMOM planned work needs an explicit minute, window and target.');
+      const timed=emom?target.type==='timed':!!phase.timed;
       return {
         occurrenceId: phase.occurrenceId,
         exerciseId: exercise.id,
@@ -52,10 +60,10 @@
         blockIndex: phase.section === 'main' ? (phase.blockIndex || 0) : null,
         requirementId: requirementIdFor(phase) || null,
         prescription: {
-          type: prescription.type || null,
-          timed: !!phase.timed,
-          seconds: phase.timed ? phase.seconds : null,
-          reps: phase.timed ? null : (Number.isFinite(prescription.value) ? prescription.value : null),
+          type: emom ? target.type : prescription.type || null,
+          timed,
+          seconds: timed ? (emom ? target.value : phase.seconds) : null,
+          reps: timed ? null : (emom ? target.value : Number.isFinite(prescription.value) ? prescription.value : null),
           side: phase.side || null,
           protocol: phase.protocol || null,
           ...(phase.protocolConditions ? {protocolConditions: clone(phase.protocolConditions)} : {}),
@@ -63,6 +71,7 @@
           set: Number.isInteger(phase.set) ? phase.set : null,
           cycle: Number.isInteger(phase.cycle) ? phase.cycle : null,
           exerciseIndex: phase.exerciseIndex,
+          ...(emom ? {minute:phase.minute,slotIndex:phase.slotIndex,startsAtSeconds:phase.startsAtSeconds,endsAtSeconds:phase.endsAtSeconds,target:clone(target)} : {}),
           ...(phase.section === 'main' && exercise.coachAnchor ? {plannedTarget: clone(exercise.coachAnchor.plannedTarget)} : {})
         }
       };
@@ -322,7 +331,11 @@
       // Timed work measured by the player's timer; actual seconds are logged, never entered.
       recordTimed(occurrenceId, {plannedSeconds, elapsedSeconds}) {
         requireStarted();
-        planned(occurrenceId);
+        const entry=planned(occurrenceId);
+        if(entry.prescription&&entry.prescription.protocol==='emom'){
+          if(!entry.prescription.timed)throw new Error('EMOM rep work requires an explicit outcome.');
+          plannedSeconds=entry.prescription.seconds;
+        }
         const {status, actualSeconds} = timedOutcome(plannedSeconds, elapsedSeconds);
         if (status === 'skipped' && skipKeepsPerformed(occurrenceId)) return checkpoint();
         return setOutcome(occurrenceId, {status, sets: [{seconds: actualSeconds}]});
