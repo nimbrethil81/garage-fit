@@ -3,7 +3,7 @@
 //
 //   node scripts/audit-exercise-reachability.js            readable report
 //   node scripts/audit-exercise-reachability.js --json     machine-readable result
-//   node scripts/audit-exercise-reachability.js --seeds=40 larger sample
+//   node scripts/audit-exercise-reachability.js --seeds=64 larger sample
 //   node scripts/audit-exercise-reachability.js --no-diagnostics   counts only (faster)
 //
 // Generates deterministic workouts with the canonical catalogue and the real generator, then
@@ -29,7 +29,9 @@
 // competitors ranked directly above it, and a general classification of the likely cause.
 // Diagnostics never change the counts, warnings or exit status.
 
-const DEFAULT_SEEDS = 24;
+// Rare preparation roles need more than a single lucky draw to establish reachability.
+// Keep a uniform larger sample across the entire equipment/focus/duration matrix.
+const DEFAULT_SEEDS = 48;
 const PHASES = ['main','warmup','rampup','cooldown'];
 // Warnings compare appearances with an even share of the phase: in each workout, every
 // eligible exercise is credited (exercises the phase used) / (exercises eligible for it).

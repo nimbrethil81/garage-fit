@@ -34,8 +34,12 @@ function harness(options = {}) {
     indexWhere: predicate => run('generatorState.timeline').findIndex(predicate),
     coachKeys: () => [...storage.keys()].filter(key => key.startsWith('gf_coach_')),
     results: async () => plain((await run('testStore.listSessionResults()')).results),
-    playToEnd() {
-      for (let guard = 0; run('workoutState.running') && guard < 2000; guard++) app.completeWorkoutMovement();
+    async playToEnd() {
+      for (let guard = 0; run('workoutState.running') && guard < 2000; guard++) {
+        const emom=run('isEmomPhase()');
+        await app.completeWorkoutMovement();
+        if(emom&&run('isEmomPhase()')){run('timerNow+=generatorState.remaining*1000');await app.updateEmomMinute();}
+      }
       assert.equal(run('workoutState.running'), false);
     }
   };
@@ -107,7 +111,7 @@ test('a completed standalone run persists one source=generator result from measu
 
   // Revisit from the start: moving through again cannot erase or duplicate recorded work.
   h.app.enterGeneratedPhase(0);
-  h.playToEnd();
+  await h.playToEnd();
   const result = plain(await h.run('generatorState.trackedResult'));
   assert.equal(h.run('generatorState.trackerError'), null);
   assert.deepEqual(await h.results(), [result]);
@@ -166,7 +170,7 @@ test('completed standalone generation updates gf_generator_history exactly as an
   for (const h of [untracked, tracked]) h.generate(31);
   untracked.app.startGeneratedWorkout();
   tracked.app.startStandaloneGeneratedWorkout();
-  for (const h of [untracked, tracked]) h.playToEnd();
+  for (const h of [untracked, tracked]) await h.playToEnd();
   const result = plain(await tracked.run('generatorState.trackedResult'));
   assert.equal(tracked.storage.get('gf_generator_history'), untracked.storage.get('gf_generator_history'));
   const recency = JSON.parse(tracked.storage.get('gf_generator_history'));
@@ -310,7 +314,7 @@ test('Coach drafts and Session Results are unaffected by a completed standalone 
   const coachDraft = h.storage.get('gf_coach_session_draft');
   h.generate(5, 20);
   h.app.startStandaloneGeneratedWorkout();
-  h.playToEnd();
+  await h.playToEnd();
   const standalone = plain(await h.run('generatorState.trackedResult'));
   assert.equal(h.storage.get('gf_coach_session_draft'), coachDraft, 'the active Coach draft is untouched');
   await h.run('pilot.load()');

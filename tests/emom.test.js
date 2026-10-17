@@ -182,9 +182,8 @@ test('empty and small candidate pools fail or rotate without unbounded searches'
   assert.equal(G.buildEmomBlock({catalogue:{'band-row':catalogue['band-row']},availableSeconds:120,equipment:[]}),null);
 });
 
-test('Coach rejects EMOM anchors and hard EMOM-only automatic generation without drawing randomness', () => {
-  const prescriptions = [rx({requiredAnchors:[fixtures.anchor({exerciseId:'push-up',allowedProtocols:['emom']})]}),
-    rx({protocolConstraints:[{requirementId:'emom-only',importance:'hard',allowedProtocols:['emom']}]})];
+test('Coach rejects EMOM anchors without drawing randomness', () => {
+  const prescriptions = [rx({requiredAnchors:[fixtures.anchor({exerciseId:'push-up',allowedProtocols:['emom']})]})];
   for (const prescription of prescriptions) {
     assert.equal(Model.validate('session-prescription',prescription).valid,true);
     const options = {catalogue,sessionPrescription:prescription,random:() => { throw new Error('random draw'); }};
@@ -192,7 +191,7 @@ test('Coach rejects EMOM anchors and hard EMOM-only automatic generation without
     assert.throws(() => G.generate(options),G.SessionPrescriptionError);
     assert.equal(G.buildEmomBlock({...options,availableSeconds:600}),null);
   }
-  assert.deepEqual([...G.GENERATED_PROTOCOLS],['rounds','paired_sets','timed_intervals']);
+  assert.deepEqual([...G.GENERATED_PROTOCOLS],['rounds','paired_sets','timed_intervals','emom']);
 });
 
 test('explicit optional EMOM candidates preserve Coach anchors, hard avoids, protocol and time constraints', () => {
@@ -207,7 +206,8 @@ test('explicit optional EMOM candidates preserve Coach anchors, hard avoids, pro
   assert.ok(candidate.estimatedSeconds+assessment.requiredMainSeconds+G.BLOCK_TRANSITION_SECONDS<=600);
   assert.ok(candidate.exercises.every(exercise => exercise.id !== 'goblet-squat' && !exercise.patterns.includes('push') && !exercise.coachAnchor));
   const automatic = G.generate({...options,random:random(3)});
-  assert.ok(automatic.main.blocks.every(block => block.protocol !== 'emom'));
+  assert.ok(automatic.main.blocks.some(block => block.protocol === 'emom'));
+  assert.ok(automatic.main.blocks.filter(block=>block.protocol==='emom').every(block=>G.validateEmomBlock(block,catalogue).length===0));
   assert.ok(automatic.prescriptionOutcome.requiredAnchorPlacements.every(placement => placement.protocol === 'rounds'));
   assert.equal(G.buildEmomBlock({...options,blocks:[]}),null,'required prefix cannot be dropped');
   assert.equal(G.buildEmomBlock({...options,sessionPrescription:{...prescription,mainTimeLimitSeconds:assessment.requiredMainSeconds+62}}),null);

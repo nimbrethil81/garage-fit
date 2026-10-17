@@ -446,17 +446,22 @@ test('timer ticks never write the draft; the timed outcome is one checkpoint', a
 
 // ---- Player integration ----
 
-function playToEnd(harness) {
+async function playToEnd(harness) {
   const {app, run} = harness;
-  for (let guard = 0; run('workoutState.running') && guard < 2000; guard++) app.completeWorkoutMovement();
+  for (let guard = 0; run('workoutState.running') && guard < 2000; guard++) {
+    const emom=run('isEmomPhase()');
+    await app.completeWorkoutMovement();
+    // EMOM Done ends work, then the original minute boundary advances playback.
+    if(emom&&run('isEmomPhase()')){run('timerNow+=generatorState.remaining*1000');await app.updateEmomMinute();}
+  }
   assert.equal(run('workoutState.running'), false);
 }
 
-test('generated playback without an execution context stays untracked and writes no Coach records', () => {
+test('generated playback without an execution context stays untracked and writes no Coach records', async () => {
   const harness = appWithWorkout();
   harness.app.startGeneratedWorkout();
   assert.equal(harness.run('generatorState.tracker'), null);
-  playToEnd(harness);
+  await playToEnd(harness);
   assert.deepEqual([...harness.storage.keys()].filter(key => key.startsWith('gf_coach_')), []);
   assert.ok(harness.storage.has('gf_generator_history'), 'the Generator variety history is still written');
   assert.equal(harness.app.document.getElementById('doneTitle').textContent, 'Done');
@@ -469,7 +474,7 @@ test('a tracked player run records before advancing and finalises at the normal 
   app.startGeneratedWorkout({store, source: 'generator', recordResults: true, meaningful: (outcome, planned) => planned.section === 'main'});
   const tracker = run('generatorState.tracker');
   const planned = tracker.plannedWork();
-  playToEnd(harness);
+  await playToEnd(harness);
   const result = await run('generatorState.trackedResult');
   assert.equal(result.finalStatus, 'completed');
   assert.equal(result.workoutId, run('generatorState.workout.id'));

@@ -98,17 +98,18 @@ test('a synthetic zero-reachability exercise reports its boundary, competitors a
   assert.ok(diagnosis.rank.median>G.SHORTLIST_SIZE,'it usually ranks outside the shortlist');
   assert.ok(diagnosis.score.medianDeficit>0,'it usually scores below the window boundary');
   assert.ok(Number.isFinite(diagnosis.score.best.threshold)&&Number.isFinite(diagnosis.score.best.deficit));
-  assert.equal(diagnosis.score.gaps[0].label,'supporting-role');
+  // Automatic protocol routing changes which intents this deliberately weak fixture faces.
+  assert.equal(diagnosis.score.gaps[0].label,'intent');
   assert.ok(diagnosis.score.penalties.some(item=>item.label==='supporting-role'&&item.value<0));
   assert.ok(diagnosis.competitors.length>0&&diagnosis.competitors.length<=3);
   for(const competitor of diagnosis.competitors){
     assert.ok(catalogue[competitor.id]);
     assert.ok(competitor.mainRole&&Array.isArray(competitor.patterns)&&competitor.equipment==='bodyweight'&&competitor.share>0);
   }
-  assert.equal(diagnosis.classification.label,'supporting-role crowding');
-  assert.equal(diagnosis.classification.stage,'window');
+  assert.equal(diagnosis.classification.label,'phase/metadata mismatch');
+  assert.equal(diagnosis.classification.stage,'draw');
   const report=audit.formatReport(result);
-  assert.match(report,/diagnosis: supporting-role crowding/);
+  assert.match(report,/diagnosis: phase\/metadata mismatch/);
   assert.match(report,/rank       best \d+, median \d+ of ~\d+ \(window: top 4 \+ 5 pts\)/);
   assert.match(report,/RESULT: FAIL/);
 });

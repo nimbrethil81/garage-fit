@@ -9,6 +9,7 @@ require('../js/generator.js');
 const catalogue = GarageFitData.exercises;
 const allEquipment = ['dumbbells','kettlebell','pullup-bar','trx','barbell','bench','box','bands'];
 function random(seed) { return () => { seed=(seed*1664525+1013904223)>>>0; return seed/4294967296; }; }
+function repeatsPerExercise(block){return block.protocol==='emom'?Math.ceil(block.prescription.minutes/block.exercises.length):GarageFitGenerator.blockRepeatCount(block)}
 function create(options={}) {
   return GarageFitGenerator.generate(Object.assign({
     catalogue,duration:30,focus:'balanced',equipment:allEquipment,random:random(42)
@@ -32,7 +33,7 @@ test('generated Main uses the versioned block model while retaining the temporar
   assert.ok(workout.main.blocks.length>=1);
   assert.equal(workout.blocks,workout.main.blocks);
   for(const block of workout.main.blocks){
-    assert.ok(['rounds','paired_sets','timed_intervals'].includes(block.protocol));
+    assert.ok(['rounds','paired_sets','timed_intervals','emom'].includes(block.protocol));
     assert.ok(['strength','conditioning','accessory','finisher'].includes(block.intent));
     assert.ok(block.estimatedDurationSeconds>0);
     assert.equal(block.estimatedDurationSeconds,GarageFitGenerator.estimateBlockDuration(block));
@@ -107,7 +108,7 @@ test('duration influences block composition without imposing a rigid count',()=>
   assert.ok(twentyMultiples>twentySingles,twentySingles+'/'+twentyMultiples);
 });
 
-test('all three protocols can be generated and multiple protocols can coexist',()=>{
+test('all four protocols can be generated and multiple protocols can coexist',()=>{
   const protocols=new Set();let mixed=false,sameProtocolMulti=false;
   for(const focus of ['strength','balanced','cardio'])for(let seed=1;seed<=80;seed++){
     const blocks=create({focus,random:random(seed)}).main.blocks;
@@ -115,7 +116,7 @@ test('all three protocols can be generated and multiple protocols can coexist',(
     if(new Set(blocks.map(block=>block.protocol)).size>1)mixed=true;
     if(blocks.length>1&&new Set(blocks.map(block=>block.protocol)).size===1)sameProtocolMulti=true;
   }
-  assert.deepEqual(protocols,new Set(['rounds','paired_sets','timed_intervals']));
+  assert.deepEqual(protocols,new Set(['rounds','paired_sets','timed_intervals','emom']));
   assert.equal(mixed,true);
   assert.equal(sameProtocolMulti,true);
 });
@@ -173,7 +174,7 @@ test('representative durations stay within tolerance without excessive repeat co
     assert.ok(Math.abs(minutes-duration)<=Math.max(3,duration*.18),duration+' '+focus+' '+minutes);
     for(const block of workout.main.blocks){
       assert.ok(block.estimatedDurationSeconds>=120);
-      const repeats=block.prescription.rounds||block.prescription.sets||block.prescription.cycles;
+      const repeats=repeatsPerExercise(block);
       assert.ok(repeats<=5,block.protocol+' '+repeats);
     }
   }
@@ -195,7 +196,7 @@ test('20-minute Cardio avoids five-pass tiny loops when the exercise pool is bro
   for(let seed=1;seed<=100;seed++){
     const blocks=create({duration:20,focus:'cardio',random:random(seed)}).main.blocks;
     for(const block of blocks){
-      const repeats=block.prescription.rounds||block.prescription.cycles||block.prescription.sets;
+      const repeats=repeatsPerExercise(block);
       const isTinyLoop=block.protocol!=='paired_sets'&&block.exercises.length<=3&&repeats>=5;
       assert.equal(isTinyLoop,false,seed+': '+block.protocol+' '+block.exercises.length+'x'+repeats);
     }
@@ -214,7 +215,7 @@ test('remaining Main time can create another block instead of extending a tiny f
   const workout=create({duration:20,focus:'cardio',random:random(12)});
   assert.equal(workout.main.blocks.length,2);
   assert.ok(workout.main.blocks.every(block=>{
-    const repeats=block.prescription.rounds||block.prescription.cycles||block.prescription.sets;
+    const repeats=repeatsPerExercise(block);
     return block.exercises.length>3||repeats<=3||block.protocol==='paired_sets';
   }));
 });
@@ -244,7 +245,7 @@ test('supporting conditioning movements remain selectable but are penalised when
 
   for(let seed=1;seed<=80;seed++)for(const block of create({duration:20,focus:'cardio',random:random(seed)}).main.blocks){
     if(!block.exercises.some(exercise=>exercise.id==='jumping-jacks'))continue;
-    const repeats=block.prescription.rounds||block.prescription.cycles||block.prescription.sets;
+    const repeats=repeatsPerExercise(block);
     assert.ok(repeats<=3||block.protocol==='paired_sets',seed+': jumping-jacks x'+repeats);
   }
 });
@@ -282,5 +283,5 @@ test('Coach-prescribed Main blocks keep the executable step contract',()=>{
       protocols.add(block.protocol);
     }
   }
-  assert.deepEqual([...protocols].sort(),['paired_sets','rounds','timed_intervals']);
+  assert.deepEqual([...protocols].sort(),['emom','paired_sets','rounds','timed_intervals']);
 });

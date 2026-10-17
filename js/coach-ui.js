@@ -172,7 +172,7 @@
       if (!plan.prescription) return {status: 'infeasible', plan, today: context};
       const history = results.filter(item => item.programmeInstanceId === state.programmeInstanceId).slice(-4).reverse()
         .map(item => [...new Set((item.performedWork || []).filter(work => ['completed','partial'].includes(work.status)).map(work => work.exerciseId))]);
-      const workout = root.GarageFitGenerator.generate({catalogue, sessionPrescription: plan.prescription, history});
+      const workout = root.GarageFitGenerator.generate({catalogue, sessionPrescription: plan.prescription, history, recentProtocols:root.GarageFitGenerator.recentProtocolsFromResults(results)});
       preview = {workout, plan, today: context, generatedAt: clock()}; previewKey = key;
       return preview;
     }
@@ -824,7 +824,7 @@
               if (!revised.workout) { previewEditing=false; showScreen('coach'); render(); showBlocked(revised); return; }
               renderPreview(revised);
             }));
-          } else if (previewEditing && block.protocol!=='emom' && (!anchor || anchor.importance!=='required')) {
+          } else if (previewEditing && (!anchor || anchor.importance!=='required')) {
             controls.push(rowControl('Swap','Swap '+exercise.name,() => { root.GarageFitGenerator.swap(workout,index,exerciseIndex,{catalogue,equipment:preview.today.equipment}); renderPreview(preview); }));
           }
           main.append(ui.exerciseRow({index:exerciseIndex,marker:ui.supersetMarker(block,exerciseIndex),name:exercise.name,

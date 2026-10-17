@@ -22,7 +22,7 @@ function harness() {
 
 
 const next=h=>h.el('completeMovementNext'),action=h=>h.el('completeMovementAction').textContent;
-const previewName=(timeline,index)=>{const n=timeline[index+1];if(!n)return '';if(n.kind==='exercise')return n.exercise.name;if(n.kind==='interval-rest'||n.kind==='set-change')return 'Change over';if(n.kind==='block-transition')return 'Next block';if(n.kind==='transition'){const after=timeline.slice(index+2).find(p=>p.kind==='exercise');return {warmup:'Warm-up',rampup:'Ramp-up',main:'Main workout',cooldown:'Cool-down'}[after.section]}return 'Rest'};
+const previewName=(timeline,index)=>{if(timeline[index].protocol==='emom')return 'Rest until next minute';const n=timeline[index+1];if(!n)return '';if(n.kind==='exercise')return n.exercise.name;if(n.kind==='interval-rest'||n.kind==='set-change')return 'Change over';if(n.kind==='block-transition')return 'Next block';if(n.kind==='transition'){const after=timeline.slice(index+2).find(p=>p.kind==='exercise');return {warmup:'Warm-up',rampup:'Ramp-up',main:'Main workout',cooldown:'Cool-down'}[after.section]}return 'Rest'};
 
 test('fixed rounds show Next until the actual last occurrence, and the button previews only the next name',()=>{
   const h=harness();h.app.startWorkout();
@@ -88,7 +88,7 @@ test('the primary button names only the immediate next timeline item with truthf
     h.app.enterGeneratedPhase(index);const phase=timeline[index],label=previewName(timeline,index);
     assert.equal(next(h).textContent,label,'next after '+index+' '+phase.kind);assert.equal(next(h).classList.contains('hidden'),!label);
     if(label)assert.doesNotMatch(next(h).textContent,/\d+ (sec|reps)|after|Round|Set \d/);
-    if(phase.kind==='exercise')assert.equal(action(h),phase.timed?'Skip interval':index===timeline.length-1?'Finish workout':'Next');
+    if(phase.kind==='exercise')assert.equal(action(h),phase.protocol==='emom'?(phase.timed?'Skip work':'Done'):phase.timed?'Skip interval':index===timeline.length-1?'Finish workout':'Next');
     else if(['rest','set-change','interval-rest','round-rest','set-rest'].includes(phase.kind))assert.equal(action(h),'Skip rest');
   }
 });
@@ -96,7 +96,7 @@ test('the primary button names only the immediate next timeline item with truthf
 test('the next preview is the intervening rest, then the exercise after it, never skipping the rest',()=>{
   const h=harness();h.generated();const timeline=h.timeline(),rest=timeline.findIndex((p,i)=>i>0&&p.kind==='rest'&&timeline[i-1].kind==='exercise'&&timeline[i+1]&&timeline[i+1].kind==='exercise');
   h.app.enterGeneratedPhase(rest-1);assert.equal(next(h).textContent,'Rest');h.app.enterGeneratedPhase(rest);assert.equal(next(h).textContent,timeline[rest+1].exercise.name);assert.equal(action(h),'Skip rest');
-  const main=timeline.findLastIndex(p=>p.kind==='exercise'&&p.section==='main');h.app.enterGeneratedPhase(main);assert.equal(next(h).textContent,'Cool-down');
+  const main=timeline.findLastIndex(p=>p.kind==='exercise'&&p.section==='main');h.app.enterGeneratedPhase(main);assert.equal(next(h).textContent,timeline[main].protocol==='emom'?'Rest until next minute':'Cool-down');
 });
 
 test('generated labels distinguish final reps and Coach feedback',()=>{

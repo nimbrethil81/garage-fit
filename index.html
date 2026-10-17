@@ -625,8 +625,13 @@ function renderEquipment(){const wrap=document.getElementById('equipmentList');w
 function toggleEquipmentItem(id){state.ownedEquipment=state.ownedEquipment.includes(id)?state.ownedEquipment.filter(item=>item!==id):state.ownedEquipment.concat(id);state.equipmentConfigured=true;saveEquipment();renderEquipment();renderHome();renderGenerator()}
 function closeEquipment(markConfigured){if(markConfigured){state.equipmentConfigured=true;saveEquipment()}renderHome();renderGenerator();if(generatorState.equipmentReturn==='coach'&&coachUI){coachUI.open();return}showScreen(generatorState.equipmentReturn==='home'?'home':'generator')}
 function getGeneratedHistory(){try{const value=JSON.parse(localStorage.getItem('gf_generator_history'));return Array.isArray(value)?value.slice(0,4):[]}catch(e){return []}}
+let generatorRecentProtocols=[];
+async function refreshGeneratorProtocols(){
+  try{const query=await GarageFitCoachStore.createStore(localStorage).listSessionResults({source:'generator',limit:4});generatorRecentProtocols=GarageFitGenerator.recentProtocolsFromResults(query.results)}catch(e){generatorRecentProtocols=[]}
+}
+refreshGeneratorProtocols();
 function generateWorkout(){
-  generatorState.workout=GarageFitGenerator.generate({catalogue:CATALOGUE,duration:generatorState.duration,focus:generatorState.focus,bodyFocus:generatorState.bodyFocus,difficulty:generatorState.difficulty,equipment:state.ownedEquipment,history:getGeneratedHistory()});renderGeneratedPreview();showScreen('generatedPreview');
+  generatorState.workout=GarageFitGenerator.generate({catalogue:CATALOGUE,duration:generatorState.duration,focus:generatorState.focus,bodyFocus:generatorState.bodyFocus,difficulty:generatorState.difficulty,equipment:state.ownedEquipment,history:getGeneratedHistory(),recentProtocols:generatorRecentProtocols});renderGeneratedPreview();showScreen('generatedPreview');
 }
 function formatPrescription(exercise){return GarageFitWorkoutPreview.formatPrescription(exercise)}
 function protocolLabel(block){return GarageFitWorkoutPreview.protocolLabel(block)}
@@ -642,7 +647,7 @@ function renderGeneratedPreview(){
       button.type='button';button.className='swap-btn';button.textContent='Swap';button.setAttribute('aria-label','Swap '+exercise.name);button.onclick=()=>swapGeneratedExercise(blockIndex,exerciseIndex);
       list.appendChild(GarageFitWorkoutPreview.exerciseRow({index:exerciseIndex,marker:GarageFitWorkoutPreview.supersetMarker(block,exerciseIndex),name:exercise.name,
         prescription:block.protocol==='emom'?GarageFitWorkoutPreview.emomTargetLabel(block,exerciseIndex):block.protocol==='timed_intervals'?block.prescription.workSeconds+' sec':formatPrescription(exercise),
-        instruction:instructionFor(exercise),cue:(exercise.timedCues||[]).map(cue=>cue.text).join(' · '),controls:block.protocol==='emom'?[]:[button]}));
+        instruction:instructionFor(exercise),cue:(exercise.timedCues||[]).map(cue=>cue.text).join(' · '),controls:[button]}));
     });
   });
   document.getElementById('previewWarmup').textContent=Math.round(workout.warmup.estimatedSeconds/60)+' min';document.getElementById('previewCooldown').textContent=Math.round(workout.cooldown.estimatedSeconds/60)+' min';document.getElementById('previewEstimate').textContent='≈'+Math.round(workout.estimatedSeconds/60)+' min total';
@@ -856,7 +861,7 @@ function trackGenerated(action){try{const write=action();if(write&&write.catch)w
 // Record the current exercise occurrence's outcome before the timeline moves on. Timed work is
 // measured from the countdown; rep work is Done or skipped. Moving the index is not evidence.
 function recordGeneratedOutcome(action){const tracker=generatorState.tracker,phase=currentGeneratedPhase();if(!tracker||!tracker.started||tracker.finalised||generatorState.trackedResult||!phase||phase.kind!=='exercise')return;trackGenerated(()=>phase.timed?tracker.recordTimed(phase.occurrenceId,{plannedSeconds:phase.seconds,elapsedSeconds:phase.seconds-Math.max(0,generatorState.remaining)}):action==='done'?tracker.recordDone(phase.occurrenceId):tracker.recordSkip(phase.occurrenceId))}
-function finishGeneratedTracking(kind){const tracker=generatorState.tracker;if(!tracker||!tracker.started||tracker.finalised||generatorState.trackedResult)return null;if(kind==='exit'&&generatorState.standaloneTracking){generatorState.tracker=null;return null}const options={actualDurationSeconds:Math.floor(currentWorkoutElapsedMs()/1000)};generatorState.trackedResult=trackGenerated(()=>kind==='complete'?tracker.complete(options):tracker.exitEarly(options));return generatorState.trackedResult}
+function finishGeneratedTracking(kind){const tracker=generatorState.tracker;if(!tracker||!tracker.started||tracker.finalised||generatorState.trackedResult)return null;if(kind==='exit'&&generatorState.standaloneTracking){generatorState.tracker=null;return null}const options={actualDurationSeconds:Math.floor(currentWorkoutElapsedMs()/1000)};generatorState.trackedResult=trackGenerated(()=>kind==='complete'?tracker.complete(options):tracker.exitEarly(options));if(kind==='complete'&&generatorState.standaloneTracking&&generatorState.trackedResult)Promise.resolve(generatorState.trackedResult).then(refreshGeneratorProtocols).catch(()=>{});return generatorState.trackedResult}
 function currentGeneratedPhase(){return generatorState.timeline[generatorState.timelineIndex]}
 function syncGeneratedCountdown(){if(isEmomPhase()&&emomRun()){generatorState.remaining=Math.max(0,(emomRun().originMs+currentGeneratedPhase().endsAtSeconds*1000-currentWorkoutElapsedMs())/1000);return}if(generatorState.phaseTimer!==null&&generatorState.phaseTickAt!=null){const now=Date.now();if(!workoutState.paused)generatorState.remaining=Math.max(0,generatorState.remaining-(now-generatorState.phaseTickAt)/1000);generatorState.phaseTickAt=now}}
 function stopGeneratedPhaseTimer(){syncGeneratedCountdown();clearInterval(generatorState.phaseTimer);generatorState.phaseTimer=null}
