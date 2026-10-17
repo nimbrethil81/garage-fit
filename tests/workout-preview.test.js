@@ -127,3 +127,7 @@ test('Generator renders all phases through shared rows and retains caller-owned 
   button(el('previewRampupList').children[0]).onclick();
   assert.deepEqual(swaps,[['main',0,0],['warmup',1],['rampup',0]]);
 });
+
+test('a single mini-circuit round is singular',()=>{
+  assert.equal(previewOnly().protocolLabel({protocol:'rounds',prescription:{rounds:1}}),'Mini-circuit · 1 round');
+});

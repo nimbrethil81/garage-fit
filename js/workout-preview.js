@@ -54,7 +54,8 @@
   function protocolLabel(block) {
     if (block.protocol==='paired_sets') return 'Paired sets · '+block.prescription.sets+' sets';
     if (block.protocol==='timed_intervals') return 'Timed intervals · '+block.prescription.workSeconds+' sec work / '+block.prescription.transitionSeconds+' sec change · '+block.prescription.cycles+' cycles';
-    return 'Mini-circuit · '+block.prescription.rounds+' rounds';
+    const rounds=block.prescription.rounds;
+    return 'Mini-circuit · '+rounds+(rounds===1?' round':' rounds');
   }
 
   root.GarageFitWorkoutPreview={sectionHeading,blockHeading,exerciseRow,instructionDisclosure,formatPrescription,protocolLabel};

@@ -127,16 +127,16 @@ test('Coach preview edit mode gates actions and keeps the revised workout for pl
   assert.ok(p.json('previewButtons()').includes('Done Editing'));
   await p.run("clickPreview('Substitute')");
   await p.run("clickPreview('Dumbbell front squat','coachSubstituteContent')");
-  assert.ok(p.json('previewButtons()').includes('Restore prescribed exercise'));
+  assert.ok(p.json('previewButtons()').includes('Restore'));
   assert.equal(p.run('coachUI.controller.snapshot().preview.plan.prescription.requiredAnchors[0].exerciseId'),'dumbbell-front-squat');
-  await p.run("clickPreview('Restore prescribed exercise')");
+  await p.run("clickPreview('Restore')");
   assert.equal(p.run('coachUI.controller.snapshot().preview.plan.prescription.requiredAnchors[0].exerciseId'),'goblet-squat');
   await p.run("clickPreview('Swap')");
   const revised=p.json('coachUI.controller.snapshot().preview.workout.main.blocks');
   await p.run("clickPreview('Done Editing')");
-  assert.ok(!p.json('previewButtons()').some(label=>['Swap','Substitute','Restore prescribed exercise'].includes(label)));
+  assert.ok(!p.json('previewButtons()').some(label=>['Swap','Substitute','Restore'].includes(label)));
   assert.deepEqual(p.json('coachUI.controller.snapshot().preview.workout.main.blocks'),revised);
-  await p.run("clickPreview('Begin workout')");
+  await p.run("clickPreview('Start workout')");
   assert.deepEqual(p.json('generatorState.workout.main.blocks'),revised);
 });
 
@@ -223,7 +223,7 @@ test('Coach player Next, Skip, Previous and measured timed exit save exactly the
   await p.run('coachUI.open()');
   p.run(`function pilotButton(id,text){const visit=node=>node.textContent===text&&node.onclick?node:(node.children||[]).map(visit).find(Boolean);return visit(document.getElementById(id));}`);
   await p.run("pilotButton('coachContent','View today’s workout').onclick()");
-  await p.run("pilotButton('coachPreviewContent','Begin workout').onclick()");
+  await p.run("pilotButton('coachPreviewContent','Start workout').onclick()");
   assert.equal(p.run('isCoachPlayer()'),true);
   const anchors=p.json("generatorState.timeline.map((p,i)=>({p,i})).filter(({p})=>p.kind==='exercise'&&p.section==='main'&&p.exercise.coachAnchor)");
   const first=anchors[0].i,second=anchors.find(item=>item.p.exercise.id===anchors[0].p.exercise.id&&item.i!==first).i;
@@ -250,7 +250,7 @@ test('Coach panel pause preserves edited actuals and checkpoint failure protects
   const p=pilot();p.run("state.ownedEquipment=['dumbbells'];var uiNow=Date.now();Date.now=()=>uiNow");
   await p.run("coachUI.controller.start(pilotDef,['dumbbells'])");await p.run('coachUI.open()');
   p.run(`function playerAction(id,text){const visit=node=>node.textContent===text&&node.onclick?node:(node.children||[]).map(visit).find(Boolean);return visit(document.getElementById(id)).onclick();}`);
-  await p.run("playerAction('coachContent','View today’s workout')");await p.run("playerAction('coachPreviewContent','Begin workout')");
+  await p.run("playerAction('coachContent','View today’s workout')");await p.run("playerAction('coachPreviewContent','Start workout')");
   const index=p.run("generatorState.timeline.findIndex(p=>p.kind==='exercise'&&p.section==='main'&&p.exercise.coachAnchor)");
   p.run(`enterGeneratedPhase(${index});document.getElementById('coachActualReps').value='4';document.getElementById('coachActualLoad').value='17';toggleWorkoutPause();uiNow+=5000;toggleWorkoutPause()`);
   assert.equal(p.run("document.getElementById('coachActualReps').value"),'4');assert.equal(p.run("document.getElementById('coachActualLoad').value"),'17');
@@ -263,4 +263,55 @@ test('Coach panel pause preserves edited actuals and checkpoint failure protects
   const outcome=p.json(`generatorState.tracker.outcome(generatorState.timeline[${index}].occurrenceId)`);
   assert.equal(outcome.sets[0].reps,4);assert.equal(outcome.sets[0].load,17);
   assert.equal((await p.run('generatorState.tracker.flush().then(()=>true)')),true);
+});
+
+test('Coach preview rows show confirmed load guidance, interval work and plain supporting rows', async () => {
+  const p=pilot();p.run("state.ownedEquipment=['dumbbells']");await p.start();
+  await p.begin();await p.log('anchor-squat','undefined','12');await p.finish('complete');
+  await p.run('coachUI.open()');
+  p.run(`function previewNodes(){const visit=node=>[node,...(node.children||[]).flatMap(visit)];return visit(document.getElementById('coachPreviewContent'));}
+    function openPreview(){const visit=node=>node.textContent==='View today’s workout'&&node.onclick?node:(node.children||[]).map(visit).find(Boolean);return visit(document.getElementById('coachContent')).onclick();}`);
+  await p.run('openPreview()');
+  const preview=p.json('coachUI.controller.snapshot().preview'),rows=p.json("previewNodes().filter(node=>node.className==='preview-exercise'&&node.children.length).map(node=>node.children.map(child=>child.textContent))");
+  const squat=preview.workout.main.blocks.flatMap(block=>block.exercises).find(exercise=>exercise.coachAnchor?.requirementId==='anchor-squat');
+  const target=squat.coachAnchor.plannedTarget;
+  assert.equal(target.suggestedLoad,12);
+  const row=rows.find(item=>item[0]===target.targetSets+' sets × '+squat.prescription.value+' reps · 12 kg total');
+  assert.ok(row,'confirmed load replaces generic load guidance');
+  assert.deepEqual(row.slice(1,3),['Strength target',target.progressionIntent]);
+  preview.workout.main.blocks.filter(block=>block.protocol==='timed_intervals').forEach(block=>block.exercises.forEach(exercise=>
+    assert.ok(rows.some(item=>item[0]===block.prescription.workSeconds+' sec' && item.length===2),exercise.name+' shows interval work')));
+  assert.equal(p.json("previewNodes().filter(node=>node.textContent==='Strength target').length"),3);
+  assert.equal(p.run("previewNodes().find(node=>node.className==='preview-rounds').textContent"),'4-Week General Strength');
+  assert.doesNotMatch(p.run("previewNodes().map(node=>node.textContent).join(' ')"),/\bReady\b|Required anchor|Maintenance ·/);
+});
+
+test('preview message triage keeps material issues visible and routine explanations collapsed', () => {
+  const p=pilot();
+  const base={state:{anchors:[{requirementId:'a-knee',exerciseId:'goblet-squat'},{requirementId:'a-push',exerciseId:'push-up'}]},
+    workout:{prescriptionOutcome:{softRelaxations:[]}}};
+  const plan=(context,coverage)=>({prescription:{programmeContext:context},rationale:{priorities:coverage?{coverage}:{}}});
+  const run=input=>p.json(`GarageFitCoachUI.previewMessages({...${JSON.stringify(input)},catalogue:CATALOGUE})`);
+  assert.deepEqual(run({...base,plan:plan({})}),{status:[],notices:[],why:[]});
+  const adjusted=run({...base,workout:{prescriptionOutcome:{softRelaxations:[{code:'x'}]}},plan:plan({})});
+  assert.deepEqual(adjusted.status,['Adjusted · Some supporting choices changed to keep your strength targets.']);
+  const deferred=run({...base,plan:plan({deferredAnchorRequirementIds:['a-push']})});
+  assert.match(deferred.why[0],/^Not scheduled today · Push-up\. Their targets are retained/);
+  const arms=run({...base,plan:plan({maintenanceUnavailable:['carry']})});
+  assert.match(arms.notices[0],/cannot provide carry maintenance\. Add suitable equipment/);
+  assert.match(arms.why[0],/no catch-up debt/);
+  const warnings=[{code:'tennis-session-role-unavailable',message:'Strength has no attainable target today.'},
+    {code:'tennis-anchor-unavailable',requirementId:'a-knee',message:'Goblet squat cannot fit its full target.'},
+    {code:'tennis-capability-unavailable',capabilityId:'lateral-movement',message:'x'},
+    {code:'tennis-capability-facets-unavailable',capabilityId:'lateral-movement',facets:['lateral-control'],message:'x'},
+    {code:'tennis-capability-facets-unavailable',capabilityId:'power',facets:['rotational-power'],message:'x'},
+    {code:'tennis-capability-time-limit',capabilityId:'endurance',message:'Endurance does not fit alongside today’s selected work.'},
+    {code:'future-policy-warning',message:'A new policy constraint applies.'}];
+  const tennis=run({...base,plan:plan({warnings},{capabilities:[{capabilityId:'lateral-movement',label:'Lateral movement'},{capabilityId:'power',label:'Explosive power'}]})});
+  assert.deepEqual(tennis.status,['Adjusted · Today’s planned session type has no target that fits, so another type was chosen.']);
+  assert.deepEqual(tennis.notices,['Goblet squat cannot fit its full target. Try more time or restore its equipment to include it.','A new policy constraint applies.'],
+    'blocking target and unknown policy warnings stay visible');
+  assert.deepEqual(tennis.why,['Strength has no attainable target today.','Endurance does not fit alongside today’s selected work.',
+    'Not possible with today’s equipment, space or session limits: Lateral movement.',
+    'Partly limited today, so no coverage is assumed: Explosive power (rotational power).']);
 });

@@ -35,6 +35,37 @@
     const target=state.currentTargets.programmeSettings.weeklyCoachFrequency;
     return {count,target,filled:Math.min(count,target),start:start.toISOString(),end:end.toISOString()};
   }
+  // Where each programme message belongs in the Coach preview. `status` is a subdued
+  // adjustment label, `notices` stay visible with a remedy, and `why` is the collapsed
+  // Why this workout? explanation. Unknown warning codes stay visible rather than
+  // being hidden. The Generator's own main-underfilled diagnostic was never shown.
+  function previewMessages({plan, workout, state, catalogue}) {
+    const context=plan.prescription.programmeContext, status=[], notices=[], why=[];
+    if ((workout.prescriptionOutcome?.softRelaxations || []).length) status.push('Adjusted · Some supporting choices changed to keep your strength targets.');
+    const deferred=(context.deferredAnchorRequirementIds || []).map(id=>state.anchors.find(anchor=>anchor.requirementId===id)).filter(Boolean);
+    if (deferred.length) why.push('Not scheduled today · '+deferred.map(anchor=>catalogue[anchor.exerciseId].name).join(', ')+'. Their targets are retained; this is not failed or skipped work.');
+    const unavailable=context.maintenanceUnavailable || [];
+    if (unavailable.length) {
+      notices.push('Today’s equipment cannot provide '+unavailable.join(', ')+' maintenance. Add suitable equipment when available.');
+      why.push('Maintenance that today’s equipment cannot provide creates no catch-up debt.');
+    }
+    // Capability diagnostics are not actionable today; group them in plain language.
+    const labels=new Map((plan.rationale.priorities.coverage?.capabilities || []).map(cap=>[cap.capabilityId,cap.label]));
+    const warnings=context.warnings || [], codes=code=>warnings.filter(warning=>warning.code===code);
+    const impossible=codes('tennis-capability-unavailable'), blocked=new Set(impossible.map(warning=>warning.capabilityId));
+    const label=warning=>labels.get(warning.capabilityId) || warning.capabilityId.replaceAll('-',' ');
+    warnings.forEach(warning => {
+      if (warning.code==='tennis-session-role-unavailable') {
+        status.push('Adjusted · Today’s planned session type has no target that fits, so another type was chosen.'); why.push(warning.message);
+      } else if (warning.code==='tennis-anchor-unavailable') notices.push(warning.message+' Try more time or restore its equipment to include it.');
+      else if (warning.code==='tennis-capability-time-limit') why.push(warning.message);
+      else if (!['tennis-capability-unavailable','tennis-capability-facets-unavailable'].includes(warning.code)) notices.push(warning.message || 'A programme requirement could not be fully met today.');
+    });
+    if (impossible.length) why.push('Not possible with today’s equipment, space or session limits: '+impossible.map(label).join(', ')+'.');
+    const partial=codes('tennis-capability-facets-unavailable').filter(warning=>!blocked.has(warning.capabilityId));
+    if (partial.length) why.push('Partly limited today, so no coverage is assumed: '+partial.map(warning=>label(warning)+' ('+warning.facets.join(', ').replaceAll('-',' ')+')').join(', ')+'.');
+    return {status, notices, why};
+  }
   let policyRegistry=null;
   // General Strength and Build Arms use their own pinned policy's meaningful-work
   // rule (any performed main work), never Tennis dose interpretation. Their
@@ -66,7 +97,7 @@
       if (!def) throw new Error('The saved programme definition version is unavailable. Records have been retained.');
       return def;
     }} = {}) {
-    let state = null, results = [], preview = null, tracker = null, draft = null, pendingResult = null, preparationContext = null;
+    let state = null, results = [], preview = null, previewKey = null, tracker = null, draft = null, pendingResult = null, preparationContext = null;
     const definition = () => definitionFor(state);
     const meaningful = root.GarageFitCoachRecovery.meaningful;
     const recovery = root.GarageFitCoachRecovery.createRecovery({store, engine, definitionFor});
@@ -125,17 +156,31 @@
       return {...input, ...(definition().contextPolicy ? {localDate} : {}), now, prescriptionId: id('prescription')};
     }
     function plan(input) { return engine.planNextSession(definition(), state, results, today(input)); }
+    // Everything that shapes today's session: the user's choices (not the request
+    // time or id), the local day, the programme state and the performed history.
+    function preparationKey(input) {
+      const {now, prescriptionId, localDate, ...choices} = input || {};
+      const canonical = value => Array.isArray(value) ? value.map(canonical) : value && typeof value === 'object'
+        ? Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])])) : value;
+      return JSON.stringify(canonical({choices, day: localDay(clock()), state, results: results.map(item => item.sessionResultId)}));
+    }
     function prepare(input) {
       if (draft || tracker) throw new Error('Save the current session before preparing another.');
-      preview = null;
-      const context = today(input), plan = engine.planNextSession(definition(), state, results, context);
+      preview = null; previewKey = null;
+      const key = preparationKey(input), context = today(input), plan = engine.planNextSession(definition(), state, results, context);
       preparationContext = context;
       if (!plan.prescription) return {status: 'infeasible', plan, today: context};
       const history = results.filter(item => item.programmeInstanceId === state.programmeInstanceId).slice(-4).reverse()
         .map(item => [...new Set((item.performedWork || []).filter(work => ['completed','partial'].includes(work.status)).map(work => work.exerciseId))]);
       const workout = root.GarageFitGenerator.generate({catalogue, sessionPrescription: plan.prescription, history});
-      preview = {workout, plan, today: context, generatedAt: clock()};
+      preview = {workout, plan, today: context, generatedAt: clock()}; previewKey = key;
       return preview;
+    }
+    // Reopening an unchanged preview returns the same prepared (and possibly
+    // edited) session. Changed choices, day, state or history prepare afresh.
+    function previewToday(input) {
+      if (draft || tracker) throw new Error('Save the current session before preparing another.');
+      return preview && previewKey === preparationKey(input) ? preview : prepare(input);
     }
     function alternatives(requirementId, context) { return engine.getAnchorAlternatives(definition(), state, today(context), requirementId); }
     function substitute(requirementId, exerciseId, context) {
@@ -223,7 +268,7 @@
       return engine.updateProgrammeSettings(def,previous,patch,{now,localDate:localDay(now)});
     });
     const saveSportReview = response => saveProgrammeChange((def,previous) => engine.recordSportReview(def,previous,response,clock()));
-    return {load, snapshot, assess, start, plan, prepare, alternatives, substitute, restore, begin, finish, manage, saveProgrammeSettings,
+    return {load, snapshot, assess, start, plan, prepare, previewToday, alternatives, substitute, restore, begin, finish, manage, saveProgrammeSettings,
       saveSportReview, sportReview: () => engine.sportReview(definition(),state,clock()),
       review: () => engine.programmeReview(definition(), state, clock())};
   }
@@ -257,7 +302,7 @@
       finally {
         busy = false;
         // A rerender replaces controls; return keyboard focus to the same control.
-        if (focused?.isConnected===false) ['coachContent','coachProgressContent','coachSettingsContent'].flatMap(id=>[...el(id).querySelectorAll('button,select,input,summary')])
+        if (focused?.isConnected===false) ['coachContent','coachPreviewContent','coachProgressContent','coachSettingsContent'].flatMap(id=>[...el(id).querySelectorAll('button,select,input,summary')])
           .find(node=>focusLabel ? node.getAttribute('aria-label')===focusLabel : node.textContent===focusText)?.focus();
       }
     }
@@ -711,8 +756,8 @@
       wrap.append(paragraph('History is local to this browser and device. Only actual performed work earns progress.'),button('Back',render));
     }
     function prepare() {
-      previewEditing = false;
-      const preview=controller.prepare(options);
+      previewEditing = false; delete disclosureOpen['preview-why'];
+      const preview=controller.previewToday(options);
       if (preview.status==='infeasible') { showBlocked(preview); return; }
       renderPreview(preview);
     }
@@ -723,57 +768,86 @@
         el('coachContent').append(paragraph('Blocked · '+conflictText(preview.plan.conflicts)));
         controller.snapshot().state.anchors.forEach(anchor => el('coachContent').append(button('Substitute '+catalogue[anchor.exerciseId].name,() => showSubstitutes(anchor.requirementId,preview.today))));
     }
+    function text(tag, className, value) { const node=document.createElement(tag); node.className=className; node.textContent=value; return node; }
+    function rowControl(label, accessibleName, action) {
+      const node=button(label,action); node.className='swap-btn'; node.setAttribute('aria-label',accessibleName); return node;
+    }
+    // Generator protocol label plus the rest the player will actually give.
+    function blockLabel(block) {
+      const rest=block.protocol==='rounds' && block.prescription.rounds>1 ? block.prescription.roundRestSeconds+' sec rest between rounds'
+        : block.protocol==='paired_sets' ? block.prescription.betweenSetsSeconds+' sec rest between sets' : null;
+      return [root.GarageFitWorkoutPreview.protocolLabel(block),rest].filter(Boolean).join(' · ');
+    }
+    // Strength target rows show sets, the performed quantity and Coach load guidance.
+    function targetPrescription(exercise, block) {
+      const planned=exercise.coachAnchor.plannedTarget, sets=planned.targetSets;
+      const quantity=block.protocol==='timed_intervals' ? block.prescription.workSeconds+' sec' : root.GarageFitWorkoutPreview.formatPrescription({...exercise,load:null});
+      const load=planned.suggestedLoad!=null ? planned.suggestedLoad+' '+planned.loadUnit+(planned.loadInterpretation==='per-item'?' each':' total') : exercise.load;
+      return (sets ? sets+(sets===1?' set':' sets')+' × ' : '')+quantity+(load ? ' · '+load : '');
+    }
+    function effortCue(anchor, context) {
+      const reserve=context.repsInReserve ?? context.essentialConstraints?.repsInReserve;
+      return anchor.plannedTarget.progressionIntent || (reserve ? 'Leave about '+reserve+' reps in reserve' : null);
+    }
+    // Generator-style preview: the same section, block and row primitives, with a
+    // small Strength target label for stable programme anchors and one Edit mode.
     function renderPreview(preview) {
-      const wrap=el('coachPreviewContent'); wrap.innerHTML=''; const workout=preview.workout, outcome=workout.prescriptionOutcome;
-      wrap.append(heading(outcome.status==='partially-feasible'?'Adjusted':'Ready'),paragraph('≈'+Math.round(workout.estimatedSeconds/60)+' min · '+rationale(preview.plan)));
-      function preparation(label, phase) {
-        if (phase && phase.exercises.length) wrap.append(heading(label+' · '+Math.round(phase.estimatedSeconds/60)+' min'),paragraph(phase.exercises.map(exercise=>exercise.name).join(' · ')));
+      const ui=root.GarageFitWorkoutPreview, wrap=el('coachPreviewContent'); wrap.innerHTML='';
+      const workout=preview.workout, prescription=preview.plan.prescription, context=prescription.programmeContext, state=controller.snapshot().state;
+      const stable=new Set(state.anchors.map(anchor=>anchor.requirementId));
+      const messages=previewMessages({plan:preview.plan,workout,state,catalogue});
+      const header=document.createElement('div'); header.className='coach-preview-header';
+      header.append(text('div','preview-kicker',prescription.duration+' min · '+programmeStatus(state)),text('h2','preview-rounds',context.roleLabel || def.name));
+      wrap.append(header);
+      messages.status.forEach(message => { const node=text('p','coach-preview-status',message); node.setAttribute('role','status'); wrap.append(node); });
+      messages.notices.forEach(message => wrap.append(text('p','coach-preview-notice',message)));
+      function section(title, list) {
+        const node=document.createElement('section'); node.className='coach-preview-section';
+        node.append(ui.sectionHeading(title),list); wrap.append(node);
       }
-      preparation('Warm-up',workout.warmup); preparation('Ramp-up',workout.rampup);
-      if (isTennis()) wrap.append(heading('Main · selected work today'));
-      workout.main.blocks.forEach((block,index) => {
-        wrap.append(heading('Block '+(index+1)));
+      function phase(title, part) {
+        if (!part || !part.exercises.length) return;
+        const list=text('ol','preview-list','');
+        part.exercises.forEach((exercise,index) => list.append(ui.exerciseRow({index,name:exercise.name,prescription:ui.formatPrescription(exercise)})));
+        section(title+' · '+Math.round(part.estimatedSeconds/60)+' min',list);
+      }
+      phase('Warm-up',workout.warmup); phase('Ramp-up',workout.rampup);
+      const blocks=workout.main.blocks, main=text('ol','preview-list','');
+      blocks.forEach((block,index) => {
+        main.append(ui.blockHeading({index,total:blocks.length,prescription:blockLabel(block)}));
         block.exercises.forEach((exercise,exerciseIndex) => {
-          const row=document.createElement('div'); row.className='coach-preview-row'; const anchor=exercise.coachAnchor;
-          const stableAnchor=anchor && controller.snapshot().state.anchors.some(item=>item.requirementId===anchor.requirementId);
-          const timed=block.protocol==='timed_intervals' || exercise.prescription.type.includes('timed');
-          row.append(paragraph((anchor?(anchor.importance==='required'?(stableAnchor?'Required anchor · ':'Required support · '):'Maintenance · '):'')+exercise.name+' · '+(block.protocol==='timed_intervals'?block.prescription.workSeconds:exercise.prescription.value)+(timed?' sec':' reps')+(exercise.sidedness==='per-side'?' each side':'')));
-          if (anchor) {
-            row.append(paragraph(anchor.plannedTarget.targetSets+' sets · '+(anchor.plannedTarget.progressionIntent || 'Confirm actual work')));
-          }
-          if (previewEditing && stableAnchor) {
-            const substituteButton=button('Substitute',() => showSubstitutes(anchor.requirementId,preview.today));
-            substituteButton.setAttribute('aria-label','Substitute '+exercise.name); row.append(substituteButton);
-            if (preview.today.anchorSubstitutions?.[anchor.requirementId]) {
-              const restoreButton=button('Restore prescribed exercise',() => {
-                const revised=controller.restore(anchor.requirementId); options={...revised.today};
-                if (!revised.workout) { previewEditing=false; showScreen('coach'); render(); showBlocked(revised); return; }
-                renderPreview(revised);
-              });
-              restoreButton.setAttribute('aria-label','Restore prescribed exercise for '+exercise.name); row.append(restoreButton);
-            }
+          const anchor=exercise.coachAnchor, target=!!anchor && stable.has(anchor.requirementId), controls=[];
+          if (previewEditing && target) {
+            controls.push(rowControl('Substitute','Substitute '+exercise.name,() => showSubstitutes(anchor.requirementId,preview.today)));
+            if (preview.today.anchorSubstitutions?.[anchor.requirementId]) controls.push(rowControl('Restore','Restore prescribed exercise for '+exercise.name,() => {
+              const revised=controller.restore(anchor.requirementId); options={...revised.today};
+              if (!revised.workout) { previewEditing=false; showScreen('coach'); render(); showBlocked(revised); return; }
+              renderPreview(revised);
+            }));
           } else if (previewEditing && (!anchor || anchor.importance!=='required')) {
-            const swapButton=button('Swap',() => { root.GarageFitGenerator.swap(workout,index,exerciseIndex,{catalogue,equipment:preview.today.equipment}); renderPreview(preview); });
-            swapButton.setAttribute('aria-label','Swap '+exercise.name); row.append(swapButton);
+            controls.push(rowControl('Swap','Swap '+exercise.name,() => { root.GarageFitGenerator.swap(workout,index,exerciseIndex,{catalogue,equipment:preview.today.equipment}); renderPreview(preview); }));
           }
-          wrap.append(row);
+          main.append(ui.exerciseRow({index:exerciseIndex,name:exercise.name,
+            prescription:target ? targetPrescription(exercise,block) : block.protocol==='timed_intervals' ? block.prescription.workSeconds+' sec' : ui.formatPrescription(exercise),
+            targetLabel:target ? 'Strength target' : null, instruction:catalogue[exercise.id]?.instruction,
+            cue:[target ? effortCue(anchor,context) : null,...(exercise.timedCues || []).map(cue=>cue.text)].filter(Boolean).join(' · '),controls}));
         });
       });
-      preparation('Cool-down',workout.cooldown);
-      if (outcome.softRelaxations.length) wrap.append(paragraph('Some supporting choices were adjusted to keep the required work.'));
-      const unavailable=preview.plan.prescription.programmeContext.maintenanceUnavailable || [];
-      if (unavailable.length) wrap.append(paragraph('Today’s equipment cannot provide '+unavailable.join(', ')+' maintenance. Add suitable equipment when available; there is no catch-up debt.'));
-      (preview.plan.prescription.programmeContext.warnings || []).forEach(warning => wrap.append(paragraph(warning.message)));
-      if (isTennis()) {
-        const selected=new Set(preview.plan.prescription.requiredAnchors.map(anchor=>anchor.requirementId));
-        const deferred=controller.snapshot().state.anchors.filter(anchor=>!selected.has(anchor.requirementId));
-        if (deferred.length) wrap.append(paragraph('Not scheduled today · '+deferred.map(anchor=>catalogue[anchor.exerciseId].name).join(', ')+'. Their targets are retained; this is not failed or skipped work.'));
-        tennisViews.coverage(wrap,preview.plan.rationale.priorities.coverage);
-      }
-      if (previewEditing) wrap.append(paragraph('Anchor substitutions are just for today. Replanning may change supporting exercises; review the revised workout before beginning.'));
-      const actions=document.createElement('div'); actions.className='coach-preview-actions';
-      actions.append(button(previewEditing?'Done Editing':'Edit Workout',() => { previewEditing=!previewEditing; renderPreview(preview); el('coachPreviewContent').querySelector('.coach-preview-actions button').focus(); }),
-        button('Begin workout',async () => { const tracker=await controller.begin(); sessionSetups={}; sessionActive=true; await play(workout,tracker); },true));
+      section('Main workout · '+blocks.length+' block'+(blocks.length===1?'':'s'),main);
+      phase('Cool-down',workout.cooldown);
+      wrap.append(text('div','preview-estimate','≈'+Math.round(workout.estimatedSeconds/60)+' min total'));
+      if (previewEditing) wrap.append(paragraph('Strength target substitutions are just for today. Replanning may change supporting exercises; review the revised workout before starting.'));
+      const why=document.createElement('details'), summary=text('summary','','Why this workout?'); why.className='generator-options coach-why';
+      const reason=rationale(preview.plan).trim();
+      why.append(summary,paragraph(reason.charAt(0).toUpperCase()+reason.slice(1)+(/[.!?]$/.test(reason)?'':'.')),...messages.why.map(paragraph));
+      if (isTennis()) why.append(...tennisViews.coverageSummary(preview.plan.rationale.priorities.coverage).map(paragraph));
+      retainDisclosure(why,'preview-why'); wrap.append(why);
+      const actions=document.createElement('div'); actions.className='preview-actions coach-preview-actions';
+      const edit=button(previewEditing?'Done Editing':'Edit Workout',() => { previewEditing=!previewEditing; renderPreview(preview); el('coachPreviewContent').querySelector('.coach-preview-actions button').focus(); });
+      edit.className='preview-regenerate'; edit.setAttribute('aria-pressed',String(previewEditing));
+      const start=button('Start workout',async () => { const tracker=await controller.begin(); sessionSetups={}; sessionActive=true; await play(workout,tracker); },true);
+      start.className='preview-start';
+      actions.append(edit,start);
       wrap.append(actions,button('Back to Coach',() => { previewEditing=false; showScreen('coach'); render(); })); showScreen('coachPreview');
     }
     function showSubstitutes(requirementId, context) {
@@ -860,5 +934,5 @@
       isActive: () => sessionActive, run, backFromSubstitute, openProgress, openSettings, back: () => {previewEditing=false;showScreen('coach');render();},
       init: () => { initialisation=run(() => controller.load()); return initialisation; }};
   }
-  root.GarageFitCoachUI = {createController, mount, tennisWeeklyProgress, programmeWeeklyProgress};
+  root.GarageFitCoachUI = {createController, mount, tennisWeeklyProgress, programmeWeeklyProgress, previewMessages};
 })(typeof window !== 'undefined' ? window : globalThis);
