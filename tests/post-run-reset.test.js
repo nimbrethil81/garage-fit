@@ -146,6 +146,12 @@ test('detail model presents Post-Run Reset via the reusable fixed-sequence UI', 
   assert.equal(definition.exercises[0].target, '30 sec');
   assert.equal(definition.exercises[3].target, '25 sec');
   assert.ok(ui.cardMeta.postRunReset, 'expected a Workouts-catalogue card for Post-Run Reset');
+  // Every fixed-workout card shares one renderer, which always emits .workout-number from this value.
+  assert.equal(ui.cardMeta.postRunReset.number, '9');
+  for (const [id, meta] of Object.entries(ui.cardMeta)) assert.notEqual(meta.number, '', id+' needs a prominent number');
+  assert.deepEqual(Object.fromEntries(Object.entries(ui.cardMeta).filter(([id])=>id!=='postRunReset').map(([id,meta])=>[id,meta.number])), {sevenMinute:'7',abBlast:'5',cindy:'20',workout300:'300',eveningFullBodyReset:'7'});
+  assert.match(source, /className='workout-launch'/);
+  assert.doesNotMatch(source, /postRunReset[^;\n]*workout-number/);
 });
 
 // ---- Full playback simulation (mirrors the harness used by tests/evening-full-body-reset.test.js) ----
