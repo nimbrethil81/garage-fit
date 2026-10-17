@@ -774,8 +774,8 @@
     }
     // Generator protocol label plus the rest the player will actually give.
     function blockLabel(block) {
-      const rest=block.protocol==='rounds' && block.prescription.rounds>1 ? block.prescription.roundRestSeconds+' sec rest between rounds'
-        : block.protocol==='paired_sets' ? block.prescription.betweenSetsSeconds+' sec rest between sets' : null;
+      // A superset label already names its changeover and post-pair rest.
+      const rest=block.protocol==='rounds' && block.prescription.rounds>1 ? block.prescription.roundRestSeconds+' sec rest between rounds' : null;
       return [root.GarageFitWorkoutPreview.protocolLabel(block),rest].filter(Boolean).join(' · ');
     }
     // Strength target rows show sets, the performed quantity and Coach load guidance.
@@ -827,7 +827,7 @@
           } else if (previewEditing && (!anchor || anchor.importance!=='required')) {
             controls.push(rowControl('Swap','Swap '+exercise.name,() => { root.GarageFitGenerator.swap(workout,index,exerciseIndex,{catalogue,equipment:preview.today.equipment}); renderPreview(preview); }));
           }
-          main.append(ui.exerciseRow({index:exerciseIndex,name:exercise.name,
+          main.append(ui.exerciseRow({index:exerciseIndex,marker:ui.supersetMarker(block,exerciseIndex),name:exercise.name,
             prescription:target ? targetPrescription(exercise,block) : block.protocol==='timed_intervals' ? block.prescription.workSeconds+' sec' : ui.formatPrescription(exercise),
             targetLabel:target ? 'Strength target' : null, instruction:catalogue[exercise.id]?.instruction,
             cue:[target ? effortCue(anchor,context) : null,...(exercise.timedCues || []).map(cue=>cue.text)].filter(Boolean).join(' · '),controls}));

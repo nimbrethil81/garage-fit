@@ -22,7 +22,7 @@ function harness() {
 
 
 const next=h=>h.el('completeMovementNext'),action=h=>h.el('completeMovementAction').textContent;
-const previewName=(timeline,index)=>{const n=timeline[index+1];if(!n)return '';if(n.kind==='exercise')return n.exercise.name;if(n.kind==='interval-rest')return 'Change over';if(n.kind==='block-transition')return 'Next block';if(n.kind==='transition'){const after=timeline.slice(index+2).find(p=>p.kind==='exercise');return {warmup:'Warm-up',rampup:'Ramp-up',main:'Main workout',cooldown:'Cool-down'}[after.section]}return 'Rest'};
+const previewName=(timeline,index)=>{const n=timeline[index+1];if(!n)return '';if(n.kind==='exercise')return n.exercise.name;if(n.kind==='interval-rest'||n.kind==='set-change')return 'Change over';if(n.kind==='block-transition')return 'Next block';if(n.kind==='transition'){const after=timeline.slice(index+2).find(p=>p.kind==='exercise');return {warmup:'Warm-up',rampup:'Ramp-up',main:'Main workout',cooldown:'Cool-down'}[after.section]}return 'Rest'};
 
 test('fixed rounds show Next until the actual last occurrence, and the button previews only the next name',()=>{
   const h=harness();h.app.startWorkout();

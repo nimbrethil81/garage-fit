@@ -119,7 +119,8 @@ test('Generator preview/player and both fixed players initialise without runtime
   let previewRow=0;
   for(const [blockIndex,block] of vm.runInContext('generatorState.workout.main.blocks',context).entries()){
     assert.equal(elements.previewList.children[previewRow++].children[0].textContent,'B'+(blockIndex+1));
-    block.exercises.forEach((_,index)=>assert.equal(elements.previewList.children[previewRow++].children[0].textContent,String(index+1).padStart(2,'0')));
+    // Superset (paired_sets) rows are marked A/B; other blocks are numbered.
+    block.exercises.forEach((_,index)=>assert.equal(elements.previewList.children[previewRow++].children[0].textContent,block.protocol==='paired_sets'?'AB'[index]:String(index+1).padStart(2,'0')));
   }
 
   context.startGeneratedWorkout();
