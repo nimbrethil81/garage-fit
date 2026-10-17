@@ -49,7 +49,7 @@ test('Generator, Coach model and Training History accept the same protocol vocab
   // Today's protocols are exactly these; a new protocol must update every copy and this test.
   assert.deepEqual(generator, ['rounds','paired_sets','timed_intervals','emom']);
   // Auto-selection is separate generator policy over accepted protocols, in a fixed pick order.
-  assert.deepEqual([...G.GENERATED_PROTOCOLS], ['rounds','paired_sets','timed_intervals']);
+  assert.deepEqual([...G.GENERATED_PROTOCOLS], ['rounds','paired_sets','timed_intervals','emom']);
   assert.ok(G.GENERATED_PROTOCOLS.every(protocol => G.MAIN_PROTOCOLS.has(protocol)));
   const eligible = Object.values(catalogue).filter(exercise => exercise.generator && exercise.main);
   for (const focus of ['strength','balanced','cardio'])
@@ -99,7 +99,7 @@ test('fixture blocks resolve to well-formed steps whose time equals the estimate
     const {steps, seconds, problems} = traceBlock(G, block);
     assert.deepEqual(problems, [], protocol);
     assert.equal(seconds, G.estimateBlockDuration(block), protocol);
-    assert.equal(steps.filter(step => step.kind === 'exercise').length, G.blockRepeatCount(block) * block.exercises.length, protocol);
+    assert.equal(steps.filter(step => step.kind === 'exercise').length, G.blockRepeatCount(block) * (block.protocol==='emom'?1:block.exercises.length), protocol);
     // A single repeat and zero rests leave no stray rest steps.
     const shape = G.PROTOCOL_SHAPES[protocol];
     const single = Object.assign({}, block, {prescription: Object.assign({}, block.prescription, {[shape.repeatKey]: 1})});
@@ -120,10 +120,10 @@ test('generated blocks resolve to well-formed steps whose time equals the estima
     const {steps, seconds, problems} = traceBlock(G, block);
     assert.deepEqual(problems, [], block.protocol);
     assert.equal(seconds, block.estimatedDurationSeconds, block.protocol);
-    assert.equal(steps.filter(step => step.kind === 'exercise').length, G.blockRepeatCount(block) * block.exercises.length);
+    assert.equal(steps.filter(step => step.kind === 'exercise').length, G.blockRepeatCount(block) * (block.protocol==='emom'?1:block.exercises.length));
     protocols.add(block.protocol);
   }
-  assert.deepEqual([...protocols].sort(), ['paired_sets','rounds','timed_intervals']);
+  assert.deepEqual([...protocols].sort(), ['emom','paired_sets','rounds','timed_intervals']);
   for (const workout of SAMPLE) assert.equal(workout.main.estimatedDurationSeconds,
     workout.main.blocks.reduce((sum, block) => sum + G.estimateBlockDuration(block), 0) + G.BLOCK_TRANSITION_SECONDS * (workout.main.blocks.length - 1));
 });
@@ -217,7 +217,7 @@ test('the player timeline is built from the resolved steps and the tracker reads
         return sides.map(side => [step.exerciseIndex, step[shape.stepKey], side, step.timed ? step.seconds : null].join('|'));
       });
       const actual = phases.map(phase => phase.kind === 'exercise'
-        ? [phase.exerciseIndex, phase[shape.stepKey], phase.side, block.protocol === 'timed_intervals' ? phase.seconds : null].join('|')
+        ? [phase.exerciseIndex, phase[shape.stepKey], phase.side, block.protocol === 'timed_intervals' || block.protocol === 'emom' && phase.timed ? phase.seconds : null].join('|')
         : phase.kind+':'+phase.seconds);
       assert.deepEqual(plain(actual), expected, block.protocol);
       const conditions = plain(G.protocolConditions(block));
@@ -236,7 +236,7 @@ test('the player timeline is built from the resolved steps and the tracker reads
       }
     });
   });
-  assert.deepEqual([...protocols].sort(), ['paired_sets','rounds','timed_intervals']);
+  assert.deepEqual([...protocols].sort(), ['emom','paired_sets','rounds','timed_intervals']);
   assert.ok(sided > 0, 'per-side occurrences are covered');
 });
 

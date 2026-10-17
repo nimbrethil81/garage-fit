@@ -321,7 +321,9 @@ test('the bodyweight additions are reachable in Main',()=>{
 test('the kettlebell and TRX additions are reachable in Main',()=>{
   const kettlebell=sample(['kettlebell'],['strength','balanced'],[30,45],40);
   for(const [id,min] of [['kettlebell-sumo-squat',20],['kettlebell-suitcase-deadlift',2]])assert.ok(count(kettlebell,id)>=min,id+' '+count(kettlebell,id));
-  const kettlebellCore=sample(['kettlebell'],['strength','balanced'],[30,45],20,{bodyFocus:'core'});
+  // Automatic EMOM routing (#79) changes seeded paths. Broaden rare-role samples
+  // while retaining the existing appearance minima and primary/supporting checks.
+  const kettlebellCore=sample(['kettlebell'],['strength','balanced'],[30,45],40,{bodyFocus:'core'});
   assert.ok(count(kettlebellCore,'kettlebell-around-the-body-pass')>=3,'pass '+count(kettlebellCore,'kettlebell-around-the-body-pass'));
   const trx=sample(['trx'],['strength','balanced'],[30,45],40);
   for(const [id,min] of [['trx-glute-bridge',10],['trx-t-fly',3]])assert.ok(count(trx,id)>=min,id+' '+count(trx,id));
@@ -333,9 +335,9 @@ test('the dumbbell additions are reachable in Main; the arm and fly accessories 
   const dumbbells=sample(['dumbbells'],['strength','balanced'],[30,45],40);
   assert.ok(count(dumbbells,'dumbbell-sumo-squat')>=10,'sumo '+count(dumbbells,'dumbbell-sumo-squat'));
   // The dumbbell accessory pool is crowded (see the PR's audit notes); an Upper focus reaches it.
-  const easyUpper=sample(['dumbbells','pullup-bar'],['strength','balanced'],[30,45],50,{bodyFocus:'upper',difficulty:'easy'});
+  const easyUpper=sample(['dumbbells','pullup-bar'],['strength','balanced'],[30,45],80,{bodyFocus:'upper',difficulty:'easy'});
   for(const id of ['dumbbell-overhead-triceps-extension','dumbbell-hammer-curl'])assert.ok(count(easyUpper,id)>=2,id+' '+count(easyUpper,id));
-  const hardUpper=sample(['dumbbells','box'],['strength','balanced'],[30,45],50,{bodyFocus:'upper',difficulty:'hard'});
+  const hardUpper=sample(['dumbbells','box'],['strength','balanced'],[30,45],80,{bodyFocus:'upper',difficulty:'hard'});
   assert.ok(count(hardUpper,'dumbbell-reverse-fly')>=2,'reverse fly '+count(hardUpper,'dumbbell-reverse-fly'));
   for(const workout of dumbbells.concat(easyUpper,hardUpper))
     for(const id of ['dumbbell-overhead-triceps-extension','dumbbell-hammer-curl','dumbbell-reverse-fly'])assert.ok(mainIds(workout).filter(item=>item===id).length<=1);

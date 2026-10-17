@@ -168,9 +168,10 @@ test('screen readers hear plain superset descriptions', () => {
 
 const kits = [['dumbbells','kettlebell','pullup-bar','trx','barbell','bench','box','bands'], ['dumbbells'], ['kettlebell','trx','bands'], []];
 
+// #79 adds an optional protocol; keep the pair minimum with a slightly broader seeded sample.
 test('generated supersets pair contrasting, compatible work without mass exclusions', () => {
   let pairs = 0, sharedPrimary = 0;
-  for (const equipment of kits) for (const duration of [15, 30, 45]) for (const focus of ['strength','balanced','cardio']) for (let seed = 1; seed <= 8; seed++) {
+  for (const equipment of kits) for (const duration of [15, 30, 45]) for (const focus of ['strength','balanced','cardio']) for (let seed = 1; seed <= 10; seed++) {
     for (const block of G.generate({catalogue, duration, focus, equipment, random: random(seed * 97 + duration)}).main.blocks) {
       if (block.protocol !== 'paired_sets') continue;
       pairs++;
@@ -193,7 +194,8 @@ test('representative workouts are not dominated by tiny repeated loops', () => {
       const blocks = G.generate({catalogue, duration, focus, equipment, random: random(seed * 31 + duration)}).main.blocks;
       const total = blocks.reduce((sum, block) => sum + block.estimatedDurationSeconds, 0);
       // A tiny loop repeats three or fewer exercises five times; only 2 x 5 supersets reach it.
-      const tiny = blocks.filter(block => block.exercises.length <= 3 && G.blockRepeatCount(block) >= 5);
+      const tiny = blocks.filter(block => block.exercises.length <= 3 &&
+        (block.protocol==='emom'?Math.ceil(G.blockRepeatCount(block)/block.exercises.length):G.blockRepeatCount(block)) >= 5);
       assert.ok(tiny.every(block => block.protocol === 'paired_sets'), duration+' '+focus);
       workouts++;
       if (tiny.reduce((sum, block) => sum + block.estimatedDurationSeconds, 0) / total > 0.5) dominated++;
