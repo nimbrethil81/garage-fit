@@ -7,7 +7,7 @@
   function injectStyles() {
     if (document.getElementById('rampupUiStyles')) return;
     const style=document.createElement('style'); style.id='rampupUiStyles';
-    style.textContent='#generatedPreview{overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y}#generatedPreview>*{flex-shrink:0}.preview-timing{grid-template-columns:repeat(3,1fr)}#rampupSkipBtn{margin-top:-8px}@media(max-width:380px){.preview-timing{grid-template-columns:1fr 1fr}.preview-time-card:last-child{grid-column:1/-1}}';
+    style.textContent='#generatedPreview{overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y}#generatedPreview>*{flex-shrink:0}.preview-timing{grid-template-columns:repeat(3,1fr)}@media(max-width:380px){.preview-timing{grid-template-columns:1fr 1fr}.preview-time-card:last-child{grid-column:1/-1}}';
     document.head.appendChild(style);
   }
 
@@ -83,18 +83,6 @@
     if(phase.section==='cooldown'&&phase.kind!=='exercise')return 'Cool-down';
     if(phase.kind==='transition'&&phase.section==='main')return 'Main workout';
     return baseGeneratedPhaseLabel(phase);
-  };
-
-  const originalRenderGeneratedPhase=window.renderGeneratedPhase;
-  window.renderGeneratedPhase=function(){
-    originalRenderGeneratedPhase();
-    let button=document.getElementById('rampupSkipBtn');
-    if(!button){button=document.createElement('button');button.id='rampupSkipBtn';button.type='button';button.className='ctrl-btn ctrl-secondary hidden';button.textContent='Skip ramp-up';button.onclick=()=>{
-      if(typeof isCoachPlayer==='function'&&isCoachPlayer())return coachSkipRampup();
-      if(typeof recordGeneratedOutcome==='function')recordGeneratedOutcome('skip');
-      for(let i=generatorState.timelineIndex+1;i<generatorState.timeline.length;i++)if(generatorState.timeline[i].kind==='exercise'&&generatorState.timeline[i].section==='main'){enterGeneratedPhase(i);return;}
-    };document.getElementById('completeMovementBtn').parentNode.insertBefore(button,document.getElementById('completeMovementBtn'));}
-    const phase=currentGeneratedPhase();button.classList.toggle('hidden',!(phase&&phase.section==='rampup'));
   };
 
   injectStyles();
