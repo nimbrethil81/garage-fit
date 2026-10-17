@@ -5,6 +5,32 @@
     const date = new Date(now);
     return [String(date.getFullYear()).padStart(4,'0'), String(date.getMonth()+1).padStart(2,'0'), String(date.getDate()).padStart(2,'0')].join('-');
   };
+  // Monday 00:00 through the next Monday in the browser's local calendar.
+  // Calendar setters (not 7*24 hours) keep the boundaries correct across DST.
+  function localWeek(now) {
+    const start=new Date(now); start.setHours(0,0,0,0);
+    start.setDate(start.getDate()-(start.getDay()+6)%7);
+    const end=new Date(start); end.setDate(end.getDate()+7);
+    return {start,end};
+  }
+  function tennisWeeklyProgress({definition,state,results,catalogue,now}) {
+    const {start,end}=localWeek(now), summaries=new Map((state.recentSessionSummaries || []).map(item=>[item.sessionResultId,item]));
+    const applied=new Set([...(state.currentTargets.reconciliation?.appliedSessionResultIds || []),state.lastAppliedSessionResultId,...summaries.keys()]);
+    const candidates=[...new Map(results.filter(result=>result.source==='coach' && result.programmeInstanceId===state.programmeInstanceId
+      && applied.has(result.sessionResultId) && ['completed','partial'].includes(result.finalStatus)
+      // Credit belongs to the local week in which the performed session ended.
+      && Date.parse(result.endedAt)>=start.getTime() && Date.parse(result.endedAt)<end.getTime()
+      && Date.parse(result.endedAt)<=Date.parse(now)).map(result=>[result.sessionResultId,result])).values()];
+    const history=root.GarageFitTrainingHistory.createHistory(candidates,catalogue);
+    // Reuse the pinned Tennis policy's performed-dose interpretation, including
+    // unknown/zero work. The applied ledger excludes saved-but-uncredited evidence;
+    // retained summaries preserve a previous non-meaningful credit decision.
+    const count=candidates.filter(result=>summaries.get(result.sessionResultId)?.meaningful!==false
+      && root.GarageFitCoachTennisPolicy.interpretDose({definition,state,result,history,
+        evidence:history.sessionEvidence(result.sessionResultId)}).meaningful).length;
+    const target=state.currentTargets.programmeSettings.weeklyCoachFrequency;
+    return {count,target,filled:Math.min(count,target),start:start.toISOString(),end:end.toISOString()};
+  }
   // Application orchestration. Programme decisions stay in the pure engine;
   // records go through the store and execution evidence through the tracker.
   function createController({store, engine, catalogue, buildTimeline, clock = () => new Date().toISOString(),
@@ -22,7 +48,8 @@
     let errors = [], blocked = false;
     async function recentHistory() {
       if (!state) { results = []; return; }
-      const def = definition(), since = new Date(Date.parse(clock()) - Math.max(def.coverageTargets.windowDays, def.doseTargets.windowDays || 0) * 86400000).toISOString();
+      const def = definition(), now=clock(), since = new Date(Math.min(localWeek(now).start.getTime(),
+        Date.parse(now) - Math.max(def.coverageTargets.windowDays, def.doseTargets.windowDays || 0) * 86400000)).toISOString();
       const scoped = {programmeInstanceId: state.programmeInstanceId};
       const queries = [await store.listSessionResults({...scoped, since}), await store.listSessionResults({...scoped, limit: 8})];
       if (def.coverageTargets.includeStandaloneHistory) queries.push(await store.listSessionResults({source: 'generator', since}));
@@ -176,7 +203,9 @@
       review: () => engine.programmeReview(definition(), state, clock())};
   }
 
-  function mount({catalogue, equipment, getEquipment, buildTimeline, play, showScreen, stopPlayer}) {
+  // Follow-up screens can supply real destination handlers. No link is rendered
+  // until its handler exists; current progress/settings remain usable disclosures.
+  function mount({catalogue, equipment, getEquipment, buildTimeline, play, showScreen, stopPlayer, destinations={}}) {
     let storage;
     try { storage=root.localStorage; } catch (error) { storage=null; }
     const store = root.GarageFitCoachStore.createStore(storage);
@@ -185,7 +214,7 @@
     const programmes = Object.values(root.GarageFitData.programmes).map(versions => versions[Math.max(...Object.keys(versions).map(Number))]);
     let def = programmes[0], activeResistance = null, sessionSetups = {};
     const el = id => document.getElementById(id);
-    let options = null, busy = false, sessionActive = false, endKind = null, endSeconds = null, lastSaved = '', initialisation = Promise.resolve(), adjustmentOpen = false, previewEditing = false;
+    let options = null, busy = false, sessionActive = false, endKind = null, endSeconds = null, lastSaved = '', initialisation = Promise.resolve(), adjustmentOpen = false, previewEditing = false, disclosureOpen = {};
     function button(text, action, primary = false) {
       const node = document.createElement('button'); node.type = 'button'; node.textContent = text;
       node.className = primary ? 'generator-primary' : 'ctrl-btn ctrl-secondary'; node.onclick = () => run(action); return node;
@@ -196,10 +225,15 @@
     const isTennis = () => def.type === 'tennis-conditioning';
     async function run(action) {
       if (busy) return; busy = true;
+      const focused=document.activeElement, focusLabel=focused?.getAttribute?.('aria-label'), focusText=focused?.textContent;
       ['coachError','coachPlayerError','coachPreviewError','coachResultError'].forEach(id => {el(id).textContent='';});
       try { return await action(); }
       catch (error) { ['coachError','coachPreviewError','coachResultError'].forEach(id => {el(id).textContent=error.message;}); el('coachPlayerError').textContent = 'Could not save. '+error.message+' Try again before leaving.'; }
-      finally { busy = false; }
+      finally {
+        busy = false;
+        if (isTennis() && focused?.isConnected===false) [...el('coachContent').querySelectorAll('button,select,input,summary')]
+          .find(node=>focusLabel ? node.getAttribute('aria-label')===focusLabel : node.textContent===focusText)?.focus();
+      }
     }
     function resetOptions() {
       previewEditing = false;
@@ -208,12 +242,14 @@
       options = {duration: def.sessionTemplate.duration, equipment: getEquipment().slice(), easyToday: false, bodyFocus: null};
       if (def.contextPolicy) options.sessionContext = {readiness: {value:'normal',localDate:localDay(new Date().toISOString())}};
       adjustmentOpen = false;
+      disclosureOpen = {};
     }
     const patternNames = {squat: 'squat', hinge: 'hinge', lunge: 'lunge', push: 'push', pull: 'pull', core: 'core', carry: 'carry'};
     function conflictText(conflicts) {
       return [...new Set((conflicts || []).map(item => {
         if (item.code === 'tennis-rest-recommended') return item.message;
         if (item.code === 'missing-pattern') return 'Add equipment for '+item.pattern+' work.';
+        if (item.code === 'recovery-interval') return 'Take more recovery time before your next workout.';
         if (item.code === 'anchor-unavailable' && item.message) return item.message;
         if (item.code === 'tennis-no-useful-session' || item.code === 'tennis-preflight-required') return item.message || 'No useful Tennis session can be prescribed with these options.';
         if (item.code === 'anchor-unavailable') return item.directElbowAction
@@ -242,7 +278,11 @@
       return plan.prescription && plan.prescription.duration < def.sessionTemplate.duration ? 'Shorter session today: keeping required anchors and reducing supporting work.'
         : patterns.length ? 'Prioritising '+patterns.slice(0,3).join(', ')+' from your recent performed work.' : 'Keep your anchors steady and maintain whole-body coverage.';
     }
-    async function open() { showScreen('coach'); await initialisation; await run(async () => { await controller.load(); resetOptions(); render(); }); }
+    async function open() { showScreen('coach'); await initialisation; await run(async () => {
+      await controller.load();
+      if (controller.snapshot().state?.programmeDefinitionId==='tennis-conditioning') lastSaved='';
+      resetOptions(); render();
+    }); }
     function renderToday(focusLabel) {
       render();
       // Replanning replaces the controls; keep keyboard focus on the same choice.
@@ -251,7 +291,29 @@
     }
     function renderAdjust(wrap) {
       const details = document.createElement('details'), summary = document.createElement('summary'); summary.textContent = 'Adjust today'; details.className = 'generator-options'; details.append(summary);
-      details.open = adjustmentOpen; details.ontoggle = () => { adjustmentOpen = details.open; };
+      if (isTennis()) {
+        details.id='coachAdjustToday';
+        const config=controller.snapshot().state.currentTargets.programmeSettings;
+        const readiness=options.sessionContext?.readiness?.value || 'normal';
+        const values=[readiness.charAt(0).toUpperCase()+readiness.slice(1),options.duration+' min available',
+          options.equipment.length ? equipment.filter(item=>options.equipment.includes(item.id)).map(item=>item.name).join(', ') : 'Bodyweight only'];
+        if (options.easyToday) values.push('Easy today');
+        if (config.focus!=='balanced') values.push('Focus: '+tennisViews.focusName(config.focus));
+        if (config.usualPlayingDays.length) values.push('Tennis: '+config.usualPlayingDays.map(day=>day.slice(0,3)).join(', '));
+        if (config.typicalSportIntensity!=='moderate') values.push(config.typicalSportIntensity+' tennis');
+        if (config.intent==='event') values.push('Event: '+config.significantEventDate);
+        if (Object.keys(options.anchorSubstitutions || {}).length) values.push('Anchor substitution today');
+        const value=document.createElement('span'); value.className='coach-adjust-summary';
+        value.textContent=values.join(' · '); summary.appendChild(value);
+        summary.setAttribute('aria-label','Adjust today · '+value.textContent);
+      }
+      details.open = adjustmentOpen; details.ontoggle = () => { if (details.isConnected!==false) adjustmentOpen = details.open; };
+      function help(label,copy) {
+        if (!isTennis()) return paragraph(copy);
+        const info=document.createElement('details'), control=document.createElement('summary');
+        info.className='coach-help'; control.textContent='ⓘ '+label; control.setAttribute('aria-label',label);
+        info.append(control,paragraph(copy)); retainDisclosure(info,label); return info;
+      }
       const durations = document.createElement('div'); durations.className = 'choice-row';
       const unavailable = [];
       def.supportedDurations.forEach(value => {
@@ -266,14 +328,14 @@
         durations.append(item);
       });
       details.append(heading('Available time'), durations);
-      if (unavailable.length) details.append(paragraph(unavailable.join('/')+' minutes cannot fit useful work with today’s options. Try a longer duration, restore equipment or use an approved substitute.'));
+      if (unavailable.length) details.append(help('About unavailable durations',unavailable.join('/')+' minutes cannot fit useful work with today’s options. Try a longer duration, restore equipment or use an approved substitute.'));
       if (def.contextPolicy) {
         const readiness = tennisViews.selectField('Readiness today (optional)',[['fresh','Fresh'],['normal','Normal'],['tired','Tired']],options.sessionContext?.readiness?.value || 'normal');
         readiness.select.onchange = () => {
           options.sessionContext = {...options.sessionContext,readiness:{value:readiness.select.value,localDate:localDay(new Date().toISOString())}};
           adjustmentOpen=true; renderToday('Readiness today (optional)');
         };
-        details.append(readiness.field,paragraph('Normal if unanswered. This check-in affects today’s session, not your persistent targets.'));
+        details.append(readiness.field,help('About readiness','Normal if unanswered. This check-in affects today’s session, not your persistent targets.'));
       }
       const easy = document.createElement('label'), check = document.createElement('input'); check.type = 'checkbox'; check.checked = options.easyToday;
       check.setAttribute('aria-label','Easy today');
@@ -284,12 +346,12 @@
       details.append(heading('Equipment available today'));
       const kit = document.createElement('div'); kit.className = 'equipment-list';
       equipment.forEach(item => { const control = button(item.name, () => { options.equipment = options.equipment.includes(item.id) ? options.equipment.filter(id => id !== item.id) : [...options.equipment,item.id]; control.setAttribute('aria-pressed', String(options.equipment.includes(item.id))); if (isTennis()) { adjustmentOpen=true; renderToday(item.name); } }); control.setAttribute('aria-pressed',String(options.equipment.includes(item.id))); kit.append(control); });
-      details.append(kit,paragraph('Today’s selection leaves your usual equipment inventory unchanged.')); wrap.append(details);
+      details.append(kit,help('About today’s equipment','Today’s selection leaves your usual equipment inventory unchanged.')); wrap.append(details);
       function renderAdjustValues() { [...durations.children].forEach((item,index) => item.setAttribute('aria-pressed',String(options.duration===def.supportedDurations[index]))); }
     }
     function render() {
       const wrap=el('coachContent'); wrap.innerHTML=''; const current=controller.snapshot(), state=current.state;
-      if (lastSaved) wrap.append(paragraph(lastSaved));
+      if (lastSaved && state?.programmeDefinitionId!=='tennis-conditioning') wrap.append(paragraph(lastSaved));
       if (current.errors.length) {
         wrap.append(paragraph('Some Coach records could not be recovered. Saved evidence has been retained.'),
           ...current.errors.map(error => paragraph(error.message)), button('Retry recovery', async () => { await controller.load(true); resetOptions(); render(); }));
@@ -306,8 +368,8 @@
         return;
       }
       def = root.GarageFitData.programmes[state.programmeDefinitionId][state.programmeDefinitionVersion];
-      wrap.append(heading(def.name),paragraph(def.objective));
       if (isTennis()) { renderTennis(wrap,current); return; }
+      wrap.append(heading(def.name),paragraph(def.objective));
       const review=def.openEnded?{due:false}:controller.review(), blockDays=def.openEnded?0:review.nominalProgress%def.nominalDurationDays, weeks=def.openEnded?0:Math.ceil(def.nominalDurationDays/7);
       const tennisFrequency=def.type==='tennis-conditioning' && state.currentTargets.programmeSettings.weeklyCoachFrequency;
       const frequency=state.mode==='maintenance'?def.maintenancePolicy.frequency:def.recommendedFrequency;
@@ -345,39 +407,68 @@
       if (def.supportsMaintenanceMode !== false) progress.append(button(state.mode==='maintenance'?'Return to development':'Move to maintenance',() => manage(state.mode==='maintenance'?'development':'maintenance')));
       progress.append(button('Finish programme',() => manage('finish'))); wrap.append(progress);
     }
+    function retainDisclosure(details,key) {
+      if (Object.prototype.hasOwnProperty.call(disclosureOpen,key)) details.open=disclosureOpen[key];
+      details.ontoggle=()=>{if (details.isConnected!==false) disclosureOpen[key]=details.open;};
+    }
     function renderTennis(wrap, current) {
       const state=current.state, config=state.currentTargets.programmeSettings, now=new Date().toISOString();
       if (options.sessionContext?.readiness && options.sessionContext.readiness.localDate!==localDay(now))
         options.sessionContext.readiness={value:'normal',localDate:localDay(now)};
-      const plan=state.status==='active'?controller.plan(options):null;
-      wrap.append(paragraph(config.weeklyCoachFrequency+' Coach sessions per week · '+state.meaningfulSessionsCompleted+' meaningful performed sessions'));
+      const plan=state.status==='active' && !sessionActive?controller.plan(options):null;
+      const intro=document.createElement('div'), title=document.createElement('div'), status=document.createElement('span');
+      intro.className='coach-tennis-intro'; title.className='coach-programme-heading'; status.className='coach-status';
+      status.textContent=state.status==='paused'?'Paused':sessionActive?'Workout in progress':config.intent==='event'?'Event preparation'
+        : state.currentTargets.tennisDevelopment?.phase==='consolidation'?'Consolidation':'Development';
+      title.append(heading(def.name),status); intro.append(title,paragraph(def.objective)); wrap.append(intro);
+      const weekly=tennisWeeklyProgress({definition:def,state,results:current.results,catalogue,now});
+      const progressCard=document.createElement('section'), segments=document.createElement('div');
+      progressCard.className='coach-weekly'; segments.className='coach-weekly-segments'; segments.setAttribute('aria-hidden','true');
+      progressCard.setAttribute('aria-label','Current week, Monday to Sunday');
+      progressCard.append(paragraph(weekly.count+' of '+weekly.target+' sessions this week'));
+      for(let index=0;index<weekly.target;index++) {
+        const segment=document.createElement('span'); segment.className=index<weekly.filled?'filled':''; segments.append(segment);
+      }
+      progressCard.append(segments); wrap.append(progressCard);
+      if (sessionActive) {
+        const card=document.createElement('section'); card.className='coach-card';
+        card.append(heading('Workout in progress'),button('Return to workout',()=>showScreen('workoutPlayer'),true)); wrap.append(card); return;
+      }
       if (state.status==='paused') wrap.append(paragraph('Paused · anchors and history preserved.'),button('Resume',() => manage('resume'),true));
       else {
+        renderAdjust(wrap);
         const card=document.createElement('section'); card.className='coach-card';
-        const role=plan.prescription?.programmeContext.roleLabel || plan.rationale.priorities.role?.label;
+        const role=plan.prescription?.programmeContext.roleLabel;
         const rest=plan.conflicts.some(item=>item.code==='tennis-rest-recommended');
         const expired=plan.rationale.priorities.event?.phase==='expired';
-        card.append(heading(expired ? 'Event date has passed' : plan.prescription ? role+' · '+plan.prescription.duration+' min' : rest ? 'Rest today' : 'Adjust today’s options'),
-          paragraph('Why today · '+rationale(plan)));
-        if (plan.prescription) card.append(button('Start session',prepare,true));
+        card.append(heading(expired ? 'Event date has passed' : plan.prescription ? 'Today’s workout' : rest ? 'Rest today' : 'Adjust today’s options'));
+        if (plan.prescription) {
+          card.append(paragraph([role,plan.prescription.duration+' min'].filter(Boolean).join(' · ')),button('View today’s workout',prepare,true));
+          const event=plan.rationale.priorities.event;
+          if (event && ['reduced','final'].includes(event.phase)) card.append(paragraph(event.rationale));
+        }
         else if (expired) card.append(button('Continue ongoing training',async()=>{
           await controller.saveProgrammeSettings({intent:'ongoing',significantEventDate:null,significantEventLabel:null});render();
-        },true));
-        else if (rest) card.append(paragraph('No workout is required. Your anchors, targets and history are retained; check in again when ready.'));
+        },true),button('Change event date',()=>{progress.open=true;const field=progress.querySelector('input[aria-label="Important event date"]');field?.focus();}));
+        else if (rest) card.append(paragraph(conflictText(plan.conflicts)));
         else {
-          card.append(paragraph(conflictText(plan.conflicts)),paragraph('Try more time, restore equipment or choose a compatible anchor substitute. Rest is also an option; no work is owed.'));
+          card.append(paragraph(conflictText(plan.conflicts)),paragraph('Try more time, restore equipment or choose a compatible substitute. You can also rest.'));
           state.anchors.forEach(anchor=>card.append(button('Substitute '+catalogue[anchor.exerciseId].name,()=>showSubstitutes(anchor.requirementId,options))));
         }
-        wrap.append(card); renderAdjust(wrap);
-        if (def.sportReviewPolicy) renderSportReview(wrap,controller.sportReview());
+        wrap.append(card);
       }
+      if (lastSaved) wrap.append(paragraph(lastSaved));
+      [['progress','Your progress'],['settings','Programme settings']].forEach(([key,label])=>{
+        if (typeof destinations[key]==='function') wrap.append(button(label,()=>destinations[key]()));
+      });
       const progress=tennisViews.progress(wrap,{definition:def,state,results:current.results,now,localDate:localDay(now),plan,equipment:options.equipment});
-      if (config.intent==='event' && config.significantEventDate<localDay(now)) progress.open=true;
+      retainDisclosure(progress,'progress');
       const settings=document.createElement('details'), summary=document.createElement('summary'); summary.textContent='Tennis settings';
-      const form=tennisViews.settingsForm(config);
+      const form=tennisViews.settingsForm(config); retainDisclosure(settings,'settings');
       settings.append(summary,form.wrap,paragraph('Settings keep the same programme, four anchors, progression and history. Save your current session before editing.'),
         button('Save tennis settings',async()=>{await controller.saveProgrammeSettings(form.read());render();})); progress.append(settings);
       if (def.eventPolicy) renderEventSettings(progress,state);
+      if (def.sportReviewPolicy) renderSportReview(progress,controller.sportReview());
       progress.append(button(state.status==='paused'?'Resume':'Pause',()=>manage(state.status==='paused'?'resume':'pause')),
         button('Finish programme',()=>manage('finish')));
     }
@@ -608,5 +699,5 @@
       isActive: () => sessionActive, run, backFromSubstitute, back: () => {previewEditing=false;showScreen('coach');render();},
       init: () => { initialisation=run(() => controller.load()); return initialisation; }};
   }
-  root.GarageFitCoachUI = {createController, mount};
+  root.GarageFitCoachUI = {createController, mount, tennisWeeklyProgress};
 })(typeof window !== 'undefined' ? window : globalThis);

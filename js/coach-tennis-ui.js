@@ -108,7 +108,7 @@
       details.append(paragraph('History is local to this browser and device. Clearing site data or changing devices can remove access to it.'));
       wrap.append(details); return details;
     }
-    return {settingsForm,selectField,whyToday,coverage,progress};
+    return {settingsForm,selectField,whyToday,coverage,progress,focusName: value=>focusNames[value] || value};
   }
   root.GarageFitCoachTennisUI = {createViews};
 })(typeof window !== 'undefined' ? window : globalThis);
