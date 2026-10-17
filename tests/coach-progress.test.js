@@ -30,7 +30,7 @@ const programmes = {strength: ['4-Week General Strength', 'general-strength-4w',
 async function start(p, key) { await p.click(programmes[key][0]); await p.click('Start programme'); assert.equal(p.state().programmeDefinitionId, programmes[key][1]); }
 // Begin today's workout and record outcomes through the live tracker, then save.
 async function session(p, key, record, kind = 'exit') {
-  await p.click(programmes[key][2]); await p.click('Begin workout', 'coachPreviewContent');
+  await p.click(programmes[key][2]); await p.click('Start workout', 'coachPreviewContent');
   await p.run(`(async()=>{const tracker=coachPlayerTracker();const record=${record};await record(tracker,tracker.plannedWork());})()`);
   await p.run(`coachUI.showEnd(${JSON.stringify(kind)},600)`); await p.run("coachUI.saveFeedback('about-right')");
 }
@@ -185,7 +185,7 @@ test('Tennis progress shows six coverage cards with observed, unknown and infeas
 
 test('a live session draft is untouched by Your progress, and a recovered interruption shows only its performed work', async () => {
   const p = await ui(new Map(), ['dumbbells']); await start(p, 'strength');
-  await p.click('View today’s workout'); await p.click('Begin workout', 'coachPreviewContent');
+  await p.click('View today’s workout'); await p.click('Start workout', 'coachPreviewContent');
   await p.run(`(async()=>{const work=coachPlayerTracker().plannedWork().find(item=>item.requirementId==='anchor-squat');
     await coachPlayerTracker().recordDone(work.occurrenceId);})()`);
   const draft = await p.run('pilotStore.loadSessionDraft()'), state = p.state(); assert.ok(draft);

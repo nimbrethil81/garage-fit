@@ -313,7 +313,7 @@ test('Tennis entry and player distinguish stable progression anchors from rep an
   await p.run("coachUI.controller.start(pilotDef,['dumbbells'])"); await p.run('coachUI.open()');
   p.run(`function tennisButton(id,text){const visit=node=>node.textContent===text&&node.onclick?node:(node.children||[]).map(visit).find(Boolean);return visit(document.getElementById(id));}`);
   await p.run("tennisButton('coachContent','View today’s workout').onclick()");
-  await p.run("tennisButton('coachPreviewContent','Begin workout').onclick()");
+  await p.run("tennisButton('coachPreviewContent','Start workout').onclick()");
   const support = p.json("generatorState.timeline.map((phase,index)=>({phase,index})).filter(({phase})=>phase.kind==='exercise'&&phase.section==='main'&&phase.exercise.coachAnchor?.requirementId.startsWith('tennis-support-'))");
   assert.ok(support.some(item => item.phase.timed));
   for (const item of support) {

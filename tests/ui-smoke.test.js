@@ -210,3 +210,15 @@ test('Generator preview/player and both fixed players initialise without runtime
   context.startSevenMinuteWorkout();
   assert.equal(vm.runInContext('state.key',context),'sevenMinute');
 });
+
+test('Coach preview reuses the shared Generator preview styles without overriding them', () => {
+  const root=path.join(__dirname,'..'),html=fs.readFileSync(path.join(root,'index.html'),'utf8');
+  const shared=fs.readFileSync(path.join(root,'css/workout-preview.css'),'utf8');
+  assert.match(html,/<link rel="stylesheet" href="css\/workout-preview.css">/);
+  for (const name of ['preview-section-title','preview-list','preview-exercise','preview-prescription','preview-target-label','swap-btn']) assert.match(shared,new RegExp('\\.'+name+'\\b'));
+  // Broad descendant rules on the Coach preview would restyle shared row copy and headings.
+  assert.doesNotMatch(html,/#coachPreviewContent (p|h2)\b/);
+  assert.doesNotMatch(html,/coach-preview-row/,'the prose-only Coach preview rows are retired');
+  assert.match(html,/#coachPreviewContent \.swap-btn\{min-width:44px;min-height:44px\}/,'edit controls keep touch-sized targets');
+  assert.match(html,/\.preview-actions\{display:grid;grid-template-columns:1fr 1\.7fr/,'Coach shares the Generator action row');
+});

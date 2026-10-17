@@ -96,7 +96,7 @@ test('weekly progress counts only credited meaningful Coach work, includes parti
 });
 
 test('an active workout offers return rather than a second preview, and failed recovery remains visible',async()=>{
-  const p=await ui();await start(p);await p.click('View today’s workout');await p.click('Begin workout','coachPreviewContent');
+  const p=await ui();await start(p);await p.click('View today’s workout');await p.click('Start workout','coachPreviewContent');
   const draft=await p.run('pilotStore.loadSessionDraft()');
   await p.run('coachUI.open()');
   assert.ok(p.run("action('Return to workout')"));assert.equal(p.run("action('View today’s workout')"),undefined);
@@ -207,13 +207,13 @@ test('readiness changes today’s plan, rest creates no session, and settings ed
   assert.equal(await p.run('pilotStore.loadSessionDraft()'),null);
   await p.click('Programme settings');await p.click('Cancel event preparation');await p.run('coachUI.back()');
   await p.change('Readiness today (optional)','fresh');
-  await p.click('View today’s workout');await p.click('Begin workout','coachPreviewContent');
+  await p.click('View today’s workout');await p.click('Start workout','coachPreviewContent');
   const live=p.state(),draft=await p.run('pilotStore.loadSessionDraft()');
   await assert.rejects(p.run("coachUI.controller.saveProgrammeSettings({focus:'power'})"),/Save the session/);
   assert.deepEqual(p.state(),live);assert.deepEqual(await p.run('pilotStore.loadSessionDraft()'),draft);
 });
 
-test('Tennis short preview keeps deferred anchors visible while edit mode protects required work',async()=>{
+test('Tennis short preview keeps deferred anchors in Why this workout? while edit mode protects required work',async()=>{
   const p=await ui();await start(p);await p.click('10 min');await p.click('View today’s workout');
   const preview=()=>p.run("copyText('coachPreviewContent')");
   assert.match(preview(),/Not scheduled today/);
@@ -239,7 +239,7 @@ test('10-minute preview and the common player count actual selected anchors with
   const rx=p.json('coachUI.controller.snapshot().preview.plan.prescription');
   const selected=rx.requiredAnchors.filter(item=>initial.anchors.some(anchor=>anchor.requirementId===item.requirementId));
   assert.ok(selected.length>0&&selected.length<4);
-  await p.click('Begin workout','coachPreviewContent');
+  await p.click('Start workout','coachPreviewContent');
   p.run(`const mainIndex=generatorState.timeline.findIndex(phase=>phase.kind==='exercise'&&phase.exercise.coachAnchor?.requirementId===${JSON.stringify(selected[0].requirementId)});enterGeneratedPhase(mainIndex);
     document.getElementById('coachActualLoad').value='12';coachUI.updateActualSummary();`);
   assert.match(p.run("document.getElementById('coachActualSummary').textContent"),/Next confirms:.*12 kg/);
@@ -274,7 +274,7 @@ test('strict preflight infeasibility is a helpful alternative with disabled shor
 });
 
 test('unknown partial coverage and an interrupted session recover once, with local-only history and truthful qualifiers',async()=>{
-  const p=await ui();await start(p);await p.click('10 min');await p.click('View today’s workout');await p.click('Begin workout','coachPreviewContent');
+  const p=await ui();await start(p);await p.click('10 min');await p.click('View today’s workout');await p.click('Start workout','coachPreviewContent');
   await p.run(`(async()=>{const work=coachPlayerTracker().plannedWork().find(item=>item.requirementId?.startsWith('tennis-anchor-'));
     await coachPlayerTracker().recordPartial(work.occurrenceId,{sets:[{reps:null,load:null}],note:'Some work performed; amount unknown'});})()`);
   const q=await ui(p.storage),before=q.state();
@@ -297,7 +297,7 @@ test('General Strength and Build Arms keep overview copy, durations and the comm
     await p.click('Start programme');assert.equal(p.state().programmeDefinitionId,id);
     assert.ok(p.run("action('20 min')"));assert.equal(p.run("action('10 min')"),undefined);
     assert.equal(p.run("field('Readiness today (optional)')"),undefined);
-    await p.click('View today’s workout');assert.ok(p.run("action('Begin workout','coachPreviewContent')"));
+    await p.click('View today’s workout');assert.ok(p.run("action('Start workout','coachPreviewContent')"));
     assert.doesNotMatch(p.run("copyText('coachPreviewContent')"),/Not scheduled today|Capability coverage/);
     assert.equal(p.run("document.getElementById('bottomNav').classList.contains('hidden')"),true);
     await p.run('coachUI.back()');assert.equal(p.run("document.getElementById('bottomNav').classList.contains('hidden')"),false);
@@ -313,4 +313,73 @@ test('a local day change resets transient readiness, while saved Tennis versions
     assert.equal(old.run('coachUI.controller.snapshot().state.programmeDefinitionVersion'),version);
     assert.deepEqual(old.json('coachUI.controller.snapshot().state.anchors'),old.json('pilot.snapshot().state.anchors'));
   }
+});
+
+test('Coach preview uses Generator sections and rows for every phase, with small strength-target labels',async()=>{
+  const p=await ui();await start(p);await p.click('View today’s workout');
+  const preview=p.json('coachUI.controller.snapshot().preview'),workout=preview.workout,rx=preview.plan.prescription;
+  const stable=new Set(p.state().anchors.map(anchor=>anchor.requirementId));
+  const byClass=name=>p.json(`nodes('coachPreviewContent').filter(node=>node.className===${JSON.stringify(name)}).map(node=>node.textContent)`);
+  assert.equal(p.run("nodes('coachPreviewContent').find(node=>node.className==='preview-rounds').textContent"),rx.programmeContext.roleLabel);
+  assert.match(p.run("nodes('coachPreviewContent').find(node=>node.className==='preview-kicker').textContent"),new RegExp('^'+rx.duration+' min · Development'));
+  assert.deepEqual(byClass('preview-section-title').map(title=>title.split(' · ')[0]),['Warm-up','Ramp-up','Main workout','Cool-down']);
+  // Each phase is a shared list whose rows carry the same formatted quantities as the Generator.
+  const lists=p.json("nodes('coachPreviewContent').filter(node=>node.className==='coach-preview-section').map(section=>section.children[1].children.map(row=>[row.className,row.children[1].textContent,row.children[1].children[0].textContent]))");
+  const format=exercise=>p.run(`GarageFitWorkoutPreview.formatPrescription(${JSON.stringify(exercise)})`);
+  for(const [index,phase] of [[0,'warmup'],[1,'rampup'],[3,'cooldown']])
+    assert.deepEqual(lists[index].map(row=>row.slice(1)),workout[phase].exercises.map(exercise=>[exercise.name,format(exercise)]));
+  const mainRows=lists[2].filter(row=>row[0]!=='preview-block-heading'),main=workout.main.blocks.flatMap(block=>block.exercises.map(exercise=>({block,exercise})));
+  assert.equal(lists[2].length-mainRows.length,workout.main.blocks.length);
+  assert.deepEqual(mainRows.map(row=>row[1]),main.map(item=>item.exercise.name));
+  const labels=p.json("nodes('coachPreviewContent').filter(node=>node.className==='preview-list').flatMap(list=>list.children).map(row=>row.children[1]?.children.some(node=>node.className==='preview-prescription preview-target-label'&&node.textContent==='Strength target'))");
+  const targets=main.filter(item=>stable.has(item.exercise.coachAnchor?.requirementId));
+  assert.ok(targets.length>0 && targets.length<main.length,'supporting work is present and unlabelled');
+  assert.equal(labels.filter(Boolean).length,targets.length);
+  targets.forEach(({exercise})=>{
+    const row=mainRows.find(item=>item[1]===exercise.name);
+    const each=exercise.sidedness==='per-side'?' each side':'';
+    assert.equal(row[2],exercise.coachAnchor.plannedTarget.targetSets+' sets × '+exercise.prescription.value+' reps'+each+(exercise.load?' · '+exercise.load:''));
+  });
+  assert.ok(targets.some(({exercise})=>exercise.sidedness==='per-side'),'per-side strength target is represented');
+  const text=p.run("copyText('coachPreviewContent')");
+  assert.match(text,/leave about 2 reps in reserve/);
+  assert.doesNotMatch(text,/Required anchor|Required support|Maintenance ·|Begin workout/);
+  assert.equal(p.json("nodes('coachPreviewContent').filter(node=>node.textContent==='Edit Workout'&&node.onclick).length"),1);
+  assert.equal(p.run("nodes('coachPreviewContent').find(node=>node.className==='preview-actions coach-preview-actions').children.map(node=>node.textContent).join()"),'Edit Workout,Start workout');
+  assert.ok(p.run("action('Back to Coach','coachPreviewContent')"));
+  const why=p.json("(()=>{const why=nodes('coachPreviewContent').find(node=>node.className==='generator-options coach-why');return {open:!!why.open,summary:why.children[0].textContent,text:why.children.slice(1).map(node=>node.textContent).join(' ')};})()");
+  assert.deepEqual([why.open,why.summary],[false,'Why this workout?']);
+  assert.match(why.text,/Last two weeks.*not proven tennis skill improvement/);
+  assert.match(why.text,/Not possible with today’s equipment, space or session limits: Lateral movement/);
+  assert.doesNotMatch(text,/lateral-control|rotational-power/,'internal facet ids are not shown');
+});
+
+test('reopening an unchanged Coach preview keeps the same session; real changes prepare afresh',async()=>{
+  const p=await ui();await start(p);const before=p.state(),durable=[...p.storage.entries()];
+  await p.click('View today’s workout');
+  const first=p.json('coachUI.controller.snapshot().preview.plan.prescription.prescriptionId');
+  await p.click('Edit Workout','coachPreviewContent');await p.click('Swap','coachPreviewContent');
+  const edited=p.json('coachUI.controller.snapshot().preview.workout.main.blocks');
+  p.run("nodes('coachPreviewContent').find(node=>node.className==='generator-options coach-why').open=true;nodes('coachPreviewContent').find(node=>node.className==='generator-options coach-why').ontoggle()");
+  await p.click('Back to Coach','coachPreviewContent');await p.click('View today’s workout');
+  assert.equal(p.json('coachUI.controller.snapshot().preview.plan.prescription.prescriptionId'),first);
+  assert.deepEqual(p.json('coachUI.controller.snapshot().preview.workout.main.blocks'),edited,'edits are kept, not regenerated');
+  assert.equal(p.run("action('Edit Workout','coachPreviewContent')")!==undefined,true,'reopening leaves edit mode');
+  assert.equal(p.run("!!nodes('coachPreviewContent').find(node=>node.className==='generator-options coach-why').open"),false,'Why this workout? starts collapsed');
+  await p.run('coachUI.back()');await p.run('coachUI.open()');await p.click('View today’s workout');
+  assert.equal(p.json('coachUI.controller.snapshot().preview.plan.prescription.prescriptionId'),first,'revisiting Coach reuses an unchanged preview');
+  assert.deepEqual(p.state(),before);assert.deepEqual([...p.storage.entries()],durable);
+  assert.equal(await p.run('pilotStore.loadSessionDraft()'),null);
+  assert.equal((await p.run('pilotStore.listSessionResults()')).results.length,0);
+  await p.run('coachUI.back()');await p.change('Readiness today (optional)','tired');await p.click('View today’s workout');
+  const tired=p.json('coachUI.controller.snapshot().preview.plan.prescription.prescriptionId');
+  assert.notEqual(tired,first,'a changed check-in prepares a new session');
+  await p.run('coachUI.back()');await p.click('Programme settings');await p.change('Training focus','power');await p.click('Save tennis settings');
+  await p.run('coachUI.back()');assert.equal(p.json('coachUI.controller.snapshot().preview'),null,'a settings change invalidates the stale preview');
+  await p.click('View today’s workout');assert.notEqual(p.json('coachUI.controller.snapshot().preview.plan.prescription.prescriptionId'),tired);
+  const settled=p.json('coachUI.controller.snapshot().preview.plan.prescription.prescriptionId');
+  await p.run('coachUI.back()');await p.click('View today’s workout');
+  assert.equal(p.json('coachUI.controller.snapshot().preview.plan.prescription.prescriptionId'),settled);
+  await p.run("uiNow='2026-10-13T08:00:00Z';coachUI.back()");await p.click('View today’s workout');
+  assert.notEqual(p.json('coachUI.controller.snapshot().preview.plan.prescription.prescriptionId'),settled,'a new local day prepares a new session');
 });

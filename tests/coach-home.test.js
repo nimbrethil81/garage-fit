@@ -105,10 +105,10 @@ test('a saved session updates the home count; abandoned work and previews earn n
   await p.click('View today’s workout');
   assert.deepEqual(p.state(), before); assert.deepEqual([...p.storage.entries()], durable, 'a preview writes nothing');
   assert.equal(await p.run('pilotStore.loadSessionDraft()'), null);
-  await p.click('Begin workout', 'coachPreviewContent');
+  await p.click('Start workout', 'coachPreviewContent');
   await p.run("coachUI.showEnd('exit',60)"); await p.run("coachUI.saveFeedback('easy')");
   assert.equal(p.weekly().text, '0 sessions this week', 'ended early without main work');
-  await p.click('View today’s workout'); await p.click('Begin workout', 'coachPreviewContent');
+  await p.click('View today’s workout'); await p.click('Start workout', 'coachPreviewContent');
   await p.run(`(async()=>{const tracker=coachPlayerTracker();const work=tracker.plannedWork().find(item=>item.requirementId==='anchor-squat');
     await tracker.recordAnchor(work.occurrenceId,{status:'completed',sets:[{reps:6,load:12,loadUnit:'kg',loadInterpretation:'total'}]});})()`);
   await p.run("coachUI.showEnd('exit',600)"); await p.run("coachUI.saveFeedback('about-right')");
@@ -148,7 +148,7 @@ test('blocked, paused, active, review-due and switching states keep their routes
   assert.ok(p.has('Resume')); assert.equal(p.has('View today’s workout'), false); assert.ok(p.has('Programme settings'));
   await p.click('Resume'); assert.equal(p.state().status, 'active');
   // Active workout: return rather than a second preview.
-  await p.click('View today’s workout'); await p.click('Begin workout', 'coachPreviewContent');
+  await p.click('View today’s workout'); await p.click('Start workout', 'coachPreviewContent');
   await p.run('coachUI.open()');
   assert.ok(p.has('Return to workout')); assert.equal(p.has('View today’s workout'), false);
   assert.match(p.run("nodes('coachContent').find(node=>node.className==='coach-status').textContent"), /Workout in progress/);

@@ -71,21 +71,16 @@
       return [reason, reasons.filter(value => value !== reason).join(' · ')
         || 'Recent performed work and your training focus guide today’s priorities.'].filter(Boolean).join(' ');
     }
-    function coverage(wrap, summary) {
-      const details = document.createElement('details'), label = document.createElement('summary');
-      label.textContent = 'Capability coverage · last two weeks'; details.append(label);
-      summary.capabilities.forEach(cap => {
-        const observed = cap.coverage === 'observed' ? 'Performed exposure observed' : cap.coverage === 'unknown' ? 'Exposure unknown' : 'No performed exposure observed';
-        const qualifiers = [cap.observations.some(work => work.exposure.confidence === 'unknown') ? 'some work is unmeasured' : null,
-          !cap.achievable ? 'unachievable with today’s equipment and constraints' : null,
-          cap.missingFacets.length ? 'limited coverage: '+cap.missingFacets.join(', ').replaceAll('-',' ')+' unavailable' : null].filter(Boolean);
-        details.append(paragraph(cap.label+' · '+observed+(qualifiers.length ? ' · '+qualifiers.join(' · ') : '')));
-      });
-      if (summary.unclassifiedObservations.length) details.append(paragraph('Some performed work cannot be classified; no capability coverage is assumed for it.'));
-      details.append(paragraph('Exercise exposure describes performed conditioning work, not proven tennis skill improvement. Capabilities overlap; no catch-up debt.'));
-      wrap.append(details);
+    // Concise two-week coverage lines for Why this workout?; Your progress keeps the detail.
+    function coverageSummary(summary) {
+      const names = state => summary.capabilities.filter(cap => cap.coverage === state).map(cap => cap.label).join(', ');
+      const missing = names('not-observed'), unknown = names('unknown');
+      return [missing || unknown ? 'Last two weeks'+(missing ? ' · no performed exposure yet: '+missing : '')+(unknown ? ' · exposure unknown: '+unknown : '')+'.'
+          : 'Last two weeks · every capability has performed exposure.',
+        ...(summary.unclassifiedObservations.length ? ['Some performed work cannot be classified; no capability coverage is assumed for it.'] : []),
+        'Exercise exposure describes performed conditioning work, not proven tennis skill improvement. Capabilities overlap; no catch-up debt. Details are in Your progress.'];
     }
-    return {settingsForm,selectField,whyToday,coverage,focusName: value=>focusNames[value] || value};
+    return {settingsForm,selectField,whyToday,coverageSummary,focusName: value=>focusNames[value] || value};
   }
   root.GarageFitCoachTennisUI = {createViews};
 })(typeof window !== 'undefined' ? window : globalThis);
