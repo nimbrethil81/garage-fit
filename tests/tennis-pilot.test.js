@@ -124,3 +124,23 @@ test('missing equipment today explains omitted anchors or fails safely without i
   }else assert.ok(preview.plan.conflicts.length);
   assert.deepEqual(p.json('pilot.snapshot().state'),before);assert.equal(p.run('pilot.snapshot().results.length'),0);
 });
+
+test('v6 home performed sessions observe lateral control while saved v5 remains pinned',async()=>{
+  for(const frequency of [2,3]) {
+    const r=await simulate({frequency,version:6,weeks:8});
+    assert.equal(r.performed,frequency*8);assert.equal(r.blocked,0);
+    assert.ok(r.coverageWindows.every(w=>w.find(c=>c.id==='lateral-movement').coverage==='observed'));
+    assert.equal(Object.keys(r.roles).length,frequency);
+    assert.ok(r.finalAnchors.every((a,i)=>a.id===r.initialAnchors[i].id&&a.reps>=r.initialAnchors[i].reps));
+  }
+  const {p}=await create({version:5});const before=p.json('pilot.snapshot().state');
+  p.run('pilot.prepare(pilotOptions)');await p.run('pilot.begin().then(t=>pilotTracker=t)');
+  const draft=copy(await p.run('pilotStore.loadSessionDraft()'));
+  const reopened=pilot(p.storage,'tennis-conditioning',6);
+  assert.deepEqual(copy(await reopened.run('pilotStore.loadSessionDraft()')),draft);
+  await reopened.run('pilot.load()');
+  assert.equal(reopened.run('pilot.snapshot().state.programmeDefinitionVersion'),5);
+  assert.deepEqual(reopened.json('pilot.snapshot().state.anchors'),before.anchors);
+  // Existing startup reconciliation finalises interrupted drafts as before.
+  assert.equal(await reopened.run('pilotStore.loadSessionDraft()'),null);
+});

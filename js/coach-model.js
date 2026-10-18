@@ -396,6 +396,8 @@
     equipment: nullable(arrayOf(id)),
     requiredAnchors: nullable(arrayOf(anchorRequirement)),
     preferredAnchors: nullable(arrayOf(anchorRequirement)),
+    // Restricts optional Main only; anchors and preparation retain their contracts.
+    optionalMainExerciseIds: nullable(arrayOf(id)),
     movementPriorities: nullable(arrayOf(movementPriority)),
     bodyRegionPriorities: nullable(arrayOf(bodyRegionPriority)),
     avoidConstraints: nullable(arrayOf(avoidConstraint)),

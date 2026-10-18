@@ -583,7 +583,7 @@ validates and snapshots a version-pinned mapping. It exposes `classifyExercise(i
 `availability({equipment, allowedImpact, smallSpace})`, and
 `summarize(history, {now, focus, programmeInstanceId, includeStandalone, sections,
 equipment, allowedImpact, smallSpace})`. For tennis use
-`GarageFitData.sportCapabilityPolicies.tennis[1]`. No storage, clock, Generator
+the programme's pinned `sportPolicy.version` in `GarageFitData.sportCapabilityPolicies.tennis`. No storage, clock, Generator
 selection or released programme policy is changed.
 
 Summary uses Training History's actual exercise IDs, inclusive `[now − 14 days, now]`,
@@ -603,3 +603,65 @@ adequacy. Overlapping capability values must not be summed; `uniqueExposure` cou
 each mapped occurrence once. Facets distinguish controlled lateral work from
 braking, controlled rotation from rotational power, and general conditioning from
 unproven match repeated efforts. See [the catalogue gap audit](TENNIS_CAPABILITY_AUDIT.md).
+
+### Tennis v6: home movement composition (#159)
+
+New starts select programme v6 and Tennis capability mapping v2. Versions 1–5
+and mapping v1 remain available unchanged. Active references, history and drafts
+continue to resolve their saved definition; there is no automatic migration or
+in-place upgrade. Finishing an old programme and explicitly starting another uses
+the current definition with a new instance and new anchor baselines. This does
+not transfer progression into v6.
+
+Mapping v2 treats a stationary wide-stance Cossack squat and single-step lateral
+lunges (bodyweight or kettlebell, returning to centre) as home-feasible controlled
+lateral loading. Their catalogue difficulty, impact, equipment and dose still
+apply. A comfortable stance/step footprint is necessary. Banded lateral walks and
+skater jumps still require lateral clearance. Only performed eligible work awards
+`lateral-control` exposure; `lateral-braking` remains unavailable in default home
+space. Controlled loading proves neither rapid braking nor court agility.
+Reverse lunge to knee drive maps to lower-body control only, not lateral/power.
+
+The versioned `roleCompositionPolicy` puts each role's capabilities ahead of
+programme-wide gaps. Movement roles first retain their normal limited stable
+anchors, then reserve lateral control and complementary trunk/conditioning/power
+support with full preflight. Strength roles retain responsibility for lower/upper
+coverage; tracking still includes all six capabilities across performed sessions.
+Movement roles use low/medium-impact mapped work, favour core work and exclude
+strength-heavy trunk compounds. Jumping jacks and star jumps are avoided in v6. No catalogue
+entries or persistent settings are added, and rings are not required.
+
+`SessionPrescription.optionalMainExerciseIds` is an optional, bounded allow-list
+for **optional Main only**. Absent/null preserves the existing pool; an empty list
+permits reserved work only. It intersects normal eligibility and protocol rules;
+it cannot admit an otherwise unavailable exercise. Required/preferred anchors,
+preparation and cooldown keep their independent contracts. Assessment, paired
+partners, composition, fallback and generic swaps honour this pool. This small
+constraint is necessary because `lunge` cannot express lateral control and
+`core` alone cannot distinguish mapped trunk work from strength-heavy compounds.
+The Generator contains no sport identities or hardcoded Tennis exercise names.
+
+The workout style stays `strength`: comparable stable anchors remain two-set
+rounds, 20 s exercise rest / 60 s round rest, unchanged targets and load progression.
+Movement roles additionally permit timed intervals through existing constraints;
+only compatible optional exercises can use them. Supporting targets and stable
+anchors remain rounds. No new protocol or timed anchor conversion is introduced.
+Lighter, tired, consolidation and event rules still take precedence over demand.
+When lateral plus complementary support cannot fit, a visible role-specific
+shortfall warning describes the partial/lighter alternative. A wholly unattainable
+role retains the existing feasible-role fallback or rest/conflict behavior.
+
+Reproduce the deterministic before/after grid with:
+
+```sh
+node scripts/audit-tennis-movement.js > /tmp/tennis-movement.json
+```
+
+It compares fresh equivalent states for every configured 2/week and 3/week role,
+v5/v6, seeds 1/29/95, 20/30/45 min and bodyweight/DB/TRX/mixed kit. Each row reports
+actual Main IDs, facets, protocols, prescribed targets, Main/total seconds and
+role-relevant exercise/work-time shares. Bodyweight-only starts truthfully fail
+because the programme still requires a feasible persistent pull anchor; temporary
+bodyweight-only days on an existing programme can offer support without pretending
+the absent anchor was trained. The grid forces each role only for comparison;
+production role rotation remains performed-only and is tested through the tracker.

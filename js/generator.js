@@ -2063,6 +2063,7 @@
   function avoidMatches(exercise, constraint) {
     return constraint.exerciseId?exercise.id===constraint.exerciseId:constraint.pattern?(exercise.patterns||[]).includes(constraint.pattern):exercise.bodyFocus===constraint.bodyRegion;
   }
+  const optionalMainAllowed=(exercise,rx)=>!rx||rx.optionalMainExerciseIds==null||rx.optionalMainExerciseIds.includes(exercise.id);
   function sessionPriorityCredit(exercise, rx, history, catalogue) {
     let score=0;
     for(const priority of prescriptionList(rx,'movementPriorities'))if((exercise.patterns||[]).includes(priority.pattern))score+=({primary:18,secondary:8,maintenance:0})[priority.priority];
@@ -2183,6 +2184,7 @@
     const hardAvoids=prescriptionList(rx,'avoidConstraints').filter(item=>item.importance==='hard');
     const available=Object.values(catalogue).filter(exercise=>!hardAvoids.some(item=>avoidMatches(exercise,item)));
     const eligible=available.filter(exercise=>generatedPhaseEligible(exercise,'main',owned,context.difficulty));
+    const optionalEligible=eligible.filter(exercise=>optionalMainAllowed(exercise,rx));
     const anchors=prescriptionList(rx,'requiredAnchors').concat(prescriptionList(rx,'preferredAnchors'));
     const anchorIds=new Set(anchors.map(anchor=>anchor.exerciseId)),entries=[];
     for(const anchor of anchors){
@@ -2222,7 +2224,7 @@
         else if(allowPair){
           const partner=required.find(other=>other!==entry&&!planned.has(other)&&!other.issues.length&&other.anchor.exerciseId!==entry.anchor.exerciseId&&other.repeats===entry.repeats&&other.protocols.includes(protocol));
           if(partner)candidates.push({block:anchorBlock(protocol,[entry.exercise,partner.exercise],entry.repeats,rest,index),entries:[entry,partner]});
-          const generic=eligible.filter(exercise=>!anchorIds.has(exercise.id)&&!mainFamilyCapReached(exercise,[entry.exercise])&&protocolCompatible(exercise,protocol)&&permittedProtocols(rx,null).includes(protocol)).sort((a,b)=>a.estimatedSeconds-b.estimatedSeconds||a.id.localeCompare(b.id))[0];
+          const generic=optionalEligible.filter(exercise=>!anchorIds.has(exercise.id)&&!mainFamilyCapReached(exercise,[entry.exercise])&&protocolCompatible(exercise,protocol)&&permittedProtocols(rx,null).includes(protocol)).sort((a,b)=>a.estimatedSeconds-b.estimatedSeconds||a.id.localeCompare(b.id))[0];
           if(generic)candidates.push({block:anchorBlock(protocol,[entry.exercise,generic],entry.repeats,rest,index),entries:[entry]});
         }
       }
@@ -2267,7 +2269,7 @@
     reserved.push(...plan.blocks);assessment.hardConflicts.push(...plan.conflicts);
     if(mainSeconds(reserved)>budget.main)conflict(assessment.hardConflicts,'insufficient-main-time',required.map(entry=>entry.anchor.requirementId),required.map(entry=>entry.anchor.exerciseId),{requiredSeconds:mainSeconds(reserved),availableSeconds:budget.main});
     const genericProtocols=permittedProtocols(rx,null);
-    const minimumMain=minimumOptionalBlock(eligible,genericProtocols,rest,context.focus);
+    const minimumMain=minimumOptionalBlock(optionalEligible,genericProtocols,rest,context.focus);
     if(!reserved.length&&!minimumMain)conflict(assessment.hardConflicts,'no-eligible-main',hardAvoids.concat(prescriptionList(rx,'protocolConstraints').filter(item=>item.importance==='hard'&&!item.anchorRequirementId)).map(item=>item.requirementId));
     else if(!reserved.length&&minimumMain.estimatedDurationSeconds>budget.main)conflict(assessment.hardConflicts,'insufficient-main-time',[],minimumMain.exercises.map(exercise=>exercise.id),{requiredSeconds:minimumMain.estimatedDurationSeconds,availableSeconds:budget.main});
     const preferred=[];
@@ -2275,7 +2277,7 @@
       const choices=candidatesFor(entry,reserved.length,false);
       // Preferred paired sets can use an optional partner too; never absorb required work.
       if(entry.protocols.includes('paired_sets')&&!entry.issues.length){
-        const partner=eligible.filter(exercise=>!anchorIds.has(exercise.id)&&!mainFamilyCapReached(exercise,[entry.exercise])&&protocolCompatible(exercise,'paired_sets')&&genericProtocols.includes('paired_sets')).sort((a,b)=>a.estimatedSeconds-b.estimatedSeconds||a.id.localeCompare(b.id))[0];
+        const partner=optionalEligible.filter(exercise=>!anchorIds.has(exercise.id)&&!mainFamilyCapReached(exercise,[entry.exercise])&&protocolCompatible(exercise,'paired_sets')&&genericProtocols.includes('paired_sets')).sort((a,b)=>a.estimatedSeconds-b.estimatedSeconds||a.id.localeCompare(b.id))[0];
         if(partner)choices.push({block:anchorBlock('paired_sets',[entry.exercise,partner],entry.repeats,rest,reserved.length),entries:[entry]});
       }
       choices.sort((a,b)=>Number(!permittedProtocols(rx,entry.anchor,true).includes(a.block.protocol))-Number(!permittedProtocols(rx,entry.anchor,true).includes(b.block.protocol))||simpleRank(a.block.protocol)-simpleRank(b.block.protocol)||a.block.estimatedDurationSeconds-b.block.estimatedDurationSeconds);
@@ -2288,18 +2290,18 @@
     if(mainSeconds(reserved.concat(preferred.map(item=>item.block)))>budget.main)conflict(assessment.softConflicts,'soft-time-budget',preferred.map(item=>item.entry.anchor.requirementId),preferred.map(item=>item.entry.anchor.exerciseId));
     for(const priority of prescriptionList(rx,'movementPriorities').concat(prescriptionList(rx,'bodyRegionPriorities'))){
       const matches=exercise=>priority.pattern?(exercise.patterns||[]).includes(priority.pattern):exercise.bodyFocus===priority.bodyRegion;
-      const possible=eligible.filter(exercise=>matches(exercise)&&genericProtocols.some(protocol=>protocolCompatible(exercise,protocol)));
+      const possible=optionalEligible.filter(exercise=>matches(exercise)&&genericProtocols.some(protocol=>protocolCompatible(exercise,protocol)));
       const covered=reserved.some(block=>block.exercises.some(matches));
       if(!covered&&(!possible.length||mainSeconds(reserved)+BLOCK_TRANSITION_SECONDS+Math.min(...possible.map(exercise=>exercise.estimatedSeconds))>budget.main))conflict(assessment.softConflicts,'priority-unavailable',[priority.requirementId],possible.map(exercise=>exercise.id));
     }
     for(const constraint of prescriptionList(rx,'avoidConstraints').filter(item=>item.importance==='soft')){
       const matches=reserved.flatMap(block=>block.exercises).filter(exercise=>avoidMatches(exercise,constraint));
       if(matches.length)conflict(assessment.softConflicts,'soft-avoid-required-work',[constraint.requirementId],matches.map(exercise=>exercise.id));
-      else if(!reserved.length&&eligible.length&&!eligible.some(exercise=>!avoidMatches(exercise,constraint)&&genericProtocols.some(protocol=>protocolCompatible(exercise,protocol))))conflict(assessment.softConflicts,'soft-avoid-unavoidable',[constraint.requirementId],eligible.map(exercise=>exercise.id));
+      else if(!reserved.length&&optionalEligible.length&&!optionalEligible.some(exercise=>!avoidMatches(exercise,constraint)&&genericProtocols.some(protocol=>protocolCompatible(exercise,protocol))))conflict(assessment.softConflicts,'soft-avoid-unavoidable',[constraint.requirementId],eligible.map(exercise=>exercise.id));
     }
     for(const constraint of prescriptionList(rx,'protocolConstraints').filter(item=>item.importance==='soft')){
       const blocks=reserved.filter(block=>!constraint.anchorRequirementId||block.exercises.some(exercise=>exercise.coachAnchor&&exercise.coachAnchor.requirementId===constraint.anchorRequirementId));
-      if(blocks.some(block=>!constraint.allowedProtocols.includes(block.protocol))||!constraint.anchorRequirementId&&!minimumOptionalBlock(eligible,genericProtocols.filter(protocol=>constraint.allowedProtocols.includes(protocol)),rest,context.focus))conflict(assessment.softConflicts,'soft-protocol-conflict',[constraint.requirementId],blocks.flatMap(block=>block.exercises.map(exercise=>exercise.id)));
+      if(blocks.some(block=>!constraint.allowedProtocols.includes(block.protocol))||!constraint.anchorRequirementId&&!minimumOptionalBlock(optionalEligible,genericProtocols.filter(protocol=>constraint.allowedProtocols.includes(protocol)),rest,context.focus))conflict(assessment.softConflicts,'soft-protocol-conflict',[constraint.requirementId],blocks.flatMap(block=>block.exercises.map(exercise=>exercise.id)));
     }
     if(rx.variationPreference){
       const recent=new Set(recentExerciseIds(context.history)),repeated=reserved.flatMap(block=>block.exercises).filter(exercise=>recent.has(exercise.id));
@@ -2337,7 +2339,8 @@
       // A caller-supplied prefix must retain every reserved required occurrence unchanged.
       const requiredPrefix=preceding.filter(block=>block.exercises.some(ex=>ex.coachAnchor&&ex.coachAnchor.importance==='required'));
       if(requiredPrefix.length!==prepared.reserved.length||prepared.reserved.some(required=>!requiredPrefix.some(block=>root.GarageFitCoachModel.sameRecord(block,required))))return null;
-      if(preceding.some(block=>prescriptionList(rx,'protocolConstraints').some(item=>item.importance==='hard'
+      if(preceding.some(block=>block.exercises.some(ex=>!ex.coachAnchor&&!optionalMainAllowed(ex,rx))
+        ||prescriptionList(rx,'protocolConstraints').some(item=>item.importance==='hard'
         &&(!item.anchorRequirementId||block.exercises.some(ex=>ex.coachAnchor&&ex.coachAnchor.requirementId===item.anchorRequirementId))
         &&!item.allowedProtocols.includes(block.protocol))||block.exercises.some(ex=>prescriptionList(rx,'avoidConstraints').some(item=>item.importance==='hard'&&avoidMatches(catalogue[ex.id],item)))))return null;
     }
@@ -2346,7 +2349,7 @@
     if(minutes<1)return null;
     const anchorIds=new Set(rx?prescriptionList(rx,'requiredAnchors').concat(prescriptionList(rx,'preferredAnchors')).map(anchor=>anchor.exerciseId):[]);
     const eligible=Object.values(catalogue).filter(exercise=>generatedPhaseEligible(exercise,'main',owned,difficulty)
-      &&emomExerciseEligible(exercise)&&!anchorIds.has(exercise.id)
+      &&emomExerciseEligible(exercise)&&!anchorIds.has(exercise.id)&&optionalMainAllowed(exercise,rx)
       &&!(rx&&prescriptionList(rx,'avoidConstraints').some(item=>item.importance==='hard'&&avoidMatches(exercise,item))))
       .sort((a,b)=>a.id.localeCompare(b.id));
     const prior=preceding.flatMap(block=>block.exercises),state={blocks:preceding,exercises:prior,usedIds:new Set(prior.map(ex=>ex.id)),
@@ -2369,7 +2372,7 @@
     const {rx,context,catalogue,eligible,budget,rest}=prepared,blocks=jsonCopy(prepared.reserved);
     const anchorIds=new Set(prescriptionList(rx,'requiredAnchors').concat(prescriptionList(rx,'preferredAnchors')).map(anchor=>anchor.exerciseId));
     const hardProtocols=permittedProtocols(rx,null),softProtocols=permittedProtocols(rx,null,true);
-    const generic=eligible.filter(exercise=>!anchorIds.has(exercise.id)&&hardProtocols.some(protocol=>protocolCompatible(exercise,protocol)));
+    const generic=eligible.filter(exercise=>optionalMainAllowed(exercise,rx)&&!anchorIds.has(exercise.id)&&hardProtocols.some(protocol=>protocolCompatible(exercise,protocol)));
     // Preferred anchors take a bounded scoring advantage in a normal random shortlist.
     // Only after winning that optional selection do their exact targets reserve time.
     for(const {entry,block} of prepared.preferred){
@@ -2385,7 +2388,7 @@
     const requiredIds=new Set(prescriptionList(rx,'requiredAnchors').map(anchor=>anchor.exerciseId));
     // If a preferred target is missed, its catalogue exercise remains optional. Selecting
     // that ordinary dose cannot be reported as satisfying the preferred anchor target.
-    const optional=eligible.filter(exercise=>!requiredIds.has(exercise.id)&&!protectedIds.has(exercise.id)&&hardProtocols.some(protocol=>protocolCompatible(exercise,protocol)));
+    const optional=eligible.filter(exercise=>optionalMainAllowed(exercise,rx)&&!requiredIds.has(exercise.id)&&!protectedIds.has(exercise.id)&&hardProtocols.some(protocol=>protocolCompatible(exercise,protocol)));
     for(let attempt=0;attempt<10;attempt++){
       const state=prescriptionState(jsonCopy(reserved),prepared,history);
       let remaining=budget.main-mainSeconds(state.blocks)-(state.blocks.length?BLOCK_TRANSITION_SECONDS:0);
@@ -2452,6 +2455,8 @@
   function reconcileSessionPrescription(workout, rx, assessment) {
     const blocks=mainBlocks(workout),mainExercises=blocks.flatMap(block=>block.exercises);
     const allExercises=mainExercises.concat(...['warmup','rampup','cooldown'].map(section=>workout[section].exercises));
+    if(mainExercises.some(exercise=>!exercise.coachAnchor&&!optionalMainAllowed(exercise,rx)))
+      throw new SessionPrescriptionError({...assessment,status:'infeasible',hardConflicts:[{code:'optional-main-pool-conflict',requirementIds:[],exerciseIds:mainExercises.filter(exercise=>!exercise.coachAnchor&&!optionalMainAllowed(exercise,rx)).map(exercise=>exercise.id)}]});
     const placements=[];
     if(rx.mainTimeLimitSeconds!=null&&workout.main.estimatedDurationSeconds>rx.mainTimeLimitSeconds)hardTimingConflict('main-time-limit-exceeded',workout.main.estimatedDurationSeconds,rx.mainTimeLimitSeconds);
     if(rx.maximumDurationSeconds!=null&&workout.estimatedSeconds>rx.maximumDurationSeconds)hardTimingConflict('maximum-duration-exceeded',workout.estimatedSeconds,rx.maximumDurationSeconds);
@@ -2519,7 +2524,7 @@
   function generatePrescribedWorkout(options) {
     const prepared=prepareSessionPrescription(options),{assessment,context,rx}=prepared;
     if(assessment.status==='infeasible')throw new SessionPrescriptionError(assessment);
-    const hasRequirements=['requiredAnchors','preferredAnchors','movementPriorities','bodyRegionPriorities','avoidConstraints','protocolConstraints'].some(key=>prescriptionList(rx,key).length)||rx.variationPreference||rx.mainTimeLimitSeconds!=null||rx.maximumDurationSeconds!=null;
+    const hasRequirements=['requiredAnchors','preferredAnchors','movementPriorities','bodyRegionPriorities','avoidConstraints','protocolConstraints'].some(key=>prescriptionList(rx,key).length)||rx.optionalMainExerciseIds!=null||rx.variationPreference||rx.mainTimeLimitSeconds!=null||rx.maximumDurationSeconds!=null;
     // An empty prescription can use the exact ordinary flow, including its RNG consumption.
     if(!hasRequirements){
       const workout=generateWorkout(context);
@@ -2624,7 +2629,7 @@
     if(block.occurrenceTargets)eligible=eligible.filter(exercise=>!validateOccurrenceTargets(replaced(exercise),catalogue).length);
     if(workout.sessionPrescription){
       const rx=workout.sessionPrescription,budget=prescriptionBudget(rx,workout.duration);
-      eligible=eligible.filter(exercise=>!prescriptionList(rx,'avoidConstraints').some(item=>item.importance==='hard'&&avoidMatches(exercise,item))&&
+      eligible=eligible.filter(exercise=>optionalMainAllowed(exercise,rx)&&!prescriptionList(rx,'avoidConstraints').some(item=>item.importance==='hard'&&avoidMatches(exercise,item))&&
         !prescriptionList(rx,'requiredAnchors').some(item=>item.exerciseId===exercise.id)&&
         mainSeconds(blocks)-estimateBlockDuration(block)+estimateBlockDuration(replaced(exercise))<=budget.main
         && (rx.maximumDurationSeconds==null || workout.estimatedSeconds-estimateBlockDuration(block)
