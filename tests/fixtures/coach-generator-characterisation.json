@@ -47,10 +47,11 @@
     "cooldown pigeon-stretch,side-stretch,kneeling-hamstring,frog-stretch,trx-lean-back-sink"
   ],
   "20 strength normal default (no options)": [
-    "warmup standing-knee-curls,arm-side-circles,marching-on-the-spot,side-step-touches,leg-swings-forward-back",
+    "warmup standing-knee-curls,shoulder-rolls,marching-on-the-spot,calf-raises,side-step-touches",
     "rampup bum-kicks,goblet-squat,dumbbell-romanian-deadlift",
-    "rounds | strength | {\"rounds\":4,\"exerciseRestSeconds\":20,\"roundRestSeconds\":60} :: goblet-squat@reps:10,dumbbell-bent-over-row@reps:10,dumbbell-shoulder-press@reps:10,bulgarian-split-squat@unilateral-reps:8",
-    "cooldown childs-pose,chest-opener,glute-stretch,runners-stretch,full-body-stretch"
+    "paired_sets | strength | {\"sets\":4,\"betweenExercisesSeconds\":10,\"betweenSetsSeconds\":60} :: dumbbell-sumo-squat@reps:10,dumbbell-romanian-deadlift@reps:10",
+    "timed_intervals | accessory | {\"workSeconds\":40,\"transitionSeconds\":20,\"cycles\":2} :: bench-dips@reps:10,hollow-body-hold@timed:20,walking-lunge@reps:20",
+    "cooldown chest-opener,side-stretch,childs-pose,glute-stretch,lying-torso-twist"
   ],
   "45 strength hard lower full kit": [
     "warmup standing-knee-curls,arm-side-circles,shoulder-rolls,heel-toe-rocks,marching-on-the-spot,trx-lunge-warmup,trx-lateral-weight-shift,shallow-knee-bends,bum-kicks",

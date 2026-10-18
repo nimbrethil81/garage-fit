@@ -183,9 +183,10 @@ test('Coach hard pyramid constraints reserve optional work safely; anchors canno
 });
 
 test('bounded automatic seeds reach real pyramids at 10–45 minutes, plus intensity/reverse variants, deterministically',()=>{
-  const cases=[[10,59],[15,59],[20,148],[30,58],[45,15]].map(([duration,seed])=>({duration,seed,equipment:kit}));
+  // Optional complexes shift the draw stream; these bounded seeds still reach each variant.
+  const cases=[[10,59],[15,59],[20,161],[30,23],[45,15]].map(([duration,seed])=>({duration,seed,equipment:kit}));
   cases.push({duration:10,seed:74,focus:'balanced',equipment:kit},
-    {duration:30,seed:50,bodyFocus:'upper',equipment:['trx']},{duration:30,seed:54,bodyFocus:'upper',equipment:['trx']});
+    {duration:30,seed:54,bodyFocus:'upper',equipment:['trx']},{duration:45,seed:38,bodyFocus:'upper',equipment:['trx']});
   const kinds=new Set();
   for(const {seed,...context} of cases){
     const options={catalogue:C,focus:'strength',...context},w=G.generate({...options,random:random(seed)});

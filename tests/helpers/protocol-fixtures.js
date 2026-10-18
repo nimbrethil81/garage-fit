@@ -3,7 +3,7 @@
 const copy = value => JSON.parse(JSON.stringify(value));
 
 // One canonical block per protocol, including per-side work where the protocol allows it.
-function blockFixtures(catalogue,{emom=false,ladder=false,pyramid=false}={}) {
+function blockFixtures(catalogue,{emom=false,ladder=false,pyramid=false,complex=false}={}) {
   const ex = id => copy(catalogue[id]);
   const blocks={
     rounds: {id: 'main-1', protocol: 'rounds', intent: 'strength',
@@ -23,6 +23,10 @@ function blockFixtures(catalogue,{emom=false,ladder=false,pyramid=false}={}) {
     prescription:{repSteps:[2,4,6,8],exerciseRestSeconds:15,stepRestSeconds:45}};
   if(pyramid)blocks.pyramid={id:'main-6',protocol:'pyramid',intent:'strength',exercises:[ex('trx-row')],
     prescription:{steps:[{reps:4,relativeLoad:'heavier'},{reps:6,relativeLoad:'medium'},{reps:8,relativeLoad:'lighter'}],stepRestSeconds:90}};
+  // One standing dumbbell setup; the final movement is timed.
+  if(complex)blocks.complex={id:'main-7',protocol:'complex',intent:'accessory',
+    exercises:[ex('dumbbell-hammer-curl'),ex('dumbbell-shoulder-press'),ex('dumbbell-wood-chop')],
+    prescription:{sequences:3,targets:[{type:'reps',value:8},{type:'reps',value:8},{type:'timed',value:30}],changeoverSeconds:10,sequenceRestSeconds:75}};
   return blocks;
 }
 

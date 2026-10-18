@@ -67,7 +67,8 @@
   // Main block protocol structure. A block prescription describes structure only: one repeat
   // count (`repeatKey`) plus the protocol conditions (`conditionFields`) that make two
   // performances comparable. Each resolved exercise step records its repetition in `stepKey`,
-  // one of the positions Session Tracker occurrence ids encode (round, set, cycle, minute or ladderStep).
+  // one of the positions Session Tracker occurrence ids encode (round, set, cycle, minute, ladderStep,
+  // pyramidStep or complexSequence).
   // Training History (js/training-history.js) and the Coach model (js/coach-model.js) keep
   // their own copies of this vocabulary; tests/protocol-contracts.test.js fails if they drift.
   // See docs/WORKOUT_PROTOCOLS.md before adding a protocol.
@@ -77,14 +78,15 @@
     timed_intervals:Object.freeze({repeatKey:'cycles',stepKey:'cycle',conditionFields:Object.freeze(['workSeconds','transitionSeconds'])}),
     emom:Object.freeze({repeatKey:'minutes',stepKey:'minute',conditionFields:Object.freeze(['slotSeconds','targets'])}),
     ladder:Object.freeze({repeatKey:'repSteps',stepKey:'ladderStep',conditionFields:Object.freeze(['exerciseRestSeconds','stepRestSeconds'])}),
-    pyramid:Object.freeze({repeatKey:'steps',stepKey:'pyramidStep',conditionFields:Object.freeze(['stepRestSeconds'])})
+    pyramid:Object.freeze({repeatKey:'steps',stepKey:'pyramidStep',conditionFields:Object.freeze(['stepRestSeconds'])}),
+    complex:Object.freeze({repeatKey:'sequences',stepKey:'complexSequence',conditionFields:Object.freeze(['targets','changeoverSeconds','sequenceRestSeconds'])})
   });
   const MAIN_PROTOCOLS = new Set(Object.keys(PROTOCOL_SHAPES));
   const PROTOCOL_REPEAT_KEYS = Object.values(PROTOCOL_SHAPES).map(shape=>shape.repeatKey);
   // Generator policy: the protocols generation may choose by itself (standalone blocks and Coach
   // optional blocks), in weighted-pick order. A protocol can be accepted in the domain above
   // before it is auto-selected; adding it here is a deliberate selection change.
-  const GENERATED_PROTOCOLS = Object.freeze(['rounds','paired_sets','timed_intervals','emom','ladder','pyramid']);
+  const GENERATED_PROTOCOLS = Object.freeze(['rounds','paired_sets','timed_intervals','emom','ladder','pyramid','complex']);
   const MAIN_INTENTS = new Set(['strength','conditioning','accessory','finisher']);
   const MAIN_ROLES = new Set(['primary','supporting']);
   const BLOCK_TRANSITION_SECONDS = 3;
@@ -92,6 +94,10 @@
   const EMOM_POLICY = Object.freeze({slotSeconds:60,maxMinutes:12,maxExercises:3,maxWorkSeconds:40});
   const LADDER_POLICY = Object.freeze({maxSteps:5,maxReps:12,maxTotalReps:36,maxWorkSeconds:120,maxExercises:2});
   const PYRAMID_POLICY = Object.freeze({maxSteps:5,maxReps:12,maxTotalReps:40,maxWorkSeconds:180,minRestSeconds:60,intensityRestSeconds:90,maxRestSeconds:120});
+  // A complex is two or three movements done back to back on one setup, then recovery.
+  // Targets are per movement and never exceed the catalogue dose or these short bounds.
+  const COMPLEX_POLICY = Object.freeze({minExercises:2,maxExercises:3,minSequences:2,maxSequences:4,minReps:3,maxReps:8,
+    minTimedSeconds:15,maxTimedSeconds:30,maxChangeoverSeconds:15,minSequenceRestSeconds:60,maxSequenceRestSeconds:120,maxSequenceWorkSeconds:90,maxTotalWorkSeconds:240});
   const VALID_IMPACT_LEVELS = new Set(['low','medium','high']);
   const PRESCRIPTION_MODE_BY_TYPE = { 'timed':'time', 'unilateral-timed':'time', 'reps':'reps', 'unilateral-reps':'reps' };
   // Equipment diversity targets apply only to the Main phase, and only when enough of the
@@ -560,6 +566,11 @@
         if(issues.length)throw new Error('Invalid pyramid block '+block.id+': '+issues.join(', '));
         block.prescription.steps=block.prescription.steps.map(step=>({...step}));
       }
+      if(block.protocol==='complex'){
+        const issues=validateComplexBlock(block);
+        if(issues.length)throw new Error('Invalid complex block '+block.id+': '+issues.join(', '));
+        block.prescription.targets=block.prescription.targets.map(target=>({...target}));
+      }
       block.exercises=(block.exercises||[]).map(copyExercise);
       if(block.protocol==='rounds'){
         block.prescription.rounds=block.prescription.rounds||block.rounds||1;
@@ -572,7 +583,7 @@
       if(targetIssues.length)throw new Error('Invalid occurrence targets in '+block.id+': '+targetIssues.join(', '));
       if(block.occurrenceTargets)block.occurrenceTargets=JSON.parse(JSON.stringify(block.occurrenceTargets));
       const estimate=estimateBlockDuration(block);
-      block.estimatedDurationSeconds=['emom','ladder','pyramid'].includes(block.protocol)||block.occurrenceTargets?estimate:Number.isFinite(block.estimatedDurationSeconds)?block.estimatedDurationSeconds:Number.isFinite(block.estimatedSeconds)?block.estimatedSeconds:estimate;
+      block.estimatedDurationSeconds=['emom','ladder','pyramid','complex'].includes(block.protocol)||block.occurrenceTargets?estimate:Number.isFinite(block.estimatedDurationSeconds)?block.estimatedDurationSeconds:Number.isFinite(block.estimatedSeconds)?block.estimatedSeconds:estimate;
       block.estimatedSeconds=block.estimatedDurationSeconds;
       return block;
     });
@@ -580,7 +591,7 @@
     workout.schemaVersion=Math.max(2,Number(workout.schemaVersion)||0);
     workout.main={blocks,transitionSeconds:BLOCK_TRANSITION_SECONDS,estimatedDurationSeconds:blockSeconds+BLOCK_TRANSITION_SECONDS*Math.max(0,blocks.length-1)};
     workout.blocks=workout.main.blocks;
-    if(blocks.some(block=>block.occurrenceTargets||['ladder','pyramid'].includes(block.protocol))){
+    if(blocks.some(block=>block.occurrenceTargets||['ladder','pyramid','complex'].includes(block.protocol))){
       const preparation=['warmup','rampup','cooldown'].map(section=>workout[section]&&workout[section].estimatedSeconds);
       if(preparation.every(Number.isFinite))workout.estimatedSeconds=preparation.reduce((sum,seconds)=>sum+seconds,0)+workout.main.estimatedDurationSeconds;
     }
@@ -592,6 +603,7 @@
     if (protocol==='emom') return emomExerciseEligible(exercise);
     if (protocol==='ladder') return ladderExerciseEligible(exercise);
     if (protocol==='pyramid') return pyramidExerciseEligible(exercise);
+    if (protocol==='complex') return complexExerciseEligible(exercise);
     if (Array.isArray(exercise.mainProtocols)) return exercise.mainProtocols.includes(protocol);
     if (protocol==='timed_intervals') return exercise.sidedness!=='per-side' && !!(exercise.prescription&&exercise.prescription.type&&exercise.prescription.type.includes('timed'));
     return protocol==='rounds'||protocol==='paired_sets';
@@ -750,6 +762,89 @@
     return [...new Set(issues)];
   }
 
+  // Complex movements stay controlled and short: no high impact, hard technique,
+  // per-side work, hanging, barbells or Heavy loads. Timed work keeps its measured timer.
+  function complexExerciseEligible(exercise) {
+    if(!exercise||typeof exercise.id!=='string'||!exercise.generator||!exercise.main||exercise.coachAnchor)return false;
+    if(!['easy','moderate'].includes(exercise.difficulty)||!['low','medium'].includes(exercise.impact)
+      ||!['bilateral','alternating','none'].includes(exercise.sidedness)||exercise.unilateral
+      ||!['standing','floor','supported'].includes(exercise.bodyPosition))return false;
+    if(!Array.isArray(exercise.mainProtocols)||!exercise.mainProtocols.includes('rounds')
+      ||!Array.isArray(exercise.equipment)||!exercise.equipment.every(Array.isArray)
+      ||exercise.equipment.flat().includes('barbell')||exercise.load==='Heavy')return false;
+    const p=exercise.prescription||{};
+    if(p.type==='reps')return Number.isInteger(p.value)&&p.value>=COMPLEX_POLICY.minReps
+      &&Number.isFinite(exercise.estimatedSeconds)&&exercise.estimatedSeconds>0;
+    return p.type==='timed'&&Number.isFinite(p.value)&&p.value>=COMPLEX_POLICY.minTimedSeconds;
+  }
+  // The same equipment requirement means one setup serves every movement.
+  const complexSetupKey=exercise=>JSON.stringify((exercise.equipment||[]).map(group=>group.slice().sort()).sort());
+  const complexDemanding=exercise=>exercise.impact==='medium'||exercise.cardio>=4;
+  // Continuity and fatigue rules for an ordered sequence of eligible movements: one setup,
+  // body position and load; no shared pattern or capped family; at most one higher-impact
+  // or high-cardio movement, two moderate-technique movements and two of one body region.
+  function complexSequenceIssues(exercises) {
+    const issues=[];
+    exercises.forEach((exercise,index)=>{
+      const first=exercises[0],earlier=exercises.slice(0,index);
+      if(!index)return;
+      if(complexSetupKey(exercise)!==complexSetupKey(first))issues.push('setup-change');
+      if(exercise.bodyPosition!==first.bodyPosition)issues.push('position-change');
+      if((exercise.load||null)!==(first.load||null))issues.push('load-change');
+      if(earlier.some(item=>sharedPatterns(item,exercise).length))issues.push('shared-pattern');
+      if(mainFamilyCapReached(exercise,earlier))issues.push('family-cap');
+    });
+    if(exercises.filter(complexDemanding).length>1)issues.push('fatigue');
+    if(exercises.some(exercise=>exercises.filter(item=>item.bodyFocus===exercise.bodyFocus).length>2))issues.push('local-fatigue');
+    if(exercises.filter(exercise=>exercise.difficulty!=='easy').length>2)issues.push('technical');
+    return [...new Set(issues)];
+  }
+  function complexDefaultTarget(exercise) {
+    const p=exercise.prescription;
+    return {type:p.type,value:Math.min(p.value,p.type==='timed'?COMPLEX_POLICY.maxTimedSeconds:COMPLEX_POLICY.maxReps)};
+  }
+  function complexTargetSeconds(exercise,target) {
+    return target.type==='timed'?target.value:Math.ceil(exercise.estimatedSeconds*target.value/exercise.prescription.value);
+  }
+  // The one complex validator for normalisation, estimation, resolution, swaps and Main
+  // validation. Targets align with the ordered movements; the catalogue, when supplied,
+  // prevents copied metadata from weakening eligibility or continuity.
+  function validateComplexBlock(block, catalogue) {
+    const issues=[],p=block&&block.prescription||{},exercises=block&&block.exercises,policy=COMPLEX_POLICY;
+    if(!block||block.protocol!=='complex')issues.push('invalid-protocol');
+    if(Object.keys(p).some(key=>!['sequences','targets','changeoverSeconds','sequenceRestSeconds'].includes(key)))issues.push('invalid-prescription-fields');
+    if(!Number.isInteger(p.sequences)||p.sequences<policy.minSequences||p.sequences>policy.maxSequences)issues.push('invalid-sequences');
+    if(!Number.isFinite(p.changeoverSeconds)||p.changeoverSeconds<0||p.changeoverSeconds>policy.maxChangeoverSeconds)issues.push('invalid-changeover');
+    if(!Number.isFinite(p.sequenceRestSeconds)||p.sequenceRestSeconds<policy.minSequenceRestSeconds||p.sequenceRestSeconds>policy.maxSequenceRestSeconds)issues.push('invalid-rest');
+    if(block&&block.occurrenceTargets!==undefined)issues.push('complex-occurrence-overrides');
+    if(!Array.isArray(exercises)||exercises.length<policy.minExercises||exercises.length>policy.maxExercises
+      ||new Set(exercises.map(ex=>ex&&ex.id)).size!==exercises.length)return issues.concat('invalid-exercises');
+    if(!Array.isArray(p.targets)||p.targets.length!==exercises.length)issues.push('invalid-targets');
+    const sources=exercises.map(exercise=>catalogue?catalogue[exercise&&exercise.id]:exercise);
+    let eligible=true;
+    exercises.forEach((exercise,index)=>{
+      const source=sources[index];
+      if(!complexExerciseEligible(exercise)||!complexExerciseEligible(source)){issues.push('ineligible-exercise:'+index);eligible=false;return;}
+      const target=Array.isArray(p.targets)&&p.targets[index];
+      for(const ex of [source,exercise]){
+        const base=ex.prescription,timed=base.type==='timed';
+        if(!plainTarget(target)||Object.keys(target).some(key=>!['type','value'].includes(key))||target.type!==base.type
+          ||!Number.isFinite(target.value)||target.value>base.value||!timed&&!Number.isInteger(target.value)
+          ||target.value<(timed?policy.minTimedSeconds:policy.minReps)||target.value>(timed?policy.maxTimedSeconds:policy.maxReps))issues.push('invalid-target:'+index);
+      }
+    });
+    if(!eligible)return [...new Set(issues)];
+    for(const list of [sources,exercises])issues.push(...complexSequenceIssues(list));
+    if(Array.isArray(p.targets)&&!issues.some(issue=>issue.startsWith('invalid-target'))){
+      for(const list of [sources,exercises]){
+        const work=list.reduce((sum,exercise,index)=>sum+complexTargetSeconds(exercise,p.targets[index]),0);
+        if(work>policy.maxSequenceWorkSeconds)issues.push('unsafe-sequence-work');
+        if(Number.isInteger(p.sequences)&&work*p.sequences>policy.maxTotalWorkSeconds)issues.push('unsafe-volume');
+      }
+    }
+    return [...new Set(issues)];
+  }
+
   function weightedPick(items, random) {
     const viable=items.filter(item=>item.weight>0);
     if(!viable.length)return null;
@@ -794,10 +889,10 @@
 
   function protocolWeights(focus, intent, remainingSeconds, eligible, state) {
     const base=focus==='strength'
-      ? {rounds:5,paired_sets:9,timed_intervals:2,emom:2,ladder:2,pyramid:1}
+      ? {rounds:5,paired_sets:9,timed_intervals:2,emom:2,ladder:2,pyramid:1,complex:1}
       : focus==='cardio'
-        ? {rounds:8,paired_sets:2,timed_intervals:10,emom:4,ladder:1}
-        : {rounds:7,paired_sets:7,timed_intervals:7,emom:3,ladder:2,pyramid:1};
+        ? {rounds:8,paired_sets:2,timed_intervals:10,emom:4,ladder:1,complex:1}
+        : {rounds:7,paired_sets:7,timed_intervals:7,emom:3,ladder:2,pyramid:1,complex:1};
     if(intent==='strength') { base.paired_sets+=4;base.timed_intervals-=1; }
     if(intent==='conditioning'||intent==='finisher') { base.timed_intervals+=5;base.rounds+=2;base.paired_sets-=1; }
     if(intent==='accessory') { base.paired_sets+=3;base.rounds+=1; }
@@ -814,11 +909,23 @@
       if(protocol==='ladder'&&(remainingSeconds<120||remainingSeconds>900||state.blocks.some(block=>block.protocol==='ladder')))return {value:protocol,weight:0};
       if(protocol==='pyramid'&&(focus==='cardio'||!['strength','accessory'].includes(intent)||remainingSeconds<150||remainingSeconds>720
         ||state.blocks.some(block=>block.protocol==='pyramid')))return {value:protocol,weight:0};
+      // Complexes follow an established first block (longer, multi-block sessions), once.
+      if(protocol==='complex'&&(!state.blocks.length||remainingSeconds<240||remainingSeconds>720
+        ||state.blocks.some(block=>block.protocol==='complex')||!complexPairAvailable(eligible)))return {value:protocol,weight:0};
       // Variety is deliberately a modest tie-breaker, below focus and viability.
       if(previous&&previous.protocol!==protocol)weight+=1;
       if((state.recentProtocols||[]).includes(protocol))weight-=.5;
       return {value:protocol,weight:Math.max(0,weight)};
     });
+  }
+
+  const complexPairs=new WeakMap();
+  function complexPairAvailable(eligible) {
+    if(!complexPairs.has(eligible)){
+      const pool=eligible.filter(complexExerciseEligible);
+      complexPairs.set(eligible,pool.some((first,index)=>pool.slice(index+1).some(second=>!complexSequenceIssues([first,second]).length)));
+    }
+    return complexPairs.get(eligible);
   }
 
   function scoreIntent(exercise, intent) {
@@ -854,6 +961,17 @@
       const unselected=eligible.filter(ex=>!selected.some(item=>item.id===ex.id));
       const compatible=narrow(stages,'protocol',unselected,unselected.filter(ex=>protocolCompatible(ex,protocol)));
       let candidates=narrow(stages,'family-cap',compatible,compatible.filter(ex=>!mainFamilyCapReached(ex,mainSoFar)));
+      // A complex grows only by fresh movements that keep one setup and safe transitions.
+      // Its narrow pool cannot outweigh Main's reuse and adjacent-pattern safeguards, so they
+      // are hard here; the first movement must also have at least one such partner.
+      if(protocol==='complex'){
+        const fresh=candidates.filter(ex=>!state.usedIds.has(ex.id));
+        const lastMain=state.exercises[state.exercises.length-1];
+        candidates=narrow(stages,'complex-continuity',candidates,fresh.filter(ex=>selected.length
+          ?!complexSequenceIssues(selected.concat(ex)).length
+          :!sharedPatterns(lastMain,ex).some(pattern=>MAJOR_REPEAT_PATTERNS.has(pattern))
+            &&fresh.some(other=>other.id!==ex.id&&!complexSequenceIssues([ex,other]).length)));
+      }
       if(!candidates.length)break;
       // The route narrows this slot to the accessories that passed every filter, when at least
       // `minCandidates` remain; otherwise the slot is filled as normal.
@@ -975,7 +1093,7 @@
     if(!block||!Array.isArray(block.exercises)||!block.exercises.length)return 0;
     if(block.protocol&&!MAIN_PROTOCOLS.has(block.protocol))return 0;
     if(validateOccurrenceTargets(block).length)return 0;
-    if(['ladder','pyramid'].includes(block.protocol))return resolveBlockSteps(block).reduce((sum,step)=>sum+(step.kind==='exercise'?step.estimatedSeconds:step.seconds),0);
+    if(['ladder','pyramid','complex'].includes(block.protocol))return resolveBlockSteps(block).reduce((sum,step)=>sum+(step.kind==='exercise'?step.estimatedSeconds:step.seconds),0);
     if(block.occurrenceTargets&&block.protocol!=='emom')return resolveBlockSteps(block).reduce((sum,step)=>sum+(step.kind==='exercise'?(step.estimatedSeconds??(step.timed?step.seconds:block.exercises[step.exerciseIndex].estimatedSeconds)):step.seconds),0);
     const p=block.prescription||{};
     if(block.protocol==='emom')return validateEmomBlock(block).length?0:p.minutes*EMOM_POLICY.slotSeconds;
@@ -1001,7 +1119,16 @@
   function resolveBlockSteps(block) {
     const steps=[],p=block.prescription||{},exercises=block.exercises||[];
     if(validateOccurrenceTargets(block).length)return steps;
-    if(block.protocol==='pyramid'){
+    if(block.protocol==='complex'){
+      if(validateComplexBlock(block).length)return steps;
+      for(let sequence=1;sequence<=p.sequences;sequence++)exercises.forEach((exercise,exerciseIndex)=>{
+        const target=resolveOccurrenceTarget(exercise,{plannedPrescription:{...p.targets[exerciseIndex]}}),timed=target.plannedPrescription.type==='timed';
+        steps.push(Object.freeze({kind:'exercise',exerciseIndex,complexSequence:sequence,...target,variableTarget:true,timed,
+          ...(timed?{seconds:target.plannedPrescription.value}:{completion:'explicit'})}));
+        if(exerciseIndex<exercises.length-1&&p.changeoverSeconds)steps.push({kind:'complex-change',seconds:p.changeoverSeconds,nextExerciseIndex:exerciseIndex+1,complexSequence:sequence});
+        else if(exerciseIndex===exercises.length-1&&sequence<p.sequences)steps.push({kind:'complex-rest',seconds:p.sequenceRestSeconds,nextExerciseIndex:0,complexSequence:sequence});
+      });
+    }else if(block.protocol==='pyramid'){
       if(validatePyramidBlock(block).length)return steps;
       p.steps.forEach((step,index)=>{
         const target=resolveOccurrenceTarget(exercises[0],{plannedPrescription:{type:'reps',value:step.reps},
@@ -1065,6 +1192,7 @@
 
   function preferredRepeatCount(protocol, exerciseCount) {
     if(protocol==='pyramid')return PYRAMID_POLICY.maxSteps;
+    if(protocol==='complex')return COMPLEX_POLICY.maxSequences;
     if(protocol==='ladder')return LADDER_POLICY.maxSteps;
     if(protocol==='paired_sets')return 4;
     if(exerciseCount<=3)return 3;
@@ -1083,6 +1211,20 @@
   }
 
   function chooseClosestPrescription(protocol, exercises, targetSeconds, rest, focus, options) {
+    if(protocol==='complex'){
+      // The fullest bounded plan within the share; recovery is never compressed below its floor.
+      let best=null;
+      const targets=exercises.map(complexDefaultTarget),changeoverSeconds=Math.min(10,rest.exercise);
+      for(let sequences=COMPLEX_POLICY.minSequences;sequences<=COMPLEX_POLICY.maxSequences;sequences++)
+        for(let recovery=Math.max(rest.round,COMPLEX_POLICY.minSequenceRestSeconds);recovery<=COMPLEX_POLICY.maxSequenceRestSeconds;recovery+=15){
+          const prescription={sequences,targets:targets.map(target=>({...target})),changeoverSeconds,sequenceRestSeconds:recovery};
+          const candidate={protocol,exercises,prescription};
+          if(validateComplexBlock(candidate).length)continue;
+          const estimate=estimateBlockDuration(candidate);
+          if(estimate<=targetSeconds&&(!best||estimate>best.estimate))best={prescription,estimate,fitness:targetSeconds-estimate};
+        }
+      return best;
+    }
     if(protocol==='pyramid'){
       let best=null;
       const kind=options&&options.pyramidKind||'reps';
@@ -1138,7 +1280,7 @@
 
   function buildMainBlock(eligible, index, protocol, intent, targetSeconds, focus, rest, state, history, random, catalogue) {
     const compatible=eligible.filter(ex=>protocolCompatible(ex,protocol));
-    const desiredCount=protocol==='pyramid'?1:protocol==='paired_sets'||protocol==='ladder'?2:protocol==='rounds'?(targetSeconds<420?3:4):(targetSeconds<300?2:3);
+    const desiredCount=protocol==='pyramid'?1:protocol==='complex'?(targetSeconds<360?2:3):protocol==='paired_sets'||protocol==='ladder'?2:protocol==='rounds'?(targetSeconds<420?3:4):(targetSeconds<300?2:3);
     const count=Math.min(desiredCount,compatible.length);
     const exercises=selectBlockExercises(eligible,count,focus,intent,protocol,state,history,random,catalogue);
     if(exercises.length<(protocol==='pyramid'?1:protocol==='rounds'?Math.min(3,compatible.length):2))return null;
@@ -1174,7 +1316,7 @@
   // repeat count. The player attaches them to each Main exercise phase; the Session Tracker
   // records them in the planned occurrence for Training History comparability.
   function protocolConditions(block) {
-    const conditions=block&&block.protocol==='emom'?jsonCopy(block.prescription):Object.assign({},block&&block.prescription);
+    const conditions=block&&['emom','complex'].includes(block.protocol)?jsonCopy(block.prescription):Object.assign({},block&&block.prescription);
     PROTOCOL_REPEAT_KEYS.forEach(key=>delete conditions[key]);
     return conditions;
   }
@@ -1193,7 +1335,7 @@
       penalty+=repeatedSupporting*24;
       // Pyramid volume is bounded in actual reps/work seconds, so five small steps
       // must not be scored as five full catalogue sets of a tiny straight-set loop.
-      if(block.protocol!=='pyramid'&&block.exercises.length<=3&&repeats>3)penalty+=(repeats-3)*70;
+      if(!['pyramid','complex'].includes(block.protocol)&&block.exercises.length<=3&&repeats>3)penalty+=(repeats-3)*70;
     }
     for(const exercise of exercises){
       counts.set(exercise.id,(counts.get(exercise.id)||0)+1);
@@ -1227,7 +1369,7 @@
       for(const [index,exercise] of (block.exercises||[]).entries()){
         const type=primaryEquipment(exercise);
         if(type==='bodyweight')continue;
-        if(['ladder','pyramid'].includes(block.protocol)){
+        if(['ladder','pyramid','complex'].includes(block.protocol)){
           const seconds=resolveBlockSteps(block).filter(step=>step.kind==='exercise'&&step.exerciseIndex===index).reduce((sum,step)=>sum+step.estimatedSeconds,0);
           usage.set(type,(usage.get(type)||0)+seconds);continue;
         }
@@ -1293,6 +1435,10 @@
         const invalid=validatePyramidBlock(block,catalogue);
         if(invalid.length){issues.push(...invalid.map(issue=>block.id+':'+issue));continue;}
       }
+      if(block.protocol==='complex'){
+        const invalid=validateComplexBlock(block,catalogue);
+        if(invalid.length){issues.push(...invalid.map(issue=>block.id+':'+issue));continue;}
+      }
       if(!MAIN_INTENTS.has(block.intent))issues.push(block.id+':invalid-intent');
       if(!Array.isArray(block.exercises)||!block.exercises.length)issues.push(block.id+':no-exercises');
       for(const exercise of block.exercises||[]){
@@ -1310,7 +1456,7 @@
       if(!resolveBlockSteps(block).some(step=>step.kind==='exercise'))issues.push(block.id+':unplayable');
     }
     const estimate=main.blocks.reduce((sum,block)=>sum+estimateBlockDuration(block),0)+BLOCK_TRANSITION_SECONDS*Math.max(0,main.blocks.length-1);
-    if(main.blocks.some(block=>['emom','ladder','pyramid'].includes(block.protocol)||block.occurrenceTargets)&&Number.isFinite(targetSeconds)&&estimate>targetSeconds)issues.push('main:duration-over-budget');
+    if(main.blocks.some(block=>['emom','ladder','pyramid','complex'].includes(block.protocol)||block.occurrenceTargets)&&Number.isFinite(targetSeconds)&&estimate>targetSeconds)issues.push('main:duration-over-budget');
     if(Number.isFinite(targetSeconds)&&Math.abs(estimate-targetSeconds)>Math.max(240,targetSeconds*.38))issues.push('main:duration-out-of-tolerance');
     return issues;
   }
@@ -1976,18 +2122,24 @@
     const choices=[];
     for(const protocol of protocols){
       const compatible=eligible.filter(exercise=>protocolCompatible(exercise,protocol)).sort((a,b)=>a.estimatedSeconds-b.estimatedSeconds||a.id.localeCompare(b.id));
-      const count=protocol==='emom'?2:protocol==='paired_sets'?2:1;
+      const count=['emom','paired_sets','complex'].includes(protocol)?2:1;
       const picked=[];
-      for(const exercise of compatible)if(picked.length<count&&!mainFamilyCapReached(exercise,picked))picked.push(exercise);
+      if(protocol==='complex'){
+        const first=compatible.find(exercise=>compatible.some(other=>other!==exercise&&!complexSequenceIssues([exercise,other]).length));
+        if(first)picked.push(first,compatible.find(other=>other!==first&&!complexSequenceIssues([first,other]).length));
+      }else for(const exercise of compatible)if(picked.length<count&&!mainFamilyCapReached(exercise,picked))picked.push(exercise);
       if(picked.length<count)continue;
       const exercises=picked.map(copyExercise);
-      const prescription=protocol==='pyramid'?{steps:[{reps:4},{reps:8},{reps:4}],stepRestSeconds:Math.max(60,rest.round)}:
+      const prescription=protocol==='complex'?{sequences:COMPLEX_POLICY.minSequences,targets:exercises.map(complexDefaultTarget),
+        changeoverSeconds:Math.min(10,rest.exercise),sequenceRestSeconds:Math.max(COMPLEX_POLICY.minSequenceRestSeconds,rest.round)}:
+        protocol==='pyramid'?{steps:[{reps:4},{reps:8},{reps:4}],stepRestSeconds:Math.max(60,rest.round)}:
         protocol==='ladder'?{repSteps:[2,4],exerciseRestSeconds:rest.exercise,stepRestSeconds:rest.round}:
         protocol==='emom'?{minutes:3,slotSeconds:60,targets:exercises.map(exercise=>({...exercise.prescription}))}:protocol==='rounds'?{rounds:1,exerciseRestSeconds:rest.exercise,roundRestSeconds:rest.round}:
         protocol==='paired_sets'?{sets:1,betweenExercisesSeconds:Math.min(10,rest.exercise),betweenSetsSeconds:rest.round}:
         {cycles:1,workSeconds:30,transitionSeconds:rest.exercise};
       if(protocol==='ladder'&&validateLadderBlock({protocol,exercises,prescription}).length)continue;
       if(protocol==='pyramid'&&validatePyramidBlock({protocol,exercises,prescription}).length)continue;
+      if(protocol==='complex'&&validateComplexBlock({protocol,exercises,prescription}).length)continue;
       choices.push(finishMainBlock({id:'main-'+(index+1),protocol,intent:focus==='cardio'?'conditioning':'strength',exercises,prescription}));
     }
     return choices.sort((a,b)=>a.estimatedDurationSeconds-b.estimatedDurationSeconds)[0]||null;
@@ -2049,7 +2201,7 @@
         exercise=anchorExercise(source,anchor,rx.prescriptionId);
         repeats=anchorRepeats(anchor,exercise);
         if(repeats==null)add('target-exposure-mismatch');
-        protocols=permittedProtocols(rx,anchor).filter(protocol=>!['emom','ladder','pyramid'].includes(protocol)&&GENERATED_PROTOCOLS.includes(protocol)&&protocolCompatible(source,protocol)&&(protocol!=='timed_intervals'||sideCount(exercise)===1&&anchor.prescriptionMode!=='reps'));
+        protocols=permittedProtocols(rx,anchor).filter(protocol=>!['emom','ladder','pyramid','complex'].includes(protocol)&&GENERATED_PROTOCOLS.includes(protocol)&&protocolCompatible(source,protocol)&&(protocol!=='timed_intervals'||sideCount(exercise)===1&&anchor.prescriptionMode!=='reps'));
         if(!protocols.length)add('protocol-incompatible',{requirementIds:[anchor.requirementId,...prescriptionList(rx,'protocolConstraints').filter(item=>item.importance==='hard'&&constraintApplies(item,anchor)).map(item=>item.requirementId)]});
         // Main's family cap holds for Coach work too: a required anchor cannot be joined by
         // another member of a capped family (required anchors precede preferred ones).
@@ -2244,7 +2396,8 @@
           const viable=protocol=>hardProtocols.includes(protocol)
             &&(protocol!=='ladder'||!state.blocks.some(block=>block.protocol==='ladder'))
             &&(protocol!=='pyramid'||!state.blocks.some(block=>block.protocol==='pyramid'))
-            &&optional.filter(exercise=>protocolCompatible(exercise,protocol)).length>=(protocol==='paired_sets'?2:1);
+            &&(protocol!=='complex'||!state.blocks.some(block=>block.protocol==='complex')&&complexPairAvailable(optional))
+            &&optional.filter(exercise=>protocolCompatible(exercise,protocol)).length>=(['paired_sets','complex'].includes(protocol)?2:1);
           let protocols=softProtocols.filter(viable);if(!protocols.length)protocols=hardProtocols.filter(viable);
           if(!protocols.length)break;
           const weights=protocolWeights(context.focus,intents[index],target,optional,state).filter(item=>protocols.includes(item.value));
@@ -2258,8 +2411,9 @@
           // fallback selects only unconstrained work; reserved anchors remain in state.
           if(!block){
             const fallbackProtocol=protocols.find(item=>item!=='paired_sets')||protocols[0];
-            const exercises=selectBlockExercises(optional,fallbackProtocol==='paired_sets'?2:1,context.focus,intents[index],fallbackProtocol,state,history,random,catalogue);
-            if(exercises.length&&(fallbackProtocol!=='paired_sets'||exercises.length===2)&&fallbackProtocol!=='emom'){
+            const pairs=['paired_sets','complex'].includes(fallbackProtocol);
+            const exercises=selectBlockExercises(optional,pairs?2:1,context.focus,intents[index],fallbackProtocol,state,history,random,catalogue);
+            if(exercises.length&&(!pairs||exercises.length===2)&&fallbackProtocol!=='emom'){
               const fitted=chooseClosestPrescription(fallbackProtocol,exercises,target,rest,context.focus,{allowExtendedRepetition:true});
               if(fitted)block=finishMainBlock({id:'main-'+(state.blocks.length+1),protocol:fallbackProtocol,intent:intents[index],exercises:exercises.map(copyExercise),prescription:fitted.prescription});
             }
@@ -2267,7 +2421,7 @@
           if(!block)break;
           // Optional dose may shrink; required/preferred target blocks are never refitted.
           const key=PROTOCOL_SHAPES[block.protocol].repeatKey;
-          while(!['ladder','pyramid'].includes(block.protocol)&&block.estimatedDurationSeconds>remaining&&block.prescription[key]>(block.protocol==='emom'?Math.max(3,block.exercises.length):1)){block.prescription[key]--;finishMainBlock(block);}
+          while(!['ladder','pyramid','complex'].includes(block.protocol)&&block.estimatedDurationSeconds>remaining&&block.prescription[key]>(block.protocol==='emom'?Math.max(3,block.exercises.length):1)){block.prescription[key]--;finishMainBlock(block);}
           if(block.estimatedDurationSeconds>remaining)break;
           state.blocks.push(block);state.exercises.push(...block.exercises);
           block.exercises.forEach(exercise=>state.usedIds.add(exercise.id));state.equipmentUsage=equipmentUsageSeconds(state.blocks);
@@ -2457,20 +2611,24 @@
     const difficulty=workoutDifficulty(workout.difficulty);
     const bodyFocus=workoutBodyFocus(workout.bodyFocus);
     let eligible=Object.values(catalogue).filter(exercise=>generatedPhaseEligible(exercise,'main',owned,difficulty)&&protocolCompatible(exercise,block.protocol)&&exercise.id!==current.id&&!mainFamilyCapReached(exercise,otherExercises));
-    if(block.protocol==='emom')eligible=eligible.filter(exercise=>!validateEmomBlock({...block,exercises:block.exercises.map((item,index)=>index===exerciseIndex?exercise:item)},catalogue).length);
-    if(['ladder','pyramid'].includes(block.protocol))eligible=eligible.filter(exercise=>{
-      const replacement={...block,exercises:block.exercises.map((item,index)=>index===exerciseIndex?exercise:item)};
-      return !(block.protocol==='ladder'?validateLadderBlock:validatePyramidBlock)(replacement,catalogue).length
+    // The whole block after the swap. A complex movement takes its own default target;
+    // the sequence count, changeover and recovery stay as planned.
+    const replaced=exercise=>({...block,exercises:block.exercises.map((item,index)=>index===exerciseIndex?exercise:item),
+      ...(block.protocol==='complex'?{prescription:{...block.prescription,targets:block.prescription.targets.map((target,index)=>index===exerciseIndex?complexDefaultTarget(exercise):target)}}:{})});
+    if(block.protocol==='emom')eligible=eligible.filter(exercise=>!validateEmomBlock(replaced(exercise),catalogue).length);
+    if(['ladder','pyramid','complex'].includes(block.protocol))eligible=eligible.filter(exercise=>{
+      const replacement=replaced(exercise);
+      return !({ladder:validateLadderBlock,pyramid:validatePyramidBlock,complex:validateComplexBlock}[block.protocol])(replacement,catalogue).length
         &&mainSeconds(blocks)-estimateBlockDuration(block)+estimateBlockDuration(replacement)<=(BUDGETS[workout.duration]||BUDGETS[20]).main;
     });
-    if(block.occurrenceTargets)eligible=eligible.filter(exercise=>!validateOccurrenceTargets({...block,exercises:block.exercises.map((item,index)=>index===exerciseIndex?exercise:item)},catalogue).length);
+    if(block.occurrenceTargets)eligible=eligible.filter(exercise=>!validateOccurrenceTargets(replaced(exercise),catalogue).length);
     if(workout.sessionPrescription){
       const rx=workout.sessionPrescription,budget=prescriptionBudget(rx,workout.duration);
       eligible=eligible.filter(exercise=>!prescriptionList(rx,'avoidConstraints').some(item=>item.importance==='hard'&&avoidMatches(exercise,item))&&
         !prescriptionList(rx,'requiredAnchors').some(item=>item.exerciseId===exercise.id)&&
-        mainSeconds(blocks)-estimateBlockDuration(block)+estimateBlockDuration({...block,exercises:block.exercises.map((item,index)=>index===exerciseIndex?exercise:item)})<=budget.main
+        mainSeconds(blocks)-estimateBlockDuration(block)+estimateBlockDuration(replaced(exercise))<=budget.main
         && (rx.maximumDurationSeconds==null || workout.estimatedSeconds-estimateBlockDuration(block)
-          +estimateBlockDuration({...block,exercises:block.exercises.map((item,index)=>index===exerciseIndex?exercise:item)})<=rx.maximumDurationSeconds));
+          +estimateBlockDuration(replaced(exercise))<=rx.maximumDurationSeconds));
     }
     const fresh=eligible.filter(exercise=>!otherIds.has(exercise.id));if(fresh.length)eligible=fresh;
     // The swapped slot's neighbours in Main order, for the body-focus run limit.
@@ -2492,6 +2650,7 @@
     });
     const replacement=controlledPick(scored,random,SHORTLIST_MARGIN);if(!replacement)return workout;
     block.exercises[exerciseIndex]=copyExercise(replacement);
+    if(block.protocol==='complex')block.prescription.targets[exerciseIndex]=complexDefaultTarget(replacement);
     block.estimatedDurationSeconds=estimateBlockDuration(block);block.estimatedSeconds=block.estimatedDurationSeconds;
     recalcWorkoutEstimate(workout);
     refreshPrescriptionOutcome(workout);return workout;
@@ -2558,7 +2717,7 @@
     workout.estimatedSeconds=workout.warmup.estimatedSeconds+workout.rampup.estimatedSeconds+workout.main.estimatedDurationSeconds+workout.cooldown.estimatedSeconds;
   }
 
-  root.GarageFitGenerator = { BUDGETS, RESTS, PROTOCOL_SHAPES, MAIN_PROTOCOLS, GENERATED_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, EMOM_POLICY, LADDER_POLICY, PYRAMID_POLICY, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, WORKOUT_DIFFICULTIES, EXERCISE_DIFFICULTIES, DIFFICULTY_POLICY, workoutDifficulty, difficultyExcluded, difficultyCredit, WORKOUT_BODY_FOCUSES, EXERCISE_BODY_FOCUSES, EXERCISE_DIRECT_ELBOW_ACTIONS, BODY_FOCUS_POLICY, workoutBodyFocus, bodyFocusCredit, SHORTLIST_SIZE, SHORTLIST_MARGIN, WINDOW_MAX_RANKS, SUPPORTING_ROUTE, candidateWindowRanks, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_PATTERNS, VALID_WARMUP_AREAS, VALID_STRETCH_TARGETS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, OCCURRENCE_TARGET_LIMITS, resolveOccurrenceTarget, validateOccurrenceTargets, validateEmomBlock, validateLadderBlock, validatePyramidBlock, pyramidKind, buildEmomBlock, protocolCompatible, protocolWeights, recentProtocolsFromResults, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, protocolConditions, selectBlockExercises, selectWarmup, kneeMobilityQualified, upperTrunkTarget, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, SessionPrescriptionError, assessSessionPrescription, generate, swap, swapPreparation };
+  root.GarageFitGenerator = { BUDGETS, RESTS, PROTOCOL_SHAPES, MAIN_PROTOCOLS, GENERATED_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, EMOM_POLICY, LADDER_POLICY, PYRAMID_POLICY, COMPLEX_POLICY, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, WORKOUT_DIFFICULTIES, EXERCISE_DIFFICULTIES, DIFFICULTY_POLICY, workoutDifficulty, difficultyExcluded, difficultyCredit, WORKOUT_BODY_FOCUSES, EXERCISE_BODY_FOCUSES, EXERCISE_DIRECT_ELBOW_ACTIONS, BODY_FOCUS_POLICY, workoutBodyFocus, bodyFocusCredit, SHORTLIST_SIZE, SHORTLIST_MARGIN, WINDOW_MAX_RANKS, SUPPORTING_ROUTE, candidateWindowRanks, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_PATTERNS, VALID_WARMUP_AREAS, VALID_STRETCH_TARGETS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, OCCURRENCE_TARGET_LIMITS, resolveOccurrenceTarget, validateOccurrenceTargets, validateEmomBlock, validateLadderBlock, validatePyramidBlock, pyramidKind, validateComplexBlock, complexSequenceIssues, buildEmomBlock, protocolCompatible, protocolWeights, recentProtocolsFromResults, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, protocolConditions, selectBlockExercises, selectWarmup, kneeMobilityQualified, upperTrunkTarget, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, SessionPrescriptionError, assessSessionPrescription, generate, swap, swapPreparation };
 
   if (typeof window!=='undefined' && typeof document!=='undefined' && typeof window.addEventListener==='function') window.addEventListener('load',()=>{
     if (document.querySelector('script[data-garagefit-rampup-ui]')) return;
