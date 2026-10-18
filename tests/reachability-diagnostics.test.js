@@ -107,7 +107,8 @@ test('a synthetic zero-reachability exercise reports its boundary, competitors a
     assert.ok(competitor.mainRole&&Array.isArray(competitor.patterns)&&competitor.equipment==='bodyweight'&&competitor.share>0);
   }
   assert.equal(diagnosis.classification.label,'phase/metadata mismatch');
-  assert.equal(diagnosis.classification.stage,'draw');
+  // The ladder route changes the sampled mix; this weak timed core now loses at the window.
+  assert.equal(diagnosis.classification.stage,'window');
   const report=audit.formatReport(result);
   assert.match(report,/diagnosis: phase\/metadata mismatch/);
   assert.match(report,/rank       best \d+, median \d+ of ~\d+ \(window: top 4 \+ 5 pts\)/);

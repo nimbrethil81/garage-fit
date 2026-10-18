@@ -193,8 +193,9 @@ test('representative workouts are not dominated by tiny repeated loops', () => {
     for (const equipment of kits.slice(0, 3)) for (const focus of ['strength','balanced','cardio']) for (let seed = 1; seed <= 8; seed++) {
       const blocks = G.generate({catalogue, duration, focus, equipment, random: random(seed * 31 + duration)}).main.blocks;
       const total = blocks.reduce((sum, block) => sum + block.estimatedDurationSeconds, 0);
-      // A tiny loop repeats three or fewer exercises five times; only 2 x 5 supersets reach it.
-      const tiny = blocks.filter(block => block.exercises.length <= 3 &&
+      // A tiny straight-dose loop repeats three or fewer exercises five times.
+      // Ladder steps change reps and enforce their own total-volume bounds.
+      const tiny = blocks.filter(block => block.protocol!=='ladder' && block.exercises.length <= 3 &&
         (block.protocol==='emom'?Math.ceil(G.blockRepeatCount(block)/block.exercises.length):G.blockRepeatCount(block)) >= 5);
       assert.ok(tiny.every(block => block.protocol === 'paired_sets'), duration+' '+focus);
       workouts++;

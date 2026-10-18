@@ -9,6 +9,7 @@ const { loadAppContext } = require('./helpers/app-context.js');
 global.window = global;
 require('../js/coach-model.js');
 require('../js/coach-store.js');
+require('../js/generator.js');
 require('../js/session-tracker.js');
 
 const Model = GarageFitCoachModel;
@@ -142,7 +143,7 @@ test('generated timeline occurrences have stable unique ids across rounds, sets,
       repeatedAnchorSets++;
     });
   }
-  assert.deepEqual([...protocols].sort(), ['paired_sets','rounds','timed_intervals']);
+  assert.deepEqual([...protocols].sort(), ['emom','paired_sets','rounds','timed_intervals']);
   assert.ok(sided > 0, 'per-side occurrences are covered');
   assert.ok(repeatedAnchorSets > 0, 'repeated work sets of one exercise are covered');
 });
