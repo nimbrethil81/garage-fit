@@ -26,11 +26,11 @@
     "cooldown full-body-stretch,kneeling-hamstring,pigeon-stretch,hip-flexor-arm-stretch"
   ],
   "20 balanced normal full-body dumbbells": [
-    "warmup standing-knee-curls,arm-circles-forwards,shallow-knee-bends,calf-raises,jumping-jacks",
-    "rampup walk-plank-push-up,mountain-climbers,squat-jumps",
+    "warmup standing-knee-curls,shoulder-rolls,marching-on-the-spot,side-step-touches,shallow-knee-bends",
+    "rampup bum-kicks,mountain-climbers,squat-jumps",
     "timed_intervals | strength | {\"workSeconds\":30,\"transitionSeconds\":15,\"cycles\":3} :: dumbbell-thruster@timed:35,dumbbell-farmer-carry@timed:30,dumbbell-snatch@reps:12",
     "rounds | conditioning | {\"rounds\":2,\"exerciseRestSeconds\":15,\"roundRestSeconds\":45} :: reverse-lunge-knee-drive@unilateral-reps:10,mountain-climbers@timed:30,reverse-lunge@unilateral-reps:10,ski-abs@timed:30",
-    "cooldown toe-touch,inside-thigh-stretch,glute-stretch,wide-toe-touch"
+    "cooldown downward-upward-dog,toe-touch,inside-thigh-stretch,glute-stretch,frog-stretch"
   ],
   "20 cardio easy full-body bodyweight": [
     "warmup standing-knee-curls,arm-side-circles,marching-on-the-spot,shallow-knee-bends,leg-swings-forward-back",
@@ -56,8 +56,8 @@
     "warmup standing-knee-curls,arm-side-circles,shoulder-rolls,heel-toe-rocks,marching-on-the-spot,trx-lunge-warmup,trx-lateral-weight-shift,shallow-knee-bends,bum-kicks",
     "rampup trx-squat-overhead,jumping-jacks,air-squat,switch-kicks",
     "paired_sets | strength | {\"sets\":5,\"betweenExercisesSeconds\":10,\"betweenSetsSeconds\":60} :: barbell-front-squat@reps:8,barbell-deadlift@reps:10",
-    "rounds | accessory | {\"rounds\":3,\"exerciseRestSeconds\":20,\"roundRestSeconds\":60} :: kettlebell-shoulder-press@unilateral-reps:8,bulgarian-split-squat@unilateral-reps:8,trx-pike@reps:8,trx-pistol-squat@unilateral-reps:6",
-    "timed_intervals | finisher | {\"workSeconds\":40,\"transitionSeconds\":20,\"cycles\":3} :: switch-kicks@timed:30,hollow-body-hold@timed:20,kettlebell-swing@reps:15",
+    "paired_sets | accessory | {\"sets\":4,\"betweenExercisesSeconds\":10,\"betweenSetsSeconds\":60} :: kettlebell-shoulder-press@unilateral-reps:8,trx-pistol-squat@unilateral-reps:6",
+    "rounds | finisher | {\"rounds\":4,\"exerciseRestSeconds\":20,\"roundRestSeconds\":60} :: switch-kicks@timed:30,chin-up@reps:5,skater-jumps@timed:30,air-squat@reps:10",
     "cooldown arm-across-pull,triceps-stretch,toe-touch,frog-stretch,runners-stretch,standing-quads,plank-calf-stretch,inside-thigh-stretch,trx-side-stretch,trx-glute-standing"
   ],
   "45 balanced normal full-body full kit": [

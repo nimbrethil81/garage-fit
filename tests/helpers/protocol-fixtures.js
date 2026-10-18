@@ -3,7 +3,7 @@
 const copy = value => JSON.parse(JSON.stringify(value));
 
 // One canonical block per protocol, including per-side work where the protocol allows it.
-function blockFixtures(catalogue,{emom=false,ladder=false}={}) {
+function blockFixtures(catalogue,{emom=false,ladder=false,pyramid=false}={}) {
   const ex = id => copy(catalogue[id]);
   const blocks={
     rounds: {id: 'main-1', protocol: 'rounds', intent: 'strength',
@@ -21,6 +21,8 @@ function blockFixtures(catalogue,{emom=false,ladder=false}={}) {
     prescription:{minutes:5,slotSeconds:60,targets:[{type:'reps',value:6},{type:'timed',value:20}]}};
   if(ladder)blocks.ladder={id:'main-5',protocol:'ladder',intent:'strength',exercises:[ex('air-squat'),ex('push-up')],
     prescription:{repSteps:[2,4,6,8],exerciseRestSeconds:15,stepRestSeconds:45}};
+  if(pyramid)blocks.pyramid={id:'main-6',protocol:'pyramid',intent:'strength',exercises:[ex('trx-row')],
+    prescription:{steps:[{reps:4,relativeLoad:'heavier'},{reps:6,relativeLoad:'medium'},{reps:8,relativeLoad:'lighter'}],stepRestSeconds:90}};
   return blocks;
 }
 

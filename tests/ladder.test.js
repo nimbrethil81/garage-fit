@@ -141,7 +141,7 @@ test('Coach preflight handles ladder-only optional constraints, hard avoids, ins
 
 
 test('bounded seeds reach optional ladders across styles and 10–45 minute budgets without changing determinism',()=>{
-  const cases=[[10,'balanced',30],[10,'cardio',37],[15,'strength',29],[20,'strength',14],[30,'strength',7],[45,'strength',15]];
+  const cases=[[10,'balanced',30],[10,'cardio',37],[15,'strength',2],[20,'strength',14],[30,'strength',14],[45,'strength',51]];
   const directions=new Set();
   for(const [duration,focus,seed] of cases){
     const options={catalogue:C,duration,focus,equipment:kit},w=G.generate({...options,random:random(seed)});

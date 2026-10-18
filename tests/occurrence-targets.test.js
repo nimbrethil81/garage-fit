@@ -182,7 +182,7 @@ test('Coach player hides anchor actuals for variable work and saves Done, Skip a
   await p.run("targetButton('coachPreviewContent','Start workout')");
   p.run("enterGeneratedPhase(generatorState.timeline.findIndex(phase=>phase.exercise?.coachAnchor))");
   assert.equal(p.run("document.getElementById('coachAnchorLog').classList.contains('hidden')"),false);
-  p.run("enterGeneratedPhase(generatorState.timeline.findIndex(phase=>phase.variableTarget))");
+  p.run("enterGeneratedPhase(generatorState.timeline.findIndex(phase=>phase.variableTarget&&generatorState.workout.main.blocks[phase.blockIndex]?.id==='variable-support'))");
   assert.equal(p.run("document.getElementById('coachAnchorLog').classList.contains('hidden')"),true);
   assert.equal(p.run("document.getElementById('workoutTarget').textContent"),'4 reps');
   const first=p.run('currentGeneratedPhase().occurrenceId');await p.run('completeWorkoutMovement()');

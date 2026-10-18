@@ -168,10 +168,10 @@ test('screen readers hear plain superset descriptions', () => {
 
 const kits = [['dumbbells','kettlebell','pullup-bar','trx','barbell','bench','box','bands'], ['dumbbells'], ['kettlebell','trx','bands'], []];
 
-// #79 adds an optional protocol; keep the pair minimum with a slightly broader seeded sample.
+// Optional protocols broaden the mix; retain the pair minimum across a bounded sample.
 test('generated supersets pair contrasting, compatible work without mass exclusions', () => {
   let pairs = 0, sharedPrimary = 0;
-  for (const equipment of kits) for (const duration of [15, 30, 45]) for (const focus of ['strength','balanced','cardio']) for (let seed = 1; seed <= 10; seed++) {
+  for (const equipment of kits) for (const duration of [15, 30, 45]) for (const focus of ['strength','balanced','cardio']) for (let seed = 1; seed <= 12; seed++) {
     for (const block of G.generate({catalogue, duration, focus, equipment, random: random(seed * 97 + duration)}).main.blocks) {
       if (block.protocol !== 'paired_sets') continue;
       pairs++;
@@ -195,7 +195,7 @@ test('representative workouts are not dominated by tiny repeated loops', () => {
       const total = blocks.reduce((sum, block) => sum + block.estimatedDurationSeconds, 0);
       // A tiny straight-dose loop repeats three or fewer exercises five times.
       // Ladder steps change reps and enforce their own total-volume bounds.
-      const tiny = blocks.filter(block => block.protocol!=='ladder' && block.exercises.length <= 3 &&
+      const tiny = blocks.filter(block => !['ladder','pyramid'].includes(block.protocol) && block.exercises.length <= 3 &&
         (block.protocol==='emom'?Math.ceil(G.blockRepeatCount(block)/block.exercises.length):G.blockRepeatCount(block)) >= 5);
       assert.ok(tiny.every(block => block.protocol === 'paired_sets'), duration+' '+focus);
       workouts++;

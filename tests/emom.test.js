@@ -191,7 +191,7 @@ test('Coach rejects EMOM anchors without drawing randomness', () => {
     assert.throws(() => G.generate(options),G.SessionPrescriptionError);
     assert.equal(G.buildEmomBlock({...options,availableSeconds:600}),null);
   }
-  assert.deepEqual([...G.GENERATED_PROTOCOLS],['rounds','paired_sets','timed_intervals','emom','ladder']);
+  assert.deepEqual([...G.GENERATED_PROTOCOLS],['rounds','paired_sets','timed_intervals','emom','ladder','pyramid']);
 });
 
 test('explicit optional EMOM candidates preserve Coach anchors, hard avoids, protocol and time constraints', () => {

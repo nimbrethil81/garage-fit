@@ -1,6 +1,6 @@
 # Main block protocol contracts
 
-Playable and automatically selected protocols: `rounds`, `paired_sets`, `timed_intervals`, `emom`, `ladder`.
+Playable and automatically selected protocols: `rounds`, `paired_sets`, `timed_intervals`, `emom`, `ladder`, `pyramid`.
 These contracts are the extension seams for later block patterns (#75). `tests/protocol-contracts.test.js` and
 `tests/main-blocks.test.js` enforce them; shared fixtures and the step-trace check live in
 `tests/helpers/protocol-fixtures.js`.
@@ -21,9 +21,9 @@ characterisation fixture only with before/after evidence, and run the reachabili
 
 ## 2. Block prescription describes structure
 
-`block.prescription` holds one repeat structure (`repeatKey`: `rounds` / `sets` / `cycles` / `minutes` / `repSteps`) plus the
+`block.prescription` holds one repeat structure (`repeatKey`: `rounds` / `sets` / `cycles` / `minutes` / `repSteps` / `steps`) plus the
 protocol's condition fields, and nothing else. `blockRepeatCount(block)` reads the repeat key
-(the array length for a ladder).
+(the array length for a ladder or pyramid).
 `protocolConditions(block)` is the prescription without the repeat count. It is shared by every
 occurrence of the block and is frozen on player phases.
 
@@ -32,7 +32,7 @@ occurrence of the block and is frozen on player phases.
 `resolveBlockSteps(block)` is the only executable plan of a block:
 
 - Exercise steps carry `exerciseIndex` and their position in `stepKey` (`round` / `set` / `cycle` / `minute`).
-  Ladders use `ladderStep`. Timed interval steps also carry `timed: true` and `seconds`.
+  Ladders use `ladderStep`, pyramids `pyramidStep`. Timed interval steps also carry `timed: true` and `seconds`.
 - Rest steps have positive `seconds` and sit only between exercise steps, with
   `nextExerciseIndex` naming the next step's exercise. There is no leading, trailing or
   zero-second rest.
@@ -67,6 +67,8 @@ Types match the exercise, including `unilateral-` for per-side work. Interval ov
 Rep estimates scale the published estimate by target/default reps, rounding up separately
 for each side. Timed estimates count every side. Optional numeric guidance is positive and
 at most 1000, with `kg`/`lb` and `per-item`/`total`; it is never copied to actual load.
+An alternative `plannedLoad: {relativeLoad: 'lighter' | 'medium' | 'heavier'}` contains
+no numerical fields and is permitted only for suitable standing TRX strength work.
 EMOM additionally retains its eligibility, 40-second estimate and original target ceilings.
 
 Resolved steps carry frozen `plannedPrescription`, optional frozen `plannedLoad`, and
@@ -115,6 +117,49 @@ eligible exercises, fits a bounded ascending/descending plan within its share, a
 allows at most one per Main. Existing variety, equipment and dominance scoring still
 apply. Coach may use them only as optional work within protocol/avoid/time constraints;
 production required anchors retain their released rounds-only definitions.
+
+### Rep and intensity pyramids
+
+`pyramid` uses one stable rep-based strength exercise and
+`prescription: {steps: [{reps:4},{reps:8},{reps:4}], stepRestSeconds:60}`.
+Three or five steps rise then fall around one rep peak. Optional `relativeLoad`
+on **every** step instead permits an inverse rep valley/resistance peak (8/4/8,
+lighter/heavier/lighter), or a three-step reverse pyramid (4/6/8,
+heavier/medium/lighter). Monotonic reps alone remain ladders. No numerical loads,
+mixed/missing cues, occurrence overrides or anchor metadata are accepted.
+
+`validatePyramidBlock` checks the copied exercise and, when supplied, its canonical
+metadata. Existing rounds compatibility, easy/moderate technique, low/medium impact,
+strength ≥3, cardio ≤3 and unambiguous bilateral/alternating/no-side reps are required.
+Heavy loads, barbells, kettlebells, hanging and per-side work are excluded. Steps have
+2–12 reps, never exceed the catalogue dose, and total at most 40 reps / 180 work seconds.
+Recovery is 60–120 seconds for fixed-load rep pyramids and 90–120 for intensity work;
+fitting chooses sufficient recovery within these bounds and never compresses it.
+There is no final rest. Invalid plans resolve to no steps and cannot be normalised.
+
+There is no weight inventory. Fixed-load rep pyramids work with one comfortable load.
+Relative cues are restricted to standing TRX strength work (strength ≥4, cardio ≤2),
+where stance can adjust resistance without assuming extra weights or bands. Preview
+and player mark these cues **Planned** and say to adjust stance only if comfortable.
+Automatic selection otherwise uses rep pyramids or another protocol; free-weight
+intensity changes are deferred until availability can be established.
+
+Resolved steps share frozen occurrence targets, scaled estimates and optional
+qualitative `plannedLoad`, with `variableTarget:true` and `pyramidStep`. New occurrence
+IDs add `pN`; old IDs and saved records remain unchanged. Preview, speech, next hints,
+normal rest/pause/Previous/Skip and Tracker use that same plan. Done records completion;
+actual reps, numerical loads and resistance setups remain unknown unless confirmed.
+Redo replaces the same outcome and duplicate immutable Session Results add no credit.
+Pyramid history remains incomparable, including records missing the variable-target
+flag; it cannot become straight-set progression evidence.
+
+Automatic Strength/Balanced supporting work has a small weight, a 150–720-second
+share and at most one pyramid per Main. Explicit rep-volume bounds replace the
+generic five-full-set loop penalty; ordinary variety, fatigue, equipment and duration
+rules still apply. Coach protocol/avoid/time constraints apply to optional work only.
+Required and preferred target blocks cannot become pyramids, and production anchors
+and progression policies are unchanged. No new controls, catalogue flags or schema
+versions are introduced. `tests/pyramid.test.js` covers the domain and shared player.
 
 ### EMOM domain contract
 

@@ -45,8 +45,9 @@ test('seeded standalone matrix spans duration/style/difficulty/body/kit with opt
         for(const b of w.main.blocks)row.protocols[b.protocol]=(row.protocols[b.protocol]||0)+1;
       }
     // Rare ladders have explicit bounded reachability seeds in ladder.test.js.
-    for(const protocol of G.GENERATED_PROTOCOLS.filter(p=>p!=='ladder'))assert.ok(row.protocols[protocol]>0,`${duration}: ${protocol}`);
+    for(const protocol of G.GENERATED_PROTOCOLS.filter(p=>!['ladder','pyramid'].includes(p)))assert.ok(row.protocols[protocol]>0,`${duration}: ${protocol}`);
     assert.ok((row.protocols.ladder||0)<row.sessions/4,'ladders remain occasional');
+    assert.ok((row.protocols.pyramid||0)<row.sessions/10,'pyramids remain modest supporting variety');
     assert.ok(row.protocols.emom<row.sessions/2,'no compulsory novelty');
     if(duration===10)assert.ok(row.blocks[1]>row.sessions*.8,'short Main is usually one coherent pattern');
   }
@@ -74,7 +75,7 @@ test('both production Coach programmes keep exact rounds anchors and recovery wh
       assert.ok(rx.requiredAnchors.every(a=>w.prescriptionOutcome.satisfiedHardRequirementIds.includes(a.requirementId)));
       for(const b of w.main.blocks){report[name][b.protocol]=(report[name][b.protocol]||0)+1;if(b.protocol==='emom')hits++;}
     }
-    assert.ok(hits>0,name);assert.ok(report[name].ladder>0,name+' optional ladders');assert.deepEqual(def,before);
+    assert.ok(hits>0,name);assert.ok(report[name].ladder>0,name+' optional ladders');assert.ok(report[name].pyramid>0,name+' optional pyramids');assert.deepEqual(def,before);
   }
   t.diagnostic(JSON.stringify(report));
 });

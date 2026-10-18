@@ -22,7 +22,19 @@ function harness() {
 
 
 const next=h=>h.el('completeMovementNext'),action=h=>h.el('completeMovementAction').textContent;
-const previewName=(timeline,index)=>{if(timeline[index].protocol==='emom')return 'Rest until next minute';const n=timeline[index+1];if(!n)return '';if(n.kind==='exercise')return n.exercise.name;if(n.kind==='interval-rest'||n.kind==='set-change')return 'Change over';if(n.kind==='block-transition')return 'Next block';if(n.kind==='transition'){const after=timeline.slice(index+2).find(p=>p.kind==='exercise');return {warmup:'Warm-up',rampup:'Ramp-up',main:'Main workout',cooldown:'Cool-down'}[after.section]}return 'Rest'};
+const variableSteps=phase=>['ladder','pyramid'].includes(phase?.protocol);
+const plannedLoad=phase=>phase.plannedLoad?.relativeLoad?' · Planned '+phase.plannedLoad.relativeLoad+' resistance':'';
+const previewName=(timeline,index)=>{
+  if(timeline[index].protocol==='emom')return 'Rest until next minute';
+  const n=timeline[index+1];if(!n)return '';
+  if(n.kind==='exercise')return variableSteps(n)?n.plannedPrescription.value+' reps · '+n.exercise.name+plannedLoad(n):n.exercise.name;
+  if(n.kind==='interval-rest'||n.kind==='set-change')return 'Change over';
+  if(n.kind==='block-transition')return 'Next block';
+  const after=timeline.slice(index+2).find(p=>p.kind==='exercise');
+  if(n.kind==='transition')return {warmup:'Warm-up',rampup:'Ramp-up',main:'Main workout',cooldown:'Cool-down'}[after.section];
+  if(variableSteps(n)&&after?.protocol===n.protocol)return 'Rest · Then '+after.plannedPrescription.value+' reps'+plannedLoad(after);
+  return 'Rest';
+};
 
 test('fixed rounds show Next until the actual last occurrence, and the button previews only the next name',()=>{
   const h=harness();h.app.startWorkout();
@@ -87,9 +99,9 @@ test('the primary button names only the immediate next timeline item with truthf
   for(let index=0;index<timeline.length;index++){
     h.app.enterGeneratedPhase(index);const phase=timeline[index],label=previewName(timeline,index);
     assert.equal(next(h).textContent,label,'next after '+index+' '+phase.kind);assert.equal(next(h).classList.contains('hidden'),!label);
-    if(label)assert.doesNotMatch(next(h).textContent,/\d+ (sec|reps)|after|Round|Set \d/);
+    if(label&&!variableSteps(timeline[index+1]))assert.doesNotMatch(next(h).textContent,/\d+ (sec|reps)|after|Round|Set \d/);
     if(phase.kind==='exercise')assert.equal(action(h),phase.protocol==='emom'?(phase.timed?'Skip work':'Done'):phase.timed?'Skip interval':index===timeline.length-1?'Finish workout':'Next');
-    else if(['rest','set-change','interval-rest','round-rest','set-rest'].includes(phase.kind))assert.equal(action(h),'Skip rest');
+    else if(['rest','set-change','interval-rest','round-rest','set-rest','ladder-rest','pyramid-rest'].includes(phase.kind))assert.equal(action(h),'Skip rest');
   }
 });
 

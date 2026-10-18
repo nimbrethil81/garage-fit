@@ -59,6 +59,7 @@
   }
 
   function protocolLabel(block) {
+    if(block.protocol==='pyramid')return (root.GarageFitGenerator.pyramidKind(block.prescription.steps)==='reverse'?'Reverse pyramid':'Pyramid')+' · '+block.prescription.steps.map(step=>step.reps).join(' → ')+' reps · '+block.prescription.stepRestSeconds+' sec rest between steps'+(block.prescription.steps.some(step=>step.relativeLoad)?' · Planned resistance; adjust stance only if comfortable':' · Keep one comfortable load');
     if(block.protocol==='ladder')return 'Ladder · '+block.prescription.repSteps.join(' → ')+' reps · '+block.prescription.stepRestSeconds+' sec rest between steps';
     if(block.protocol==='emom')return 'EMOM · '+block.prescription.minutes+(block.prescription.minutes===1?' minute':' minutes')+' · One exercise each minute · Rest after the target';
     if (block.protocol==='paired_sets') {
@@ -78,11 +79,11 @@
   }
 
   function occurrenceTargetLabel(block,exerciseIndex){
-    if(!block.occurrenceTargets&&block.protocol!=='ladder')return null;
+    if(!block.occurrenceTargets&&!['ladder','pyramid'].includes(block.protocol))return null;
     const exercise=block.exercises[exerciseIndex];
     return root.GarageFitGenerator.resolveBlockSteps(block).filter(step=>step.kind==='exercise'&&step.exerciseIndex===exerciseIndex).map(step=>{
       const p=step.plannedPrescription||(step.timed?{type:'timed',value:step.seconds}:exercise.prescription),load=step.plannedLoad;
-      return formatPrescription({...exercise,prescription:p,load:null})+(load?' · '+load.suggestedLoad+' '+load.loadUnit+(load.loadInterpretation==='per-item'?' each':' total'):exercise.load?' · '+exercise.load:'');
+      return formatPrescription({...exercise,prescription:p,load:null})+(load&&load.relativeLoad?' · Planned '+load.relativeLoad+' resistance':load?' · '+load.suggestedLoad+' '+load.loadUnit+(load.loadInterpretation==='per-item'?' each':' total'):exercise.load?' · '+exercise.load:'');
     }).join(' → ');
   }
 
