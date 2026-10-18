@@ -33,7 +33,7 @@ test('generated Main uses the versioned block model while retaining the temporar
   assert.ok(workout.main.blocks.length>=1);
   assert.equal(workout.blocks,workout.main.blocks);
   for(const block of workout.main.blocks){
-    assert.ok(['rounds','paired_sets','timed_intervals','emom','ladder'].includes(block.protocol));
+    assert.ok(['rounds','paired_sets','timed_intervals','emom','ladder','pyramid'].includes(block.protocol));
     assert.ok(['strength','conditioning','accessory','finisher'].includes(block.intent));
     assert.ok(block.estimatedDurationSeconds>0);
     assert.equal(block.estimatedDurationSeconds,GarageFitGenerator.estimateBlockDuration(block));
@@ -66,7 +66,7 @@ test('malformed protocol prescriptions fail cleanly',()=>{
     {id:'r',protocol:'rounds',intent:'strength',exercises:[exercise],prescription:{rounds:0}},
     {id:'p',protocol:'paired_sets',intent:'strength',exercises:[exercise],prescription:{sets:3}},
     {id:'t',protocol:'timed_intervals',intent:'conditioning',exercises:[exercise],prescription:{cycles:2,workSeconds:0,transitionSeconds:10}},
-    {id:'x',protocol:'pyramid',intent:'strength',exercises:[exercise],prescription:{}}
+    {id:'x',protocol:'future_pattern',intent:'strength',exercises:[exercise],prescription:{}}
   ];
   for(const block of invalid)assert.ok(GarageFitGenerator.validateMain({blocks:[block]},catalogue,allEquipment).length>0,block.id);
 });
@@ -116,7 +116,7 @@ test('all generated protocols are reachable and multiple protocols can coexist',
     if(new Set(blocks.map(block=>block.protocol)).size>1)mixed=true;
     if(blocks.length>1&&new Set(blocks.map(block=>block.protocol)).size===1)sameProtocolMulti=true;
   }
-  assert.deepEqual(protocols,new Set(['rounds','paired_sets','timed_intervals','emom','ladder']));
+  assert.deepEqual(protocols,new Set(['rounds','paired_sets','timed_intervals','emom','ladder','pyramid']));
   assert.equal(mixed,true);
   assert.equal(sameProtocolMulti,true);
 });
@@ -197,7 +197,7 @@ test('20-minute Cardio avoids five-pass tiny loops when the exercise pool is bro
     const blocks=create({duration:20,focus:'cardio',random:random(seed)}).main.blocks;
     for(const block of blocks){
       const repeats=repeatsPerExercise(block);
-      const isTinyLoop=!['paired_sets','ladder'].includes(block.protocol)&&block.exercises.length<=3&&repeats>=5;
+      const isTinyLoop=!['paired_sets','ladder','pyramid'].includes(block.protocol)&&block.exercises.length<=3&&repeats>=5;
       assert.equal(isTinyLoop,false,seed+': '+block.protocol+' '+block.exercises.length+'x'+repeats);
     }
   }
@@ -283,5 +283,5 @@ test('Coach-prescribed Main blocks keep the executable step contract',()=>{
       protocols.add(block.protocol);
     }
   }
-  assert.deepEqual([...protocols].sort(),['emom','ladder','paired_sets','rounds','timed_intervals']);
+  assert.deepEqual([...protocols].sort(),['emom','ladder','paired_sets','pyramid','rounds','timed_intervals']);
 });

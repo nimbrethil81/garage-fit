@@ -13,7 +13,8 @@
     paired_sets: Object.freeze(['betweenExercisesSeconds','betweenSetsSeconds']),
     timed_intervals: Object.freeze(['workSeconds','transitionSeconds']),
     emom: Object.freeze(['slotSeconds','targets']),
-    ladder: Object.freeze(['exerciseRestSeconds','stepRestSeconds'])
+    ladder: Object.freeze(['exerciseRestSeconds','stepRestSeconds']),
+    pyramid: Object.freeze(['stepRestSeconds'])
   });
 
   function exposureFor(outcome, prescription) {
@@ -82,7 +83,7 @@
     const fields = Object.prototype.hasOwnProperty.call(protocolFields, current.protocol) ? protocolFields[current.protocol] : null;
     // Minute windows and changing rep steps do not establish comparable pacing or
     // fatigue/recovery for straight-set progression, even in old records without a flag.
-    if (['emom','ladder'].includes(current.protocol) || !fields || !previous.protocolConditions || !current.protocolConditions
+    if (['emom','ladder','pyramid'].includes(current.protocol) || !fields || !previous.protocolConditions || !current.protocolConditions
       || [previous, current].some(item => fields.some(field => !Number.isFinite(item.protocolConditions[field]) || item.protocolConditions[field] < 0))) reasons.push('unknown-protocol-conditions');
     else if (!Model.sameRecord(previous.protocolConditions, current.protocolConditions)) reasons.push('protocol-conditions');
     return {comparable: reasons.length === 0, reasons};

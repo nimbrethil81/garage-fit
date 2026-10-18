@@ -32,6 +32,7 @@ function generatedSample() {
   for (const duration of [10, 20, 30, 45]) for (const focus of ['strength','balanced','cardio']) for (const seed of [3, 11, 29])
     for (const equipment of [allEquipment, ['dumbbells'], []])
       workouts.push(G.generate({catalogue, duration, focus, equipment, random: random(seed * duration)}));
+  workouts.push(G.generate({catalogue,duration:30,focus:'strength',bodyFocus:'upper',equipment:['trx'],random:random(50)}));
   return workouts;
 }
 const SAMPLE = generatedSample();
@@ -47,9 +48,9 @@ test('Generator, Coach model and Training History accept the same protocol vocab
   for (const protocol of generator)
     assert.deepEqual([...History.PROTOCOL_CONDITION_FIELDS[protocol]], [...G.PROTOCOL_SHAPES[protocol].conditionFields], protocol);
   // Today's protocols are exactly these; a new protocol must update every copy and this test.
-  assert.deepEqual(generator, ['rounds','paired_sets','timed_intervals','emom','ladder']);
+  assert.deepEqual(generator, ['rounds','paired_sets','timed_intervals','emom','ladder','pyramid']);
   // Auto-selection is separate generator policy over accepted protocols, in a fixed pick order.
-  assert.deepEqual([...G.GENERATED_PROTOCOLS], ['rounds','paired_sets','timed_intervals','emom','ladder']);
+  assert.deepEqual([...G.GENERATED_PROTOCOLS], ['rounds','paired_sets','timed_intervals','emom','ladder','pyramid']);
   assert.ok(G.GENERATED_PROTOCOLS.every(protocol => G.MAIN_PROTOCOLS.has(protocol)));
   const eligible = Object.values(catalogue).filter(exercise => exercise.generator && exercise.main);
   for (const focus of ['strength','balanced','cardio'])
@@ -123,7 +124,7 @@ test('generated blocks resolve to well-formed steps whose time equals the estima
     assert.equal(steps.filter(step => step.kind === 'exercise').length, G.blockRepeatCount(block) * (block.protocol==='emom'?1:block.exercises.length));
     protocols.add(block.protocol);
   }
-  assert.deepEqual([...protocols].sort(), ['emom','ladder','paired_sets','rounds','timed_intervals']);
+  assert.deepEqual([...protocols].sort(), ['emom','ladder','paired_sets','pyramid','rounds','timed_intervals']);
   for (const workout of SAMPLE) assert.equal(workout.main.estimatedDurationSeconds,
     workout.main.blocks.reduce((sum, block) => sum + G.estimateBlockDuration(block), 0) + G.BLOCK_TRANSITION_SECONDS * (workout.main.blocks.length - 1));
 });
@@ -131,18 +132,18 @@ test('generated blocks resolve to well-formed steps whose time equals the estima
 // ---- Safe unknown-protocol handling ----
 
 test('an unknown protocol is never estimated, played or normalised as another protocol', () => {
-  const block = {id: 'main-1', protocol: 'pyramid', intent: 'strength', exercises: [plain(catalogue['air-squat'])], prescription: {rounds: 3}};
+  const block = {id: 'main-1', protocol: 'future_pattern', intent: 'strength', exercises: [plain(catalogue['air-squat'])], prescription: {rounds: 3}};
   assert.deepEqual(G.resolveBlockSteps(block), []);
   assert.equal(G.estimateBlockDuration(block), 0);
   assert.equal(G.blockRepeatCount(block), 1);
   assert.ok(G.validateMain({blocks: [block]}, catalogue, allEquipment).includes('main-1:invalid-protocol'));
-  assert.equal(G.protocolCompatible(catalogue['air-squat'], 'pyramid'), false);
-  assert.throws(() => G.normaliseWorkout({focus: 'strength', main: {blocks: [block]}}), /unsupported protocol "pyramid"/);
+  assert.equal(G.protocolCompatible(catalogue['air-squat'], 'future_pattern'), false);
+  assert.throws(() => G.normaliseWorkout({focus: 'strength', main: {blocks: [block]}}), /unsupported protocol "future_pattern"/);
   // A block with no protocol is still a legacy rounds block.
   const legacy = G.normaliseWorkout({focus: 'strength', blocks: [{rounds: 2, rest: {exercise: 10, round: 30}, exercises: [catalogue['air-squat']]}]});
   assert.equal(legacy.main.blocks[0].protocol, 'rounds');
   // Training History never treats an unknown or inherited-property protocol as comparable.
-  for (const protocol of ['pyramid', 'toString']) {
+  for (const protocol of ['future_pattern', 'toString']) {
     const performance = {exerciseId: 'air-squat', prescriptionMode: 'reps', protocol, side: null, protocolConditions: {}};
     assert.deepEqual(History.comparePerformances(performance, performance), {comparable: false, reasons: ['unknown-protocol-conditions']});
   }
@@ -201,7 +202,7 @@ test('the player timeline is built from the resolved steps and the tracker reads
   const {context, run} = app();
   const protocols = new Set();
   let sided = 0;
-  SAMPLE.filter((workout, index) => index % 4 === 0).concat({...savedWorkoutV2(catalogue),main:{blocks:[blockFixtures(catalogue,{ladder:true}).ladder]}}).forEach(workout => {
+  SAMPLE.filter((workout, index) => index % 4 === 0).concat({...savedWorkoutV2(catalogue),main:{blocks:Object.values(blockFixtures(catalogue,{ladder:true,pyramid:true})).filter(b=>['ladder','pyramid'].includes(b.protocol))}}).forEach(workout => {
     context.workout = plain(workout);
     const timeline = run('buildGeneratedTimeline(workout)');
     const planned = new Map(Tracker.plannedWorkFromTimeline(timeline).map(entry => [entry.occurrenceId, entry]));
@@ -236,7 +237,7 @@ test('the player timeline is built from the resolved steps and the tracker reads
       }
     });
   });
-  assert.deepEqual([...protocols].sort(), ['emom','ladder','paired_sets','rounds','timed_intervals']);
+  assert.deepEqual([...protocols].sort(), ['emom','ladder','paired_sets','pyramid','rounds','timed_intervals']);
   assert.ok(sided > 0, 'per-side occurrences are covered');
 });
 

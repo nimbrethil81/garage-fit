@@ -178,7 +178,7 @@ test('prescriptions incompatible with sidedness are rejected', () => {
 // ---- Main protocols ----
 
 test('invalid Main protocols are rejected', () => {
-  assertRejected(errorsWith('push-up', { mainProtocols:['rounds','pyramid'] }), /push-up: invalid main protocol "pyramid"/);
+  assertRejected(errorsWith('push-up', { mainProtocols:['rounds','future_pattern'] }), /push-up: invalid main protocol "future_pattern"/);
   assertRejected(errorsWith('push-up', { mainProtocols:[] }), /mainProtocols must be a non-empty array/);
   assertRejected(errorsWith('side-plank', { mainProtocols:['rounds','timed_intervals'] }), /per-side exercises cannot use timed intervals/);
   assertRejected(errorsWith('toe-touch', { mainProtocols:['rounds'] }), /mainProtocols set on a non-Main exercise/);

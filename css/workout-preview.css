@@ -9,10 +9,11 @@
 .preview-prescription{display:block;color:var(--card-muted);font-size:12px;font-weight:650;margin-top:3px}
 .preview-target-label{font-size:11px}
 .preview-block-heading{background:#e1e7e4}
-.preview-block-heading .preview-index{color:var(--work-dark)}
+.preview-block-heading .preview-index{color:var(--card-text)}
 .preview-block-heading .preview-exercise{font-size:13px;text-transform:uppercase;letter-spacing:.06em}
-.preview-block-heading .preview-prescription{text-transform:none;letter-spacing:0}
+.preview-block-heading .preview-prescription{color:var(--card-text);text-transform:none;letter-spacing:0}
 .preview-controls{display:flex;flex-direction:column;gap:6px}
 .swap-btn{border:1px solid #c4ccca;background:transparent;color:var(--card-muted);border-radius:9px;padding:8px;font-size:11px;font-weight:850}
-.preview-exercise .exercise-instruction{text-align:left;margin:4px 0 0;font-size:12px}
+.preview-exercise .exercise-instruction{color:var(--card-muted);text-align:left;margin:4px 0 0;font-size:12px}
+.preview-list .exercise-instruction summary{color:var(--rest-card)}
 .preview-list .review-note{color:var(--card-muted)}
