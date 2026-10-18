@@ -37,10 +37,23 @@
       resilience: ['lower-body','trunk','upper-body']
     }
   };
+  // v2 reviews footprint, not agility: a wide stance/one step fits home training;
+  // travelling band walks and lateral jumps still need lateral clearance.
+  const tennisHome = {...JSON.parse(JSON.stringify(tennis)), version: 2};
+  const homeLateral = tennisHome.capabilities.find(cap => cap.id === 'lateral-movement');
+  homeLateral.mappings = [
+    group(['alternating-lateral-lunge','cossack-squat','kettlebell-lateral-lunge'], 'lateral-control',
+      'Controlled wide-stance or single-step lateral loading, returning to centre; requires comfortable stance clearance, not travelling space or fast braking.'),
+    group(['banded-lateral-walk'], 'lateral-control', 'Repeated sideways steps require lateral clearance; not fast braking.', 'lateral'),
+    ...homeLateral.mappings.filter(mapping => mapping.facet === 'lateral-braking')
+  ];
+  tennisHome.capabilities.find(cap => cap.id === 'lower-body').mappings.push(
+    group(['kettlebell-lateral-lunge','reverse-lunge-knee-drive'], 'strength-stability',
+      'Controlled lower-body loading and balance; knee drive is not automatic explosive power or lateral braking.'));
   function freeze(value) {
     Object.values(value).forEach(item => { if (item && typeof item === 'object') freeze(item); });
     return Object.freeze(value);
   }
   root.GarageFitData = root.GarageFitData || {};
-  root.GarageFitData.sportCapabilityPolicies = freeze({tennis: {1: tennis}});
+  root.GarageFitData.sportCapabilityPolicies = freeze({tennis: {1: tennis, 2: tennisHome}});
 })(typeof window !== 'undefined' ? window : globalThis);

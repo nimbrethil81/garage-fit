@@ -327,3 +327,66 @@ test('Tennis entry and player distinguish stable progression anchors from rep an
   assert.ok(work.every(item => (item.sets || []).every(set => set.load === undefined || set.load === null)));
   assert.ok(p.json('coachUI.controller.snapshot().state.anchors').every(anchor => anchor.currentTarget.target.maxReps === 6));
 });
+
+test('v6 actual paired Main roles differ across equipment, budgets and RNG without changing stable targets',()=>{
+  const {roles}=require('./helpers/tennis-movement');
+  for(const kit of [equipment,['trx'],['dumbbells','kettlebell','trx','pullup-bar']])
+    for(const duration of [20,30,45]) for(const seed of [1,29,95]) for(const frequency of [2,3]) {
+      const {state,rows}=roles({equipment:kit,duration,seed,frequency});
+      assert.equal(state.anchors.length,4);
+      const strength=rows[0];
+      for(const row of rows) {
+        assert.ok(row.workout,JSON.stringify(row.assessment));
+        assert.ok(row.workout.estimatedSeconds<=duration*60);
+        assert.ok([row.workout.warmup,row.workout.rampup,row.workout.cooldown,...row.workout.main.blocks]
+          .flatMap(b=>b.exercises).every(e=>!['jumping-jacks','star-jumps'].includes(e.id)));
+        assert.ok(row.workout.main.estimatedDurationSeconds<=row.rx.mainTimeLimitSeconds);
+        assert.deepEqual(row.workout.prescriptionOutcome.requiredAnchorPlacements.map(a=>a.requirementId),row.rx.requiredAnchors.map(a=>a.requirementId));
+        for(const a of row.rx.requiredAnchors.filter(a=>a.requirementId.startsWith('tennis-anchor-'))) {
+          assert.equal(a.targetSets,2);assert.deepEqual(a.target,{type:'reps',minReps:6,maxReps:6});
+          const b=row.workout.main.blocks.find(b=>b.exercises.some(e=>e.coachAnchor?.requirementId===a.requirementId));
+          assert.equal(b.protocol,'rounds');assert.equal(b.prescription.exerciseRestSeconds,20);assert.equal(b.prescription.roundRestSeconds,60);
+        }
+      }
+      for(const movement of rows.slice(1)) {
+        const main=movement.blocks.flatMap(b=>b.exercises);
+        assert.ok(main.some(e=>e.facets.includes('lateral-movement/lateral-control')));
+        assert.ok(main.some(e=>e.facets.some(f=>/^(trunk|endurance|power)\//.test(f))));
+        assert.ok(movement.share>strength.share,JSON.stringify({kit,duration,seed,frequency,shares:rows.map(r=>r.share)}));
+        assert.ok(movement.workShare>strength.workShare,JSON.stringify({kit,duration,seed,frequency,shares:rows.map(r=>r.workShare)}));
+        assert.ok(movement.workout.main.blocks.flatMap(b=>b.exercises).every(e=>e.impact!=='high'));
+        assert.ok(main.every(e=>e.requirementId?.startsWith('tennis-anchor-')||movement.rx.optionalMainExerciseIds.includes(e.id)));
+        assert.ok(main.every(e=>e.id!=='jumping-jacks'));
+        assert.ok(!movement.rx.programmeContext.warnings.some(w=>w.code==='tennis-role-movement-shortfall'));
+        for(const block of movement.workout.main.blocks.filter(b=>b.protocol==='timed_intervals')) {
+          assert.ok(block.exercises.every(e=>!e.coachAnchor&&e.mainProtocols.includes('timed_intervals')
+            &&Generator.protocolCompatible(e,'timed_intervals')&&e.sidedness!=='per-side'));
+        }
+      }
+    }
+  assert.ok(roles({equipment:[]}).blocked.some(c=>c.requirementId==='tennis-anchor-pull'));
+  // A partial catalogue cannot conjure missing movement: keep useful work and
+  // expose the shortfall, rather than restoring arbitrary strength filler.
+  const partial=Object.fromEntries(Object.entries(catalogue).filter(([id])=>!['alternating-lateral-lunge','cossack-squat','kettlebell-lateral-lunge'].includes(id)));
+  for(const row of roles({catalogue:partial,frequency:3}).rows.slice(1)) {
+    assert.ok(row.rx.programmeContext.warnings.some(w=>w.code==='tennis-role-movement-shortfall'));
+    assert.ok(row.blocks.flatMap(b=>b.exercises).every(e=>!e.facets.includes('lateral-movement/lateral-control')));
+  }
+});
+
+test('v6 earned rotation uses performed work, with retries and tiny partials retaining the role',()=>{
+  const def=GarageFitData.programmes['tennis-conditioning'][6];
+  for(const frequency of [1,2,3]) {
+    let state=start(frequency,{},def).state;const results=[],ids=state.anchors.map(a=>a.exerciseId);
+    for(let turn=0;turn<frequency;turn++) {
+      const rx=plan(state,results,30,{},def).prescription;
+      assert.equal(rx.sessionRole,def.sessionRoles[frequency][turn].id);
+      assert.deepEqual(plan(state,results,30,{},def).prescription,rx);
+      const tiny=resultFor(rx,{result:{finalStatus:'partial'}});
+      tiny.performedWork=tiny.performedWork.map(w=>({...w,status:'partial',sets:[{reps:1}]}));
+      assert.equal(plan(state,[...results,tiny],30,{},def).prescription.sessionRole,rx.sessionRole);
+      const result=resultFor(rx);state=engine.applySessionResult(def,state,result,results);results.push(result);
+      assert.deepEqual(state.anchors.map(a=>a.exerciseId),ids);
+    }
+  }
+});

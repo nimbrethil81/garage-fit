@@ -220,6 +220,11 @@
     const pin = definition.sportPolicy, mappings = root.GarageFitData && root.GarageFitData.sportCapabilityPolicies;
     if (!root.GarageFitSportCoverage || !pin || pin.sportId !== 'tennis' || !mappings || !mappings.tennis[pin.version]) throw new Error('Tennis needs its pinned sport capability mapping.');
     const capabilities = mappings.tennis[pin.version].capabilities.map(item => item.id);
+    if (definition.roleCompositionPolicy && (pin.version < 2
+      || Object.entries(definition.roleCompositionPolicy.roles || {}).some(([id, caps]) =>
+        !Object.values(definition.sessionRoles).flat().some(role => role.id === id)
+        || !Array.isArray(caps) || !caps.length || caps.some(cap => !capabilities.includes(cap)))))
+      throw new Error('Invalid Tennis role composition policy.');
     [1,2,3].forEach(frequency => {
       const roles = definition.sessionRoles && definition.sessionRoles[frequency];
       if (!Array.isArray(roles) || roles.length !== frequency || new Set(roles.map(role => role.id)).size !== frequency
@@ -339,7 +344,10 @@
       return {requirementId: anchor.requirementId, index, passes,
         lastPerformedAt: tieWork.filter(item => item.exposure.value > 0).map(item => new Date(item.occurredAt).toISOString()).at(-1) || null};
     }).sort((a,b) => a.passes-b.passes || (a.lastPerformedAt || '').localeCompare(b.lastPerformedAt || '') || a.index-b.index);
-    const capabilities = summary.capabilities.slice().sort((a,b) => Number(b.priority === 'core' && b.coverage !== 'observed')-Number(a.priority === 'core' && a.coverage !== 'observed')
+    const roleOrder = definition.roleCompositionPolicy?.roles[role.id] || role.capabilities;
+    const roleRank = cap => roleOrder.includes(cap.capabilityId) ? roleOrder.indexOf(cap.capabilityId) : 99;
+    const capabilities = summary.capabilities.slice().sort((a,b) => (definition.roleCompositionPolicy ? roleRank(a)-roleRank(b) : 0)
+      || Number(b.priority === 'core' && b.coverage !== 'observed')-Number(a.priority === 'core' && a.coverage !== 'observed')
       || Number(b.coverage !== 'observed')-Number(a.coverage !== 'observed') || Number(b.preferred)-Number(a.preferred)
       || (role.capabilities.includes(a.capabilityId) ? role.capabilities.indexOf(a.capabilityId) : 99)
         -(role.capabilities.includes(b.capabilityId) ? role.capabilities.indexOf(b.capabilityId) : 99));
@@ -380,6 +388,12 @@
         equipment: today.equipment || []})).availableMainSeconds : null;
     const availability = sport.availability({equipment: today.equipment || [], allowedImpact: today.allowedImpact, smallSpace: today.smallSpace});
     const lowLoad = role.id === 'conditioning-resilience';
+    const roleCapabilities = definition.roleCompositionPolicy?.roles[role.id];
+    // Reviewed sport membership distinguishes lateral control from generic lunges.
+    // Intrinsic mainRole/conditioning then excludes strength-heavy trunk compounds.
+    const roleFitting = exercise => exercise.impact !== 'high' && sport.classifyExercise(exercise.id).contributions.some(item =>
+      roleCapabilities?.includes(item.capabilityId) && (item.capabilityId !== 'trunk'
+        || exercise.mainRole === 'supporting' || exercise.bodyFocus === 'core' && exercise.strength <= 3));
     const familiar = new Set(history.performances.filter(item => item.programmeInstanceId === state.programmeInstanceId
       && item.section === 'main' && item.status === 'completed' && item.exposure.value > 0
       && item.occurredAt && Date.parse(item.occurredAt) <= Date.parse(today.now)).map(item => item.exerciseId));
@@ -401,11 +415,21 @@
       equipment: today.equipment || [], difficulty: today.easyToday ? 'easy' : definition.sessionTemplate.difficulty,
       ...(event && event.phase !== 'build' ? {variationPreference: 'familiar'} : {}),
       bodyFocus: today.bodyFocus || definition.sessionTemplate.bodyFocus, requiredAnchors: [], preferredAnchors: [],
-      protocolConstraints: [{requirementId: 'tennis-protocols', importance: 'hard', allowedProtocols: ['rounds','paired_sets']}],
-      avoidConstraints: [...(definition.sessionTemplate.avoidConstraints || []), ...(adaptation ? today.avoidConstraints || [] : []), ...eventAvoids, ...Object.values(catalogue)
+      protocolConstraints: [{requirementId: 'tennis-protocols', importance: 'hard',
+        allowedProtocols: roleCapabilities ? ['rounds','paired_sets','timed_intervals'] : ['rounds','paired_sets']}],
+      ...(roleCapabilities ? {
+        optionalMainExerciseIds: Object.values(catalogue).filter(roleFitting).map(exercise => exercise.id),
+        movementPriorities: [{requirementId:'tennis-role-core',pattern:'core',priority:'primary'},
+          {requirementId:'tennis-role-lunge',pattern:'lunge',priority:'secondary'}],
+        bodyRegionPriorities: [{requirementId:'tennis-role-trunk',bodyRegion:'core',priority:'high'}]
+      } : {}),
+      avoidConstraints: [...(definition.sessionTemplate.avoidConstraints || []), ...(adaptation ? today.avoidConstraints || [] : []), ...eventAvoids,
+        ...(definition.roleCompositionPolicy ? ['jumping-jacks','star-jumps'].map(exerciseId =>
+          ({requirementId:'tennis-no-'+exerciseId,importance:'hard',exerciseId})) : []), ...Object.values(catalogue)
         .filter(exercise => today.allowedImpact && !today.allowedImpact.includes(exercise.impact)
           || today.smallSpace && availability.some(cap => cap.candidates.some(candidate => candidate.exerciseId === exercise.id && candidate.reasons.includes('space')))
-          || lowLoad && exercise.main && exercise.strength >= exercise.cardio && !exercise.conditioning && exercise.mainRole === 'primary')
+          || lowLoad && exercise.main && exercise.strength >= exercise.cardio && !exercise.conditioning && exercise.mainRole === 'primary'
+            && !(roleCapabilities && roleFitting(exercise)))
         .map(exercise => ({requirementId: 'tennis-avoid-'+exercise.id, importance: 'hard', exerciseId: exercise.id}))],
       programmeContext: {objective: definition.objective, mode: state.mode, frequency: {minSessionsPerWeek: config.weeklyCoachFrequency, maxSessionsPerWeek: config.weeklyCoachFrequency},
         roleLabel: role.label, repsInReserve: 2, warnings: [], deferredAnchorRequirementIds: [],
@@ -464,11 +488,17 @@
     }
     const recent = exerciseId => history.exactExercisePerformances(exerciseId, {programmeInstanceId: state.programmeInstanceId, until: today.now, sections: ['main']})
       .filter(item => item.exposure.value > 0).map(item => new Date(item.occurredAt).toISOString()).at(-1) || '';
-    for (const capability of priorities.capabilities) {
+    // Re-sort for explicit feasibility/fallback roles too, without changing the
+    // performed coverage summary or discarding long-term lower/upper coverage.
+    const orderedCapabilities = definition.roleCompositionPolicy ? priorities.capabilities.slice().sort((a,b) =>
+      ((roleCapabilities || role.capabilities).indexOf(a.capabilityId) < 0 ? 99 : (roleCapabilities || role.capabilities).indexOf(a.capabilityId))
+      -((roleCapabilities || role.capabilities).indexOf(b.capabilityId) < 0 ? 99 : (roleCapabilities || role.capabilities).indexOf(b.capabilityId))) : priorities.capabilities;
+    for (const capability of orderedCapabilities) {
       const available = availability.find(item => item.capabilityId === capability.capabilityId);
       const allowed = available.candidates.filter(item => item.available && !(prescription.difficulty === 'easy' && item.difficulty === 'hard')
         && !prescription.avoidConstraints.some(avoid => avoid.importance === 'hard' && avoid.exerciseId === item.exerciseId)
-        && (!lowLoad || catalogue[item.exerciseId].mainRole === 'supporting' || catalogue[item.exerciseId].conditioning));
+        && (!lowLoad || catalogue[item.exerciseId].mainRole === 'supporting' || catalogue[item.exerciseId].conditioning
+          || roleCapabilities && roleFitting(catalogue[item.exerciseId])));
       if (!allowed.length) warnings.push({code: 'tennis-capability-unavailable', capabilityId: capability.capabilityId,
         message: capability.label+' has no suitable exercise with today’s equipment, space, impact or session constraints.'});
       if (available.missingFacets.length) warnings.push({code: 'tennis-capability-facets-unavailable', capabilityId: capability.capabilityId, facets: available.missingFacets,
@@ -477,13 +507,25 @@
       // Complementary power/endurance follow their session roles, rather than
       // forcing every session to contain every capability or a ballistic target.
       if (capability.priority === 'complementary' && !role.capabilities.includes(capability.capabilityId)) continue;
-      const candidates = allowed.filter(item => !state.anchors.some(anchor => anchor.exerciseId === item.exerciseId))
+      // Movement roles retain their selected stable anchors, then reserve their
+      // own purpose before generic strength gaps. Other roles own those gaps.
+      if (roleCapabilities && !roleCapabilities.includes(capability.capabilityId)) continue;
+      const candidates = allowed.filter(item => !state.anchors.some(anchor => anchor.exerciseId === item.exerciseId)
+        && (!roleCapabilities || roleFitting(catalogue[item.exerciseId])))
         .sort((a,b) => (event && event.phase !== 'build' ? -1 : 1)*recent(a.exerciseId).localeCompare(recent(b.exerciseId))
           || Number(catalogue[b.exerciseId].mainRole === 'supporting')-Number(catalogue[a.exerciseId].mainRole === 'supporting')
           || catalogue[a.exerciseId].estimatedSeconds-catalogue[b.exerciseId].estimatedSeconds || a.exerciseId.localeCompare(b.exerciseId));
       if (!candidates.some(candidate => add(supportRequest(capability.capabilityId,catalogue[candidate.exerciseId]))) && candidates.length) warnings.push({
         code: 'tennis-capability-time-limit', capabilityId: capability.capabilityId,
         message: capability.label+' does not fit alongside today’s selected work. Priorities will be recomputed from performed history.'});
+    }
+    if (roleCapabilities) {
+      const contributions = prescription.requiredAnchors.filter(item => item.requirementId.startsWith('tennis-support-'))
+        .flatMap(item => sport.classifyExercise(item.exerciseId).contributions);
+      if (!contributions.some(item => item.capabilityId === 'lateral-movement')
+        || !contributions.some(item => ['trunk','endurance','power'].includes(item.capabilityId))) warnings.push({
+        code:'tennis-role-movement-shortfall', sessionRole:role.id,
+        message: role.label+' is limited today: a controlled lateral target plus complementary trunk, conditioning or power work cannot both fit your time, equipment, impact or readiness constraints. This is a lighter/partial alternative, not a full movement session.'});
     }
     prescription.programmeContext.emptySession = !prescription.requiredAnchors.length;
     if (event && ['reduced','final'].includes(event.phase) && prescription.programmeContext.emptySession) {

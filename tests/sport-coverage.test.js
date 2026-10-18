@@ -169,3 +169,28 @@ test('policy snapshots preserve versioned membership and constraints without mut
   assert.equal(unmapped.uniqueExposure.value,0);
   assert.equal(unmapped.unclassifiedObservations[0].classification.status,'unmapped');
 });
+
+test('v2 home mapping exposes controlled lateral loading only, with performed-only facet credit',()=>{
+  const home=Policy.createPolicy(GarageFitData.sportCapabilityPolicies.tennis[2],catalogue);
+  const available=home.availability({smallSpace:true,equipment:['kettlebell'],allowedImpact:['low','medium']});
+  const lateral=available.find(c=>c.capabilityId==='lateral-movement');
+  for(const id of ['alternating-lateral-lunge','cossack-squat','kettlebell-lateral-lunge']) {
+    assert.ok(lateral.candidates.find(c=>c.exerciseId===id).available,id);
+    assert.deepEqual(home.classifyExercise(id).contributions.filter(c=>c.capabilityId==='lateral-movement').map(c=>c.facet),['lateral-control']);
+  }
+  assert.deepEqual(lateral.missingFacets,['lateral-braking']);
+  assert.ok(lateral.candidates.filter(c=>['banded-lateral-walk','skater-jumps'].includes(c.exerciseId)).every(c=>!c.available&&c.reasons.includes('space')));
+  assert.ok(!home.availability({smallSpace:true}).find(c=>c.capabilityId==='lateral-movement').candidates.find(c=>c.exerciseId==='kettlebell-lateral-lunge').available);
+  assert.equal(home.availability({smallSpace:true,allowedImpact:['low']}).find(c=>c.capabilityId==='lateral-movement').achievable,false);
+  const view=results=>home.summarize(History.createHistory(results,catalogue),{now,smallSpace:true});
+  const performed=result('alternating-lateral-lunge');
+  assert.equal(cap(view([{...performed,performedWork:[]}]),'lateral-movement').coverage,'not-observed');
+  const observed=cap(view([performed]),'lateral-movement');
+  assert.equal(observed.coverage,'observed');
+  assert.ok(observed.facets.find(f=>f.facet==='lateral-control').exposure.value>0);
+  assert.equal(observed.facets.find(f=>f.facet==='lateral-braking').exposure.value,0);
+  assert.deepEqual(observed.missingFacets,['lateral-braking']);
+  assert.equal(cap(home.summarize(History.createHistory([performed],catalogue),{now:'2026-11-01T08:30:00Z',smallSpace:true}),'lateral-movement').coverage,'not-observed');
+  assert.ok(policy.availability({smallSpace:true}).find(c=>c.capabilityId==='lateral-movement').candidates.every(c=>!c.available),'v1 retains its old footprint');
+  assert.ok(!home.classifyExercise('reverse-lunge-knee-drive').contributions.some(c=>['power','lateral-movement'].includes(c.capabilityId)));
+});

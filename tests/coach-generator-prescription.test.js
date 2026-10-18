@@ -21,6 +21,34 @@ function rx(overrides) { return fixtures.prescription(Object.assign({duration:20
 function options(prescription, seed=1, overrides={}) { return Object.assign({catalogue,sessionPrescription:prescription,random:random(seed)},overrides); }
 const generate = (prescription, seed=1, overrides={}) => Generator.generate(options(prescription,seed,overrides));
 const mainIds = workout => workout.main.blocks.flatMap(block=>block.exercises.map(exercise=>exercise.id));
+
+test('optional Main pool bounds filler and swaps, while exact anchors and preparation remain independent',()=>{
+  const pool=['dead-bug','mountain-climbers','side-plank','dumbbell-wood-chop'];
+  const prescription=rx({optionalMainExerciseIds:pool});
+  for(const seed of [1,29,95]) {
+    const workout=generate(prescription,seed);
+    assert.ok(workout.prescriptionOutcome.satisfiedHardRequirementIds.includes('req-1'));
+    assert.ok(workout.main.blocks.flatMap(b=>b.exercises).every(e=>e.coachAnchor||pool.includes(e.id)));
+    assert.ok(workout.warmup.exercises.some(e=>!pool.includes(e.id)));
+    const bi=workout.main.blocks.findIndex(b=>b.exercises.some(e=>!e.coachAnchor));
+    if(bi>=0) {
+      const ei=workout.main.blocks[bi].exercises.findIndex(e=>!e.coachAnchor);
+      Generator.swap(workout,bi,ei,{catalogue,equipment:kit,random:random(seed)});
+      assert.ok(workout.main.blocks.flatMap(b=>b.exercises).every(e=>e.coachAnchor||pool.includes(e.id)));
+    }
+  }
+  const reservedOnly=generate(rx({optionalMainExerciseIds:[]}));
+  assert.ok(reservedOnly.main.blocks.every(b=>b.exercises.every(e=>e.coachAnchor)));
+  assertInfeasible(rx({requiredAnchors:[],optionalMainExerciseIds:[]}),'no-eligible-main');
+  assertInfeasible(rx({requiredAnchors:[],optionalMainExerciseIds:['nonexistent']}),'no-eligible-main');
+  assertInfeasible(rx({requiredAnchors:[],equipment:[],optionalMainExerciseIds:['dumbbell-wood-chop']}),'no-eligible-main');
+  assertInfeasible(rx({requiredAnchors:[],optionalMainExerciseIds:['mountain-climbers'],avoidConstraints:[
+    {requirementId:'no-climbers',importance:'hard',exerciseId:'mountain-climbers'}]}),'no-eligible-main');
+  const paired=rx({requiredAnchors:[anchor({allowedProtocols:['paired_sets']})],optionalMainExerciseIds:['dead-bug']});
+  const pairedWork=generate(paired);
+  assert.ok(mainIds(pairedWork).every(id=>['goblet-squat','dead-bug'].includes(id)));
+  assertInfeasible({...paired,optionalMainExerciseIds:[]},'protocol-partner-unavailable');
+});
 function assertInfeasible(prescription, code, overrides={}) {
   let draws=0;
   const opts=options(prescription,1,Object.assign({random:()=>{draws++;return .5;}},overrides));
@@ -53,6 +81,7 @@ test('omitted/null prescription and an empty prescription preserve standalone ou
   };
   assert.deepEqual(run(null),run(undefined));
   assert.deepEqual(run(rx({requiredAnchors:[],workoutStyle:'balanced'})),run(undefined));
+  assert.deepEqual(run(rx({requiredAnchors:[],workoutStyle:'balanced',optionalMainExerciseIds:null})),run(undefined));
 });
 
 test('required anchors survive many seeds, recent penalties, supporting roles and recipe rotation',()=>{

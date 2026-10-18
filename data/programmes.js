@@ -128,7 +128,14 @@
   // actual earlier work from the bounded performed history.
   const tennisPilot = {...JSON.parse(JSON.stringify(tennisEvents)), version: 5,
     anchorRotationPolicy: {tieBreak: 'last-performed'}};
+  const tennisMovement = {...JSON.parse(JSON.stringify(tennisPilot)), version: 6,
+    sportPolicy: {sportId: 'tennis', version: 2},
+    roleCompositionPolicy: {roles: {
+      'movement-conditioning': ['lateral-movement','trunk','endurance','power'],
+      'movement-power': ['lateral-movement','trunk','power'],
+      'conditioning-resilience': ['lateral-movement','trunk','endurance']
+    }}};
   function freeze(value) { Object.values(value).forEach(item => { if (item && typeof item === 'object') freeze(item); }); return Object.freeze(value); }
   root.GarageFitData = root.GarageFitData || {};
-  root.GarageFitData.programmes = freeze({'general-strength-4w': {1: strength}, 'build-arms': {1: arms}, 'tennis-conditioning': {1: tennis, 2: tennisContext, 3: tennisDevelopment, 4: tennisEvents, 5: tennisPilot}});
+  root.GarageFitData.programmes = freeze({'general-strength-4w': {1: strength}, 'build-arms': {1: arms}, 'tennis-conditioning': {1: tennis, 2: tennisContext, 3: tennisDevelopment, 4: tennisEvents, 5: tennisPilot, 6: tennisMovement}});
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -248,3 +248,54 @@ test('browser controller supplies localDate for UTC clocks in positive/negative 
     assert.equal(child.status,0,child.stderr);
   }
 });
+
+test('v6 movement roles respect short/equipment-limited, readiness, tennis, phase and event constraints',()=>{
+  const {roles}=require('./helpers/tennis-movement');
+  const cases=[{duration:10},{duration:15},{options:{equipment:[]}},{consolidation:true},{options:{easyToday:true}},
+    ...['2026-10-02','2026-10-05','2026-10-11','2026-11-01'].map(date=>({settings:{intent:'event',significantEventDate:date}})),
+    {options:{allowedImpact:['low']}},{options:{sessionContext:{readiness:{value:'tired',localDate:'2026-10-01'}}}},
+    {options:{sessionContext:{reportedSportActivity:[{sportId:'tennis',localDate:'2026-10-01',intensity:'hard'}]}}},
+    {options:{sessionContext:{plannedMatchDate:'2026-10-02'}}},
+    {options:{allowedImpact:[]}},
+    {options:{sessionContext:{readiness:{value:'tired',localDate:'2026-10-01'},plannedMatchDate:'2026-10-01'}}}];
+  let shortfalls=0,rests=0;
+  for(const equipment of [['dumbbells'],['trx']]) for(const scenario of cases) {
+    const {rows}=roles({equipment,frequency:3,...scenario});
+    for(const row of rows) {
+      if(!row.workout){rests++;assert.ok(row.rest||row.assessment.hardConflicts.length);continue;}
+      const rx=row.rx,workout=row.workout;
+      assert.ok(workout.estimatedSeconds<=rx.duration*60);
+      assert.ok(workout.main.estimatedDurationSeconds<=rx.mainTimeLimitSeconds);
+      assert.equal(workout.prescriptionOutcome.requiredAnchorPlacements.length,rx.requiredAnchors.length);
+      const hard=rx.avoidConstraints.filter(a=>a.importance==='hard').map(a=>a.exerciseId);
+      const exercises=[workout.warmup,workout.rampup,workout.cooldown,...workout.main.blocks].flatMap(b=>b.exercises);
+      assert.ok(exercises.every(e=>!hard.includes(e.id)));
+      if(rx.difficulty==='easy')assert.ok(exercises.every(e=>e.difficulty!=='hard'&&e.impact!=='high'));
+      if(row.role!=='strength') {
+        const lateral=workout.main.blocks.flatMap(b=>b.exercises).some(e=>['alternating-lateral-lunge','cossack-squat','kettlebell-lateral-lunge'].includes(e.id));
+        if(!lateral){shortfalls++;assert.ok(rx.programmeContext.warnings.some(w=>['tennis-role-movement-shortfall','tennis-session-role-unavailable'].includes(w.code)));}
+      }
+    }
+  }
+  assert.ok(shortfalls>0&&rests>0);
+  const def=GarageFitData.programmes['tennis-conditioning'][6];
+  let state=engine.startProgramme(def,{programmeInstanceId:'v6-phases',equipment},now).state;
+  // A due consolidation holds the normal anchor targets; event constraints still win.
+  state.currentTargets.tennisDevelopment.eligibleDevelopmentSessions=6;
+  state.startedAt='2026-09-01T08:00:00Z';
+  state.currentTargets.tennisDevelopment.developmentStartedAt=state.startedAt;
+  state.currentTargets.tennisDevelopment.lastTransitionAt=state.startedAt;
+  for(const days of [1,4,10]) {
+    const eventDate=new Date(Date.parse(now)+days*86400000).toISOString().slice(0,10);
+    const changed=engine.updateProgrammeSettings(def,state,{intent:'event',significantEventDate:eventDate},{now,localDate});
+    const planned=engine.planNextSession(def,changed,[],{now,localDate,equipment,duration:30,prescriptionId:'v6-event'});
+    if(!planned.prescription){assert.ok(planned.conflicts.length);continue;}
+    const rx=planned.prescription;
+    assert.equal(rx.programmeContext.phase.phase,'consolidation');
+    assert.ok(rx.requiredAnchors.filter(a=>a.requirementId.startsWith('tennis-anchor-')).every(a=>a.targetSets===1));
+    const workout=GarageFitGenerator.generate({catalogue,sessionPrescription:rx,random:random(95)});
+    assert.ok(workout.estimatedSeconds<=rx.duration*60);
+    assert.ok(workout.main.blocks.flatMap(b=>b.exercises).every(e=>e.impact!=='high'));
+    assert.deepEqual(state.anchors.map(a=>a.currentTarget.targetSets),[2,2,2,2]);
+  }
+});

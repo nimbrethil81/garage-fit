@@ -66,12 +66,12 @@ async function confirm(p,{only=null,unknown=false,skip=null,partial=false}={}) {
   })()`);
 }
 function summary(p) {
-  return p.json(`GarageFitSportCoverage.createPolicy(GarageFitData.sportCapabilityPolicies.tennis[1],CATALOGUE).summarize(
+  return p.json(`GarageFitSportCoverage.createPolicy(GarageFitData.sportCapabilityPolicies.tennis[pilotDef.sportPolicy.version],CATALOGUE).summarize(
     GarageFitTrainingHistory.createHistory(pilot.snapshot().results,CATALOGUE),{
-      now:pilotNow,programmeInstanceId:pilot.snapshot().state.programmeInstanceId,equipment:pilotOptions.equipment})`);
+      now:pilotNow,programmeInstanceId:pilot.snapshot().state.programmeInstanceId,equipment:pilotOptions.equipment,smallSpace:true})`);
 }
-async function simulate({frequency=2,duration=30,equipment=kits.dumbbells,weeks=8,seedValue=95,smallSpace=true}={}) {
-  const {p,started}=await create({frequency,equipment});
+async function simulate({frequency=2,duration=30,equipment=kits.dumbbells,weeks=8,seedValue=95,smallSpace=true,version=5}={}) {
+  const {p,started}=await create({frequency,equipment,version});
   assert.ok(started.state);
   const identities=p.json('pilot.snapshot().state.anchors.map(a=>a.exerciseId)'), baseline=p.json('pilot.snapshot().state.anchors');
   const roles={},support=new Set(),windows=[],examples=[];
