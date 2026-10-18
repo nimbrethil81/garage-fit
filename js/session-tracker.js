@@ -32,6 +32,7 @@
     if (Number.isInteger(phase.pyramidStep)) parts.push('p'+phase.pyramidStep);
     if (Number.isInteger(phase.ladderStep)) parts.push('l'+phase.ladderStep);
     if (Number.isInteger(phase.complexSequence)) parts.push('q'+phase.complexSequence);
+    if (Number.isInteger(phase.densityRound)) parts.push('d'+phase.densityRound);
     if (Number.isInteger(phase.minute)) parts.push('m'+phase.minute);
     if (Number.isInteger(phase.slotIndex)) parts.push('slot'+phase.slotIndex);
     parts.push('e'+phase.exerciseIndex);
@@ -68,7 +69,7 @@
         exerciseId: exercise.id,
         section: phase.section,
         blockIndex: phase.section === 'main' ? (phase.blockIndex || 0) : null,
-        requirementId: (phase.variableTarget || phase.protocol==='pyramid') ? null : requirementIdFor(phase) || null,
+        requirementId: (phase.variableTarget || ['pyramid','density'].includes(phase.protocol)) ? null : requirementIdFor(phase) || null,
         prescription: {
           type: emom ? target.type : prescription.type || null,
           timed,
@@ -84,11 +85,12 @@
           ...(phase.variableTarget ? {variableTarget:true} : {}),
           ...(phase.protocol==='pyramid' ? {pyramidStep:phase.pyramidStep} : {}),
           ...(phase.protocol==='ladder' ? {ladderStep:phase.ladderStep} : {}),
+          ...(phase.protocol==='density' ? {densityRound:phase.densityRound} : {}),
           ...(phase.protocol==='complex' ? {complexSequence:phase.complexSequence} : {}),
           ...(phase.plannedPrescription ? {plannedPrescription:clone(phase.plannedPrescription)} : {}),
           ...(phase.plannedLoad ? {plannedLoad:clone(phase.plannedLoad)} : {}),
           ...(emom ? {minute:phase.minute,slotIndex:phase.slotIndex,startsAtSeconds:phase.startsAtSeconds,endsAtSeconds:phase.endsAtSeconds,target:clone(target)} : {}),
-          ...(phase.section === 'main' && exercise.coachAnchor && !phase.variableTarget && phase.protocol!=='pyramid' ? {plannedTarget: clone(exercise.coachAnchor.plannedTarget)} : {})
+          ...(phase.section === 'main' && exercise.coachAnchor && !phase.variableTarget && !['pyramid','density'].includes(phase.protocol) ? {plannedTarget: clone(exercise.coachAnchor.plannedTarget)} : {})
         }
       };
     });
@@ -349,7 +351,7 @@
       recordTimed(occurrenceId, {plannedSeconds, elapsedSeconds}) {
         requireStarted();
         const entry=planned(occurrenceId);
-        if(entry.prescription&&(entry.prescription.protocol==='emom'||entry.prescription.variableTarget)){
+        if(entry.prescription&&(entry.prescription.protocol==='emom'||entry.prescription.protocol==='density'||entry.prescription.variableTarget)){
           if(!entry.prescription.timed)throw new Error((entry.prescription.protocol==='emom'?'EMOM':'Occurrence')+' rep work requires an explicit outcome.');
           plannedSeconds=entry.prescription.seconds;
         }

@@ -33,7 +33,7 @@ test('generated Main uses the versioned block model while retaining the temporar
   assert.ok(workout.main.blocks.length>=1);
   assert.equal(workout.blocks,workout.main.blocks);
   for(const block of workout.main.blocks){
-    assert.ok(['rounds','paired_sets','timed_intervals','emom','ladder','pyramid','complex'].includes(block.protocol));
+    assert.ok(['rounds','paired_sets','timed_intervals','emom','ladder','pyramid','complex','density'].includes(block.protocol));
     assert.ok(['strength','conditioning','accessory','finisher'].includes(block.intent));
     assert.ok(block.estimatedDurationSeconds>0);
     assert.equal(block.estimatedDurationSeconds,GarageFitGenerator.estimateBlockDuration(block));
@@ -116,7 +116,7 @@ test('all generated protocols are reachable and multiple protocols can coexist',
     if(new Set(blocks.map(block=>block.protocol)).size>1)mixed=true;
     if(blocks.length>1&&new Set(blocks.map(block=>block.protocol)).size===1)sameProtocolMulti=true;
   }
-  assert.deepEqual(protocols,new Set(['rounds','paired_sets','timed_intervals','emom','ladder','pyramid','complex']));
+  assert.deepEqual(protocols,new Set(['rounds','paired_sets','timed_intervals','emom','ladder','pyramid','complex','density']));
   assert.equal(mixed,true);
   assert.equal(sameProtocolMulti,true);
 });

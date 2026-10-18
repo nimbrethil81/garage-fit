@@ -3,7 +3,7 @@
 const copy = value => JSON.parse(JSON.stringify(value));
 
 // One canonical block per protocol, including per-side work where the protocol allows it.
-function blockFixtures(catalogue,{emom=false,ladder=false,pyramid=false,complex=false}={}) {
+function blockFixtures(catalogue,{emom=false,ladder=false,pyramid=false,complex=false,density=false}={}) {
   const ex = id => copy(catalogue[id]);
   const blocks={
     rounds: {id: 'main-1', protocol: 'rounds', intent: 'strength',
@@ -27,6 +27,8 @@ function blockFixtures(catalogue,{emom=false,ladder=false,pyramid=false,complex=
   if(complex)blocks.complex={id:'main-7',protocol:'complex',intent:'accessory',
     exercises:[ex('dumbbell-hammer-curl'),ex('dumbbell-shoulder-press'),ex('dumbbell-wood-chop')],
     prescription:{sequences:3,targets:[{type:'reps',value:8},{type:'reps',value:8},{type:'timed',value:30}],changeoverSeconds:10,sequenceRestSeconds:75}};
+  if(density)blocks.density={id:'main-8',protocol:'density',intent:'conditioning',exercises:[ex('push-up'),ex('bicycle-crunch')],
+    prescription:{repeats:3,targets:[{type:'reps',value:8},{type:'reps',value:8}],timeCapSeconds:300,exerciseRestSeconds:15,roundRestSeconds:45}};
   return blocks;
 }
 
@@ -76,6 +78,8 @@ function traceBlock(Generator, block) {
       seconds += step.seconds;
     }
   });
+  // Density reserves its cap, including pacing/recovery slack, rather than estimated work.
+  if(block.protocol==='density'&&steps.length)seconds=block.prescription.timeCapSeconds;
   return {steps, seconds, problems};
 }
 

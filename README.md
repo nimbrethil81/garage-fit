@@ -8,6 +8,10 @@ no numerical weights or completed measurements are inferred. Longer sessions occ
 short complex: two or three movements back to back on one setup, then recovery, with each movement
 played and recorded separately. See [the protocol contract](docs/WORKOUT_PROTOCOLS.md).
 
+Balanced and Cardio sessions may also offer a short density block: finish a fixed rep target
+at a steady pace with recovery, then stop, within a time cap. The player shows time and work
+remaining; expiry credits only confirmed work and offers optional partial reps.
+
 The More menu contains an Exercise Library for searching and browsing the full
 canonical catalogue by equipment, with How to do it instructions for every exercise.
 

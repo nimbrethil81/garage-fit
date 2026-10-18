@@ -336,6 +336,16 @@
       <div class="workout-target" id="workoutTarget">25 reps</div>
       <div class="workout-side-note" id="workoutSideNote"></div>
       <div class="workout-side-note hidden" id="workoutEmomStatus" role="status" aria-live="polite"></div>
+      <div class="workout-side-note hidden" id="workoutDensityStatus" role="status" aria-live="polite"></div>
+      <details class="exercise-instruction hidden" id="densityPartial">
+        <summary>Record partial reps (optional)</summary>
+        <form class="coach-fields" onsubmit="saveDensityPartial(event)">
+          <label for="densityPartialReps"><span id="densityPartialLabel">Confirmed reps</span>
+            <input id="densityPartialReps" type="number" inputmode="numeric" min="1" step="1">
+          </label>
+          <button class="ctrl-btn ctrl-secondary" type="submit" id="densityPartialSave">Save reps</button>
+        </form>
+      </details>
       <section id="coachAnchorLog" class="hidden" aria-label="Anchor result">
         <p id="coachAnchorPlanned"></p><p id="coachActualSummary" aria-live="polite"></p>
         <details id="coachAnchorEdit"><summary>Edit result</summary>
@@ -718,7 +728,7 @@ function renderWorkoutElapsed(){
 function startWorkoutClock(){clearInterval(workoutState.timer);workoutState.startedAt=workoutNow();workoutState.timer=setInterval(renderWorkoutElapsed,250);renderWorkoutElapsed()}
 function pauseWorkoutClock(){if(!workoutState.running||workoutState.paused)return;if(workoutState.mode==='generated')syncGeneratedCountdown();workoutState.elapsedMs=currentWorkoutElapsedMs();workoutState.paused=true;cancelSpeech();clearInterval(workoutState.timer);renderWorkoutElapsed();updateWorkoutPauseUI()}
 function resumeWorkoutClock(){if(!workoutState.running||!workoutState.paused)return;workoutState.paused=false;generatorState.phaseTickAt=Date.now();startWorkoutClock();updateWorkoutPauseUI()}
-function stopWorkoutClock(){if(workoutState.running&&!workoutState.paused)workoutState.elapsedMs=currentWorkoutElapsedMs();clearInterval(workoutState.timer);workoutState.timer=null;if(generatorState.emomOperation){generatorState.emomOperation=null;coachAdvancing=false}}
+function stopWorkoutClock(){if(generatorState.densityOperation){generatorState.densityOperation=null;coachAdvancing=false}if(workoutState.running&&!workoutState.paused)workoutState.elapsedMs=currentWorkoutElapsedMs();clearInterval(workoutState.timer);workoutState.timer=null;if(generatorState.emomOperation){generatorState.emomOperation=null;coachAdvancing=false}}
 function startWorkout(){startFixedWorkout('workout300')}
 function startFixedWorkout(workoutId){
   const workout=FIXED_WORKOUTS[workoutId];if(!workout||!workout.exercises)return;document.getElementById('coachAnchorLog').classList.add('hidden');document.getElementById('coachSkipBtn').classList.add('hidden');document.getElementById('coachPlayerError').textContent='';beginInstructionSession();stopTimer();stopGeneratedPhaseTimer();stopWorkoutClock();state.running=false;state.doneDestination='workouts';workoutState={mode:'fixed',workout,idx:0,round:1,completedRounds:0,additionalReps:0,history:[],completed:workout.exercises.map(()=>false),elapsedMs:0,startedAt:Date.now(),timer:null,paused:false,running:true,expired:false,result:null};const player=document.getElementById('workoutPlayer');player.classList.remove('generated-player','rest-phase');document.getElementById('workoutPlayerTitle').textContent=workout.name;document.getElementById('doneStats').classList.add('hidden');document.getElementById('generatedDoneStats').classList.add('hidden');document.getElementById('amrapDoneStats').classList.add('hidden');document.getElementById('completeMovementBtn').disabled=false;document.querySelector('#workoutPlayer .progress-label span:first-child').textContent=isAmrapWorkout()?'Time progress':'Total progress';document.getElementById('previousWorkoutBtn').querySelector('.previous-copy span').textContent='Previous';const track=document.getElementById('workoutProgressTrack'),totalFixedReps=workout.exercises.reduce((total,exercise)=>total+exercise.reps,0)*(workout.termination.rounds||1);track.setAttribute('aria-valuemax',isAmrapWorkout()?String(workout.termination.durationSeconds):String(totalFixedReps));showScreen('workoutPlayer');renderWorkout();startWorkoutClock();requestWake();beep(880);const first=fixedWorkoutExercises(workout)[0];announceExercise(first,workout.name+'. '+first.reps+' '+first.name+'. Go.');
@@ -727,7 +737,7 @@ function activeFixedExercises(){return fixedWorkoutExercises(workoutState.workou
 function repsPerFixedRound(){return activeFixedExercises().reduce((total,ex)=>total+ex.reps,0)}
 function completedWorkoutReps(){const exercises=activeFixedExercises(),priorRounds=Math.max(0,workoutState.round-1)*repsPerFixedRound();return priorRounds+exercises.reduce((total,ex,index)=>total+(workoutState.completed[index]?ex.reps:0),0)}
 function renderWorkout(){
-  document.getElementById('workoutEmomStatus').classList.add('hidden');document.getElementById('workoutSideNote').classList.remove('hidden');
+  document.getElementById('workoutDensityStatus').classList.add('hidden');document.getElementById('densityPartial').classList.add('hidden');document.getElementById('workoutEmomStatus').classList.add('hidden');document.getElementById('workoutSideNote').classList.remove('hidden');
   const exercises=activeFixedExercises(),ex=exercises[workoutState.idx],completed=completedWorkoutReps(),amrap=isAmrapWorkout(),fixedRounds=workoutState.workout.termination.rounds,totalReps=repsPerFixedRound()*fixedRounds,percent=amrap?Math.round((1-amrapRemainingMs()/(workoutState.workout.termination.durationSeconds*1000))*100):Math.round(completed/totalReps*100),previous=workoutState.history.length?exercises[workoutState.history.at(-1).idx]:null;
   document.getElementById('workoutMovementProgress').textContent=amrap?'Round '+workoutState.round+' · Exercise '+(workoutState.idx+1)+' of '+exercises.length:fixedRounds>1?'Round '+workoutState.round+' of '+fixedRounds+' · Movement '+(workoutState.idx+1)+' of '+exercises.length:'Movement '+(workoutState.idx+1)+' of '+exercises.length;
   document.getElementById('workoutExercise').textContent=ex.name;setInstructionDisclosure('workoutInstruction',ex);document.getElementById('workoutTarget').textContent=ex.reps+' reps';document.getElementById('workoutSideNote').textContent=ex.note||'';
@@ -740,6 +750,7 @@ function fixedWorkoutIsFinal(){return !isAmrapWorkout()&&workoutState.round>=wor
 function setPrimaryAction(action){document.getElementById('completeMovementAction').textContent=action}
 // The primary button previews only the immediate next timeline item's name, never its detail.
 function nextGeneratedLabel(){
+  if(isDensityPhase()&&densityRun().ended){const next=generatorState.timeline[densityRun().lastIndex+1];return next&&next.nextExercise?next.nextExercise.name:next&&next.exercise?next.exercise.name:'Next section'}
   if(isEmomPhase()&&emomWork()&&!emomWork().settled)return 'Rest until next minute';
   const next=generatorState.timeline[generatorState.timelineIndex+1];
   if(!next)return isCoachPlayer()?'Session feedback':'';
@@ -758,16 +769,16 @@ function renderUpNext(){
   }else label=nextGeneratedLabel();
   const next=document.getElementById('completeMovementNext');next.textContent=label;next.classList.toggle('hidden',!label);
 }
-const WORKOUT_COUNTDOWN_KINDS=['ready','rest','round-rest','set-rest','set-change','interval-rest','ladder-rest','pyramid-rest','complex-change','complex-rest','block-transition','transition'];
+const WORKOUT_COUNTDOWN_KINDS=['ready','rest','round-rest','set-rest','set-change','interval-rest','ladder-rest','pyramid-rest','complex-change','complex-rest','density-rest','block-transition','transition'];
 function isEmomPhase(phase=currentGeneratedPhase()){return !!phase&&phase.kind==='exercise'&&phase.protocol==='emom'}
-function generatedPhaseHasCountdown(phase){return isEmomPhase(phase)||!!phase&&!!phase.seconds&&(phase.timed||WORKOUT_COUNTDOWN_KINDS.includes(phase.kind))}
+function generatedPhaseHasCountdown(phase){return isDensityPhase(phase)||isEmomPhase(phase)||!!phase&&!!phase.seconds&&(phase.timed||WORKOUT_COUNTDOWN_KINDS.includes(phase.kind))}
 // The ring reads the existing phase countdown; it owns no timer of its own.
 function renderWorkoutRing(){
   const phase=workoutState.mode==='generated'?currentGeneratedPhase():null,timed=generatedPhaseHasCountdown(phase);
-  document.getElementById('workoutRingWrap').classList.toggle('hidden',!timed);document.getElementById('workoutTarget').classList.toggle('hidden',timed&&!isEmomPhase(phase));
+  document.getElementById('workoutRingWrap').classList.toggle('hidden',!timed);document.getElementById('workoutTarget').classList.toggle('hidden',timed&&!isEmomPhase(phase)&&!isDensityPhase(phase));
   if(!timed)return;
   const remaining=Math.max(0,generatorState.remaining);document.getElementById('workoutRingNum').textContent=String(Math.ceil(remaining));
-  document.getElementById('workoutRingFg').style.strokeDashoffset=RING_CIRC*(1-Math.min(1,remaining/(isEmomPhase(phase)?60:phase.seconds)));
+  document.getElementById('workoutRingFg').style.strokeDashoffset=RING_CIRC*(1-Math.min(1,remaining/(isDensityPhase(phase)?phase.protocolConditions.timeCapSeconds:isEmomPhase(phase)?60:phase.seconds)));
 }
 function updateWorkoutPauseUI(){
   const busy=coachAdvancing,disabled=!workoutState.running||workoutState.paused||busy,paused=!!workoutState.paused,locked=!workoutState.running||busy;
@@ -785,6 +796,7 @@ function updateWorkoutPauseUI(){
     document.getElementById('coachSkipBtn').disabled=disabled||!!(work&&(work.settled||work.pending));
     document.getElementById('workoutRingState').textContent=paused?'Paused':work&&work.settled?'Rest':'Minute';
   }else document.getElementById('previousWorkoutBtn').removeAttribute('aria-label');
+  if(isDensityPhase())renderDensityPhase(currentGeneratedPhase());
 }
 function toggleWorkoutPause(){if(!workoutState.running||coachAdvancing||exitState.type)return;workoutState.paused?resumeWorkoutClock():pauseWorkoutClock()}
 function completeWorkoutMovement(){
@@ -821,16 +833,16 @@ function makeGeneratedExercisePhases(exercise,section,round,exerciseIndex,metada
 function appendBlockTimeline(timeline,block,blockIndex,totalBlocks){
   // Every Main phase is built from the block's resolved steps; the tracker reads its plan from these phases.
   const conditions=GarageFitGenerator.protocolConditions(block);
-  if(['emom','complex'].includes(block.protocol)){conditions.targets.forEach(Object.freeze);Object.freeze(conditions.targets)}
+  if(['emom','complex','density'].includes(block.protocol)){conditions.targets.forEach(Object.freeze);Object.freeze(conditions.targets)}
   const meta={blockIndex,totalBlocks,protocol:block.protocol,protocolConditions:Object.freeze(conditions)};
   GarageFitGenerator.resolveBlockSteps(block).forEach(step=>{
     if(step.kind==='exercise'){
-      const exercise=block.exercises[step.exerciseIndex],stepMeta=Object.assign({},meta,{set:step.set,cycle:step.cycle,...(step.ladderStep?{ladderStep:step.ladderStep}:{}),...(step.pyramidStep?{pyramidStep:step.pyramidStep}:{}),...(step.complexSequence?{complexSequence:step.complexSequence}:{})});
+      const exercise=block.exercises[step.exerciseIndex],stepMeta=Object.assign({},meta,{set:step.set,cycle:step.cycle,...(step.ladderStep?{ladderStep:step.ladderStep}:{}),...(step.pyramidStep?{pyramidStep:step.pyramidStep}:{}),...(step.complexSequence?{complexSequence:step.complexSequence}:{}),...(step.densityRound?{densityRound:step.densityRound}:{})});
       ['plannedPrescription','plannedLoad','variableTarget','estimatedSeconds'].forEach(key=>{if(step[key]!==undefined)stepMeta[key]=step[key]});
       if(block.protocol==='emom')Object.assign(stepMeta,step);
       timeline.push(...makeGeneratedExercisePhases(exercise,'main',step.round||null,step.exerciseIndex,Object.assign(stepMeta,{intervalSeconds:step.timed?step.seconds:undefined})));
     }else{
-      timeline.push(Object.assign({kind:step.kind,section:'main',seconds:step.seconds,nextExercise:block.exercises[step.nextExerciseIndex]},meta,{round:step.round,set:step.set,cycle:step.cycle,...(step.ladderStep?{ladderStep:step.ladderStep}:{}),...(step.pyramidStep?{pyramidStep:step.pyramidStep}:{}),...(step.complexSequence?{complexSequence:step.complexSequence}:{})}));
+      timeline.push(Object.assign({kind:step.kind,section:'main',seconds:step.seconds,nextExercise:block.exercises[step.nextExerciseIndex]},meta,{round:step.round,set:step.set,cycle:step.cycle,...(step.ladderStep?{ladderStep:step.ladderStep}:{}),...(step.pyramidStep?{pyramidStep:step.pyramidStep}:{}),...(step.complexSequence?{complexSequence:step.complexSequence}:{}),...(step.densityRound?{densityRound:step.densityRound}:{})}));
     }
   });
 }
@@ -850,7 +862,7 @@ function buildGeneratedTimeline(workout){
 // tracking options ({store, source, meaningful, ...}; see js/session-tracker.js). Coach passes
 // its own tracker; the standalone Start button opts in through standaloneGeneratedTracking().
 function startGeneratedWorkout(tracking){
-  if(!generatorState.workout)return;generatorState.emomBlocks=new Map();generatorState.emomSuspended=false;beginInstructionSession();generatorState.workout=GarageFitGenerator.normaliseWorkout(generatorState.workout);stopTimer();stopGeneratedPhaseTimer();stopWorkoutClock();state.running=false;state.doneDestination='generator';workoutState={mode:'generated',idx:0,completed:[],elapsedMs:0,startedAt:Date.now(),timer:null,paused:false,running:true};generatorState.timeline=buildGeneratedTimeline(generatorState.workout);startGeneratedTracking(tracking);generatorState.timelineIndex=0;generatorState.remaining=0;generatorState.completedMain=0;const player=document.getElementById('workoutPlayer');player.classList.add('generated-player');document.getElementById('workoutPlayerTitle').textContent=FOCUS_LABELS[generatorState.workout.focus]+' · '+generatorState.workout.duration+' min';document.getElementById('doneStats').classList.add('hidden');document.getElementById('generatedDoneStats').classList.add('hidden');document.getElementById('amrapDoneStats').classList.add('hidden');showScreen('workoutPlayer');startWorkoutClock();requestWake();enterGeneratedPhase(0);speak('Get ready. '+generatorState.workout.warmup.exercises[0].name);
+  if(!generatorState.workout)return;generatorState.densityBlocks=new Map();generatorState.emomBlocks=new Map();generatorState.emomSuspended=false;beginInstructionSession();generatorState.workout=GarageFitGenerator.normaliseWorkout(generatorState.workout);stopTimer();stopGeneratedPhaseTimer();stopWorkoutClock();state.running=false;state.doneDestination='generator';workoutState={mode:'generated',idx:0,completed:[],elapsedMs:0,startedAt:Date.now(),timer:null,paused:false,running:true};generatorState.timeline=buildGeneratedTimeline(generatorState.workout);startGeneratedTracking(tracking);generatorState.timelineIndex=0;generatorState.remaining=0;generatorState.completedMain=0;const player=document.getElementById('workoutPlayer');player.classList.add('generated-player');document.getElementById('workoutPlayerTitle').textContent=FOCUS_LABELS[generatorState.workout.focus]+' · '+generatorState.workout.duration+' min';document.getElementById('doneStats').classList.add('hidden');document.getElementById('generatedDoneStats').classList.add('hidden');document.getElementById('amrapDoneStats').classList.add('hidden');showScreen('workoutPlayer');startWorkoutClock();requestWake();enterGeneratedPhase(0);speak('Get ready. '+generatorState.workout.warmup.exercises[0].name);
 }
 // Standalone generated workouts add a completed run to shared Training History as a
 // source=generator Session Result. The draft stays in memory: the exit flow promises that
@@ -866,13 +878,14 @@ function trackGenerated(action){try{const write=action();if(write&&write.catch)w
 function recordGeneratedOutcome(action){const tracker=generatorState.tracker,phase=currentGeneratedPhase();if(!tracker||!tracker.started||tracker.finalised||generatorState.trackedResult||!phase||phase.kind!=='exercise')return;trackGenerated(()=>phase.timed?tracker.recordTimed(phase.occurrenceId,{plannedSeconds:phase.seconds,elapsedSeconds:phase.seconds-Math.max(0,generatorState.remaining)}):action==='done'?tracker.recordDone(phase.occurrenceId):tracker.recordSkip(phase.occurrenceId))}
 function finishGeneratedTracking(kind){const tracker=generatorState.tracker;if(!tracker||!tracker.started||tracker.finalised||generatorState.trackedResult)return null;if(kind==='exit'&&generatorState.standaloneTracking){generatorState.tracker=null;return null}const options={actualDurationSeconds:Math.floor(currentWorkoutElapsedMs()/1000)};generatorState.trackedResult=trackGenerated(()=>kind==='complete'?tracker.complete(options):tracker.exitEarly(options));if(kind==='complete'&&generatorState.standaloneTracking&&generatorState.trackedResult)Promise.resolve(generatorState.trackedResult).then(refreshGeneratorProtocols).catch(()=>{});return generatorState.trackedResult}
 function currentGeneratedPhase(){return generatorState.timeline[generatorState.timelineIndex]}
-function syncGeneratedCountdown(){if(isEmomPhase()&&emomRun()){generatorState.remaining=Math.max(0,(emomRun().originMs+currentGeneratedPhase().endsAtSeconds*1000-currentWorkoutElapsedMs())/1000);return}if(generatorState.phaseTimer!==null&&generatorState.phaseTickAt!=null){const now=Date.now();if(!workoutState.paused)generatorState.remaining=Math.max(0,generatorState.remaining-(now-generatorState.phaseTickAt)/1000);generatorState.phaseTickAt=now}}
+function syncGeneratedCountdown(){if(isDensityPhase()&&densityRun()){generatorState.remaining=densityRemaining();return}if(isEmomPhase()&&emomRun()){generatorState.remaining=Math.max(0,(emomRun().originMs+currentGeneratedPhase().endsAtSeconds*1000-currentWorkoutElapsedMs())/1000);return}if(generatorState.phaseTimer!==null&&generatorState.phaseTickAt!=null){const now=Date.now();if(!workoutState.paused)generatorState.remaining=Math.max(0,generatorState.remaining-(now-generatorState.phaseTickAt)/1000);generatorState.phaseTickAt=now}}
 function stopGeneratedPhaseTimer(){syncGeneratedCountdown();clearInterval(generatorState.phaseTimer);generatorState.phaseTimer=null}
 function startGeneratedCountdown(seconds){
   stopGeneratedPhaseTimer();const phase=currentGeneratedPhase();generatorState.remaining=seconds;generatorState.phaseTickAt=Date.now();generatorState.cueTracker=GarageFitTimedCues.createTracker(phase&&phase.kind==='exercise'?phase.exercise.timedCues:[],seconds);renderGeneratedCountdown();
   resumeGeneratedCountdown();
 }
 function resumeGeneratedCountdown(){
+  if(isDensityPhase())return resumeDensityCountdown();
   if(isEmomPhase())return resumeEmomCountdown();
   const phase=currentGeneratedPhase(),seconds=phase.seconds;generatorState.phaseTickAt=Date.now();
   const timer=setInterval(()=>{
@@ -968,19 +981,151 @@ async function updateEmomMinute(action){
     if(workoutState.running&&generatorState.timeline===timeline){if(isEmomPhase()){syncGeneratedCountdown();renderGeneratedPhase()}else updateWorkoutPauseUI()}
   }
 }
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&workoutState.mode==='generated'&&workoutState.running&&isEmomPhase())return updateEmomMinute()});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&workoutState.mode==='generated'&&workoutState.running){if(isDensityPhase())return updateDensityBlock();if(isEmomPhase())return updateEmomMinute()}});
 if(typeof window.addEventListener==='function')window.addEventListener('pagehide',()=>{
-  if(workoutState.mode!=='generated'||!workoutState.running||!isEmomPhase())return;
+  if(workoutState.mode!=='generated'||!workoutState.running||!isEmomPhase()&&!isDensityPhase())return;
   // Best-effort checkpoint, never speculative recovery of screen/timer state on reload.
-  if(isCoachPlayer())settleEmomMinute(currentGeneratedPhase(),'skip');
+  if(isCoachPlayer()){if(isDensityPhase())checkpointDensityExit(currentGeneratedPhase());else settleEmomMinute(currentGeneratedPhase(),'skip')}
   pauseWorkoutClock();stopGeneratedPhaseTimer();generatorState.emomSuspended=true;
 });
 if(typeof window.addEventListener==='function')window.addEventListener('pageshow',()=>{
-  if(!generatorState.emomSuspended||workoutState.mode!=='generated'||!workoutState.running||!isEmomPhase())return;
-  generatorState.emomSuspended=false;renderGeneratedPhase();resumeEmomCountdown();
+  if(!generatorState.emomSuspended||workoutState.mode!=='generated'||!workoutState.running||!isEmomPhase()&&!isDensityPhase())return;
+  generatorState.emomSuspended=false;renderGeneratedPhase();if(isDensityPhase())resumeDensityCountdown();else resumeEmomCountdown();
 });
+// Density shares the generated timeline and Tracker. Its single monotonic block clock
+// survives Previous, rest, delayed callbacks and saves; only explicit rep outcomes earn credit.
+function isDensityPhase(phase=currentGeneratedPhase()){return workoutState.mode==='generated'&&!!phase&&phase.protocol==='density'}
+function densityRun(phase=currentGeneratedPhase()){return phase&&generatorState.densityBlocks&&generatorState.densityBlocks.get(phase.blockIndex)}
+function densityRemaining(){const run=densityRun();return Math.max(0,(run.deadlineMs-currentWorkoutElapsedMs())/1000)}
+function densityPhases(run=densityRun()){return generatorState.timeline.slice(run.firstIndex,run.lastIndex+1).filter(phase=>phase.kind==='exercise')}
+function densityOutcome(phase){const run=densityRun(phase);return run.work.get(phase.occurrenceId)||generatorState.tracker&&generatorState.tracker.outcome(phase.occurrenceId)}
+function enterDensityPhase(){
+  const phase=currentGeneratedPhase();
+  if(!generatorState.densityBlocks)generatorState.densityBlocks=new Map();
+  let run=densityRun(phase);
+  if(!run){
+    const indexes=generatorState.timeline.map((item,index)=>isDensityPhase(item)&&item.blockIndex===phase.blockIndex?index:-1).filter(index=>index>=0);
+    run={firstIndex:indexes[0],lastIndex:indexes.at(-1),deadlineMs:currentWorkoutElapsedMs()+phase.protocolConditions.timeCapSeconds*1000,work:new Map(),ended:null,pending:null};
+    generatorState.densityBlocks.set(phase.blockIndex,run);
+    document.getElementById('densityPartialReps').value='';document.getElementById('densityPartial').open=false;
+  }
+  // A completed/capped block cannot be reopened by timeline navigation.
+  if(run.ended){enterGeneratedPhase(run.lastIndex+1);return}
+  run.phaseStartedMs=currentWorkoutElapsedMs();run.enteredPhase=phase;
+  syncGeneratedCountdown();renderGeneratedPhase();resumeDensityCountdown();
+  if(densityRemaining()<=0){updateDensityBlock();return}
+  if(phase.kind==='exercise')announceExercise(phase.exercise,['Density. Round '+phase.densityRound+'.',phase.exercise.name+'. '+phase.plannedPrescription.value+' reps.','Move steadily; this is a fixed target, not a race.']);
+  else speak('Recover before the next target.');
+}
+function resumeDensityCountdown(){
+  const phase=currentGeneratedPhase();clearInterval(generatorState.phaseTimer);
+  const timer=setInterval(()=>{
+    if(generatorState.phaseTimer!==timer||currentGeneratedPhase()!==phase||!workoutState.running||workoutState.paused)return;
+    syncGeneratedCountdown();renderWorkoutRing();renderDensityPhase(phase);
+    if(!coachAdvancing)return updateDensityBlock();
+  },250);generatorState.phaseTimer=timer;
+}
+async function settleDensityOccurrence(phase,action){
+  const run=densityRun(phase);if(phase.kind!=='exercise')return true;
+  const previous=densityOutcome(phase);
+  if(previous&&['completed','partial'].includes(previous.status)&&!run.pending)return true;
+  // Freeze evidence when the user acts, before a potentially slow durable checkpoint.
+  const pending=run.pending||(run.pending={phase,outcome:{status:action==='done'?'completed':'skipped',
+    note:action==='done'?(densityPhases(run).every(item=>item===phase||densityOutcome(item)?.status==='completed')?'Density fixed work completed before the time cap.':'Density fixed target explicitly confirmed.'):action==='cap'?'Density time cap reached; repetitions not confirmed.':'Density target not confirmed.'}});
+  try{
+    const tracker=generatorState.tracker;
+    if(tracker&&tracker.started&&!tracker.finalised)await tracker.recordOutcome(pending.phase.occurrenceId,pending.outcome);
+    run.work.set(pending.phase.occurrenceId,pending.outcome);run.pending=null;run.retry=false;
+    document.getElementById('coachPlayerError').textContent='';return true;
+  }catch(error){generatorState.trackerError=error;run.retry=true;document.getElementById('coachPlayerError').textContent='Could not save this target. Tap Retry save.';return false}
+}
+async function endDensityBlock(reason){
+  const run=densityRun(),phase=currentGeneratedPhase(),timeline=generatorState.timeline;
+  if(reason==='time-cap'){
+    // Expiry during recovery marks the next unentered target skipped, so the saved
+    // evidence retains the cap reason without implying that target was attempted.
+    const unfinished=phase.kind==='exercise'?phase:timeline.slice(generatorState.timelineIndex+1,run.lastIndex+1).find(item=>item.kind==='exercise');
+    if(unfinished&&!await settleDensityOccurrence(unfinished,'cap'))return false;
+    if(!workoutState.running||generatorState.timeline!==timeline||currentGeneratedPhase()!==phase)return false;
+    if(phase.kind==='exercise'&&densityOutcome(phase).status!=='completed')run.partialPhase=phase;
+  }
+  run.ended=reason;stopGeneratedPhaseTimer();renderGeneratedPhase();playCompletionChime();
+  speak(reason==='target-complete'?'Fixed work complete.':reason==='time-cap'?'Time cap reached. Only confirmed work counts.':'Density block ended. Only confirmed work counts.');return true;
+}
+async function updateDensityBlock(action){
+  if(workoutState.mode!=='generated'||!workoutState.running||workoutState.paused||coachAdvancing||!isDensityPhase())return;
+  const phase=currentGeneratedPhase(),run=densityRun(),timeline=generatorState.timeline;
+  if(run.ended){if(action==='done')enterGeneratedPhase(run.lastIndex+1);return}
+  if(run.retry&&!action)return;
+  const expired=densityRemaining()<=0;
+  if(!expired&&!action&&(phase.kind==='exercise'||currentWorkoutElapsedMs()-run.phaseStartedMs<phase.seconds*1000))return;
+  if(!expired&&phase.kind!=='exercise'&&action&&action!=='previous')return; // Recovery has a real minimum.
+  const operation={};generatorState.densityOperation=operation;coachAdvancing=true;updateWorkoutPauseUI();
+  const current=()=>workoutState.running&&generatorState.timeline===timeline&&currentGeneratedPhase()===phase&&generatorState.densityOperation===operation;
+  try{
+    if(run.pending){
+      if(!await settleDensityOccurrence(run.pending.phase,run.pending.outcome.status==='completed'?'done':'skip'))return;if(!current())return;
+      if(densityPhases(run).every(item=>densityOutcome(item)?.status==='completed')){await endDensityBlock('target-complete');return}
+    }
+    if(expired||densityRemaining()<=0){await endDensityBlock('time-cap');return}
+    if(phase.kind==='exercise'){
+      if(!await settleDensityOccurrence(phase,action==='done'?'done':'skip'))return;
+      if(!current())return;
+    }
+    if(densityPhases(run).every(item=>densityOutcome(item)?.status==='completed')){await endDensityBlock('target-complete');return}
+    if(densityRemaining()<=0){await endDensityBlock('time-cap');return}
+    if(action==='previous'){
+      const index=previousGeneratedExerciseIndex();if(index>=run.firstIndex)enterGeneratedPhase(index);
+    }else if(generatorState.timelineIndex>=run.lastIndex)await endDensityBlock('work-ended');
+    else enterGeneratedPhase(generatorState.timelineIndex+1);
+  }finally{
+    if(generatorState.densityOperation===operation){generatorState.densityOperation=null;coachAdvancing=false;if(workoutState.running&&generatorState.timeline===timeline){renderGeneratedPhase();updateWorkoutPauseUI()}}
+  }
+}
+function renderDensityPhase(phase){
+  const active=isDensityPhase(phase),status=document.getElementById('workoutDensityStatus'),partial=document.getElementById('densityPartial');
+  status.classList.toggle('hidden',!active);partial.classList.add('hidden');if(!active)return;
+  const run=densityRun(phase),phases=densityPhases(run),completed=phases.filter(item=>densityOutcome(item)?.status==='completed').length;
+  const reps=phases.reduce((sum,item)=>{const outcome=densityOutcome(item);return sum+(outcome?.status==='completed'?0:Math.max(0,item.plannedPrescription.value-(outcome?.sets?.[0]?.reps||0)))},0);
+  const recovery=Math.max(0,Math.ceil(phase.seconds-(currentWorkoutElapsedMs()-run.phaseStartedMs)/1000));
+  const detail=run.retry?'Could not save. Retry this target.':run.ended==='target-complete'?'Fixed work complete before the cap.':run.ended==='time-cap'?'Time cap reached. Only confirmed work counts.':run.ended?'Block ended. Only confirmed work counts.':phase.kind==='exercise'?'Move steadily; rest more if needed.':'Recover for '+recovery+' sec.';
+  const statusText=detail+' '+reps+' reps remaining · '+completed+' of '+phases.length+' targets confirmed.';
+  if(status.textContent!==statusText)status.textContent=statusText;
+  document.getElementById('workoutRingState').textContent=workoutState.paused?'Paused':'Cap remaining';
+  if(run.ended){
+    document.getElementById('workoutExercise').textContent=run.ended==='target-complete'?'Fixed work complete':run.ended==='time-cap'?'Time cap reached':'Block ended';
+    document.getElementById('workoutTarget').textContent=completed+' of '+phases.length+' targets confirmed';
+    document.getElementById('workoutRingWrap').classList.add('hidden');setInstructionDisclosure('workoutInstruction',null);setPrimaryAction('Continue');
+  }else{
+    if(phase.kind!=='exercise')document.getElementById('workoutExercise').textContent='Recover';
+    document.getElementById('workoutTarget').textContent=phase.kind==='exercise'?phase.plannedPrescription.value+' reps':'Recover';
+    setPrimaryAction(run.retry?'Retry save':phase.kind==='exercise'?densityOutcome(phase)?.status==='completed'?'Continue':'Done':'Recover');
+  }
+  if(run.partialPhase&&run.ended==='time-cap'){
+    partial.classList.remove('hidden');document.getElementById('densityPartialReps').max=String(run.partialPhase.plannedPrescription.value-1);
+    document.getElementById('densityPartialLabel').textContent=run.partialPhase.exercise.name+' · confirmed reps before the cap (1–'+(run.partialPhase.plannedPrescription.value-1)+')';
+  }
+  document.getElementById('coachSkipBtn').classList.toggle('hidden',!!run.ended||phase.kind!=='exercise'||densityOutcome(phase)?.status==='completed');
+  document.getElementById('completeMovementBtn').disabled=!workoutState.running||workoutState.paused||coachAdvancing||(!run.ended&&phase.kind!=='exercise'&&!run.retry);
+  document.getElementById('previousWorkoutBtn').disabled=!workoutState.running||workoutState.paused||coachAdvancing||!!run.ended||previousGeneratedExerciseIndex()<run.firstIndex;
+  document.getElementById('densityPartialSave').disabled=workoutState.paused||coachAdvancing;
+}
+async function saveDensityPartial(event){
+  event.preventDefault();if(!isDensityPhase()||coachAdvancing||workoutState.paused)return;
+  const run=densityRun(),phase=run.partialPhase,input=document.getElementById('densityPartialReps'),reps=Number(input.value);
+  if(run.ended!=='time-cap'||!phase||!Number.isInteger(reps)||reps<1||reps>=phase.plannedPrescription.value){input.focus();return}
+  coachAdvancing=true;updateWorkoutPauseUI();
+  try{
+    const outcome={status:'partial',sets:[{reps}],note:'Repetitions explicitly confirmed at the density time cap.'};
+    const tracker=generatorState.tracker;if(tracker)await tracker.recordPartial(phase.occurrenceId,outcome);
+    run.work.set(phase.occurrenceId,outcome);run.partialPhase=null;document.getElementById('coachPlayerError').textContent='';
+  }catch(error){generatorState.trackerError=error;document.getElementById('coachPlayerError').textContent='Could not save partial reps. Try again.'}
+  finally{coachAdvancing=false;renderGeneratedPhase()}
+}
+async function checkpointDensityExit(phase){const run=densityRun(phase);return run.ended||await settleDensityOccurrence(phase,densityRemaining()<=0?'cap':'skip')}
+
 function enterGeneratedPhase(index){
-  stopGeneratedPhaseTimer();generatorState.cueTracker=null;clearTimedCue('workoutTimedCue');const previousIndex=generatorState.timelineIndex,previous=currentGeneratedPhase();if(!isEmomPhase(previous)&&!isEmomPhase(generatorState.timeline[index])&&GarageFitCompletionSignal.shouldSignalUnitComplete(previousIndex,index))playCompletionChime();generatorState.timelineIndex=index;if(index>=generatorState.timeline.length){finishGeneratedWorkout();return}const phase=currentGeneratedPhase();if(isEmomPhase(phase)){enterEmomMinute();return}generatorState.remaining=phase.seconds||0;renderGeneratedPhase();if(phase.seconds!==null&&phase.seconds!==undefined)startGeneratedCountdown(phase.seconds);
+  stopGeneratedPhaseTimer();generatorState.cueTracker=null;clearTimedCue('workoutTimedCue');const previousIndex=generatorState.timelineIndex,previous=currentGeneratedPhase();if(!isEmomPhase(previous)&&!isEmomPhase(generatorState.timeline[index])&&GarageFitCompletionSignal.shouldSignalUnitComplete(previousIndex,index))playCompletionChime();generatorState.timelineIndex=index;if(index>=generatorState.timeline.length){finishGeneratedWorkout();return}const phase=currentGeneratedPhase();if(isEmomPhase(phase)){enterEmomMinute();return}if(isDensityPhase(phase)){enterDensityPhase();return}generatorState.remaining=phase.seconds||0;renderGeneratedPhase();if(phase.seconds!==null&&phase.seconds!==undefined)startGeneratedCountdown(phase.seconds);
   if(phase.kind==='exercise')announceExercise(phase.exercise,(phase.protocol==='pyramid'?[generatedPhaseLabel(phase)+'.']:[]).concat(exerciseCueParts(phase.exercise.name,phase.timed?phase.seconds+' seconds':generatedPhasePrescription(phase).value+' reps',phase.side).map((part,index)=>index||phase.protocol!=='complex'?part:'Complex movement '+(phase.exerciseIndex+1)+' of '+generatorState.workout.main.blocks[phase.blockIndex||0].exercises.length+'. '+part)).concat(phase.plannedLoad?[generatedLoadText(phase.exercise,phase.plannedLoad)]:[]),phase.timed?phase.seconds:null);
   else if(phase.kind==='round-rest')speak('Round '+phase.round+' complete. Rest.');
   else if(phase.kind==='pyramid-rest')speak('Pyramid step '+phase.pyramidStep+' complete. Rest.');
@@ -997,6 +1142,7 @@ function generatedPhaseLabel(phase){
     if(phase.kind==='transition')return 'Main complete';
     if(phase.kind==='block-transition')return 'Main · Block '+(phase.blockIndex+1)+' of '+workout.main.blocks.length+' complete';
     const block=workout.main.blocks[phase.blockIndex||0],prefix='Block '+((phase.blockIndex||0)+1)+' of '+workout.main.blocks.length+' · ';
+    if(phase.protocol==='density')return prefix+'Density · Round '+phase.densityRound+' of '+block.prescription.repeats+(phase.kind==='exercise'?' · Exercise '+(phase.exerciseIndex+1)+' of '+block.exercises.length:' · Recover');
     if(phase.protocol==='pyramid')return prefix+(GarageFitGenerator.pyramidKind(block.prescription.steps)==='reverse'?'Reverse pyramid':'Pyramid')+' · Step '+phase.pyramidStep+' of '+block.prescription.steps.length;
     // Complex: every movement of one sequence, then recovery. Changeovers stay inside the sequence.
     if(phase.protocol==='complex')return prefix+'Complex · Sequence '+phase.complexSequence+' of '+block.prescription.sequences+(phase.kind==='exercise'?' · Movement '+(phase.exerciseIndex+1)+' of '+block.exercises.length:phase.kind==='complex-rest'?' complete':' · Change over');
@@ -1014,9 +1160,9 @@ function generatedPhaseLabel(phase){
 function generatedPhasePrescription(phase){return phase.plannedPrescription||phase.exercise.prescription}
 function generatedLoadText(exercise,plannedLoad){const target=plannedLoad||exercise.coachAnchor&&exercise.coachAnchor.plannedTarget;if(target&&target.relativeLoad)return 'Planned '+target.relativeLoad+' resistance';if(target&&target.suggestedLoad!=null)return target.suggestedLoad+' '+target.loadUnit+(target.loadInterpretation==='per-item'?' each':' total');if(!exercise.load)return '';const usesDumbbells=(exercise.equipment||[]).some(group=>group.includes('dumbbells'));return exercise.load+(usesDumbbells?' dumbbells':'')}
 function nextGeneratedExerciseIndex(){for(let i=generatorState.timelineIndex+1;i<generatorState.timeline.length;i++)if(generatorState.timeline[i].kind==='exercise')return i;return -1}
-function previousGeneratedExerciseIndex(){for(let i=generatorState.timelineIndex-1;i>=0;i--){const phase=generatorState.timeline[i];if(phase.kind!=='exercise')continue;const run=isEmomPhase(phase)&&emomRun(phase);if(run&&currentWorkoutElapsedMs()>=run.originMs+phase.endsAtSeconds*1000)continue;return i}return -1}
+function previousGeneratedExerciseIndex(){for(let i=generatorState.timelineIndex-1;i>=0;i--){const phase=generatorState.timeline[i];if(phase.kind!=='exercise')continue;if(isDensityPhase(phase)&&densityRun(phase)?.ended)continue;const run=isEmomPhase(phase)&&emomRun(phase);if(run&&currentWorkoutElapsedMs()>=run.originMs+phase.endsAtSeconds*1000)continue;return i}return -1}
 function renderGeneratedPhase(){
-  const phase=currentGeneratedPhase();if(!phase)return;const player=document.getElementById('workoutPlayer'),progress=document.getElementById('workoutMovementProgress'),name=document.getElementById('workoutExercise'),target=document.getElementById('workoutTarget'),note=document.getElementById('workoutSideNote'),previousButton=document.getElementById('previousWorkoutBtn'),previousIndex=previousGeneratedExerciseIndex();player.classList.toggle('rest-phase',['rest','round-rest','set-rest','set-change','interval-rest','ladder-rest','pyramid-rest','complex-change','complex-rest','block-transition','transition','ready'].includes(phase.kind));progress.textContent=generatedPhaseLabel(phase);note.textContent='';
+  const phase=currentGeneratedPhase();if(!phase)return;const player=document.getElementById('workoutPlayer'),progress=document.getElementById('workoutMovementProgress'),name=document.getElementById('workoutExercise'),target=document.getElementById('workoutTarget'),note=document.getElementById('workoutSideNote'),previousButton=document.getElementById('previousWorkoutBtn'),previousIndex=previousGeneratedExerciseIndex();player.classList.toggle('rest-phase',['rest','round-rest','set-rest','set-change','interval-rest','ladder-rest','pyramid-rest','complex-change','complex-rest','density-rest','block-transition','transition','ready'].includes(phase.kind));progress.textContent=generatedPhaseLabel(phase);note.textContent='';
   setInstructionDisclosure('workoutInstruction',phase.kind==='exercise'?phase.exercise:null);
   document.getElementById('workoutEmomStatus').classList.toggle('hidden',!isEmomPhase(phase));
   note.classList.toggle('hidden',isEmomPhase(phase));
@@ -1046,13 +1192,14 @@ function renderGeneratedPhase(){
     name.textContent=phase.label;target.textContent='';setPrimaryAction('Skip');
   }else{name.textContent='Get ready';target.textContent='';setPrimaryAction('Skip')}
   renderUpNext();renderWorkoutRing();updateWorkoutPauseUI();document.getElementById('previousWorkoutName').textContent=isEmomPhase(phase)?'Minute timer':previousIndex<0?'None yet':generatorState.timeline[previousIndex].exercise.name;previousButton.querySelector('.previous-copy span').textContent='Previous';const percent=Math.round(generatorState.timelineIndex/Math.max(1,generatorState.timeline.length)*100);document.getElementById('workoutProgressPercent').textContent=percent+'%';const track=document.getElementById('workoutProgressTrack');track.setAttribute('aria-valuemin','0');track.setAttribute('aria-valuemax',String(generatorState.timeline.length));track.setAttribute('aria-valuenow',String(generatorState.timelineIndex));document.getElementById('workoutProgressFill').style.width=percent+'%';document.querySelector('#workoutPlayer .progress-label span:first-child').textContent='Session progress';if(coachUI)coachUI.renderAnchor(phase,generatorState.tracker);
+  renderDensityPhase(phase);
   if(isEmomPhase(phase))document.getElementById('coachSkipBtn').classList.toggle('hidden',phase.timed||emomWork(phase).settled||!!emomWork(phase).pending);
   if(['ladder','pyramid'].includes(phase.protocol)&&phase.kind==='exercise'||phase.protocol==='complex'&&phase.kind==='exercise'&&!phase.timed)document.getElementById('coachSkipBtn').classList.remove('hidden');
 }
-function generatedPrimaryAction(){if(!workoutState.running||workoutState.paused||coachAdvancing)return;if(isEmomPhase())return updateEmomMinute(currentGeneratedPhase().timed?'skip':'done');if(isCoachPlayer())return coachAdvance(currentGeneratedPhase()&&currentGeneratedPhase().timed?'skip':'done');stopGeneratedPhaseTimer();recordGeneratedOutcome(currentGeneratedPhase()&&currentGeneratedPhase().timed?'skip':'done');advanceGeneratedPhase()}
-function generatedSkipWork(){if(!workoutState.running||workoutState.paused||coachAdvancing)return;if(isEmomPhase())return updateEmomMinute('skip');if(['ladder','pyramid','complex'].includes(currentGeneratedPhase().protocol)&&!isCoachPlayer()){stopGeneratedPhaseTimer();recordGeneratedOutcome('skip');advanceGeneratedPhase();return}return coachAdvance('skip')}
+function generatedPrimaryAction(){if(!workoutState.running||workoutState.paused||coachAdvancing)return;if(isDensityPhase())return updateDensityBlock('done');if(isEmomPhase())return updateEmomMinute(currentGeneratedPhase().timed?'skip':'done');if(isCoachPlayer())return coachAdvance(currentGeneratedPhase()&&currentGeneratedPhase().timed?'skip':'done');stopGeneratedPhaseTimer();recordGeneratedOutcome(currentGeneratedPhase()&&currentGeneratedPhase().timed?'skip':'done');advanceGeneratedPhase()}
+function generatedSkipWork(){if(!workoutState.running||workoutState.paused||coachAdvancing)return;if(isDensityPhase())return updateDensityBlock('skip');if(isEmomPhase())return updateEmomMinute('skip');if(['ladder','pyramid','complex'].includes(currentGeneratedPhase().protocol)&&!isCoachPlayer()){stopGeneratedPhaseTimer();recordGeneratedOutcome('skip');advanceGeneratedPhase();return}return coachAdvance('skip')}
 function advanceGeneratedPhase(){const phase=currentGeneratedPhase();if(phase&&phase.kind==='exercise'&&phase.section==='main')generatorState.completedMain++;enterGeneratedPhase(generatorState.timelineIndex+1)}
-function previousGeneratedPhase(){if(!workoutState.running||workoutState.paused||coachAdvancing||isEmomPhase())return;const index=previousGeneratedExerciseIndex();if(index<0)return;if(isCoachPlayer())return coachPrevious(index);enterGeneratedPhase(index)}
+function previousGeneratedPhase(){if(!workoutState.running||workoutState.paused||coachAdvancing||isEmomPhase())return;const index=previousGeneratedExerciseIndex();if(index<0)return;if(isDensityPhase()){if(index<densityRun().firstIndex)return;return updateDensityBlock('previous')}if(isCoachPlayer())return coachPrevious(index);enterGeneratedPhase(index)}
 function finishGeneratedWorkout(){
   if(isCoachPlayer()){coachUI.showEnd('complete',Math.floor(currentWorkoutElapsedMs()/1000));return}
   stopGeneratedPhaseTimer();workoutState.elapsedMs=currentWorkoutElapsedMs();workoutState.running=false;clearInterval(workoutState.timer);workoutState.timer=null;releaseWake();finishGeneratedTracking('complete');const workout=GarageFitGenerator.normaliseWorkout(generatorState.workout),blocks=workout.main.blocks,elapsedSeconds=Math.max(1,Math.floor(workoutState.elapsedMs/1000));try{const history=getGeneratedHistory();history.unshift([...new Set(blocks.flatMap(block=>block.exercises.map(exercise=>exercise.id)))]);localStorage.setItem('gf_generator_history',JSON.stringify(history.slice(0,4)))}catch(e){}state.doneDestination='generator';document.getElementById('doneTitle').textContent='Done';document.getElementById('doneSub').textContent='Workout and cool-down complete.';document.getElementById('doneStats').classList.add('hidden');document.getElementById('generatedDoneTime').textContent=formatTime(elapsedSeconds);document.getElementById('generatedDoneRounds').textContent=blocks.length;document.getElementById('generatedDoneExercises').textContent=blocks.reduce((sum,block)=>sum+block.exercises.length,0);document.getElementById('generatedDoneStats').classList.remove('hidden');document.getElementById('amrapDoneStats').classList.add('hidden');document.getElementById('doneBest').classList.add('hidden');document.getElementById('doneBtn').textContent='Back to Generator';showScreen('done');speak('Workout complete. Nice work.');
@@ -1086,7 +1233,7 @@ async function coachPrevious(index){
 }
 async function coachExit(){
   if(coachAdvancing)return;coachAdvancing=true;updateWorkoutPauseUI();
-  try{const phase=currentGeneratedPhase();stopGeneratedPhaseTimer();if(isEmomPhase(phase)){if(!await settleEmomMinute(phase,'skip'))return}else if(phase&&phase.kind==='exercise'&&phase.timed){if(!await coachUI.record(phase,generatorState.tracker,'skip',phase.seconds-Math.max(0,generatorState.remaining)))return}closeExitDialog();exitState.type=null;coachUI.showEnd('exit',Math.floor(currentWorkoutElapsedMs()/1000))}finally{coachAdvancing=false;updateWorkoutPauseUI()}
+  try{const phase=currentGeneratedPhase();stopGeneratedPhaseTimer();if(isDensityPhase(phase)){if(!await checkpointDensityExit(phase))return}else if(isEmomPhase(phase)){if(!await settleEmomMinute(phase,'skip'))return}else if(phase&&phase.kind==='exercise'&&phase.timed){if(!await coachUI.record(phase,generatorState.tracker,'skip',phase.seconds-Math.max(0,generatorState.remaining)))return}closeExitDialog();exitState.type=null;coachUI.showEnd('exit',Math.floor(currentWorkoutElapsedMs()/1000))}finally{coachAdvancing=false;updateWorkoutPauseUI()}
 }
 loadEquipment();
 if(typeof GarageFitCoachUI!=='undefined'){
