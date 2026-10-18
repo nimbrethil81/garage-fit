@@ -185,7 +185,8 @@ test('Coach optional complexes save early exit truthfully and never advance requ
   await p.run("complexButton('coachContent','View today’s workout')");
   p.run(`coachUI.controller.snapshot().preview.workout.main.blocks.push(JSON.parse(${JSON.stringify(JSON.stringify(fixture()))}));`);
   await p.run("complexButton('coachPreviewContent','Start workout')");
-  p.run("enterGeneratedPhase(generatorState.timeline.findIndex(phase=>phase.protocol==='complex'&&phase.kind==='exercise'))");
+  // Enter the appended fixture even if the unseeded preview already chose a complex.
+  p.run("enterGeneratedPhase(generatorState.timeline.findIndex(phase=>phase.protocol==='complex'&&phase.kind==='exercise'&&phase.blockIndex===generatorState.workout.main.blocks.length-1))");
   assert.equal(p.run("document.getElementById('coachAnchorLog').classList.contains('hidden')"),true);
   assert.equal(p.run("document.getElementById('coachSkipBtn').classList.contains('hidden')"),false);
   await p.run('completeWorkoutMovement()');assert.equal(p.run('currentGeneratedPhase().kind'),'complex-change');

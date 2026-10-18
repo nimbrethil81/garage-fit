@@ -1,6 +1,6 @@
 # Main block protocol contracts
 
-Playable and automatically selected protocols: `rounds`, `paired_sets`, `timed_intervals`, `emom`, `ladder`, `pyramid`, `complex`.
+Playable and automatically selected protocols: `rounds`, `paired_sets`, `timed_intervals`, `emom`, `ladder`, `pyramid`, `complex`, `density`.
 These contracts are the extension seams for later block patterns (#75). `tests/protocol-contracts.test.js` and
 `tests/main-blocks.test.js` enforce them; shared fixtures and the step-trace check live in
 `tests/helpers/protocol-fixtures.js`.
@@ -21,7 +21,7 @@ characterisation fixture only with before/after evidence, and run the reachabili
 
 ## 2. Block prescription describes structure
 
-`block.prescription` holds one repeat structure (`repeatKey`: `rounds` / `sets` / `cycles` / `minutes` / `repSteps` / `steps` / `sequences`) plus the
+`block.prescription` holds one repeat structure (`repeatKey`: `rounds` / `sets` / `cycles` / `minutes` / `repSteps` / `steps` / `sequences` / `repeats`) plus the
 protocol's condition fields, and nothing else. `blockRepeatCount(block)` reads the repeat key
 (the array length for a ladder or pyramid).
 `protocolConditions(block)` is the prescription without the repeat count. It is shared by every
@@ -32,13 +32,13 @@ occurrence of the block and is frozen on player phases.
 `resolveBlockSteps(block)` is the only executable plan of a block:
 
 - Exercise steps carry `exerciseIndex` and their position in `stepKey` (`round` / `set` / `cycle` / `minute`).
-  Ladders use `ladderStep`, pyramids `pyramidStep`, complexes `complexSequence`. Timed interval steps also carry `timed: true` and `seconds`.
+  Ladders use `ladderStep`, pyramids `pyramidStep`, complexes `complexSequence`, density `densityRound`. Timed interval steps also carry `timed: true` and `seconds`.
 - Rest steps have positive `seconds` and sit only between exercise steps, with
   `nextExerciseIndex` naming the next step's exercise. There is no leading, trailing or
   zero-second rest.
 - `estimateBlockDuration(block)` equals the steps' time. For sequential protocols, an exercise
   step lasts its `seconds` when timed, otherwise the exercise's `estimatedSeconds`; rest steps
-  add their `seconds`. EMOM reserves entire minute windows as described below.
+  add their `seconds`. EMOM reserves entire minute windows; density reserves its complete time cap.
 
 The player (`appendBlockTimeline` in `index.html`) builds every Main phase from these steps, with
 one phase per side for per-side exercises. The Session Tracker reads planned occurrences only
@@ -292,6 +292,40 @@ completed pair. `GarageFitWorkoutPreview.protocolLabel` and `supersetMarker` sup
 copy; the player labels each step `Superset · Set N of M · A/B`. Naming never changes the stored
 protocol id, prescription or occurrence ids.
 
+### Fixed-work density
+
+A `density` block prescribes exactly two rep-based exercises for two or three fixed rounds:
+`{repeats:3, targets:[{type:'reps',value:8},{type:'reps',value:8}], timeCapSeconds:300,
+exerciseRestSeconds:15, roundRestSeconds:45}`. Every target resolves to an immutable explicit
+occurrence (`densityRound`, ID `main:bN:dN:eN`), with `variableTarget:true`. No per-side, timed,
+hard-technique, high-impact, hanging, Heavy or loaded free-weight strength work is eligible.
+Eligibility reuses existing rep and clock properties; the pair keeps one setup, position and
+comfortable load with distinct patterns. No new catalogue fields or occurrence overrides apply.
+Targets are 4–8 reps within the catalogue dose, at most 180 estimated work seconds total.
+Caps are 180–420 seconds and must fit every recovery plus 150% of estimated work time.
+The duration estimate reserves the cap, including that pacing allowance, rather than summing work.
+
+Automatic routing occasionally offers one density block in sessions of 15 minutes or longer, after an established block in Balanced
+or Cardio, for non-Easy supporting/conditioning work with a suitable pool and 3–7 minute share.
+Unsuitable plans retain established formats. Coach reserves anchors first and permits density
+only as optional work; production anchors and their progression policies remain rounds-only.
+Swaps preserve fixed targets, recovery and cap and revalidate the entire pair and budget.
+
+The shared player shows cap time and remaining fixed work. Done explicitly confirms one target;
+it never invents measured reps or load. Recovery cannot be fast-forwarded. One monotonic active
+clock includes work, rest and navigation, excludes pause, and never rewinds through Previous.
+Revisiting confirmed work preserves its one outcome. The block stops when all targets are
+confirmed or at the cap; skipped targets cannot turn a visited final exercise into completion.
+The summary distinguishes target completion, expiry and an incomplete block, with Continue
+requiring no data entry. At expiry only the entered unfinished target may optionally receive
+explicit partial reps (1 to target minus one); blank/unseen work earns nothing. Cap expiry and
+late Done never auto-complete rep work. Failed checkpoints retain the action for Retry save,
+without extending the cap, and navigation cannot advance a different run. Coach early exit and
+reload retain only durable outcomes. Standalone early exits remain ephemeral; completed runs
+retain the fixed plan and actual completed/partial work. Density remains incomparable in
+Training History even when individual reps are confirmed, including against rounds anchors.
+Fixed Cindy/AMRAP and timed intervals keep their separate termination and evidence rules.
+
 ## 4. Unknown protocols
 
 An unknown protocol has no steps and an estimate of 0. `validateMain` reports
@@ -301,7 +335,7 @@ never treats it as comparable. A block with no protocol is still a legacy `round
 ## 5. Coach
 
 Required anchors in production programmes allow only `rounds`. Do not broaden those
-definitions. Anchors never use EMOM, ladder, pyramid or complex blocks. Coach anchor and
+definitions. Anchors never use EMOM, ladder, pyramid, complex or density blocks. Coach anchor and
 minimum blocks (`anchorBlock`, `minimumOptionalBlock`) build prescriptions for the current
 protocols only. Extend them when a protocol becomes Coach-eligible.
 
@@ -313,6 +347,8 @@ Coach stores planned occurrences in Session Drafts and Results (schema version 1
 EMOM adds minute/window/target fields only inside that JSON prescription. Its new occurrence
 IDs apply only to new EMOM work; existing IDs and both schema versions stay unchanged.
 Complexes likewise add only `complexSequence` and their planned target there.
+Density adds `densityRound`, fixed targets and cap/recovery conditions inside that JSON;
+completion/expiry context uses existing outcome notes and explicitly confirmed partial sets.
 Changing the meaning of an existing field or an existing occurrence ID needs an explicit
 schema/migration decision in `js/coach-model.js`.
 

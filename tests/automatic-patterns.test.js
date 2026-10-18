@@ -51,7 +51,7 @@ test('seeded standalone matrix spans duration/style/difficulty/body/kit with opt
         for(const b of w.main.blocks)row.protocols[b.protocol]=(row.protocols[b.protocol]||0)+1;
       }
     // Rare ladders have explicit bounded reachability seeds in ladder.test.js.
-    for(const protocol of G.GENERATED_PROTOCOLS.filter(p=>!['ladder','pyramid','complex'].includes(p)))assert.ok(row.protocols[protocol]>0,`${duration}: ${protocol}`);
+    for(const protocol of G.GENERATED_PROTOCOLS.filter(p=>!['ladder','pyramid','complex','density'].includes(p)))assert.ok(row.protocols[protocol]>0,`${duration}: ${protocol}`);
     assert.ok((row.protocols.complex||0)<row.sessions/6,'complexes remain occasional');
     if(duration>=20)assert.ok(row.protocols.complex>0,duration+': complexes reach longer sessions');
     assert.ok((row.protocols.ladder||0)<row.sessions/4,'ladders remain occasional');

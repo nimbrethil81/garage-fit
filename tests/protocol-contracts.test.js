@@ -49,9 +49,9 @@ test('Generator, Coach model and Training History accept the same protocol vocab
   for (const protocol of generator)
     assert.deepEqual([...History.PROTOCOL_CONDITION_FIELDS[protocol]], [...G.PROTOCOL_SHAPES[protocol].conditionFields], protocol);
   // Today's protocols are exactly these; a new protocol must update every copy and this test.
-  assert.deepEqual(generator, ['rounds','paired_sets','timed_intervals','emom','ladder','pyramid','complex']);
+  assert.deepEqual(generator, ['rounds','paired_sets','timed_intervals','emom','ladder','pyramid','complex','density']);
   // Auto-selection is separate generator policy over accepted protocols, in a fixed pick order.
-  assert.deepEqual([...G.GENERATED_PROTOCOLS], ['rounds','paired_sets','timed_intervals','emom','ladder','pyramid','complex']);
+  assert.deepEqual([...G.GENERATED_PROTOCOLS], ['rounds','paired_sets','timed_intervals','emom','ladder','pyramid','complex','density']);
   assert.ok(G.GENERATED_PROTOCOLS.every(protocol => G.MAIN_PROTOCOLS.has(protocol)));
   const eligible = Object.values(catalogue).filter(exercise => exercise.generator && exercise.main);
   for (const focus of ['strength','balanced','cardio'])
@@ -125,7 +125,7 @@ test('generated blocks resolve to well-formed steps whose time equals the estima
     assert.equal(steps.filter(step => step.kind === 'exercise').length, G.blockRepeatCount(block) * (block.protocol==='emom'?1:block.exercises.length));
     protocols.add(block.protocol);
   }
-  assert.deepEqual([...protocols].sort(), ['complex','emom','ladder','paired_sets','pyramid','rounds','timed_intervals']);
+  assert.deepEqual([...protocols].sort(), ['complex','density','emom','ladder','paired_sets','pyramid','rounds','timed_intervals']);
   for (const workout of SAMPLE) assert.equal(workout.main.estimatedDurationSeconds,
     workout.main.blocks.reduce((sum, block) => sum + G.estimateBlockDuration(block), 0) + G.BLOCK_TRANSITION_SECONDS * (workout.main.blocks.length - 1));
 });
@@ -203,7 +203,7 @@ test('the player timeline is built from the resolved steps and the tracker reads
   const {context, run} = app();
   const protocols = new Set();
   let sided = 0;
-  SAMPLE.filter((workout, index) => index % 4 === 0).concat({...savedWorkoutV2(catalogue),main:{blocks:Object.values(blockFixtures(catalogue,{ladder:true,pyramid:true,complex:true})).filter(b=>['ladder','pyramid','complex'].includes(b.protocol))}}).forEach(workout => {
+  SAMPLE.filter((workout, index) => index % 4 === 0).concat({...savedWorkoutV2(catalogue),main:{blocks:Object.values(blockFixtures(catalogue,{ladder:true,pyramid:true,complex:true,density:true})).filter(b=>['ladder','pyramid','complex','density'].includes(b.protocol))}}).forEach(workout => {
     context.workout = plain(workout);
     const timeline = run('buildGeneratedTimeline(workout)');
     const planned = new Map(Tracker.plannedWorkFromTimeline(timeline).map(entry => [entry.occurrenceId, entry]));
@@ -238,7 +238,7 @@ test('the player timeline is built from the resolved steps and the tracker reads
       }
     });
   });
-  assert.deepEqual([...protocols].sort(), ['complex','emom','ladder','paired_sets','pyramid','rounds','timed_intervals']);
+  assert.deepEqual([...protocols].sort(), ['complex','density','emom','ladder','paired_sets','pyramid','rounds','timed_intervals']);
   assert.ok(sided > 0, 'per-side occurrences are covered');
 });
 

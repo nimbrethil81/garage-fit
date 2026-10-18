@@ -59,6 +59,10 @@
   }
 
   function protocolLabel(block) {
+    if(block.protocol==='density'){
+      const p=block.prescription;
+      return 'Density · '+p.repeats+' fixed rounds · '+p.timeCapSeconds+' sec cap · '+p.exerciseRestSeconds+' sec between exercises · '+p.roundRestSeconds+' sec between rounds · Finish the target, then stop; no racing';
+    }
     if(block.protocol==='complex'){
       const p=block.prescription;
       return ['Complex · '+p.sequences+' sequences · '+block.exercises.length+' movements in order on one setup',
@@ -84,11 +88,11 @@
   }
 
   function occurrenceTargetLabel(block,exerciseIndex){
-    if(!block.occurrenceTargets&&!['ladder','pyramid','complex'].includes(block.protocol))return null;
+    if(!block.occurrenceTargets&&!['ladder','pyramid','complex','density'].includes(block.protocol))return null;
     const exercise=block.exercises[exerciseIndex];
     // A complex repeats one target per movement in every sequence; show it once.
     const steps=root.GarageFitGenerator.resolveBlockSteps(block).filter(step=>step.kind==='exercise'&&step.exerciseIndex===exerciseIndex);
-    return (block.protocol==='complex'?steps.slice(0,1):steps).map(step=>{
+    return (['complex','density'].includes(block.protocol)?steps.slice(0,1):steps).map(step=>{
       const p=step.plannedPrescription||(step.timed?{type:'timed',value:step.seconds}:exercise.prescription),load=step.plannedLoad;
       return formatPrescription({...exercise,prescription:p,load:null})+(load&&load.relativeLoad?' · Planned '+load.relativeLoad+' resistance':load?' · '+load.suggestedLoad+' '+load.loadUnit+(load.loadInterpretation==='per-item'?' each':' total'):exercise.load?' · '+exercise.load:'');
     }).join(' → ');
