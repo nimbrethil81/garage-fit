@@ -28,6 +28,7 @@ test('compact Tennis home orders the weekly progress, collapsed adjustments and 
     ['coach-tennis-intro','coach-weekly','generator-options','coach-card']);
   assert.match(p.run("nodes().find(node=>node.className==='coach-status').textContent"),/Development/);
   assert.match(p.run("nodes().find(node=>node.className==='coach-weekly').children[0].textContent"),/0 of 2 sessions this week/);
+  assert.match(p.run('copyText()'),/Strength and stability.*Builds strength and stability/);
   assert.equal(p.run("nodes().find(node=>node.id==='coachAdjustToday').open"),false);
   assert.ok(p.run("action('Your progress')"),'shared progress destination is live');
   assert.ok(p.run("action('Programme settings')"),'shared settings destination is live');
@@ -93,6 +94,21 @@ test('weekly progress counts only credited meaningful Coach work, includes parti
   state.currentTargets.reconciliation.appliedSessionResultIds=many.map(item=>item.sessionResultId);
   state.recentSessionSummaries=many.slice(-64).map(item=>({sessionResultId:item.sessionResultId,meaningful:true}));
   assert.equal(weekly(p,state,many,'2026-10-14T08:00:00Z').count,70);
+});
+
+test('weekly progress lists the recorded role of each credited session, with an honest fallback for older records',async()=>{
+  const p=pilot(new Map(),'tennis-conditioning',5);await p.start();const state=p.json('pilot.snapshot().state');
+  const at='2026-10-13T08:00:00Z', later='2026-10-14T08:00:00Z';
+  const results=[weeklyFixture(state,'a',at,{sessionRole:'strength-stability'}),weeklyFixture(state,'b',later,{sessionRole:'strength-stability'}),
+    weeklyFixture(state,'c','2026-10-14T09:00:00Z',{sessionRole:'movement-conditioning',finalStatus:'partial'}),
+    weeklyFixture(state,'old','2026-10-13T07:00:00Z'),
+    weeklyFixture(state,'x','2026-10-14T10:00:00Z',{sessionRole:'movement-conditioning',finalStatus:'abandoned'})];
+  state.currentTargets.reconciliation.appliedSessionResultIds=results.map(item=>item.sessionResultId);
+  const summary=weekly(p,state,results,'2026-10-15T08:00:00Z');
+  assert.equal(summary.count,summary.roles.length);
+  assert.deepEqual(summary.roles.map(item=>item.label),['Workout type unavailable','Strength and stability','Strength and stability','Movement and athletic conditioning']);
+  assert.deepEqual(summary.roles.map(item=>item.partial),[false,false,false,true]);
+  assert.deepEqual(weekly(p,state,[],'2026-10-15T08:00:00Z').roles,[]);
 });
 
 test('an active workout offers return rather than a second preview, and failed recovery remains visible',async()=>{

@@ -423,6 +423,7 @@
     programmeInstanceId: nullable(id),
     prescriptionId: nullable(id),
     workoutId: nullable(id),
+    sessionRole: nullable(text), // stable role id from the prescription at start; absent on older records
     generatedAt: nullable(timestamp),
     startedAt: nullable(timestamp),
     feedback: nullable(jsonObject),

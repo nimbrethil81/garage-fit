@@ -137,6 +137,7 @@
       programmeInstanceId: origin.programmeInstanceId,
       prescriptionId: origin.prescriptionId,
       workoutId: origin.workoutId,
+      sessionRole: origin.sessionRole,
       generatedAt: origin.generatedAt
     };
     if (origin.overrides) link.overrides = clone(origin.overrides);

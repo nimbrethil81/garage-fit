@@ -370,6 +370,23 @@ test('Session Results are only saved when the execution context opts in', async 
 
 // ---- Persistence ----
 
+test('a session role id survives draft, recovery and the immutable result; absence stays valid', async () => {
+  const storage = new MemoryStorage();
+  const {tracker: t} = tracker({storage, sessionRole: 'movement-conditioning'});
+  await t.start();
+  const draft = await GarageFitCoachStore.createStore(storage).loadSessionDraft();
+  assert.equal(draft.sessionRole, 'movement-conditioning');
+  const resumed = await Tracker.resumeTracker({store: GarageFitCoachStore.createStore(storage), clock: clock(), meaningful: MAIN_IDS});
+  await resumed.recordDone('main:b0:s1:e1');
+  const result = await resumed.exitEarly();
+  assert.equal(result.sessionRole, 'movement-conditioning');
+  assert.equal(Model.validate('session-result', result).valid, true);
+  const plainSetup = tracker();
+  await plainSetup.tracker.start();
+  assert.equal('sessionRole' in plainSetup.tracker.draft(), false);
+});
+
+
 test('the draft persists at meaningful actions and reloads through coach-store.js', async () => {
   const storage = new MemoryStorage();
   const {tracker: t, counts} = tracker({storage});
