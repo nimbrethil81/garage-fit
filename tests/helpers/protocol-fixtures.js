@@ -3,7 +3,7 @@
 const copy = value => JSON.parse(JSON.stringify(value));
 
 // One canonical block per protocol, including per-side work where the protocol allows it.
-function blockFixtures(catalogue,{emom=false}={}) {
+function blockFixtures(catalogue,{emom=false,ladder=false}={}) {
   const ex = id => copy(catalogue[id]);
   const blocks={
     rounds: {id: 'main-1', protocol: 'rounds', intent: 'strength',
@@ -19,6 +19,8 @@ function blockFixtures(catalogue,{emom=false}={}) {
   // The saved-v2 characterisation deliberately retains its original three blocks.
   if(emom)blocks.emom={id:'main-4',protocol:'emom',intent:'conditioning',exercises:[ex('push-up'),ex('plank')],
     prescription:{minutes:5,slotSeconds:60,targets:[{type:'reps',value:6},{type:'timed',value:20}]}};
+  if(ladder)blocks.ladder={id:'main-5',protocol:'ladder',intent:'strength',exercises:[ex('air-squat'),ex('push-up')],
+    prescription:{repSteps:[2,4,6,8],exerciseRestSeconds:15,stepRestSeconds:45}};
   return blocks;
 }
 

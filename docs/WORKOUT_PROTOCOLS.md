@@ -1,6 +1,6 @@
 # Main block protocol contracts
 
-Playable and automatically selected protocols: `rounds`, `paired_sets`, `timed_intervals`, `emom`.
+Playable and automatically selected protocols: `rounds`, `paired_sets`, `timed_intervals`, `emom`, `ladder`.
 These contracts are the extension seams for later block patterns (#75). `tests/protocol-contracts.test.js` and
 `tests/main-blocks.test.js` enforce them; shared fixtures and the step-trace check live in
 `tests/helpers/protocol-fixtures.js`.
@@ -21,8 +21,9 @@ characterisation fixture only with before/after evidence, and run the reachabili
 
 ## 2. Block prescription describes structure
 
-`block.prescription` holds one repeat count (`repeatKey`: `rounds` / `sets` / `cycles` / `minutes`) plus the
-protocol's condition fields, and nothing else. `blockRepeatCount(block)` reads the repeat key.
+`block.prescription` holds one repeat structure (`repeatKey`: `rounds` / `sets` / `cycles` / `minutes` / `repSteps`) plus the
+protocol's condition fields, and nothing else. `blockRepeatCount(block)` reads the repeat key
+(the array length for a ladder).
 `protocolConditions(block)` is the prescription without the repeat count. It is shared by every
 occurrence of the block and is frozen on player phases.
 
@@ -31,7 +32,7 @@ occurrence of the block and is frozen on player phases.
 `resolveBlockSteps(block)` is the only executable plan of a block:
 
 - Exercise steps carry `exerciseIndex` and their position in `stepKey` (`round` / `set` / `cycle` / `minute`).
-  Timed interval steps also carry `timed: true` and `seconds`.
+  Ladders use `ladderStep`. Timed interval steps also carry `timed: true` and `seconds`.
 - Rest steps have positive `seconds` and sit only between exercise steps, with
   `nextExerciseIndex` naming the next step's exercise. There is no leading, trailing or
   zero-second rest.
@@ -82,7 +83,38 @@ and rep Done records completion without inventing measurements. Training History
 targets as context and treats variable-target evidence as incomparable, even when two individual
 targets match: the surrounding variable dose does not establish comparable fatigue/recovery.
 Legacy rounds anchor comparisons are unchanged. Draft/Result schema version 1 stores the optional
-fields inside the existing JSON prescription; no migration or ladder/pyramid activation is needed.
+fields inside the existing JSON prescription; no migration is needed.
+
+### Repetition ladders
+
+A `ladder` block has one or two distinct rep-based exercises in execution order and
+`prescription: {repSteps: [2,4,6,8], exerciseRestSeconds: 15, stepRestSeconds: 45}`.
+Steps are strictly ascending or descending, two to five entries, at most 12 reps per
+step and 36 total reps per exercise. Each target stays within the catalogue dose;
+scaled total work is at most 120 seconds per exercise. Exercise rest is 0–60 seconds,
+step recovery 15–90 seconds, with no final rest. There are no load changes or generic
+occurrence overrides on ladders: those could contradict the monotonic plan.
+
+`validateLadderBlock(block, catalogue?)` enforces these bounds in validation,
+normalisation, resolution and swaps. Eligibility reuses rounds compatibility,
+easy/moderate technique, low/medium impact and bilateral/alternating/no-side reps.
+Per-side work, anchors, barbells, kettlebells, Heavy loads and dumbbell movements
+with strength 4–5 are excluded in this initial policy. No catalogue fields change.
+
+Each exercise at each step resolves a frozen `plannedPrescription`, scaled
+`estimatedSeconds`, `variableTarget: true` and one-based `ladderStep`. Existing
+occurrence IDs stay unchanged; ladder IDs add `lN`. The shared preview shows the
+rep sequence; the player shows “Ladder · Step X of Y”, exact reps, next reps and
+normal recovery, pause, Previous and completion controls. Done confirms completion
+without inventing actual reps/load. Previous/redo replaces the same keyed outcome.
+Training History keeps ladder evidence incomparable, including saved records without
+the variable-target flag. Required and preferred anchor targets cannot become ladders.
+
+Automatic routing gives ladders a small Strength/Balanced/Cardio weight, selects two
+eligible exercises, fits a bounded ascending/descending plan within its share, and
+allows at most one per Main. Existing variety, equipment and dominance scoring still
+apply. Coach may use them only as optional work within protocol/avoid/time constraints;
+production required anchors retain their released rounds-only definitions.
 
 ### EMOM domain contract
 

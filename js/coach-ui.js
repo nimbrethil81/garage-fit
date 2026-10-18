@@ -911,7 +911,7 @@
       if (busy) return false; return run(async () => {
         if (!phase || phase.kind!=='exercise') return true;
         if (phase.timed) await tracker.recordTimed(phase.occurrenceId,{plannedSeconds:phase.seconds,elapsedSeconds:elapsed});
-        else if (action==='skip' || phase.protocol==='emom' && action!=='done') await tracker.recordSkip(phase.occurrenceId);
+        else if (action==='skip' || ['emom','ladder'].includes(phase.protocol) && action!=='done') await tracker.recordSkip(phase.occurrenceId);
         else if (isProgressionAnchor(phase)) { const set=actualSet(); await tracker.recordAnchor(phase.occurrenceId,{status:'completed',sets:[set],targetAchieved:set.reps===null?null:set.reps>=phase.exercise.prescription.value}); if (set.resistanceSetup) sessionSetups[activeResistance.requirementId]=set.resistanceSetup; }
         else await tracker.recordDone(phase.occurrenceId);
         return true;

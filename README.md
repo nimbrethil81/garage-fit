@@ -38,6 +38,10 @@ node --test tests/*.test.js
 
 See `AGENTS.md` before making changes.
 
+Generated Main blocks occasionally include repetition ladders alongside circuits, supersets,
+intervals and EMOM. Ladders show ascending or descending exact reps with recovery between
+steps; Coach uses them only for permitted optional work, keeping required anchors on rounds.
+
 ## Session Prescription boundary
 
 `GarageFitGenerator.generate(options)` accepts an optional `sessionPrescription`
