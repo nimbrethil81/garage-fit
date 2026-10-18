@@ -30,11 +30,24 @@
   function tennisWeeklyProgress({definition,state,results,catalogue,now}) {
     const {candidates,history,start,end}=creditedThisWeek({state,results,catalogue,now});
     // Reuse the pinned Tennis policy's performed-dose interpretation, including unknown/zero work.
-    const count=candidates.filter(result=>root.GarageFitCoachTennisPolicy.interpretDose({definition,state,result,history,
-        evidence:history.sessionEvidence(result.sessionResultId)}).meaningful).length;
+    const credited=candidates.filter(result=>root.GarageFitCoachTennisPolicy.interpretDose({definition,state,result,history,
+        evidence:history.sessionEvidence(result.sessionResultId)}).meaningful);
+    const count=credited.length;
     const target=state.currentTargets.programmeSettings.weeklyCoachFrequency;
-    return {count,target,filled:Math.min(count,target),start:start.toISOString(),end:end.toISOString()};
+    // Labels come from the result's recorded role id and the pinned definition, never the current rotation.
+    const labels=new Map(Object.values(definition.sessionRoles || {}).flat().map(role=>[role.id,role.label]));
+    const roles=credited.slice().sort((a,b)=>Date.parse(a.endedAt)-Date.parse(b.endedAt)).map(result=>({
+      sessionResultId:result.sessionResultId,roleId:result.sessionRole || null,
+      label:labels.get(result.sessionRole) || 'Workout type unavailable',partial:result.finalStatus==='partial'}));
+    return {count,target,filled:Math.min(count,target),roles,start:start.toISOString(),end:end.toISOString()};
   }
+  // Short plain-English purpose per Tennis role id (presentation copy only).
+  const ROLE_PURPOSES={'full-body':'Trains the whole body for tennis in one session.',
+    'strength-stability':'Builds strength and stability for your legs, upper body and trunk.',
+    'movement-conditioning':'Builds court movement, power and conditioning.',
+    'strength':'Builds strength in your legs, upper body and trunk.',
+    'movement-power':'Builds court movement and power.',
+    'conditioning-resilience':'Builds conditioning and resilience.'};
   // Where each programme message belongs in the Coach preview. `status` is a subdued
   // adjustment label, `notices` stay visible with a remedy, and `why` is the collapsed
   // Why this workout? explanation. Unknown warning codes stay visible rather than
@@ -212,7 +225,7 @@
         }
         tracker = root.GarageFitSessionTracker.createTracker({store, clock, source: 'coach', draftId: id('draft'),
           programmeInstanceId: state.programmeInstanceId, prescriptionId: preview.plan.prescription.prescriptionId,
-          workoutId: preview.workout.id, generatedAt: preview.generatedAt, plannedWork, meaningful,
+          workoutId: preview.workout.id, sessionRole: preview.plan.prescription.sessionRole, generatedAt: preview.generatedAt, plannedWork, meaningful,
           overrides: preview.plan.prescription.programmeContext.overrides});
         await tracker.start();
       } else await store.saveSessionDraft(tracker.draft());
@@ -474,6 +487,11 @@
         segments.append(segment);
       }
       progressCard.append(segments);
+      if (weekly.roles && weekly.roles.length) {
+        const list=document.createElement('ul'); list.className='coach-weekly-roles'; list.setAttribute('aria-label','Workouts completed this week');
+        weekly.roles.forEach(item=>{const li=document.createElement('li'); li.textContent='✓ '+item.label+(item.partial?' (partial)':''); list.append(li);});
+        progressCard.append(list);
+      }
       if (weekly.note) progressCard.append(help('About this week',weekly.label+'. '+weekly.note+'. Credited sessions with performed main work count; previews, drafts and sessions without performed main work do not. No catch-up debt.'));
       wrap.append(progressCard);
       if (sessionActive) {
@@ -497,6 +515,7 @@
         card.append(heading(expired ? 'Event date has passed' : plan.prescription ? 'Today’s workout' : rest ? 'Rest today' : 'Adjust today’s options'));
         if (plan.prescription) {
           card.append(paragraph([role,plan.prescription.duration+' min'].filter(Boolean).join(' · ')),button('View today’s workout',prepare,true));
+          if (tennis && role && ROLE_PURPOSES[plan.prescription.sessionRole]) card.append(paragraph(ROLE_PURPOSES[plan.prescription.sessionRole]));
           const event=plan.rationale.priorities.event;
           if (event && ['reduced','final'].includes(event.phase)) card.append(paragraph(event.rationale));
           if (!tennis) card.append(help('Why this workout',rationale(plan)));
