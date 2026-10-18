@@ -4,7 +4,9 @@ Simple dependency-free PWA for fixed and generated garage workouts.
 
 Generated workouts occasionally include rep pyramids and standing TRX intensity/reverse
 pyramids. Changing reps and planned relative resistance share the normal preview/player;
-no numerical weights or completed measurements are inferred. See [the protocol contract](docs/WORKOUT_PROTOCOLS.md).
+no numerical weights or completed measurements are inferred. Longer sessions occasionally add a
+short complex: two or three movements back to back on one setup, then recovery, with each movement
+played and recorded separately. See [the protocol contract](docs/WORKOUT_PROTOCOLS.md).
 
 The More menu contains an Exercise Library for searching and browsing the full
 canonical catalogue by equipment, with How to do it instructions for every exercise.

@@ -31,6 +31,7 @@
     if (Number.isInteger(phase.cycle)) parts.push('c'+phase.cycle);
     if (Number.isInteger(phase.pyramidStep)) parts.push('p'+phase.pyramidStep);
     if (Number.isInteger(phase.ladderStep)) parts.push('l'+phase.ladderStep);
+    if (Number.isInteger(phase.complexSequence)) parts.push('q'+phase.complexSequence);
     if (Number.isInteger(phase.minute)) parts.push('m'+phase.minute);
     if (Number.isInteger(phase.slotIndex)) parts.push('slot'+phase.slotIndex);
     parts.push('e'+phase.exerciseIndex);
@@ -83,6 +84,7 @@
           ...(phase.variableTarget ? {variableTarget:true} : {}),
           ...(phase.protocol==='pyramid' ? {pyramidStep:phase.pyramidStep} : {}),
           ...(phase.protocol==='ladder' ? {ladderStep:phase.ladderStep} : {}),
+          ...(phase.protocol==='complex' ? {complexSequence:phase.complexSequence} : {}),
           ...(phase.plannedPrescription ? {plannedPrescription:clone(phase.plannedPrescription)} : {}),
           ...(phase.plannedLoad ? {plannedLoad:clone(phase.plannedLoad)} : {}),
           ...(emom ? {minute:phase.minute,slotIndex:phase.slotIndex,startsAtSeconds:phase.startsAtSeconds,endsAtSeconds:phase.endsAtSeconds,target:clone(target)} : {}),

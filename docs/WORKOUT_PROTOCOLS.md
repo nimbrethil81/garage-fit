@@ -1,6 +1,6 @@
 # Main block protocol contracts
 
-Playable and automatically selected protocols: `rounds`, `paired_sets`, `timed_intervals`, `emom`, `ladder`, `pyramid`.
+Playable and automatically selected protocols: `rounds`, `paired_sets`, `timed_intervals`, `emom`, `ladder`, `pyramid`, `complex`.
 These contracts are the extension seams for later block patterns (#75). `tests/protocol-contracts.test.js` and
 `tests/main-blocks.test.js` enforce them; shared fixtures and the step-trace check live in
 `tests/helpers/protocol-fixtures.js`.
@@ -21,7 +21,7 @@ characterisation fixture only with before/after evidence, and run the reachabili
 
 ## 2. Block prescription describes structure
 
-`block.prescription` holds one repeat structure (`repeatKey`: `rounds` / `sets` / `cycles` / `minutes` / `repSteps` / `steps`) plus the
+`block.prescription` holds one repeat structure (`repeatKey`: `rounds` / `sets` / `cycles` / `minutes` / `repSteps` / `steps` / `sequences`) plus the
 protocol's condition fields, and nothing else. `blockRepeatCount(block)` reads the repeat key
 (the array length for a ladder or pyramid).
 `protocolConditions(block)` is the prescription without the repeat count. It is shared by every
@@ -32,7 +32,7 @@ occurrence of the block and is frozen on player phases.
 `resolveBlockSteps(block)` is the only executable plan of a block:
 
 - Exercise steps carry `exerciseIndex` and their position in `stepKey` (`round` / `set` / `cycle` / `minute`).
-  Ladders use `ladderStep`, pyramids `pyramidStep`. Timed interval steps also carry `timed: true` and `seconds`.
+  Ladders use `ladderStep`, pyramids `pyramidStep`, complexes `complexSequence`. Timed interval steps also carry `timed: true` and `seconds`.
 - Rest steps have positive `seconds` and sit only between exercise steps, with
   `nextExerciseIndex` naming the next step's exercise. There is no leading, trailing or
   zero-second rest.
@@ -161,6 +161,46 @@ Required and preferred target blocks cannot become pyramids, and production anch
 and progression policies are unchanged. No new controls, catalogue flags or schema
 versions are introduced. `tests/pyramid.test.js` covers the domain and shared player.
 
+### Exercise complexes
+
+A `complex` block has two or three distinct movements in execution order and
+`prescription: {sequences: 3, targets: [{type:'reps',value:8}, …], changeoverSeconds: 10, sequenceRestSeconds: 75}`.
+One sequence plays every movement in order; recovery follows each sequence except the last.
+There is no composite catalogue entry and no generic occurrence override: each movement keeps
+its own target, aligned with `exercises`, matching the catalogue mode and never above its dose.
+
+`validateComplexBlock(block, catalogue?)` is shared by validation, normalisation, resolution,
+estimation and swaps. Bounds: 2–4 sequences; reps 3–8, timed 15–30 seconds; changeover
+0–15 seconds; recovery 60–120 seconds; at most 90 work seconds per sequence and 240 in total.
+Movements need existing rounds compatibility, easy/moderate technique, low/medium impact,
+bilateral/alternating/no-side work and a standing, floor or supported position. Per-side,
+hanging, barbell, Heavy-load and anchor work is excluded. Continuity uses only existing
+descriptors (`complexSequenceIssues`): identical equipment requirements (one setup), body
+position and `load`; no shared pattern or capped family; at most one medium-impact or
+cardio ≥4 movement, two moderate-technique movements and two of one `bodyFocus`.
+
+Each movement in each sequence resolves a frozen occurrence with `complexSequence`,
+`plannedPrescription`, scaled `estimatedSeconds` and `variableTarget: true`. Rep movements
+need Done (`completion: 'explicit'`); timed movements keep the measured timer and `seconds`.
+`complex-change` steps sit between movements, `complex-rest` between sequences; neither ends
+the block. New occurrence IDs add `qN`; existing IDs and saved records are unchanged.
+Preview shows each movement's target once; the player labels
+“Complex · Sequence N of M · Movement X of Y”, the changeover and “Sequence N complete”.
+Done records completion without reps or load; Skip, Previous/redo, early exit and duplicate
+results follow the shared tracker rules. Training History keeps complex evidence incomparable,
+including records without the variable-target flag.
+
+Automatic routing gives complexes a small weight in every style, only after an established
+first block (so mostly in longer, multi-block sessions), for a 240–720-second share, once per
+Main, and only when a compatible pair exists. Selection adds movements that keep continuity,
+never reuses a Main exercise and never starts with the major pattern the previous block ended
+on; empty/incompatible pools fall back to traditional blocks. Fitting picks the fullest bounded
+plan within the share without compressing recovery. Swaps accept only a replacement that keeps
+the whole complex valid; it takes its own default target and the structure is unchanged.
+Coach may use complexes only as optional work within protocol/avoid/time constraints; required
+and preferred anchors cannot become complexes and production programmes are unchanged.
+`tests/complex.test.js` covers the domain, player, tracker, Coach and routing.
+
 ### EMOM domain contract
 
 An explicit block uses `protocol: 'emom'`, an ordered `exercises` rotation (one to three
@@ -261,8 +301,9 @@ never treats it as comparable. A block with no protocol is still a legacy `round
 ## 5. Coach
 
 Required anchors in production programmes allow only `rounds`. Do not broaden those
-definitions. Coach anchor and minimum blocks (`anchorBlock`, `minimumOptionalBlock`) build
-prescriptions for the current protocols only. Extend them when a protocol becomes Coach-eligible.
+definitions. Anchors never use EMOM, ladder, pyramid or complex blocks. Coach anchor and
+minimum blocks (`anchorBlock`, `minimumOptionalBlock`) build prescriptions for the current
+protocols only. Extend them when a protocol becomes Coach-eligible.
 
 ## 6. Persistence
 
@@ -271,6 +312,7 @@ Coach stores planned occurrences in Session Drafts and Results (schema version 1
 `prescription` is free-form JSON, so additive occurrence fields load without a migration.
 EMOM adds minute/window/target fields only inside that JSON prescription. Its new occurrence
 IDs apply only to new EMOM work; existing IDs and both schema versions stay unchanged.
+Complexes likewise add only `complexSequence` and their planned target there.
 Changing the meaning of an existing field or an existing occurrence ID needs an explicit
 schema/migration decision in `js/coach-model.js`.
 
