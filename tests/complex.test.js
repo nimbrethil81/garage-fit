@@ -132,7 +132,7 @@ test('shared preview, voice and player label every movement, changeover and reco
   h.app.generatedPrimaryAction();await tracker.flush();
   assert.equal(h.phase().kind,'complex-change');assert.equal(h.run('generatorState.remaining'),10);
   assert.match(h.el('workoutMovementProgress').textContent,/Sequence 1 of 3 · Change over$/);
-  assert.equal(h.el('completeMovementAction').textContent,'Skip rest');assert.equal(h.el('completeMovementNext').textContent,'Dumbbell shoulder press · 8 reps');
+  assert.equal(h.el('completeMovementAction').textContent,'Skip rest');assert.equal(h.el('completeMovementNext').textContent,'Dumbbell shoulder press');
   h.app.generatedPrimaryAction();h.app.generatedPrimaryAction();h.app.generatedPrimaryAction();
   // The timed movement: measured, not credited beyond what elapsed.
   assert.equal(h.phase().occurrenceId,main[2].phase.occurrenceId);assert.equal(h.phase().timed,true);

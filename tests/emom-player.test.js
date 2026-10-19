@@ -80,7 +80,7 @@ test('early Done confirms one rep occurrence, then rests to the original boundar
   assert.equal(h.tracker().outcome(id).sets,undefined,'no planned reps or load become actual measures');
   assert.equal(h.run('generatorState.remaining'),47.5);
   assert.equal(h.el('completeMovementBtn').disabled,true);
-  assert.equal(h.el('workoutRingState').textContent,'Rest');
+  assert.equal(h.el('workoutRingPhase').textContent,'REST');
   assert.match(h.el('workoutEmomStatus').textContent,/Work complete.*Rest until next minute/);
   assert.equal(h.chimes,1);
   await h.app.generatedPrimaryAction();await h.app.generatedSkipWork();h.app.previousGeneratedPhase();
@@ -164,7 +164,7 @@ test('pause at the boundary freezes active time and resuming creates no shifted 
   const h=harness();await h.start();await h.pulse(59999);
   h.app.toggleWorkoutPause();const elapsed=h.run('currentWorkoutElapsedMs()');
   await h.pulse(100000);assert.equal(h.phase().minute,1);assert.equal(h.run('currentWorkoutElapsedMs()'),elapsed);
-  assert.equal(h.el('workoutRingState').textContent,'Paused');
+  assert.equal(h.el('workoutRing').attributes['aria-pressed'],'true');
   h.app.toggleWorkoutPause();await h.pulse(1);
   assert.equal(h.phase().minute,2);assert.equal(h.run('generatorState.remaining'),60);
   assert.equal(h.starts.length,2);

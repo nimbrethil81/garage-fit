@@ -111,7 +111,7 @@ test('one tap starts each kind and variant immediately with a validated 300-seco
     // Get Ready is a 3-second pre-start outside the programme.
     assert.equal(a.run('state.phase'), 'ready');
     assert.equal(a.run('state.remaining'), 3);
-    assert.equal(a.el('nextPreview').textContent, 'First up: '+list[0].name);
+    assert.equal(a.el('routineNextName').textContent, list[0].name.replace(/ - (Left|Right)$/i,''));
   }
 });
 

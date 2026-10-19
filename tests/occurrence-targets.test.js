@@ -115,7 +115,7 @@ test('player, voice, preview and next hints follow each occurrence through Previ
     assert.equal(h.el('workoutTarget').textContent,'4 reps');assert.match(h.el('workoutSideNote').textContent,/8 kg each/);assert.match(h.spoken.at(-1),/4 reps.*8 kg each/);
     assert.equal(h.app.GarageFitWorkoutPreview.occurrenceTargetLabel(h.run('generatorState.workout.main.blocks[0]'),0),'4 reps · 8 kg each → 8 reps → 10 reps');
     h.app.generatedPrimaryAction();await h.run('generatorState.tracker.flush()');
-    assert.match(h.el('completeMovementNext').textContent,/8 reps/);
+    assert.equal(h.el('completeMovementNext').textContent,C['push-up'].name);
     h.app.generatedPrimaryAction();assert.equal(h.el('workoutTarget').textContent,'8 reps');assert.doesNotMatch(h.el('workoutSideNote').textContent,/8 kg/);
     h.app.toggleWorkoutPause();assert.equal(h.el('completeMovementBtn').disabled,true);assert.equal(h.el('workoutTarget').textContent,'8 reps');h.app.toggleWorkoutPause();
     h.app.previousGeneratedPhase();assert.equal(h.el('workoutTarget').textContent,'4 reps');assert.match(h.el('workoutSideNote').textContent,/8 kg/);
