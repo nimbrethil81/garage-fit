@@ -1,0 +1,41 @@
+schema_version: 1
+framework_repository: nimbrethil81/pwa-product-ops
+
+product:
+  name: GarageFit
+  repository: nimbrethil81/garage-fit
+
+capabilities:
+  project_health:
+    enabled: true
+  documentation_integrity:
+    enabled: true
+
+canonical_sources:
+  - concern: Agent/development delivery rules
+    path: AGENTS.md
+  - concern: Product entry point
+    path: README.md
+  - concern: Exercise catalogue authoring (metadata fields)
+    path: data/EXERCISE_METADATA.md
+  - concern: Coach engine contract
+    path: docs/COACH_ENGINE.md
+  - concern: Workout protocol contract
+    path: docs/WORKOUT_PROTOCOLS.md
+
+health_signals:
+  - kind: http_endpoint
+    name: GitHub Pages live site
+    url: https://nimbrethil81.github.io/garage-fit/
+    expected_status: 200
+
+documentation:
+  include:
+    - AGENTS.md
+    - README.md
+    - docs/**/*.md
+    - data/**/*.md
+
+exclusions:
+  - Static, dependency-free, browser-local PWA; Coach history is local to the device, so no hosted database, server backups, DEV environment, CI/workflows or automated release process exist by design.
+  - HTTP 200 from the live site verifies public reachability only, not workout generation or persisted user history.
