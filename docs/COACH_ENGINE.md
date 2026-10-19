@@ -47,6 +47,63 @@ awards dose, records overrides or queues catch-up work.
 plan. Completed states cannot change lifecycle/mode. Applying a result is allowed
 after pausing so an in-flight session can still be reconciled.
 
+## Session Prescription boundary
+
+`GarageFitGenerator.generate(options)` accepts an optional `sessionPrescription`
+validated by `GarageFitCoachModel`. Load `js/coach-model.js` before making prescribed
+calls. Standalone callers need no Coach records and retain their seeded output.
+
+`GarageFitGenerator.assessSessionPrescription(options)` is a pure preflight: it
+consumes no randomness and returns `status` (`feasible`, `partially-feasible`, or
+`infeasible`), `hardConflicts`, `softConflicts`, `softRelaxations`, and `warnings`.
+Conflicts name relevant requirement/exercise IDs. Generation throws
+`SessionPrescriptionError` with that assessment when hard requirements fail.
+
+The version-1 Coach contract defines:
+
+- `requiredAnchors` / `preferredAnchors`: identified exercise requirements, optional
+  `targetSets`, `targetExposures`, rep-range or timed `target`, `suggestedLoad`,
+  `loadUnit`, `loadInterpretation`, `progressionIntent`, `prescriptionMode`
+  (`reps` / `time`), and an `allowedProtocols` whitelist.
+- `movementPriorities`: `{requirementId, pattern, priority}` with `primary`,
+  `secondary`, or `maintenance` priority.
+- `bodyRegionPriorities`: `{requirementId, bodyRegion, priority}` with `high`,
+  `normal`, or `maintenance` priority.
+- `avoidConstraints`: `{requirementId, importance, exerciseId | pattern | bodyRegion}`;
+  exactly one selector, with `hard` / `soft` importance. Hard avoids apply to all phases.
+- `protocolConstraints`: `{requirementId, importance, allowedProtocols, anchorRequirementId?}`;
+  omitted anchor scope applies to every Main block.
+- `variationPreference`: `varied` / `familiar`, a bounded recency preference.
+  Reconciliation records a relaxation if required work must repeat a recent
+  exercise, or a familiar exercise is unavailable. Only recent exercise IDs are
+  retained as session context for reconciling later swaps.
+
+Requirement IDs are unique across these lists. Generator options override the
+prescription's duration/style/difficulty/body-focus/equipment defaults, so the
+current equipment selection always controls eligibility. Prescribed durations
+use the supported 10/15/20/30/45 minute budgets.
+
+Optional hard `mainTimeLimitSeconds` and `maximumDurationSeconds` reserve Main
+time and cap the total generated duration, including preparation and rest.
+Omitted limits preserve existing composition. Generation and swaps enforce them.
+
+Required work reserves Main time before generic selection. Sets count full
+left/right passes; exposures count executable side occurrences. Three per-side
+sets therefore mean six exposures. Supplying both counts requires agreement.
+An unspecified count reserves one pass. Targets must match the catalogue's rep/time
+mode. Anchor intervals require explicit permission and catalogue compatibility;
+an explicit hard `reps` mode still forbids timed playback.
+Rounds/paired sets are preferred where feasible. Planned targets never alter the
+catalogue or imply actual reps/load.
+
+Generated `exercise.coachAnchor` metadata carries the requirement and planned
+target. `workout.prescriptionOutcome` records hard satisfaction, required placements
+(block ID/index, exercise index, protocol, sets/exposures), preferred satisfaction,
+soft relaxations, and warnings. The Session Tracker links Main occurrences to
+those requirements and copies the target into planned work. Generic anchor swaps
+throw with `code: 'required-anchor-swap'`; optional swaps refresh reconciliation.
+The workout retains the bounded session request for swaps, excluding programme context.
+
 ## Versioned definitions
 
 Definitions are plain JSON with `schemaVersion: 1`, `id`, positive integer
@@ -92,10 +149,11 @@ calendar passage. Progression decisions are recorded as evidence (`baseline`,
 `progress`, `hold`, `hold-maintenance`, `new-exercise-series`); they do not invent
 load increments, change exercise difficulty, or automatically replace exercises.
 
-`data/programmes.js` now ships `general-strength-4w`, version 1, using the production
+`data/programmes.js` ships `general-strength-4w`, version 1, using the production
 values approved in issue #58. The definition is pinned in each Programme State and
 must receive a new version for material policy changes. Test fixture definitions
-remain separate from this release.
+remain separate from this release. Its three stable squat/push/pull anchors start
+at 2×6, with 20/30/45-minute sessions and a recommended 2–3 sessions per week.
 
 The production `double-progression` strategy persists `anchors[].currentTarget`,
 `comparisonBaseline`, latest progression and substitution history. It requires both
@@ -120,7 +178,8 @@ The tracker records planned original identity and actual substitute identity.
 `engine.programmeReview(definition, state, now)` projects nominal block progress and
 counts meaningful sessions within the reviewed 28-day block. It does not mutate state
 or automatically complete the programme. `acknowledgeBlockReview(...)` advances the
-review marker while retaining identity, anchors and history. `finishProgramme(state)`
+review marker while retaining identity, anchors and history. The four-week UI offers
+Continue building, Maintenance or Finish. `finishProgramme(state)`
 is the explicit terminal operation. Mode/lifecycle changes still go through the engine.
 
 Production maintenance uses one anchor set, 20-minute sessions, 1–2 sessions/week,
@@ -132,7 +191,36 @@ to the definition and caps available time without increasing density or reducing
 It saves immutable results, applies them idempotently, persists state, then clears
 the active draft. Startup reconciles saved results before allowing another session.
 The store also discovers an immutable result stranded by an interrupted index write.
-In-progress drafts offer an explicit Save performed work action after reload.
+Interrupted Coach drafts recover automatically on reload using only durable outcomes.
+
+Permanent anchor replacement and a complete previous-programmes browser remain
+optional future extensions; records are retained for them.
+
+## Coach screens
+
+Coach groups Strength & fitness and Cross-training → Tennis. Tennis setup offers
+focus/frequency, usual playing days, intensity and an optional local-date event.
+Anchor Done explicitly confirms visible actual reps/load; blank values stay unknown.
+
+Every Coach home uses the same compact layout: title and status, this week's
+credited sessions (Tennis: its chosen weekly frequency; General Strength: 2–3, or
+1–2 in maintenance; Build Arms: aim 3, 2 acceptable), a collapsed Adjust today
+summary, View today's workout, and a due four-week review when there is one.
+Every programme's Coach home links to one shared **Your progress** screen: one
+tappable card per actual strength target (current prescription, last recorded
+performance, stored next progression), recent saved sessions and the programme's
+phase. General Strength shows its four-week block, Build Arms its seven-day
+curl/extension exposure and Tennis its six capability cards for performed coverage
+in the last two weeks plus any due check-in. It is read-only and invents no scores.
+A shared **Programme settings** screen groups the training plan and programme
+management. Tennis edits its existing focus, weekly frequency, playing days,
+intensity and event; General Strength and Build Arms show their definition-fixed
+plan read-only. Pause/Resume and a confirmed Finish work for all three; only
+General Strength offers maintenance and its four-week review choices. Settings are
+locked while a workout is in progress, and today-only adjustments stay on Coach home.
+
+Regression coverage lives in `tests/coach-home.test.js`, `tests/coach-progress.test.js`
+and `tests/coach-settings.test.js`.
 
 ## Policy strategies
 
@@ -208,8 +296,8 @@ The policy reuses exact exercise/protocol/side/actual-load double progression (6
 about two reps in reserve). Explicitly confirmed nonnumeric setups use the shared
 band/TRX contract. Temporary substitutes use eligible candidates for the same role,
 retain the programme anchor, and start a separate series with no inherited load.
-Tennis v1 remains pinned for existing programmes. New programmes use v2's bounded
-schedule/readiness adaptation described below; setup screens remain follow-up work.
+Tennis v1 remains pinned for existing programmes. Later versions add the bounded
+schedule/readiness adaptation and home movement composition described below.
 The existing controller's settings API supports frequency/focus and usual playing
 days/intensity without resetting anchors.
 
@@ -347,6 +435,23 @@ supplies per-anchor confirmation context to the generic player, including whethe
 numeric load is meaningful and whether a harder setup may be confirmed. Actuals
 are saved only on explicit Done/confirmation; no setup or load is inferred from
 the plan. General Strength retains its existing numeric-load progression rules.
+
+Build Arms aims for three meaningful sessions per week; two is acceptable and
+missed sessions create no debt. Each direct anchor starts at 3×8 and progresses
+through 3×12 with comparable confirmed actuals. Numeric load suggests the next
+heavier available load without inventing an increment. Bands/TRX show “Ready for
+more resistance” at the ceiling and reset to eight only after an explicitly
+confirmed harder setup. Easy today holds progression.
+
+Rolling seven-day targets are nine performed direct set exposures per action.
+Completed occurrences earn one, measured partials earn their performed fraction
+capped at one, and skipped/planned-only work earns zero. Compound push/pull is
+separate maintenance context, never quantified biceps/triceps sets. Whole-body
+floors are one exposure each for squat, hinge, lunge, compound push, compound pull,
+core and carry in seven days. Short sessions omit maintenance preferences; later
+sessions recompute deficits without debt. The catalogue currently needs dumbbells
+for carry maintenance. `tests/build-arms.test.js` pins these production rules;
+`tests/coach-pilot.test.js` pins General Strength's end-to-end flow.
 
 ## Sport profiles and instance settings
 
@@ -493,7 +598,7 @@ only in a new definition version with corresponding namespace validation/tests.
 
 ## Dated Tennis event preparation
 
-New Tennis programmes use immutable v4, adding event horizons to v3's scheduler
+Immutable Tennis v4 adds event horizons to v3's scheduler
 and development/consolidation rules. Saved v1–v3 retain their policies. Changing
 `intent` between `ongoing` and `event` preserves the current instance, four anchors,
 definition pin, baselines and performed histories. Coach's **Training intent and
@@ -564,16 +669,8 @@ copied into Programme State nor deleted by compaction.
 History is local-only. Browser/site-data clearing can remove it; device replacement
 does not migrate it. Cloud durability and cross-device continuity remain deferred.
 
-Resilience verification on 2026-10-12 used isolated Chromium contexts against the
-local application. Both programmes survived reload; interrupted recorded anchor
-work recovered as one partial result, remaining planned occurrences earned zero,
-and repeated reloads left dose/progression unchanged. Completed results, short
-sessions and temporary substitutions survived the same flow. A corrupt test record
-left startup and other history usable; unavailable localStorage showed a Coach
-error while the application still started. Standalone generation retained its
-`gf_generator_history` behaviour. These bounded browser checks used production
-controller/tracker calls to simulate work and interruption, plus rendered Coach
-navigation/errors; they did not use or clear production browser data.
+`tests/coach-resilience.test.js` and `tests/tennis-pilot.test.js` exercise durable
+interruption, reload, damaged records and result/state/draft-clear failures.
 
 ## Sport capability coverage
 
@@ -602,7 +699,7 @@ positive known exercise exposure; `unknown` means only unquantified partial work
 adequacy. Overlapping capability values must not be summed; `uniqueExposure` counts
 each mapped occurrence once. Facets distinguish controlled lateral work from
 braking, controlled rotation from rotational power, and general conditioning from
-unproven match repeated efforts. See [the catalogue gap audit](TENNIS_CAPABILITY_AUDIT.md).
+unproven match repeated efforts. See [Tennis mapping constraints](TENNIS_CAPABILITY_AUDIT.md).
 
 ### Tennis v6: home movement composition (#159)
 
@@ -665,3 +762,10 @@ because the programme still requires a feasible persistent pull anchor; temporar
 bodyweight-only days on an existing programme can offer support without pretending
 the absent anchor was trained. The grid forces each role only for comparison;
 production role rotation remains performed-only and is tested through the tracker.
+
+The bounded setup and eight-week performed-history simulation is reproducible with
+`node scripts/audit-tennis-pilot.js > /tmp/tennis-pilot.json`. It exercises saved
+v5 behavior; `tests/tennis-pilot.test.js` also checks v6 home lateral-control coverage.
+Neither simulation proves athletic outcomes or universal feasibility. Tennis v5's
+short-session omission tie-break uses earlier performed anchor history after rolling
+dose ties; saved v1–v4 retain their original rules without automatic migration.
