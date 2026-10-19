@@ -46,15 +46,15 @@ test('a superset plays A then B each set, labels each set and changeover, and re
   const screens = p.mainIndexes().map(index => { p.app.enterGeneratedPhase(index); return p.screen(); });
   assert.deepEqual(plain(screens), [
     ['Block 1 of 1 · Superset · Set 1 of 3 · A', 'Goblet squat', 'Next', 'Change over'],
-    ['Block 1 of 1 · Superset · Set 1 of 3', 'Change over', 'Skip rest', 'TRX row'],
+    ['Block 1 of 1 · Superset · Set 1 of 3', 'Change over', 'Next', 'TRX row'],
     ['Block 1 of 1 · Superset · Set 1 of 3 · B', 'TRX row', 'Next', 'Rest'],
-    ['Block 1 of 1 · Superset · Set 1 of 3 complete', 'Set 1 complete', 'Skip rest', 'Goblet squat'],
+    ['Block 1 of 1 · Superset · Set 1 of 3 complete', 'Set 1 complete', 'Next', 'Goblet squat'],
     ['Block 1 of 1 · Superset · Set 2 of 3 · A', 'Goblet squat', 'Next', 'Change over'],
-    ['Block 1 of 1 · Superset · Set 2 of 3', 'Change over', 'Skip rest', 'TRX row'],
+    ['Block 1 of 1 · Superset · Set 2 of 3', 'Change over', 'Next', 'TRX row'],
     ['Block 1 of 1 · Superset · Set 2 of 3 · B', 'TRX row', 'Next', 'Rest'],
-    ['Block 1 of 1 · Superset · Set 2 of 3 complete', 'Set 2 complete', 'Skip rest', 'Goblet squat'],
+    ['Block 1 of 1 · Superset · Set 2 of 3 complete', 'Set 2 complete', 'Next', 'Goblet squat'],
     ['Block 1 of 1 · Superset · Set 3 of 3 · A', 'Goblet squat', 'Next', 'Change over'],
-    ['Block 1 of 1 · Superset · Set 3 of 3', 'Change over', 'Skip rest', 'TRX row'],
+    ['Block 1 of 1 · Superset · Set 3 of 3', 'Change over', 'Next', 'TRX row'],
     ['Block 1 of 1 · Superset · Set 3 of 3 · B', 'TRX row', 'Next', 'Cool-down']
   ]);
   // The changeover between A and B is never presented as a completed set or superset.

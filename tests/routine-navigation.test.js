@@ -22,7 +22,7 @@ test('every routine entry point uses the ring and immediate Next name, then free
     h.app.togglePause();assert.equal(h.el('routineRing').attributes['aria-pressed'],'true');assert.match(h.el('routineRing').attributes['aria-label'],/resume timer/);
     h.tick(5);assert.equal(h.run('state.remaining'),remaining);assert.equal(h.el('ringFg').style.strokeDashoffset,offset);assert.equal(h.el('skipPhaseBtn').disabled,true);
     h.app.togglePause();h.tick();assert.equal(h.run('state.remaining'),remaining-1);assert.equal(h.el('routineRing').attributes['aria-pressed'],'false');
-    assert.equal(h.el('routineNextAction').textContent,'Skip interval');
+    assert.equal(h.el('routineNextAction').textContent,'Next');
   }
 });
 
@@ -33,8 +33,8 @@ test('routine Next skips work without completion credit and previews intervening
   h.app.skipPhase();assert.equal(h.el('routineNextName').textContent,'Rest');
   h.app.togglePause();h.app.skipPhase();assert.equal(h.run('state.phase'),'work');assert.deepEqual(outcomes,[]);
   h.app.togglePause();h.app.skipPhase();assert.deepEqual(outcomes,['skipped']);assert.equal(h.run('state.phase'),'rest');
-  assert.equal(h.el('routineNextName').textContent,'Standing quad stretch');assert.equal(h.el('routineNextAction').textContent,'Skip rest');
-  h.tick(2);assert.equal(h.run('state.idx'),1);assert.equal(h.el('routineNextName').textContent,'');assert.equal(h.el('routineNextAction').textContent,'Skip interval');
+  assert.equal(h.el('routineNextName').textContent,'Standing quad stretch');assert.equal(h.el('routineNextAction').textContent,'Next');
+  h.tick(2);assert.equal(h.run('state.idx'),1);assert.equal(h.el('routineNextName').textContent,'');assert.equal(h.el('routineNextAction').textContent,'Next');
   h.tick(4);assert.deepEqual(outcomes,['skipped','completed']);assert.equal(h.run('state.running'),false);
 });
 
