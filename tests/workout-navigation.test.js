@@ -97,14 +97,14 @@ test('the primary button names only the immediate next timeline item with truthf
     h.app.enterGeneratedPhase(index);const phase=timeline[index],label=previewName(timeline,index);
     assert.equal(next(h).textContent,label,'next after '+index+' '+phase.kind);assert.equal(next(h).classList.contains('hidden'),!label);
     if(label)assert.doesNotMatch(next(h).textContent,/\d+ (sec|reps)|after|Round|Set \d/);
-    if(phase.kind==='exercise')assert.equal(action(h),phase.protocol==='emom'?(phase.timed?'Skip work':'Done'):phase.timed?'Skip interval':index===timeline.length-1?'Finish workout':'Next');
-    else if(['rest','set-change','interval-rest','round-rest','set-rest','ladder-rest','pyramid-rest','complex-change','complex-rest'].includes(phase.kind))assert.equal(action(h),'Skip rest');
+    if(phase.kind==='exercise')assert.equal(action(h),phase.protocol==='emom'&&!phase.timed?'Done':index===timeline.length-1?'Finish workout':'Next');
+    else if(['rest','set-change','interval-rest','round-rest','set-rest','ladder-rest','pyramid-rest','complex-change','complex-rest'].includes(phase.kind))assert.equal(action(h),'Next');
   }
 });
 
 test('the next preview is the intervening rest, then the exercise after it, never skipping the rest',()=>{
   const h=harness();h.generated();const timeline=h.timeline(),rest=timeline.findIndex((p,i)=>i>0&&p.kind==='rest'&&timeline[i-1].kind==='exercise'&&timeline[i+1]&&timeline[i+1].kind==='exercise');
-  h.app.enterGeneratedPhase(rest-1);assert.equal(next(h).textContent,'Rest');h.app.enterGeneratedPhase(rest);assert.equal(next(h).textContent,timeline[rest+1].exercise.name);assert.equal(action(h),'Skip rest');
+  h.app.enterGeneratedPhase(rest-1);assert.equal(next(h).textContent,'Rest');h.app.enterGeneratedPhase(rest);assert.equal(next(h).textContent,timeline[rest+1].exercise.name);assert.equal(action(h),'Next');
   const main=timeline.findLastIndex(p=>p.kind==='exercise'&&p.section==='main');h.app.enterGeneratedPhase(main);assert.equal(next(h).textContent,timeline[main].protocol==='emom'?'Rest':'Cool-down');
 });
 
@@ -172,7 +172,16 @@ test('rest and block boundaries preview their actual immediate next item',()=>{
   for(const [kind,label] of [['set-rest','Rest'],['interval-rest','Change over'],['round-rest','Rest'],['block-transition','Next block']]){
     const rest=timeline.findIndex(p=>p.kind===kind);assert.ok(rest>0,kind);h.app.enterGeneratedPhase(rest-1);
     assert.equal(next(h).textContent,timeline[rest-1].kind==='exercise'&&timeline[rest].kind===kind?label:next(h).textContent);assert.equal(next(h).textContent,previewName(timeline,rest-1));
-    assert.equal(action(h),timeline[rest-1].timed?'Skip interval':'Next');
+    assert.equal(action(h),'Next');
     h.app.enterGeneratedPhase(rest);assert.equal(next(h).textContent,previewName(timeline,rest));
+  }
+});
+
+test('primary action never reads as a skip label; only genuine Done/Finish distinctions remain',()=>{
+  const h=harness();h.generated();const timeline=h.timeline();
+  for(let index=0;index<timeline.length;index++){
+    h.app.enterGeneratedPhase(index);const phase=timeline[index];
+    assert.doesNotMatch(action(h),/skip/i,phase.kind);
+    assert.match(action(h),phase.protocol==='emom'&&!phase.timed?/^Done$/:index===timeline.length-1&&phase.kind==='exercise'?/^(Finish workout|Next)$/:/^Next$/);
   }
 });

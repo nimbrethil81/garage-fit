@@ -704,7 +704,7 @@ function updateRoutineControls(){
   const pause=document.getElementById('routinePause');pause.classList.toggle('hidden',!untimed);pause.textContent=paused?'Paused — tap to resume':'Pause';pause.setAttribute('aria-pressed',String(paused));pause.disabled=!state.running;
   const target=document.getElementById('routineTarget');target.classList.toggle('hidden',!untimed);target.textContent=untimed?ex.reps+' reps':'';
   const label=state.phase==='ready'?activityName(state.list[0]):state.phase==='rest'?activityName(state.list[state.idx+1]):last?'':ex.rest?'Rest':activityName(state.list[state.idx+1]);
-  document.getElementById('routineNextAction').textContent=state.phase==='work'?'Skip interval':state.phase==='rest'?'Skip rest':untimed&&last?'Finish workout':'Next';
+  document.getElementById('routineNextAction').textContent=untimed&&last?'Finish workout':'Next';
   const next=document.getElementById('routineNextName');next.textContent=label;next.classList.toggle('hidden',!label);document.getElementById('skipPhaseBtn').disabled=!state.running||paused;
 }
 function setRoutinePaused(paused){state.paused=paused;updateRoutineControls()}
@@ -1188,26 +1188,26 @@ function renderGeneratedPhase(){
     player.classList.toggle('rest-phase',work.settled);
     const status=work.retry?'Could not save. Retry this minute.':work.settled?(work.status==='completed'?'Work complete.':work.status==='partial'?'Timed work stopped.':'Work not confirmed.')+' Rest until next minute.':'Finish the target, then rest.';
     const statusEl=document.getElementById('workoutEmomStatus');if(statusEl.textContent!==status)statusEl.textContent=status;
-    setPrimaryAction(work.retry?'Retry save':work.settled?'Rest until next minute':phase.timed?'Skip work':'Done');
+    setPrimaryAction(work.retry?'Retry save':work.settled||phase.timed?'Next':'Done');
   }else if(phase.kind==='exercise'){
-    name.textContent=phase.exercise.name;target.textContent=phase.timed?'':generatedPhasePrescription(phase).value+' reps';const details=[];if(phase.side)details.push(phase.side.toUpperCase());const load=generatedLoadText(phase.exercise,phase.plannedLoad);if(load)details.push(load);if(phase.plannedLoad&&phase.plannedLoad.relativeLoad)details.push('Adjust stance only if comfortable');note.textContent=details.join(' · ');setPrimaryAction(phase.timed?'Skip interval':generatorState.timelineIndex===generatorState.timeline.length-1&&!isCoachPlayer()?'Finish workout':'Next');
+    name.textContent=phase.exercise.name;target.textContent=phase.timed?'':generatedPhasePrescription(phase).value+' reps';const details=[];if(phase.side)details.push(phase.side.toUpperCase());const load=generatedLoadText(phase.exercise,phase.plannedLoad);if(load)details.push(load);if(phase.plannedLoad&&phase.plannedLoad.relativeLoad)details.push('Adjust stance only if comfortable');note.textContent=details.join(' · ');setPrimaryAction(generatorState.timelineIndex===generatorState.timeline.length-1&&!isCoachPlayer()?'Finish workout':'Next');
   }else if(phase.kind==='round-rest'){
-    name.textContent='Round '+phase.round+' complete';target.textContent='';setPrimaryAction('Skip rest');
+    name.textContent='Round '+phase.round+' complete';target.textContent='';setPrimaryAction('Next');
   }else if(phase.kind==='pyramid-rest'){
-    name.textContent='Step '+phase.pyramidStep+' complete';target.textContent='';setPrimaryAction('Skip rest');
+    name.textContent='Step '+phase.pyramidStep+' complete';target.textContent='';setPrimaryAction('Next');
   }else if(phase.kind==='ladder-rest'){
-    name.textContent='Step '+phase.ladderStep+' complete';target.textContent='';setPrimaryAction('Skip rest');
+    name.textContent='Step '+phase.ladderStep+' complete';target.textContent='';setPrimaryAction('Next');
   }else if(phase.kind==='complex-rest'){
-    name.textContent='Sequence '+phase.complexSequence+' complete';target.textContent='';setPrimaryAction('Skip rest');
+    name.textContent='Sequence '+phase.complexSequence+' complete';target.textContent='';setPrimaryAction('Next');
   }else if(phase.kind==='set-rest'){
-    name.textContent='Set '+phase.set+' complete';target.textContent='';setPrimaryAction('Skip rest');
+    name.textContent='Set '+phase.set+' complete';target.textContent='';setPrimaryAction('Next');
   }else if(['rest','set-change','interval-rest','complex-change'].includes(phase.kind)){
-    name.textContent=phase.kind==='rest'?'Rest':'Change over';target.textContent='';setPrimaryAction('Skip rest');
+    name.textContent=phase.kind==='rest'?'Rest':'Change over';target.textContent='';setPrimaryAction('Next');
   }else if(phase.kind==='block-transition'){
-    name.textContent=phase.label;target.textContent='';setPrimaryAction('Skip');
+    name.textContent=phase.label;target.textContent='';setPrimaryAction('Next');
   }else if(phase.kind==='transition'){
-    name.textContent=phase.label;target.textContent='';setPrimaryAction('Skip');
-  }else{name.textContent='Get ready';target.textContent='';setPrimaryAction('Skip')}
+    name.textContent=phase.label;target.textContent='';setPrimaryAction('Next');
+  }else{name.textContent='Get ready';target.textContent='';setPrimaryAction('Next')}
   renderUpNext();renderWorkoutRing();updateWorkoutPauseUI();document.getElementById('previousWorkoutName').textContent=isEmomPhase(phase)?'Minute timer':previousIndex<0?'None yet':generatorState.timeline[previousIndex].exercise.name;previousButton.querySelector('.previous-copy span').textContent='Previous';const percent=Math.round(generatorState.timelineIndex/Math.max(1,generatorState.timeline.length)*100);document.getElementById('workoutProgressPercent').textContent=percent+'%';const track=document.getElementById('workoutProgressTrack');track.setAttribute('aria-valuemin','0');track.setAttribute('aria-valuemax',String(generatorState.timeline.length));track.setAttribute('aria-valuenow',String(generatorState.timelineIndex));document.getElementById('workoutProgressFill').style.width=percent+'%';document.querySelector('#workoutPlayer .progress-label span:first-child').textContent='Session progress';if(coachUI)coachUI.renderAnchor(phase,generatorState.tracker);
   renderDensityPhase(phase);
   if(isEmomPhase(phase))document.getElementById('coachSkipBtn').classList.toggle('hidden',phase.timed||emomWork(phase).settled||!!emomWork(phase).pending);
