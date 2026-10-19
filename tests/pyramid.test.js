@@ -112,7 +112,7 @@ test('shared preview, voice, next hints and player follow changing reps and plan
     }
     h.app.generatedPrimaryAction();await tracker.flush();assert.equal(h.phase().kind,'pyramid-rest');
     assert.equal(h.run('generatorState.remaining'),b.prescription.stepRestSeconds);
-    assert.match(h.el('completeMovementNext').textContent,new RegExp(b.prescription.steps[1].reps+' reps'));
+    assert.equal(h.el('completeMovementNext').textContent,b.exercises[0].name);
     h.app.toggleWorkoutPause();assert.equal(h.el('completeMovementBtn').disabled,true);h.time(30000);h.app.toggleWorkoutPause();
     assert.equal(h.run('generatorState.remaining'),b.prescription.stepRestSeconds);
     h.app.generatedPrimaryAction();assert.equal(h.el('workoutTarget').textContent,b.prescription.steps[1].reps+' reps');

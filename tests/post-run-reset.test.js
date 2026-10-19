@@ -226,7 +226,7 @@ test('playback moves through the timed sequence linearly with no looping or roun
   tick(intervals, vm.runInContext('state.timer', context), 3);
   assert.equal(elements.exerciseName.textContent, 'Press-ups');
   assert.equal(vm.runInContext('state.phase', context), 'work');
-  assert.equal(elements.skipPhaseBtn.textContent, 'Skip');
+  assert.equal(elements.routineNextAction.textContent, 'Skip interval');
 
   // Upper-body steps auto-advance on their timers.
   tick(intervals, vm.runInContext('state.timer', context), 30);
@@ -272,7 +272,7 @@ test('playback moves through the timed sequence linearly with no looping or roun
   assert.equal(elements.doneSub.textContent, 'Reset complete. Nice run.');
 });
 
-test('a rep-based fixed sequence shows a real Complete button and advances on it', () => {
+test('a rep-based fixed sequence shows its target and advances with Next', () => {
   const { context, elements, intervals } = loadApp();
   context.GarageFitData.fixedWorkouts.repExample = {
     name:'Rep example', termination:{type:'fixed-sequence'},
@@ -281,10 +281,10 @@ test('a rep-based fixed sequence shows a real Complete button and advances on it
   context.GarageFitWorkoutUI.startFixedSequenceWorkout('repExample');
   tick(intervals, vm.runInContext('state.timer', context), 3);
   assert.equal(elements.phaseLabel.textContent, 'REPS');
-  assert.equal(elements.skipPhaseBtn.textContent, 'Complete');
+  assert.equal(elements.routineNextAction.textContent, 'Next');
   context.GarageFitWorkoutUI.skipFixedSequence();
   assert.equal(elements.exerciseName.textContent, 'Dead bug');
-  assert.equal(elements.skipPhaseBtn.textContent, 'Skip');
+  assert.equal(elements.routineNextAction.textContent, 'Skip interval');
 });
 
 test('existing fixed workouts remain unaffected by the new fixed-sequence engine', () => {

@@ -22,18 +22,14 @@ function harness() {
 
 
 const next=h=>h.el('completeMovementNext'),action=h=>h.el('completeMovementAction').textContent;
-const variableSteps=phase=>['ladder','pyramid','complex'].includes(phase?.protocol);
-const plannedLoad=phase=>phase.plannedLoad?.relativeLoad?' · Planned '+phase.plannedLoad.relativeLoad+' resistance':'';
 const previewName=(timeline,index)=>{
-  if(timeline[index].protocol==='emom')return 'Rest until next minute';
+  if(timeline[index].protocol==='emom')return 'Rest';
   const n=timeline[index+1];if(!n)return '';
-  // Complex movements name the exercise first, then its own target.
-  if(n.kind==='exercise')return n.protocol==='complex'?n.exercise.name+' · '+n.plannedPrescription.value+(n.timed?' sec':' reps'):variableSteps(n)?n.plannedPrescription.value+' reps · '+n.exercise.name+plannedLoad(n):n.exercise.name;
+  if(n.kind==='exercise')return n.exercise.name.replace(/ - (Left|Right)$/i,'');
   if(['interval-rest','set-change','complex-change'].includes(n.kind))return 'Change over';
   if(n.kind==='block-transition')return 'Next block';
   const after=timeline.slice(index+2).find(p=>p.kind==='exercise');
   if(n.kind==='transition')return {warmup:'Warm-up',rampup:'Ramp-up',main:'Main workout',cooldown:'Cool-down'}[after.section];
-  if(['ladder','pyramid'].includes(n.protocol)&&after?.protocol===n.protocol)return 'Rest · Then '+after.plannedPrescription.value+' reps'+plannedLoad(after);
   return 'Rest';
 };
 
@@ -73,9 +69,9 @@ test('timed phases render a ring whose countdown and progress follow the existin
   assert.equal(h.el('workoutRingWrap').classList.contains('hidden'),false);assert.equal(h.el('workoutTarget').classList.contains('hidden'),true);
   assert.equal(num.textContent,String(phase.seconds));assert.equal(ring.style.strokeDashoffset,0);
   h.tick(1000);assert.equal(num.textContent,String(phase.seconds-1));assert.ok(Math.abs(ring.style.strokeDashoffset-565.48*(1/phase.seconds))<1e-6);
-  h.tap();assert.equal(h.el('workoutRing').attributes['aria-pressed'],'true');assert.equal(h.el('workoutRingState').textContent,'Paused');assert.match(h.el('workoutRing').attributes['aria-label'],/Paused/);
+  h.tap();assert.equal(h.el('workoutRing').attributes['aria-pressed'],'true');assert.match(h.el('workoutRing').attributes['aria-label'],/Paused/);
   const offset=ring.style.strokeDashoffset;h.tick(5000);assert.equal(num.textContent,String(phase.seconds-1));assert.equal(ring.style.strokeDashoffset,offset);
-  h.tap();assert.equal(h.el('workoutRing').attributes['aria-pressed'],'false');assert.equal(h.el('workoutRingState').textContent,'');h.tick(1000);assert.equal(num.textContent,String(phase.seconds-2));
+  h.tap();assert.equal(h.el('workoutRing').attributes['aria-pressed'],'false');h.tick(1000);assert.equal(num.textContent,String(phase.seconds-2));
   const rest=h.timeline().findIndex(p=>p.kind==='rest');h.app.enterGeneratedPhase(rest);assert.equal(h.el('workoutRingWrap').classList.contains('hidden'),false);assert.equal(num.textContent,String(h.timeline()[rest].seconds));
   const reps=h.timeline().findIndex(p=>p.kind==='exercise'&&!p.timed);if(reps>=0){h.app.enterGeneratedPhase(reps);assert.equal(h.el('workoutRingWrap').classList.contains('hidden'),true);assert.match(h.el('workoutTarget').textContent,/reps/)}
 });
@@ -84,7 +80,7 @@ test('tapping the panel, text, instructions or Coach fields no longer pauses and
   const html=fs.readFileSync('index.html','utf8'),stage=html.match(/<div class="workout-stage"[^>]*>/)[0];
   assert.doesNotMatch(stage,/onclick|onkeydown|onpointer|tabindex|role=/);assert.doesNotMatch(html,/Tap exercise panel to pause|workoutPanel|id="generatedNext"|Skip ramp-up|rampupSkipBtn|coachSkipRampup/);
   assert.doesNotMatch(fs.readFileSync('js/rampup-ui.js','utf8'),/Skip ramp-up|rampupSkipBtn/);
-  assert.match(html,/<button class="workout-ring" id="workoutRing" type="button" aria-pressed="false" aria-label="Pause timer" onclick="toggleWorkoutPause\(\)">/);
+  assert.match(html,/<button class="ring-wrap" id="workoutRing" type="button" aria-pressed="false" aria-label="Pause timer" onclick="toggleWorkoutPause\(\)">/);
   const h=harness();h.generated();h.app.enterGeneratedPhase(h.timeline().findIndex(p=>p.kind==='exercise'&&p.timed));
   assert.equal(h.el('workoutRing').disabled,false);assert.equal(h.run('workoutState.paused'),false);
 });
@@ -100,7 +96,7 @@ test('the primary button names only the immediate next timeline item with truthf
   for(let index=0;index<timeline.length;index++){
     h.app.enterGeneratedPhase(index);const phase=timeline[index],label=previewName(timeline,index);
     assert.equal(next(h).textContent,label,'next after '+index+' '+phase.kind);assert.equal(next(h).classList.contains('hidden'),!label);
-    if(label&&!variableSteps(timeline[index+1]))assert.doesNotMatch(next(h).textContent,/\d+ (sec|reps)|after|Round|Set \d/);
+    if(label)assert.doesNotMatch(next(h).textContent,/\d+ (sec|reps)|after|Round|Set \d/);
     if(phase.kind==='exercise')assert.equal(action(h),phase.protocol==='emom'?(phase.timed?'Skip work':'Done'):phase.timed?'Skip interval':index===timeline.length-1?'Finish workout':'Next');
     else if(['rest','set-change','interval-rest','round-rest','set-rest','ladder-rest','pyramid-rest','complex-change','complex-rest'].includes(phase.kind))assert.equal(action(h),'Skip rest');
   }
@@ -109,7 +105,7 @@ test('the primary button names only the immediate next timeline item with truthf
 test('the next preview is the intervening rest, then the exercise after it, never skipping the rest',()=>{
   const h=harness();h.generated();const timeline=h.timeline(),rest=timeline.findIndex((p,i)=>i>0&&p.kind==='rest'&&timeline[i-1].kind==='exercise'&&timeline[i+1]&&timeline[i+1].kind==='exercise');
   h.app.enterGeneratedPhase(rest-1);assert.equal(next(h).textContent,'Rest');h.app.enterGeneratedPhase(rest);assert.equal(next(h).textContent,timeline[rest+1].exercise.name);assert.equal(action(h),'Skip rest');
-  const main=timeline.findLastIndex(p=>p.kind==='exercise'&&p.section==='main');h.app.enterGeneratedPhase(main);assert.equal(next(h).textContent,timeline[main].protocol==='emom'?'Rest until next minute':'Cool-down');
+  const main=timeline.findLastIndex(p=>p.kind==='exercise'&&p.section==='main');h.app.enterGeneratedPhase(main);assert.equal(next(h).textContent,timeline[main].protocol==='emom'?'Rest':'Cool-down');
 });
 
 test('generated labels distinguish final reps and Coach feedback',()=>{

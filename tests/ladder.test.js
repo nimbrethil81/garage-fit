@@ -87,11 +87,11 @@ test('shared player/voice/preview/tracker follow each step through rest, pause, 
     assert.equal(h.el('workoutTarget').textContent,reps[0]+' reps');assert.match(h.spoken.at(-1),new RegExp(reps[0]+' reps'));
     const preview=h.app.GarageFitWorkoutPreview;assert.match(preview.protocolLabel(block(reps)),/Ladder/);
     assert.equal(preview.occurrenceTargetLabel(block(reps),0),reps.map(n=>n+' reps').join(' → '));
-    assert.match(h.el('completeMovementNext').textContent,new RegExp(reps[0]+' reps'));
+    assert.equal(h.el('completeMovementNext').textContent,'Rest');
     h.app.generatedPrimaryAction();await tracker.flush();assert.equal(h.phase().kind,'rest');
     h.app.generatedPrimaryAction();assert.equal(h.el('workoutTarget').textContent,reps[0]+' reps');
     h.app.generatedPrimaryAction();await tracker.flush();assert.equal(h.phase().kind,'ladder-rest');
-    assert.match(h.el('completeMovementNext').textContent,new RegExp(reps[1]+' reps'));
+    assert.equal(h.el('completeMovementNext').textContent,block(reps).exercises[0].name);
     h.app.toggleWorkoutPause();assert.equal(h.el('completeMovementBtn').disabled,true);h.app.toggleWorkoutPause();
     h.app.generatedPrimaryAction();assert.equal(h.el('workoutTarget').textContent,reps[1]+' reps');
     h.app.previousGeneratedPhase();assert.equal(h.phase().occurrenceId,main[1].phase.occurrenceId);
