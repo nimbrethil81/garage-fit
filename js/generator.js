@@ -262,10 +262,32 @@
     return exercise.equipment && exercise.equipment.length ? exercise.equipment[0][0] : 'bodyweight';
   }
 
-  function sectionSetupKey(exercise, owned) {
+  function sectionEquipmentSetup(exercise, owned) {
     const available = new Set(owned || []);
     const setup = (exercise.equipment || []).map(group => group.find(id => available.has(id)) || group[0]).filter(Boolean).sort();
-    return setup.length ? setup.join('+') : 'bodyweight';
+    return setup;
+  }
+
+  function sectionSetupKey(exercise, owned) {
+    const setup=sectionEquipmentSetup(exercise,owned);
+    const key=setup.length?setup.join('+'):'bodyweight';
+    return exercise.setupProfile?key+':'+exercise.setupProfile:key;
+  }
+
+  // Only classified setups on shared equipment conflict. Unclassified exercises retain
+  // their existing equipment-only behaviour, and other kit can accompany a setup.
+  function setupProfilesCompatible(exercises, owned) {
+    const classified=(exercises||[]).filter(exercise=>exercise&&exercise.setupProfile);
+    return classified.every((exercise,index)=>classified.slice(0,index).every(previous=>
+      exercise.setupProfile===previous.setupProfile||!sectionEquipmentSetup(exercise,owned)
+        .some(id=>sectionEquipmentSetup(previous,owned).includes(id))));
+  }
+
+  function blockSetupCompatible(block, catalogue, owned) {
+    if(block.protocol!=='paired_sets'&&blockRepeatCount(block)<=1)return true;
+    const exercises=block.exercises||[];
+    return setupProfilesCompatible(exercises,owned)
+      &&(!catalogue||setupProfilesCompatible(exercises.map(exercise=>catalogue[exercise.id]),owned));
   }
 
   function groupSectionBySetup(exercises, owned) {
@@ -793,7 +815,7 @@
   // body position and load; no shared pattern or capped family; at most one higher-impact
   // or high-cardio movement, two moderate-technique movements and two of one body region.
   function complexSequenceIssues(exercises) {
-    const issues=[];
+    const issues=setupProfilesCompatible(exercises)?[]:['setup-profile-conflict'];
     exercises.forEach((exercise,index)=>{
       const first=exercises[0],earlier=exercises.slice(0,index);
       if(!index)return;
@@ -1020,6 +1042,7 @@
       const unselected=eligible.filter(ex=>!selected.some(item=>item.id===ex.id));
       const compatible=narrow(stages,'protocol',unselected,unselected.filter(ex=>protocolCompatible(ex,protocol)));
       let candidates=narrow(stages,'family-cap',compatible,compatible.filter(ex=>!mainFamilyCapReached(ex,mainSoFar)));
+      candidates=narrow(stages,'setup-profile',candidates,candidates.filter(ex=>setupProfilesCompatible(selected.concat(ex),state.owned)));
       // A complex grows only by fresh movements that keep one setup and safe transitions.
       // Its narrow pool cannot outweigh Main's reuse and adjacent-pattern safeguards, so they
       // are hard here; the first movement must also have at least one such partner.
@@ -1523,6 +1546,7 @@
         const invalid=validateDensityBlock(block,catalogue);
         if(invalid.length){issues.push(...invalid.map(issue=>block.id+':'+issue));continue;}
       }
+      if(!blockSetupCompatible(block,catalogue,owned))issues.push(block.id+':setup-profile-conflict');
       if(!MAIN_INTENTS.has(block.intent))issues.push(block.id+':invalid-intent');
       if(!Array.isArray(block.exercises)||!block.exercises.length)issues.push(block.id+':no-exercises');
       for(const exercise of block.exercises||[]){
@@ -1613,10 +1637,20 @@
     const chosen=attempts.find(item=>item.routeFilled)||attempts[0];
     if(activeTrace)activeTrace({type:'main-result',attempt:chosen?chosen.attempt:null,supportingRoute});
     if(chosen)return {blocks:chosen.blocks,transitionSeconds:BLOCK_TRANSITION_SECONDS,estimatedDurationSeconds:chosen.estimated};
-    const fallbackExercises=selectExercises(eligible,Math.min(3,eligible.length),focus,history,random,catalogue);
-    const fitted=chooseClosestPrescription('rounds',fallbackExercises,budget.main,rest,focus,{allowExtendedRepetition:true});
-    const block={id:'main-1',protocol:'rounds',intent:focus==='cardio'?'conditioning':'strength',exercises:fallbackExercises.map(copyExercise),prescription:fitted.prescription,rounds:fitted.prescription.rounds,rest:{exercise:fitted.prescription.exerciseRestSeconds,round:fitted.prescription.roundRestSeconds},estimatedDurationSeconds:fitted.estimate,estimatedSeconds:fitted.estimate};
-    return {blocks:[block],transitionSeconds:BLOCK_TRANSITION_SECONDS,estimatedDurationSeconds:fitted.estimate};
+    const fallbackSelected=selectExercises(eligible,Math.min(3,eligible.length),focus,history,random,catalogue);
+    // Keep fallback variety too: split incompatible configurations into blocks rather
+    // than dropping movements and repeating a single ring exercise for the whole Main.
+    const fallbackGroups=[];
+    for(const exercise of fallbackSelected){
+      const group=fallbackGroups.find(items=>setupProfilesCompatible(items.concat(exercise),owned));
+      if(group)group.push(exercise);else fallbackGroups.push([exercise]);
+    }
+    const target=(budget.main-BLOCK_TRANSITION_SECONDS*(fallbackGroups.length-1))/fallbackGroups.length;
+    const blocks=fallbackGroups.map((exercises,index)=>{
+      const fitted=chooseClosestPrescription('rounds',exercises,target,rest,focus,{allowExtendedRepetition:true});
+      return {id:'main-'+(index+1),protocol:'rounds',intent:focus==='cardio'?'conditioning':'strength',exercises:exercises.map(copyExercise),prescription:fitted.prescription,rounds:fitted.prescription.rounds,rest:{exercise:fitted.prescription.exerciseRestSeconds,round:fitted.prescription.roundRestSeconds},estimatedDurationSeconds:fitted.estimate,estimatedSeconds:fitted.estimate};
+    });
+    return {blocks,transitionSeconds:BLOCK_TRANSITION_SECONDS,estimatedDurationSeconds:mainSeconds(blocks)};
   }
 
   // Hard eligibility for a generated phase: its flag, the owned equipment and the phase's own
@@ -1673,6 +1707,7 @@
   const VALID_PATTERNS = new Set(['squat','hinge','lunge','push','pull','carry','core']);
   const VALID_WARMUP_AREAS = new Set(['hips','knees','ankles','shoulders','trunk']);
   const VALID_STRETCH_TARGETS = new Set(['hamstrings','glutes','calves','quadriceps','hip-flexors','adductors','chest','shoulders','triceps','back','trunk']);
+  const VALID_SETUP_PROFILES = new Set(['rings-high','rings-standing','rings-low','rings-support']);
   const VALID_LOADS = new Set(['Light','Medium','Heavy']);
   const VALID_FREQUENCIES = new Set(['occasional']);
   const PRESCRIPTION_TYPES = new Set(Object.keys(PRESCRIPTION_MODE_BY_TYPE));
@@ -1740,6 +1775,8 @@
         if (!Array.isArray(group) || !group.length) { errors.push(id+': empty or malformed equipment group'); continue; }
         for (const item of group) if (typeof item!=='string' || (equipmentIds && !equipmentIds.has(item))) errors.push(id+': unknown equipment '+JSON.stringify(item));
       }
+
+      if (exercise.setupProfile!=null && !VALID_SETUP_PROFILES.has(exercise.setupProfile)) errors.push(id+': invalid setupProfile '+JSON.stringify(exercise.setupProfile));
 
       if (!Array.isArray(exercise.patterns)) errors.push(id+': patterns must be an array');
       else {
@@ -2215,7 +2252,15 @@
       if(protocol==='complex'||protocol==='density'){
         const first=compatible.find(exercise=>compatible.some(other=>other!==exercise&&!complexSequenceIssues([exercise,other]).length));
         if(first)picked.push(first,compatible.find(other=>other!==first&&!complexSequenceIssues([first,other]).length));
-      }else for(const exercise of compatible)if(picked.length<count&&!mainFamilyCapReached(exercise,picked))picked.push(exercise);
+      }else for(const exercise of compatible)if(picked.length<count&&!mainFamilyCapReached(exercise,picked)&&setupProfilesCompatible(picked.concat(exercise)))picked.push(exercise);
+      // The shortest exercise may have no compatible partner even though a later
+      // pair is feasible. Retry only that constrained path; ordinary plans stay exact.
+      if(picked.length<count&&count===2&&protocol!=='complex'&&protocol!=='density'&&compatible.some(exercise=>exercise.setupProfile)){
+        for(const first of compatible){
+          const second=compatible.find(other=>other!==first&&!mainFamilyCapReached(other,[first])&&setupProfilesCompatible([first,other]));
+          if(second){picked.splice(0,picked.length,first,second);break;}
+        }
+      }
       if(picked.length<count)continue;
       const exercises=picked.map(copyExercise);
       const prescription=protocol==='density'?{repeats:2,targets:exercises.map(densityDefaultTarget),timeCapSeconds:Math.max(180,Math.ceil(densityMinimumSeconds(exercises,{repeats:2,targets:exercises.map(densityDefaultTarget),exerciseRestSeconds:15,roundRestSeconds:45})/30)*30),exerciseRestSeconds:15,roundRestSeconds:45}:
@@ -2311,9 +2356,9 @@
       for(const protocol of entry.protocols){
         if(protocol!=='paired_sets')candidates.push({block:anchorBlock(protocol,[entry.exercise],entry.repeats,rest,index),entries:[entry]});
         else if(allowPair){
-          const partner=required.find(other=>other!==entry&&!planned.has(other)&&!other.issues.length&&other.anchor.exerciseId!==entry.anchor.exerciseId&&other.repeats===entry.repeats&&other.protocols.includes(protocol));
+          const partner=required.find(other=>other!==entry&&!planned.has(other)&&!other.issues.length&&other.anchor.exerciseId!==entry.anchor.exerciseId&&other.repeats===entry.repeats&&other.protocols.includes(protocol)&&setupProfilesCompatible([entry.exercise,other.exercise],owned));
           if(partner)candidates.push({block:anchorBlock(protocol,[entry.exercise,partner.exercise],entry.repeats,rest,index),entries:[entry,partner]});
-          const generic=optionalEligible.filter(exercise=>!anchorIds.has(exercise.id)&&!mainFamilyCapReached(exercise,[entry.exercise])&&protocolCompatible(exercise,protocol)&&permittedProtocols(rx,null).includes(protocol)).sort((a,b)=>a.estimatedSeconds-b.estimatedSeconds||a.id.localeCompare(b.id))[0];
+          const generic=optionalEligible.filter(exercise=>!anchorIds.has(exercise.id)&&!mainFamilyCapReached(exercise,[entry.exercise])&&setupProfilesCompatible([entry.exercise,exercise],owned)&&protocolCompatible(exercise,protocol)&&permittedProtocols(rx,null).includes(protocol)).sort((a,b)=>a.estimatedSeconds-b.estimatedSeconds||a.id.localeCompare(b.id))[0];
           if(generic)candidates.push({block:anchorBlock(protocol,[entry.exercise,generic],entry.repeats,rest,index),entries:[entry]});
         }
       }
@@ -2345,7 +2390,9 @@
       if(total%2===0&&Math.max(...remaining.map(item=>item.count))<=total/2){
         while(total>0){
           remaining.sort((a,b)=>b.count-a.count||a.entry.anchor.requirementId.localeCompare(b.entry.anchor.requirementId));
-          const first=remaining[0],second=remaining[1],otherMax=remaining[2]?remaining[2].count:0;
+          const first=remaining[0],second=remaining.slice(1).find(item=>item.count>0&&setupProfilesCompatible([first.entry.exercise,item.entry.exercise],owned));
+          if(!second)break;
+          const otherMax=Math.max(0,...remaining.filter(item=>item!==first&&item!==second).map(item=>item.count));
           const dose=Math.min(first.count,second.count,total/2-otherMax);
           if(dose<=0)break;
           pairs.push(anchorBlock('paired_sets',[first.entry.exercise,second.entry.exercise],dose,rest,pairs.length));
@@ -2366,7 +2413,7 @@
       const choices=candidatesFor(entry,reserved.length,false);
       // Preferred paired sets can use an optional partner too; never absorb required work.
       if(entry.protocols.includes('paired_sets')&&!entry.issues.length){
-        const partner=optionalEligible.filter(exercise=>!anchorIds.has(exercise.id)&&!mainFamilyCapReached(exercise,[entry.exercise])&&protocolCompatible(exercise,'paired_sets')&&genericProtocols.includes('paired_sets')).sort((a,b)=>a.estimatedSeconds-b.estimatedSeconds||a.id.localeCompare(b.id))[0];
+        const partner=optionalEligible.filter(exercise=>!anchorIds.has(exercise.id)&&!mainFamilyCapReached(exercise,[entry.exercise])&&setupProfilesCompatible([entry.exercise,exercise],owned)&&protocolCompatible(exercise,'paired_sets')&&genericProtocols.includes('paired_sets')).sort((a,b)=>a.estimatedSeconds-b.estimatedSeconds||a.id.localeCompare(b.id))[0];
         if(partner)choices.push({block:anchorBlock('paired_sets',[entry.exercise,partner],entry.repeats,rest,reserved.length),entries:[entry]});
       }
       choices.sort((a,b)=>Number(!permittedProtocols(rx,entry.anchor,true).includes(a.block.protocol))-Number(!permittedProtocols(rx,entry.anchor,true).includes(b.block.protocol))||simpleRank(a.block.protocol)-simpleRank(b.block.protocol)||a.block.estimatedDurationSeconds-b.block.estimatedDurationSeconds);
@@ -2710,6 +2757,7 @@
     // the sequence count, changeover and recovery stay as planned.
     const replaced=exercise=>({...block,exercises:block.exercises.map((item,index)=>index===exerciseIndex?exercise:item),
       ...(block.protocol==='complex'?{prescription:{...block.prescription,targets:block.prescription.targets.map((target,index)=>index===exerciseIndex?complexDefaultTarget(exercise):target)}}:{})});
+    eligible=eligible.filter(exercise=>blockSetupCompatible(replaced(exercise),catalogue,owned));
     if(block.protocol==='emom')eligible=eligible.filter(exercise=>!validateEmomBlock(replaced(exercise),catalogue).length);
     if(['ladder','pyramid','complex','density'].includes(block.protocol))eligible=eligible.filter(exercise=>{
       const replacement=replaced(exercise);
@@ -2812,7 +2860,7 @@
     workout.estimatedSeconds=workout.warmup.estimatedSeconds+workout.rampup.estimatedSeconds+workout.main.estimatedDurationSeconds+workout.cooldown.estimatedSeconds;
   }
 
-  root.GarageFitGenerator = { BUDGETS, RESTS, PROTOCOL_SHAPES, MAIN_PROTOCOLS, GENERATED_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, EMOM_POLICY, LADDER_POLICY, PYRAMID_POLICY, COMPLEX_POLICY, DENSITY_POLICY, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, WORKOUT_DIFFICULTIES, EXERCISE_DIFFICULTIES, DIFFICULTY_POLICY, workoutDifficulty, difficultyExcluded, difficultyCredit, WORKOUT_BODY_FOCUSES, EXERCISE_BODY_FOCUSES, EXERCISE_DIRECT_ELBOW_ACTIONS, BODY_FOCUS_POLICY, workoutBodyFocus, bodyFocusCredit, SHORTLIST_SIZE, SHORTLIST_MARGIN, WINDOW_MAX_RANKS, SUPPORTING_ROUTE, candidateWindowRanks, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_PATTERNS, VALID_WARMUP_AREAS, VALID_STRETCH_TARGETS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, OCCURRENCE_TARGET_LIMITS, resolveOccurrenceTarget, validateOccurrenceTargets, validateEmomBlock, validateLadderBlock, validatePyramidBlock, pyramidKind, validateComplexBlock, validateDensityBlock, complexSequenceIssues, buildEmomBlock, protocolCompatible, protocolWeights, recentProtocolsFromResults, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, protocolConditions, selectBlockExercises, selectWarmup, kneeMobilityQualified, upperTrunkTarget, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, SessionPrescriptionError, assessSessionPrescription, generate, swap, swapPreparation };
+  root.GarageFitGenerator = { BUDGETS, RESTS, PROTOCOL_SHAPES, MAIN_PROTOCOLS, GENERATED_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, EMOM_POLICY, LADDER_POLICY, PYRAMID_POLICY, COMPLEX_POLICY, DENSITY_POLICY, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, WORKOUT_DIFFICULTIES, EXERCISE_DIFFICULTIES, DIFFICULTY_POLICY, workoutDifficulty, difficultyExcluded, difficultyCredit, WORKOUT_BODY_FOCUSES, EXERCISE_BODY_FOCUSES, EXERCISE_DIRECT_ELBOW_ACTIONS, BODY_FOCUS_POLICY, workoutBodyFocus, bodyFocusCredit, SHORTLIST_SIZE, SHORTLIST_MARGIN, WINDOW_MAX_RANKS, SUPPORTING_ROUTE, candidateWindowRanks, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, setupProfilesCompatible, blockSetupCompatible, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_SETUP_PROFILES, VALID_PATTERNS, VALID_WARMUP_AREAS, VALID_STRETCH_TARGETS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, OCCURRENCE_TARGET_LIMITS, resolveOccurrenceTarget, validateOccurrenceTargets, validateEmomBlock, validateLadderBlock, validatePyramidBlock, pyramidKind, validateComplexBlock, validateDensityBlock, complexSequenceIssues, buildEmomBlock, protocolCompatible, protocolWeights, recentProtocolsFromResults, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, protocolConditions, selectBlockExercises, selectWarmup, kneeMobilityQualified, upperTrunkTarget, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, SessionPrescriptionError, assessSessionPrescription, generate, swap, swapPreparation };
 
   if (typeof window!=='undefined' && typeof document!=='undefined' && typeof window.addEventListener==='function') window.addEventListener('load',()=>{
     if (document.querySelector('script[data-garagefit-rampup-ui]')) return;

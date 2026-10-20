@@ -93,7 +93,16 @@ written instruction remains available even when automatic speech is skipped.
 | --- | --- |
 | `id` | Stable kebab-case identifier. Saved history refers to it, so don't rename it. |
 | `name` | Display name. |
+| `setupProfile` | Optional setup compatibility category; defaults to `null`. Allowed values: `rings-high`, `rings-standing`, `rings-low`, `rings-support`. These describe compatible configurations, not fixed physical heights. Independent of equipment requirements, body position and exercise family. |
 | `equipment` | AND-of-OR groups of ids from `data/equipment.js`: `[['bench','box']]` means a bench *or* a box; `[['dumbbells'],['bench']]` means dumbbells *and* a bench. `[]` is bodyweight. |
+
+Exercises without a setup profile retain equipment-only setup comparison. Exercises
+with the same profile can share a setup; differing profiles on shared equipment
+require a change. Other equipment and bodyweight can accompany that setup.
+Generated Main blocks select compatible profiles together, allowing configuration
+changes between blocks. Repeated protocols and paired sets validate this constraint;
+Coach anchors retain their exact dose in separate permitted blocks or report the
+existing partner-unavailable conflict. Setup profiles do not add time or player cues.
 
 ## Movement classification
 
