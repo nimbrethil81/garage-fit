@@ -116,15 +116,15 @@ test('rings persist independently with conditional, accessible setup guidance an
   assert.deepEqual(json(loadAppContext(storage),'state.ownedEquipment'),[]);
 });
 
-test('rings are listed once in the Library filter, without adding exercises or implying TRX or a bar', () => {
+test('rings are listed once in the Library filter without implying TRX or a bar', () => {
   const app=loadAppContext(); app.openExerciseLibrary();
   const filter=app.document.getElementById('libraryEquipment');
   assert.equal(filter.children.filter(node=>node.value==='rings').length,1);
   assert.equal(filter.children.find(node=>node.value==='rings').textContent,'Gymnastic rings');
   filter.value='rings'; app.renderExerciseLibrary();
-  assert.equal(app.document.getElementById('libraryList').children.length,0);
+  assert.equal(app.document.getElementById('libraryList').children.length,14);
   app.toggleEquipmentItem('rings'); app.generateWorkout();
-  assert.ok(json(app,'generatorState.workout.main.blocks.flatMap(block=>block.exercises)').every(ex=>!ex.equipment.length));
+  assert.ok(json(app,'generatorState.workout.main.blocks.flatMap(block=>block.exercises)').every(ex=>!ex.equipment.length||ex.equipment.flat().every(id=>id==='rings')));
 });
 
 test('Coach available equipment uses the same independent rings inventory', async () => {

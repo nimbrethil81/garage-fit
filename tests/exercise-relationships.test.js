@@ -51,6 +51,7 @@ test('the retired relationship fields are gone and cannot re-enter the catalogue
   bad['dead-hang'].family = 'Dead Hang';
   assert.ok(G.validateCatalogue(bad).some(error => /dead-hang: invalid family/.test(error)));
   const orphan = clone(catalogue);
+  orphan['push-up'].family = null;
   orphan['push-up'].frequency = 'occasional';
   assert.ok(G.validateCatalogue(orphan).some(error => /push-up: frequency requires a family/.test(error)));
 });
