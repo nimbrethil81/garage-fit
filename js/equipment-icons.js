@@ -8,6 +8,7 @@
     dumbbells: '<path d="M8 12h8M2 10.5v3M22 10.5v3"/><rect x="4" y="8" width="3" height="8" rx="1"/><rect x="17" y="8" width="3" height="8" rx="1"/>',
     barbell: '<path d="M2 12h20M6 6v12M9 8v8M18 6v12M15 8v8"/>',
     trx: '<circle cx="12" cy="3.5" r="1.5"/><path d="M12 5l-5 11M12 5l5 11"/><rect x="5" y="16" width="4" height="5" rx="1.5"/><rect x="15" y="16" width="4" height="5" rx="1.5"/>',
+    rings: '<path d="M6 3v10M18 3v10"/><circle cx="6" cy="17" r="4"/><circle cx="18" cy="17" r="4"/>',
     'pullup-bar': '<path d="M3 5h18M9 5l3 5M15 5l-3 5M12 14v4M12 18l-2 3M12 18l2 3"/><circle cx="12" cy="12" r="2"/>',
     bands: '<ellipse cx="9" cy="12" rx="6" ry="4"/><ellipse cx="15" cy="12" rx="6" ry="4"/>',
     bench: '<rect x="3" y="10" width="18" height="4" rx="1.5"/><path d="M6 14v6M18 14v6"/>',

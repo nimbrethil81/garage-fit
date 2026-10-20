@@ -41,7 +41,7 @@ test('visiting preserves onboarding, explicit empty choice and saved/legacy inve
     [new Map([['gf_equipment','true']]),null,true]
   ];
   for (const [storage,inventory,configured] of cases) {
-    const app=loadAppContext(storage), expected=inventory||json(app,'EQUIPMENT.map(item=>item.id)');
+    const app=loadAppContext(storage), expected=inventory||json(app,"EQUIPMENT.filter(item=>item.id!=='rings').map(item=>item.id)");
     for (const route of ['more','generator']) {
       app.openEquipment(route); app.closeEquipment();
       assert.deepEqual(json(app,'state.ownedEquipment'),expected);
@@ -86,4 +86,60 @@ test('equipment edits leave standalone previews and running routines untouched; 
   assert.equal(run(app,'state.running'),true);
   app.goHome(); app.startPreferredRoutine('warmup');
   assert.ok(json(app,'state.list').every(ex=>run(app,`CATALOGUE[${JSON.stringify(ex.id)}].equipment.length`)===0));
+});
+
+test('rings persist independently with conditional, accessible setup guidance and a distinct icon', () => {
+  const storage=new Map(),app=loadAppContext(storage);
+  assert.equal(app.GarageFitData.equipment.filter(item=>item.id==='rings').length,1);
+  app.openEquipment('generator');
+  const guidance=app.document.getElementById('ringsSetupGuidance');
+  assert.equal(guidance.classList.contains('hidden'),true);
+  app.toggleEquipmentItem('rings');
+  assert.deepEqual(selected(app),['Gymnastic rings']);
+  assert.equal(storage.get('gf_equipment_inventory'),'["rings"]');
+  assert.equal(app.document.getElementById('generatorEquipmentSummary').textContent,'Gymnastic rings');
+  assert.equal(guidance.classList.contains('hidden'),false);
+  const control=app.document.getElementById('equipmentList').children.find(node=>node.textContent==='Gymnastic rings');
+  assert.equal(control.attributes['aria-describedby'],'ringsSetupGuidance');
+  const html=fs.readFileSync(require.resolve('../index.html'),'utf8');
+  assert.match(html, /id="ringsSetupGuidance">.*load-rated overhead mounting and straps.*not all mounts are suitable for dynamic loading.*clearance.*check.*before loading.*enter and exit under control/);
+  const icons=app.GarageFitEquipmentIcons;
+  assert.match(icons.svg('rings'),/stroke="currentColor".*<circle.*<circle/);
+  for (const id of ['trx','pullup-bar']) assert.notEqual(icons.svg('rings'),icons.svg(id));
+  assert.equal(icons.primaryEquipmentId({equipment:[['rings']]}),'rings');
+  const reloaded=loadAppContext(storage); reloaded.openEquipment('more');
+  assert.deepEqual(selected(reloaded),['Gymnastic rings']);
+  assert.equal(reloaded.document.getElementById('ringsSetupGuidance').classList.contains('hidden'),false);
+  reloaded.toggleEquipmentItem('rings');
+  assert.equal(storage.get('gf_equipment_inventory'),'[]');
+  assert.equal(reloaded.document.getElementById('ringsSetupGuidance').classList.contains('hidden'),true);
+  assert.deepEqual(json(loadAppContext(storage),'state.ownedEquipment'),[]);
+});
+
+test('rings are listed once in the Library filter, without adding exercises or implying TRX or a bar', () => {
+  const app=loadAppContext(); app.openExerciseLibrary();
+  const filter=app.document.getElementById('libraryEquipment');
+  assert.equal(filter.children.filter(node=>node.value==='rings').length,1);
+  assert.equal(filter.children.find(node=>node.value==='rings').textContent,'Gymnastic rings');
+  filter.value='rings'; app.renderExerciseLibrary();
+  assert.equal(app.document.getElementById('libraryList').children.length,0);
+  app.toggleEquipmentItem('rings'); app.generateWorkout();
+  assert.ok(json(app,'generatorState.workout.main.blocks.flatMap(block=>block.exercises)').every(ex=>!ex.equipment.length));
+});
+
+test('Coach available equipment uses the same independent rings inventory', async () => {
+  const app=loadAppContext(new Map(),{ownIntrinsics:true});
+  run(app, `function coachNodes(){const visit=node=>[node,...(node.children||[]).flatMap(visit)];return visit(document.getElementById('coachContent'));}
+    function coachAction(label){return coachNodes().find(node=>node.textContent===label&&node.onclick);}`);
+  app.toggleEquipmentItem('dumbbells');
+  await run(app,'coachUI.open()');
+  await run(app,"coachAction('4-Week General Strength').onclick()");
+  await run(app,"coachAction('Start programme').onclick()");
+  assert.equal(run(app,"coachNodes().filter(node=>node.textContent==='Gymnastic rings'&&node.onclick).length"),1);
+  await run(app,"coachAction('Gymnastic rings').onclick()");
+  assert.deepEqual(json(app,'state.ownedEquipment'),['dumbbells','rings']);
+  assert.equal(run(app,"coachAction('Gymnastic rings').attributes['aria-pressed']"),'true');
+  for (const label of ['TRX','Pull-up bar']) assert.equal(run(app,`coachAction(${JSON.stringify(label)}).attributes['aria-pressed']`),'false');
+  await run(app,"coachAction('Gymnastic rings').onclick()");
+  assert.deepEqual(json(app,'state.ownedEquipment'),['dumbbells']);
 });
