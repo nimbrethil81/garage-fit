@@ -116,21 +116,21 @@ test('a saved session updates the home count; abandoned work and previews earn n
   assert.match(p.text(), /Session saved · partial · 1 anchors recorded/);
 });
 
-test('non-Tennis Adjust today summarises real choices, keeps inventory and offers no Tennis readiness', async () => {
+test('non-Tennis Adjust today summarises real choices, saves shared inventory and offers no Tennis readiness', async () => {
   const p = await ui(new Map(), ['dumbbells']); await start(p, 'arms');
   assert.equal(p.summary(), 'Adjust today · 30 min available · Dumbbells');
   assert.equal(p.run("field('Readiness today (optional)')"), undefined);
   p.run("let plans=0;const plan=coachUI.controller.plan;coachUI.controller.plan=input=>{plans++;return plan(input);};const adjust=nodes('coachContent').find(node=>node.id==='coachAdjustToday');adjust.open=true;adjust.ontoggle();");
   assert.equal(p.run('plans'), 0, 'opening the disclosure never replans');
-  const inventory = p.json('state.ownedEquipment');
   await p.click('20 min'); await p.click('Bench');
   p.run("field('Easy today').checked=true"); await p.run("field('Easy today').onchange()");
   p.run("field('Body emphasis').value='upper'"); await p.run("field('Body emphasis').onchange()");
   assert.equal(p.summary(), 'Adjust today · 20 min available · Dumbbells, Bench · Easy today · Upper emphasis');
   assert.equal(p.run("nodes('coachContent').find(node=>node.id==='coachAdjustToday').open"), true);
   assert.equal(p.run("action('20 min').attributes['aria-pressed']"), 'true');
-  assert.deepEqual(p.json('state.ownedEquipment'), inventory, 'today-only kit never changes ownership');
-  assert.ok(p.run("nodes('coachContent').find(node=>node.className==='coach-help'&&node.children[0].attributes['aria-label']==='About today’s equipment')"));
+  assert.deepEqual(p.json('state.ownedEquipment'), ['dumbbells','bench']);
+  assert.deepEqual(JSON.parse(p.storage.get('gf_equipment_inventory')), ['dumbbells','bench']);
+  assert.ok(p.run("nodes('coachContent').find(node=>node.className==='coach-help'&&node.children[0].attributes['aria-label']==='About My Equipment')"));
   await p.click('View today’s workout');
   const today = p.json('coachUI.controller.snapshot().preview.today');
   assert.equal(today.duration, 20); assert.equal(today.easyToday, true); assert.deepEqual(today.equipment, ['dumbbells','bench']);
@@ -167,4 +167,49 @@ test('blocked, paused, active, review-due and switching states keep their routes
   await p.run("coachUI.controller.manage('finish')"); await p.run('coachUI.open()');
   p.run("state.ownedEquipment=['dumbbells','bench']"); await start(p, 'arms');
   assert.match(p.text(), /Build Arms Ongoing.*0 of 3 sessions this week/);
+});
+
+test('central equipment return refreshes Coach feasibility without changing programme evidence or prepared work', async () => {
+  const p=await ui(new Map(),['dumbbells']); await start(p,'strength');
+  await p.click('View today’s workout');
+  const prepared=p.json('coachUI.controller.snapshot().preview'), state=p.state();
+  const records=[...p.storage.entries()].filter(([key])=>key.startsWith('gf_coach'));
+  p.run("openEquipment('more');toggleEquipmentItem('dumbbells');closeEquipment()");
+  assert.deepEqual(p.json('coachUI.controller.snapshot().preview'),prepared,'prepared session retains its original context');
+  await p.run('coachUI.open()');
+  assert.match(p.text(),/Bodyweight only/);
+  assert.equal(p.has('View today’s workout'),false,'removed kit makes future anchors infeasible');
+  assert.deepEqual(p.state(),state);
+  assert.deepEqual([...p.storage.entries()].filter(([key])=>key.startsWith('gf_coach')),records);
+  p.run("openEquipment('coach');toggleEquipmentItem('dumbbells')"); await p.run('closeEquipment(true)');
+  assert.equal(p.run('currentScreen'),'coach'); assert.ok(p.has('View today’s workout'));
+  await p.click('Bench');
+  assert.deepEqual(p.json('state.ownedEquipment'),['dumbbells','bench']);
+  p.run("openEquipment('generator')");
+  assert.deepEqual(p.json("document.getElementById('equipmentList').children.filter(node=>node.attributes['aria-pressed']==='true').map(node=>node.textContent)"),['Dumbbells','Bench']);
+  const reloaded=pilot(p.storage); await reloaded.run('coachUI.open()');
+  assert.deepEqual(reloaded.json('state.ownedEquipment'),['dumbbells','bench']);
+  assert.deepEqual(reloaded.json('coachUI.controller.snapshot().state'),state);
+});
+
+test('shared equipment edits preserve the live Coach workout, durable draft and performed evidence', async () => {
+  const p=await ui(new Map(),['dumbbells']); await start(p,'strength');
+  await p.click('View today’s workout'); await p.click('Start workout','coachPreviewContent');
+  await p.run(`(async()=>{const tracker=coachPlayerTracker();const work=tracker.plannedWork().find(item=>item.requirementId==='anchor-squat');
+    await tracker.recordAnchor(work.occurrenceId,{status:'completed',sets:[{reps:6,load:12,loadUnit:'kg',loadInterpretation:'total'}]});})()`);
+  const prepared=p.json('coachUI.controller.snapshot().preview'),workout=p.json('generatorState.workout');
+  const draft=await p.run('pilotStore.loadSessionDraft()'),state=p.state();
+  await p.run('coachUI.open()');
+  assert.equal(p.has('Dumbbells'),false,'active sessions retain the existing adjustment safeguard');
+  p.run("toggleEquipmentItem('dumbbells')"); await p.run('coachUI.open()');
+  assert.deepEqual(p.json('state.ownedEquipment'),[]);
+  assert.equal(p.run('coachUI.isActive()'),true); assert.ok(p.has('Return to workout'));
+  assert.deepEqual(p.json('coachUI.controller.snapshot().preview'),prepared);
+  assert.deepEqual(p.json('generatorState.workout'),workout);
+  assert.deepEqual(await p.run('pilotStore.loadSessionDraft()'),draft); assert.deepEqual(p.state(),state);
+  await p.run("coachUI.showEnd('exit',600)"); await p.run("coachUI.saveFeedback('about-right')");
+  assert.equal(p.has('View today’s workout'),false,'next plan respects bodyweight-only inventory');
+  const results=await p.run('pilotStore.listSessionResults()');
+  assert.equal(results.results.length,1);
+  assert.ok(results.results[0].performedWork.some(work=>work.exerciseId===state.anchors.find(anchor=>anchor.requirementId==='anchor-squat').exerciseId));
 });

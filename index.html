@@ -279,10 +279,11 @@
   </main>
 
   <main id="equipment" class="screen hidden">
-    <header class="page-header"><button class="back-btn" type="button" aria-label="Back" onclick="closeEquipment()">←</button><h1>Equipment</h1><span class="header-spacer"></span></header>
+    <header class="page-header"><button class="back-btn" type="button" aria-label="Back" onclick="closeEquipment()">←</button><h1>My Equipment</h1><span class="header-spacer"></span></header>
     <p class="page-header-copy">Select what you own. Bodyweight exercises are always available.</p>
     <div class="equipment-list" id="equipmentList"></div>
     <p class="equipment-note">A mat is not listed because it isn’t mechanically required. Leaving everything unselected gives you bodyweight workouts.</p>
+    <p class="equipment-note">Saved across GarageFit for future workouts. Already prepared workouts and workouts in progress keep their original equipment and exercises.</p>
     <button class="generator-primary equipment-done" type="button" onclick="closeEquipment(true)">Done</button>
   </main>
 
@@ -449,6 +450,7 @@
     </div>
     <div class="home-intro"><h1 class="screen-title">More</h1></div>
     <button class="library-entry" type="button" onclick="openExerciseLibrary()">Exercise Library →</button>
+    <button class="library-entry" type="button" onclick="openEquipment('more')">My Equipment →</button>
     <button class="library-entry settings-entry" type="button" onclick="showScreen('settings')">Settings →</button>
   </main>
   <main id="settings" class="screen hidden">
@@ -700,8 +702,9 @@ function selectGeneratorBodyFocus(value){generatorState.bodyFocus=value;try{loca
 function selectGeneratorDifficulty(value){generatorState.difficulty=value;try{localStorage.setItem('gf_generator_difficulty',value)}catch(e){}renderGenerator()}
 function openEquipment(returnTo){generatorState.equipmentReturn=returnTo||'generator';renderEquipment();showScreen('equipment')}
 function renderEquipment(){const wrap=document.getElementById('equipmentList');wrap.innerHTML='';EQUIPMENT.forEach(item=>{const selected=state.ownedEquipment.includes(item.id),button=document.createElement('button');button.type='button';button.className='equipment-item'+(selected?' selected':'');button.textContent=item.name;button.setAttribute('aria-pressed',String(selected));button.onclick=()=>toggleEquipmentItem(item.id);wrap.appendChild(button)})}
-function toggleEquipmentItem(id){state.ownedEquipment=state.ownedEquipment.includes(id)?state.ownedEquipment.filter(item=>item!==id):state.ownedEquipment.concat(id);state.equipmentConfigured=true;saveEquipment();renderEquipment();renderHome();renderGenerator()}
-function closeEquipment(markConfigured){if(markConfigured){state.equipmentConfigured=true;saveEquipment()}renderHome();renderGenerator();if(generatorState.equipmentReturn==='coach'&&coachUI){coachUI.open();return}showScreen(generatorState.equipmentReturn==='home'?'home':'generator')}
+function setOwnedEquipment(ids){state.ownedEquipment=EQUIPMENT.filter(item=>ids.includes(item.id)).map(item=>item.id);state.equipmentConfigured=true;saveEquipment();renderHome();renderGenerator()}
+function toggleEquipmentItem(id){if(!EQUIPMENT.some(item=>item.id===id))return;setOwnedEquipment(state.ownedEquipment.includes(id)?state.ownedEquipment.filter(item=>item!==id):state.ownedEquipment.concat(id));renderEquipment()}
+function closeEquipment(markConfigured){if(markConfigured){state.equipmentConfigured=true;saveEquipment()}renderHome();renderGenerator();if(generatorState.equipmentReturn==='coach'&&coachUI){return coachUI.open()}showScreen(['home','more'].includes(generatorState.equipmentReturn)?generatorState.equipmentReturn:'generator')}
 function getGeneratedHistory(){try{const value=JSON.parse(localStorage.getItem('gf_generator_history'));return Array.isArray(value)?value.slice(0,4):[]}catch(e){return []}}
 let generatorRecentProtocols=[];
 async function refreshGeneratorProtocols(){
@@ -1332,7 +1335,7 @@ async function coachExit(){
 }
 loadEquipment();
 if(typeof GarageFitCoachUI!=='undefined'){
-  coachUI=GarageFitCoachUI.mount({catalogue:CATALOGUE,equipment:EQUIPMENT,getEquipment:()=>state.ownedEquipment,buildTimeline:workout=>buildGeneratedTimeline(workout),showScreen,stopPlayer:stopCoachPlayer,
+  coachUI=GarageFitCoachUI.mount({catalogue:CATALOGUE,equipment:EQUIPMENT,getEquipment:()=>state.ownedEquipment,setEquipment:setOwnedEquipment,buildTimeline:workout=>buildGeneratedTimeline(workout),showScreen,stopPlayer:stopCoachPlayer,
     play:(workout,tracker)=>{generatorState.workout=workout;startGeneratedWorkout({tracker});state.doneDestination='coach';document.getElementById('workoutPlayerTitle').textContent='Coach · '+workout.duration+' min'}});
   coachUI.init();
 }
