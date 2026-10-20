@@ -168,7 +168,7 @@ test('equipment and grip variants share the existing families; related but disti
   assert.equal(family('dumbbell-arnold-press'),'overhead-press');
   assert.equal(family('dumbbell-close-grip-floor-press'),family('dumbbell-floor-press'));
   assert.equal(family('dumbbell-close-grip-floor-press'),'floor-press');
-  assert.deepEqual(Object.values(catalogue).filter(ex=>ex.family==='trx-row').map(ex=>ex.id).sort(),['trx-high-row','trx-row']);
+  assert.deepEqual(Object.values(catalogue).filter(ex=>ex.family==='trx-row').map(ex=>ex.id).sort(),['ring-row','trx-high-row','trx-row']);
   assert.deepEqual(Object.values(catalogue).filter(ex=>ex.family==='lateral-lunge').map(ex=>ex.id).sort(),['alternating-lateral-lunge','kettlebell-lateral-lunge']);
   // Close duplicates without being variants of one exercise.
   assert.equal(G.sameFamily(catalogue['bear-plank-shoulder-taps'],catalogue['plank-shoulder-taps']),false);
