@@ -177,7 +177,7 @@ test('rest and block boundaries preview their actual immediate next item',()=>{
   }
 });
 
-test('primary action never reads as a skip label; only genuine Done/Finish distinctions remain',()=>{
+test('unsettled work and ordinary phases retain their Next, Done and Finish action labels',()=>{
   const h=harness();h.generated();const timeline=h.timeline();
   for(let index=0;index<timeline.length;index++){
     h.app.enterGeneratedPhase(index);const phase=timeline[index];

@@ -79,7 +79,9 @@ test('early Done confirms one rep occurrence, then rests to the original boundar
   assert.equal(h.tracker().outcome(id).status,'completed');
   assert.equal(h.tracker().outcome(id).sets,undefined,'no planned reps or load become actual measures');
   assert.equal(h.run('generatorState.remaining'),47.5);
-  assert.equal(h.el('completeMovementBtn').disabled,true);
+  assert.equal(h.el('completeMovementBtn').disabled,false);
+  assert.equal(h.el('completeMovementAction').textContent,'Skip rest');
+  assert.equal(h.el('completeMovementNext').textContent,'Plank');
   assert.equal(h.el('workoutRingPhase').textContent,'REST');
   assert.match(h.el('workoutEmomStatus').textContent,/Work complete.*Rest until next minute/);
   assert.equal(h.chimes,1);
@@ -101,7 +103,7 @@ test('rep expiry and a late Done never auto-award planned repetitions',async()=>
   }
 });
 
-test('Skip work cannot skip recovery or accelerate several minutes with fast taps',async()=>{
+test('Skip work settles once and fast duplicate taps cannot change the action to Skip rest',async()=>{
   const h=harness();await h.start();const id=h.phase().occurrenceId;
   h.time(500);await h.app.generatedSkipWork();
   for(let n=0;n<8;n++){await h.app.generatedPrimaryAction();await h.app.generatedSkipWork()}
@@ -202,9 +204,9 @@ test('the final minute waits for its boundary, and stale callbacks cannot fire a
   assert.equal(h.run('generatorState.timelineIndex'),index);assert.equal(h.chimes,before);
 });
 
-test('Coach optional work uses the same tracker, with truthful early exit and durable recovery',async()=>{
+test('Coach optional work after a rest skip uses truthful early exit and durable recovery',async()=>{
   const h=harness({ids:['plank'],targets:[20],minutes:3});await h.start(true);
-  const first=h.phase().occurrenceId;await h.pulse(20000);await h.pulse(40000);
+  const first=h.phase().occurrenceId;await h.pulse(20000);h.time(400);await h.app.generatedPrimaryAction();
   const second=h.phase().occurrenceId;h.time(7500);
   h.app.openExitDialog('workout');await h.app.coachExit();await h.flush();
   assert.equal(h.run('workoutState.running'),false);
@@ -245,13 +247,15 @@ test('leaving EMOM clears minute presentation before a fixed workout uses the sh
 
 test('a completed standalone EMOM stores one immutable result; an unfinished run stays ephemeral',async()=>{
   const h=harness({ids:['plank'],targets:[20],minutes:1});await h.start();
-  await h.pulse(60000);
-  h.app.generatedPrimaryAction();await h.pulse(1000);await h.flush();
+  await h.pulse(20000);h.time(400);await h.app.generatedPrimaryAction();
+  h.time(350);h.app.generatedPrimaryAction();await h.pulse(1000);await h.flush();
   const result=plain(await h.run('generatorState.trackedResult'));
   assert.equal(result.source,'generator');assert.equal(result.performedWork.length,2,'EMOM and the measured cool-down');
+  assert.equal(result.actualDurationSeconds,21,'elapsed time excludes the skipped recovery');
   assert.deepEqual(result.performedWork.find(work=>work.section==='main'||work.exerciseId==='plank').sets,[{seconds:20}]);
   assert.equal((await h.results()).length,1);
   const unfinished=harness();await unfinished.start();await unfinished.app.generatedPrimaryAction();
+  unfinished.time(400);await unfinished.app.generatedPrimaryAction();assert.equal(unfinished.phase().minute,2);
   unfinished.app.openExitDialog('workout');unfinished.app.confirmExitChoice();
   assert.deepEqual(await unfinished.results(),[]);
   assert.equal(unfinished.storage.has('gf_coach_session_draft'),false);
@@ -304,4 +308,202 @@ test('slow or failed Coach writes preserve the confirmation time and the absolut
   assert.equal(h.tracker().outcome(h.phase().occurrenceId),null);
   const previous=h.callback();h.app.goHome();h.time(180000);await previous();
   assert.equal(h.run('workoutState.running'),false);
+});
+
+test('Skip rest at 23 seconds enters the next prescription with a full clock and no new outcome',async()=>{
+  const h=harness();await h.start();const first=h.phase(),planned=plain(h.tracker().plannedWork());
+  h.time(5000);await h.app.generatedPrimaryAction();await h.pulse(32000);
+  assert.equal(h.run('generatorState.remaining'),23);
+  assert.equal(h.el('completeMovementAction').textContent,'Skip rest');
+  assert.equal(h.el('completeMovementBtn').disabled,false);
+  assert.equal(h.el('completeMovementNext').textContent,'Plank');
+  const outcome=plain(h.tracker().outcome(first.occurrenceId)),stale=h.callback();
+  await h.app.generatedPrimaryAction();await stale();
+  assert.equal(h.phase().minute,2);assert.equal(h.phase().exercise.id,'plank');
+  assert.equal(h.el('workoutTarget').textContent,'20 sec work');
+  assert.equal(h.el('workoutRingNum').textContent,'60');
+  assert.equal(h.el('workoutRingPhase').textContent,'WORK');
+  assert.equal(h.el('completeMovementAction').textContent,'Next');
+  assert.equal(h.el('completeMovementNext').textContent,'Rest');
+  assert.equal(h.run('emomWork().startedMs'),37000);
+  assert.equal(h.run('currentWorkoutElapsedMs()'),37000);
+  assert.deepEqual(plain(h.tracker().outcome(first.occurrenceId)),outcome);
+  assert.equal(h.tracker().draft().occurrenceOutcomes.length,1);
+  assert.equal(h.tracker().outcome(h.phase().occurrenceId),null);
+  assert.deepEqual(plain(h.tracker().plannedWork()),planned);
+  assert.equal(h.starts.length,2);assert.equal(h.chimes,1);
+  await h.pulse(23000); // The old minute-1 boundary cannot expire minute 2.
+  assert.equal(h.phase().minute,2);assert.equal(h.run('generatorState.remaining'),37);
+  assert.deepEqual(plain(h.tracker().outcome(h.phase().occurrenceId).sets),[{seconds:20}]);
+  await h.pulse(37000);
+  assert.equal(h.phase().minute,3);assert.equal(h.run('generatorState.remaining'),60);
+});
+
+test('multiple early skips preserve all minutes, immutable evidence and subsequent automatic beats',async()=>{
+  const h=harness({minutes:5});await h.start();const slots=h.slots(),planned=plain(h.tracker().plannedWork());
+  for(let minute=1;minute<=3;minute++){
+    assert.equal(h.phase(),slots[minute-1]);
+    if(h.phase().timed)await h.pulse(20000);else{h.time(5000);await h.app.generatedPrimaryAction()}
+    const outcomes=plain(h.tracker().draft().occurrenceOutcomes),stale=h.callback();
+    h.time(400);await h.app.generatedPrimaryAction();await stale();
+    assert.equal(h.phase(),slots[minute]);assert.equal(h.el('workoutRingNum').textContent,'60');
+    assert.equal(h.tracker().outcome(h.phase().occurrenceId),null);
+    assert.deepEqual(plain(h.tracker().draft().occurrenceOutcomes),outcomes);
+    h.app.enterGeneratedPhase(h.first());await h.flush();
+    assert.equal(h.phase(),slots[minute]);assert.equal(h.run('generatorState.remaining'),60);
+  }
+  assert.equal(h.slots().length,5);assert.deepEqual(plain(h.tracker().plannedWork()),planned);
+  await h.pulse(59999);assert.equal(h.phase().minute,4);assert.equal(h.el('workoutRingNum').textContent,'1');
+  await h.pulse(1);assert.equal(h.phase().minute,5);assert.equal(h.el('workoutRingNum').textContent,'60');
+  await h.pulse(60000);assert.equal(h.phase().kind,'transition');
+  const outcomes=plain(h.tracker().draft().occurrenceOutcomes);
+  assert.deepEqual(outcomes.map(outcome=>outcome.occurrenceId),plain(slots.map(phase=>phase.occurrenceId)));
+  assert.deepEqual(outcomes.map(outcome=>outcome.status),['completed','completed','completed','completed','skipped']);
+  assert.equal(h.starts.length,6,'five minute cues and the existing section-transition cue');
+});
+
+test('Skip rest cannot settle unfinished work and never replaces partial or skipped evidence',async()=>{
+  for(const timed of [false,true]){
+    const h=harness({ids:[timed?'plank':'push-up'],targets:[timed?20:6],minutes:2});await h.start();const first=h.phase();
+    await h.app.updateEmomMinute('skip-rest');assert.equal(h.tracker().outcome(first.occurrenceId),null);
+    assert.equal(h.phase(),first);
+    h.time(timed?7250:5000);await h.app.generatedSkipWork();
+    const outcome=plain(h.tracker().outcome(first.occurrenceId));
+    assert.equal(outcome.status,timed?'partial':'skipped');
+    assert.equal(h.el('completeMovementAction').textContent,'Skip rest');
+    h.time(400);await h.app.generatedSkipWork();assert.equal(h.phase(),first,'Skip work does not skip rest');
+    await h.app.generatedPrimaryAction();assert.equal(h.phase().minute,2);assert.equal(h.run('generatorState.remaining'),60);
+    assert.deepEqual(plain(h.tracker().outcome(first.occurrenceId)),outcome);
+    assert.equal(h.tracker().draft().occurrenceOutcomes.length,1);assert.equal(h.chimes,0);
+  }
+});
+
+test('rapid taps across Done, Skip rest and automatic expiry cannot act on a new minute',async()=>{
+  for(const timed of [false,true]){
+    const h=harness({ids:[timed?'plank':'push-up'],targets:[timed?20:6],minutes:3});await h.start();
+    h.time(5000);const saving=h.app.generatedPrimaryAction();
+    await h.app.generatedPrimaryAction();await saving;
+    await h.app.generatedPrimaryAction();assert.equal(h.phase().minute,1);
+    h.time(400);
+    await Promise.all([h.app.generatedPrimaryAction(),h.app.generatedPrimaryAction(),h.app.generatedSkipWork()]);
+    assert.equal(h.phase().minute,2);assert.equal(h.tracker().outcome(h.phase().occurrenceId),null);
+    h.time(349);await h.app.generatedPrimaryAction();assert.equal(h.tracker().outcome(h.phase().occurrenceId),null);
+    await h.pulse(59651);assert.equal(h.phase().minute,3);
+    await h.app.generatedPrimaryAction();await h.app.generatedSkipWork();
+    assert.equal(h.tracker().outcome(h.phase().occurrenceId),null);
+  }
+});
+
+test('rest skips racing with timer expiry transition once, preserving early and late boundary policy',async()=>{
+  for(const at of [59999,60000,60001,61500])for(const timerFirst of [false,true]){
+    const h=harness();await h.start();h.time(5000);await h.app.generatedPrimaryAction();
+    const outcome=plain(h.tracker().draft().occurrenceOutcomes),stale=h.callback();
+    h.time(at-5000);
+    if(timerFirst)await stale();
+    await h.app.generatedPrimaryAction();await stale();await h.app.generatedPrimaryAction();
+    assert.equal(h.phase().minute,2,`${at}, timerFirst=${timerFirst}`);
+    assert.equal(h.el('workoutRingNum').textContent,String(Math.ceil(at<60000?60:(120000-at)/1000)));
+    assert.equal(h.tracker().outcome(h.phase().occurrenceId),null);
+    assert.deepEqual(plain(h.tracker().draft().occurrenceOutcomes),outcome);
+    assert.equal(h.starts.length,2);assert.equal(h.chimes,1);
+  }
+});
+
+test('failed and pending rep/timed saves cannot rebase time or discard the original action evidence',async()=>{
+  for(const coach of [false,true])for(const timed of [false,true]){
+    const h=harness({ids:[timed?'plank':'push-up'],targets:[timed?20:6],minutes:2});await h.start(coach);
+    const first=h.phase(),tracker=h.tracker(),method=timed?'recordTimed':'recordDone',record=tracker[method];
+    let reject;tracker[method]=()=>new Promise((_,fail)=>{reject=fail});
+    h.time(7250);const saving=h.app.generatedPrimaryAction();
+    assert.equal(h.el('completeMovementBtn').disabled,true);
+    assert.equal(h.el('coachSkipBtn').disabled,true);
+    await h.pulse(1000);await h.app.generatedPrimaryAction();await h.app.updateEmomMinute('skip-rest');
+    assert.equal(h.phase(),first);assert.equal(h.run('generatorState.remaining'),51.75);
+    reject(new Error('storage unavailable'));await saving;
+    assert.equal(h.el('completeMovementAction').textContent,'Retry save');
+    assert.match(h.el('coachPlayerError').textContent,/save|storage/i);
+    assert.equal(h.el('completeMovementBtn').disabled,false);
+    await h.app.updateEmomMinute('skip-rest');assert.equal(h.phase(),first);
+    tracker[method]=record;h.time(10000);await h.app.generatedPrimaryAction();
+    assert.equal(h.phase(),first);assert.equal(h.el('completeMovementAction').textContent,'Skip rest');
+    assert.equal(h.el('coachPlayerError').textContent,'');
+    const outcome=plain(tracker.outcome(first.occurrenceId));
+    assert.equal(outcome.status,timed?'partial':'completed');
+    if(timed)assert.deepEqual(outcome.sets,[{seconds:7.25}]);
+    h.time(400);await h.app.generatedPrimaryAction();assert.equal(h.phase().minute,2);
+    assert.equal(h.run('generatorState.remaining'),60);
+    assert.deepEqual(plain(tracker.outcome(first.occurrenceId)),outcome);
+    assert.equal(tracker.draft().occurrenceOutcomes.length,1);
+  }
+});
+
+test('pause/resume and page restoration keep a rebased minute and its measured active time',async()=>{
+  const h=harness();await h.start(true);h.time(5000);await h.app.generatedPrimaryAction();
+  h.time(400);await h.app.generatedPrimaryAction();const second=h.phase();
+  h.time(7250);h.app.toggleWorkoutPause();const elapsed=h.run('currentWorkoutElapsedMs()');
+  assert.equal(h.el('completeMovementBtn').disabled,true);
+  await h.app.generatedPrimaryAction();await h.pulse(100000);
+  assert.equal(h.run('currentWorkoutElapsedMs()'),elapsed);assert.equal(h.run('generatorState.remaining'),52.75);
+  h.app.toggleWorkoutPause();await h.pulse(12750);
+  assert.deepEqual(plain(h.tracker().outcome(second.occurrenceId).sets),[{seconds:20}]);
+  assert.equal(h.chimes,2);const before=plain(h.tracker().draft().occurrenceOutcomes);
+  await h.event('pagehide');assert.equal(h.timers.size,0);h.time(180000);
+  await h.event('pageshow');assert.equal(h.phase(),second);assert.equal(h.run('workoutState.paused'),true);
+  assert.equal(h.run('generatorState.remaining'),40);assert.equal(h.el('completeMovementBtn').disabled,true);
+  h.app.toggleWorkoutPause();await h.app.generatedPrimaryAction();
+  assert.equal(h.phase().minute,3);assert.equal(h.run('generatorState.remaining'),60);
+  assert.deepEqual(plain(h.tracker().draft().occurrenceOutcomes),before);
+});
+
+test('background catch-up after rebasing skips unseen minutes and caps evidence at the live window',async()=>{
+  const h=harness({minutes:5});await h.start();h.time(5000);await h.app.generatedPrimaryAction();
+  h.time(400);await h.app.generatedPrimaryAction();const slots=h.slots(),outcome=plain(h.tracker().outcome(slots[0].occurrenceId));
+  h.app.document.visibilityState='hidden';await h.pulse(125000);
+  assert.equal(h.phase().minute,4);assert.equal(h.run('generatorState.remaining'),55);
+  assert.deepEqual(plain(h.tracker().outcome(slots[1].occurrenceId).sets),[{seconds:20}]);
+  assert.equal(h.tracker().outcome(slots[2].occurrenceId).status,'skipped');
+  assert.equal(h.tracker().outcome(slots[3].occurrenceId),null);assert.equal(h.starts.length,2);
+  h.app.document.visibilityState='visible';await h.event('visibilitychange');
+  h.time(4500);await h.app.generatedPrimaryAction();
+  assert.deepEqual(plain(h.tracker().outcome(slots[3].occurrenceId).sets),[{seconds:4.5}]);
+  assert.deepEqual(plain(h.tracker().outcome(slots[0].occurrenceId)),outcome);assert.equal(h.starts.length,3);
+});
+
+test('rebased timed work cues follow active work time once through pause and rest',async()=>{
+  const h=harness();h.run(`generatorState.workout.main.blocks[0].exercises[1].timedCues=[{text:'Halfway through this minute work',at:{type:'fraction',value:0.5}}]`);
+  await h.start();h.time(5000);await h.app.generatedPrimaryAction();h.time(400);await h.app.generatedPrimaryAction();
+  await h.pulse(10000);assert.equal(h.spoken.filter(text=>text==='Halfway through this minute work').length,1);
+  h.app.toggleWorkoutPause();await h.pulse(100000);h.app.toggleWorkoutPause();
+  await h.pulse(10000);assert.equal(h.chimes,2);assert.equal(h.el('completeMovementAction').textContent,'Skip rest');
+  await h.pulse(1000);assert.equal(h.spoken.filter(text=>text==='Halfway through this minute work').length,1);
+  await h.app.generatedPrimaryAction();assert.equal(h.phase().minute,3);assert.equal(h.el('workoutRingNum').textContent,'60');
+});
+
+test('final Skip rest previews and enters the actual phase, block or finish exactly once',async()=>{
+  for(const after of ['cooldown','rest','block','emom','finish']){
+    const h=harness({ids:['push-up'],targets:[6],minutes:1});
+    if(after==='block')h.run(`generatorState.workout.main.blocks.push({id:'main-2',protocol:'rounds',intent:'strength',exercises:[CATALOGUE['air-squat']],prescription:{rounds:1,exerciseRestSeconds:0,roundRestSeconds:0}})`);
+    if(after==='emom')h.run(`generatorState.workout.main.blocks.push({...generatorState.workout.main.blocks[0],id:'main-2'})`);
+    await h.start();const first=h.phase(),index=h.run('generatorState.timelineIndex');
+    if(after==='rest')h.run(`generatorState.timeline.splice(${index+1},0,{kind:'rest',section:'main',seconds:15})`);
+    if(after==='finish')h.run(`generatorState.timeline.splice(${index+1})`);
+    h.time(5000);await h.app.generatedPrimaryAction();const outcome=plain(h.tracker().outcome(first.occurrenceId));
+    assert.equal(h.el('completeMovementNext').textContent,after==='cooldown'?'Cool-down':after==='rest'?'Rest':after==='finish'?'':'Next block');
+    h.time(400);const stale=h.callback();await h.app.generatedPrimaryAction();await stale();
+    if(after==='finish'){
+      assert.equal(h.run('workoutState.running'),false);await h.flush();
+      const result=await h.run('generatorState.trackedResult');
+      assert.equal(result.finalStatus,'completed');assert.equal(result.actualDurationSeconds,5);
+      assert.deepEqual(plain(result.performedWork),[outcome]);
+    }else{
+      assert.equal(h.run('generatorState.timelineIndex'),index+1);
+      assert.equal(h.phase().kind,after==='cooldown'?'transition':after==='rest'?'rest':'block-transition');
+      await h.app.generatedPrimaryAction();assert.equal(h.run('generatorState.timelineIndex'),index+1,'a duplicate cannot skip the next phase');
+      h.time(400);await h.app.generatedPrimaryAction();
+      assert.equal(h.phase().section,after==='cooldown'?'cooldown':'main');
+      if(after==='rest'){assert.equal(h.phase().kind,'transition');assert.equal(h.el('completeMovementNext').textContent,"Child's pose")}
+      if(after==='emom'){assert.equal(h.phase().minute,1);assert.equal(h.run('generatorState.remaining'),60);assert.equal(h.phase().blockIndex,1)}
+    }
+    assert.deepEqual(plain(h.tracker().outcome(first.occurrenceId)),outcome);
+  }
 });
