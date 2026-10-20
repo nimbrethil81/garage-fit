@@ -549,10 +549,22 @@ const FOCUS_LABELS={strength:'Strength',balanced:'Mixed',cardio:'Cardio'},BODY_F
 let generatorState={duration:20,focus:'balanced',bodyFocus:'full-body',difficulty:'normal',workout:null,equipmentReturn:'generator',timeline:[],timelineIndex:0,phaseTimer:null,remaining:0,completedMain:0,cueTracker:null,tracker:null,trackedResult:null,trackerError:null,standaloneTracking:false};
 let exitState={type:null,wasPaused:false,lastFocus:null};
 let instructionSeen=new Set();
+// Ownership lets disclosure resets stop only manual narration, preserving due
+// automatic cues even when a protocol re-renders the instruction surface.
+let manualInstructionSpeech=null;
 function beginInstructionSession(){instructionSeen=new Set()}
 function instructionFor(exercise){return exercise&&exercise.id&&CATALOGUE[exercise.id]&&CATALOGUE[exercise.id].instruction}
 function createInstructionDisclosure(exercise){return GarageFitWorkoutPreview.instructionDisclosure(instructionFor(exercise))}
-function setInstructionDisclosure(id,exercise){const details=document.getElementById(id),instruction=instructionFor(exercise);details.classList.toggle('hidden',!instruction);details.open=false;document.getElementById(id+'Text').textContent=instruction||''}
+function setInstructionDisclosure(id,exercise){if(manualInstructionSpeech===id)cancelSpeech();const details=document.getElementById(id),instruction=instructionFor(exercise);details.classList.toggle('hidden',!instruction);details.open=false;document.getElementById(id+'Text').textContent=instruction||''}
+function instructionSpeechAvailable(){try{return speechVoices.supported()&&typeof SpeechSynthesisUtterance==='function'&&typeof window.speechSynthesis.cancel==='function'}catch(e){return false}}
+function speakDisplayedInstruction(id){
+  if(!['routineInstruction','workoutInstruction'].includes(id)||!instructionSpeechAvailable())return;
+  const player=id==='routineInstruction'?'player':'workoutPlayer',details=document.getElementById(id);
+  if(currentScreen!==player||!details.open||details.classList.contains('hidden'))return;
+  const text=document.getElementById(id+'Text').textContent;
+  if(!text)return;
+  speak(text);manualInstructionSpeech=id;
+}
 function readPreference(key){try{return localStorage.getItem(key)}catch(e){return null}}
 function loadEquipment(){
   let inventory=null;try{inventory=JSON.parse(readPreference('gf_equipment_inventory'))}catch(e){}
@@ -653,6 +665,7 @@ function previewSpokenVoice(){
   voicePreviewPlaying=true;speak('Get ready. Squats. Keep your chest up and move steadily.');
 }
 function showScreen(id){
+  if(manualInstructionSpeech&&id!==currentScreen)cancelSpeech();
   if(currentScreen==='spokenCues'&&id!=='spokenCues')stopVoicePreview();
   currentScreen=id;
   if(id==='spokenCues')speechVoices.refresh();
@@ -721,7 +734,7 @@ function swapGeneratedExercise(blockIndex,exerciseIndex){GarageFitGenerator.swap
 let audioCtx=null;function beep(freq=880,dur=.12){try{audioCtx=audioCtx||new(window.AudioContext||window.webkitAudioContext)();const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.frequency.value=freq;o.type='sine';o.connect(g);g.connect(audioCtx.destination);g.gain.setValueAtTime(.15,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+dur);o.start();o.stop(audioCtx.currentTime+dur)}catch(e){}}
 function playCompletionChime(){beep(880,.12)}
 function exerciseCueParts(name,quantity,side){if(!side){const m=/^(.*?)\s+[-\u2013\u2014]\s+(Left|Right)$/i.exec(name);if(m){name=m[1];side=m[2]}}return side?[name+', '+String(side).toLowerCase()+' side.',quantity]:[name+'. '+quantity]}
-function speak(text,followup){try{if(!('speechSynthesis'in window))return;window.speechSynthesis.cancel();const voice=speechVoices.selected();/* each part is its own queued utterance: the engine's boundary gives the pause, with no timers */for(const part of [].concat(text,followup).filter(Boolean)){const u=new SpeechSynthesisUtterance(part);u.rate=1;u.pitch=1;if(voice)u.voice=voice;window.speechSynthesis.speak(u)}}catch(e){}}function cancelSpeech(){try{if('speechSynthesis'in window)window.speechSynthesis.cancel()}catch(e){}}
+function speak(text,followup){manualInstructionSpeech=null;try{if(!('speechSynthesis'in window))return;window.speechSynthesis.cancel();const voice=speechVoices.selected();/* each part is its own queued utterance: the engine's boundary gives the pause, with no timers */for(const part of [].concat(text,followup).filter(Boolean)){const u=new SpeechSynthesisUtterance(part);u.rate=1;u.pitch=1;if(voice)u.voice=voice;window.speechSynthesis.speak(u)}}catch(e){}}function cancelSpeech(){manualInstructionSpeech=null;try{if('speechSynthesis'in window)window.speechSynthesis.cancel()}catch(e){}}
 function announceExercise(exercise,announcement,seconds){const entry=exercise&&CATALOGUE[exercise.id],instruction=entry&&entry.instruction;let followup=null;
   if(entry&&entry.voiceInstruction&&instruction&&!instructionSeen.has(entry.id)){
     const cues=exercise.timedCues||entry.timedCues||[],firstCue=seconds==null?Infinity:Math.min(seconds,...cues.map(cue=>cue.at.type==='fraction'?seconds*cue.at.value:cue.at.value));

@@ -27,6 +27,15 @@ reserved controls area, so an open surface cannot cover them. On very short keyb
 player header's space, with its own Close action. Inputs can scroll into view
 inside the surface while navigation stays accessible.
 
+In both players, opening How to do it stays silent. When browser speech is
+available, its full expanded content area reads the displayed catalogue
+instruction aloud on tap, Enter or Space; a small speaker icon signals the
+action. Activating again restarts narration through the shared selected voice.
+Close, Escape and the native summary retain their disclosure behaviour. Manual
+narration leaves clocks running, yields to automatic cues and is cancelled when
+the instruction resets or the player exits. Unsupported browsers keep readable
+instructions without the speaker cue or narration action.
+
 ## Accessibility and platform constraints
 
 Normal supported phone layouts do not scroll, including the reduced-height case
@@ -67,6 +76,9 @@ all eight generated protocols, including work/rest/transition and unilateral
 cool-downs. It also exercises long names/instructions, pause, rotation, numeric
 Coach entry with a reduced keyboard viewport, extreme text enlargement, and
 actual Coach outcome persistence through Next.
+It also checks manual instruction narration in both players with a stubbed speech
+engine: silent opening, full-area touch, replay/cancellation, Enter/Space,
+Close/Escape/summary isolation, unchanged playback state and unsupported speech.
 
 Every normal state measures player-page `scrollHeight <= clientHeight` and
 stage fit (with 1 CSS px tolerance for subpixel rounding),

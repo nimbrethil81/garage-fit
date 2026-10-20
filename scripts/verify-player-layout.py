@@ -139,6 +139,74 @@ def optional_checks(page, report, output, label):
         check(page,report,label+'-closed')
 
 
+def instruction_speech_checks(browser, url):
+    # Stub the browser speech boundary, retaining the app's real shared speaker,
+    # selected-voice path and native disclosure/keyboard/touch interactions.
+    for unsupported in [False, True]:
+        page=browser.new_page(viewport={'width':375,'height':540},has_touch=True)
+        page.add_init_script(timers.CLOCK)
+        page.add_init_script("""window.__spoken=[];window.__speechQueue=[];window.__cancels=0;
+          Object.defineProperty(window,'speechSynthesis',{configurable:true,value:{
+            getVoices:()=>[],addEventListener(){},
+            cancel(){__cancels++;__speechQueue.length=0},
+            speak(u){__spoken.push(u.text);__speechQueue.push(u.text)}
+          }});""")
+        if unsupported:
+            page.add_init_script("Object.defineProperty(window,'SpeechSynthesisUtterance',{value:undefined})")
+        page.goto(url)
+        page.wait_for_function("typeof speakDisplayedInstruction==='function'")
+        for player, details, start in [
+            ('player','routineInstruction',timers.ROUTINE),
+            ('workoutPlayer','workoutInstruction',"startFixedWorkout('workout300')")
+        ]:
+            page.evaluate(start)
+            summary=page.locator('#'+details+' > summary')
+            content=page.locator('#'+details+' .player-detail-content')
+            close=page.locator('#'+details+' .player-detail-close')
+            before=page.evaluate('__spoken.length')
+            summary.tap();settle(page)
+            assert page.evaluate('__spoken.length')==before
+            assert close.evaluate('e=>e===document.activeElement')
+            assert content.locator('.player-instruction-speaker').count()==(0 if unsupported else 1)
+            if unsupported:
+                assert content.get_attribute('role') is None
+                content.tap()
+                assert page.evaluate('__spoken.length')==before
+                close.click()
+                continue
+            assert content.get_attribute('role')=='button'
+            assert 'Read exercise instruction aloud' in content.get_attribute('aria-label')
+            snapshot=page.evaluate('JSON.stringify({state,workoutState,generatorState})')
+            expected=page.locator('#'+details+'Text').text_content()
+            for action in ['tap','tap','Enter','Space']:
+                cancellations=page.evaluate('__cancels')
+                if action=='tap':
+                    # Hit blank space at the bottom of the expanded content.
+                    content.tap(position={'x':12,'y':content.bounding_box()['height']-12})
+                else:
+                    content.focus();page.keyboard.press(action)
+                assert page.evaluate('__speechQueue')==[expected]
+                assert page.evaluate('__cancels')==cancellations+1
+                assert page.evaluate('JSON.stringify({state,workoutState,generatorState})')==snapshot
+            # Close, Escape and toggling the native summary never speak.
+            before=page.evaluate('__spoken.length')
+            close.click();settle(page)
+            assert summary.evaluate('e=>e===document.activeElement')
+            summary.click();settle(page)
+            content.focus();page.keyboard.press('Escape');settle(page)
+            assert not page.locator('#'+details).evaluate('e=>e.open')
+            assert summary.evaluate('e=>e===document.activeElement')
+            summary.click();settle(page)
+            summary.evaluate('e=>e.click()');settle(page)
+            assert not page.locator('#'+details).evaluate('e=>e.open')
+            assert page.evaluate('__spoken.length')==before
+            page.evaluate("speak('Automatic cue.')")
+            assert page.evaluate('__speechQueue')==['Automatic cue.']
+            # No other optional surface receives a narration target.
+            assert page.locator('#coachAnchorEdit [role=button],#densityPartial [role=button]').count()==0
+        page.close()
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--url',default='http://127.0.0.1:8000')
@@ -147,6 +215,7 @@ def main():
     report=[];blocks=fixture_blocks()
     with sync_playwright() as p:
         browser=p.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox'])
+        instruction_speech_checks(browser,args.url)
         timers.native_entry_checks(browser,args.url)
         for size in [(375,667),(393,852),(430,932),(375,540),(320,568),(667,375)]:
             label=f'{size[0]}x{size[1]}'
