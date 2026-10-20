@@ -102,7 +102,9 @@ test('generated Main uses the scaled window after its filters; Warm-up and Ramp-
 
 test('constrained catalogues keep the fixed window and still generate',()=>{
   const bodyweight={},tiny={};
-  for(const exercise of Object.values(catalogue))if(!exercise.equipment.length)bodyweight[exercise.id]=exercise;
+  // Fix the small Main pool below the growth threshold as the catalogue expands.
+  const smallMain=Object.values(catalogue).filter(ex=>ex.generator&&ex.main&&!ex.equipment.length).slice(0,20);
+  for(const exercise of Object.values(catalogue))if(!exercise.equipment.length&&(!exercise.main||smallMain.includes(exercise)))bodyweight[exercise.id]=exercise;
   for(const id of ['push-up','air-squat','plank'])tiny[id]=catalogue[id];
   for(const small of [bodyweight,tiny])for(let seed=1;seed<=4;seed++){
     const sizes=new Set();

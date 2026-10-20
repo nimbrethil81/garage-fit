@@ -1553,7 +1553,10 @@
     // Cardio (no accessory block; see chooseIntents) and pools with fewer than `minCandidates`
     // accessories generate exactly as before.
     const supportingRoute=duration>=SUPPORTING_ROUTE.minDuration&&focus!=='cardio'&&eligible.filter(routeAccessory).length>=SUPPORTING_ROUTE.minCandidates&&random()<SUPPORTING_ROUTE.probability;
-    for(let attempt=0;attempt<10;attempt++){
+    // Catalogue growth can make all ten attempts miss a variety requirement. Retry
+    // only that failure path before using the short last-resort fallback; ordinary
+    // valid attempts and supporting-route selection keep their existing draw stream.
+    for(let attempt=0;attempt<10||(!attempts.length&&attempt<20);attempt++){
       const count=chooseBlockCount(duration,eligible.length,random),intents=chooseIntents(focus,count,random);
       const state={exercises:[],usedIds:new Set(),equipmentUsage:new Map(),blocks:[],owned,diversityTarget,supportingRoute,difficulty,bodyFocus,duration,recentProtocols};
       let remaining=budget.main;

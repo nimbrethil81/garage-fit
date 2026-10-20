@@ -25,11 +25,11 @@ test('conditioning is a separate attribute and no longer a pattern', () => {
   assert.ok(G.validateCatalogue(copy).some(error => /burpees: conditioning must be boolean/.test(error)));
 });
 
-test('the migrated conditioning set matches the previous pattern-based set', () => {
+test('the conditioning set includes the migrated exercises and approved additions', () => {
   const expected = ['bicycle-crunch','mountain-climbers','jumping-jacks','high-knees','burpees','squat-jumps','skater-jumps',
     'dumbbell-thruster','dumbbell-clean-and-press','kettlebell-swing','kettlebell-single-arm-swing','kettlebell-clean','kettlebell-figure-eight',
     'trx-knee-tuck','trx-mountain-climber','barbell-clean','barbell-clean-and-press','step-ups','box-jumps','box-step-ups',
-    'chair-step-ups','bum-kicks','star-jumps','devils-press','dumbbell-snatch','switch-kicks','ski-abs','kettlebell-snatch','kick-through','bear-crawl','dumbbell-push-press'];
+    'chair-step-ups','bum-kicks','star-jumps','devils-press','dumbbell-snatch','switch-kicks','ski-abs','kettlebell-snatch','kick-through','bear-crawl','dumbbell-push-press','fast-feet'];
   const actual = Object.values(catalogue).filter(exercise => exercise.conditioning).map(exercise => exercise.id);
   assert.deepEqual(actual.slice().sort(), expected.slice().sort());
   assert.deepEqual(catalogue['mountain-climbers'].patterns, ['core']);
