@@ -72,7 +72,7 @@
   .nav-btn{border:0;border-radius:12px;background:transparent;color:#899694;padding:8px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;font-weight:850;letter-spacing:.05em;text-transform:uppercase}.nav-btn .icon{width:21px;height:21px}
   .nav-btn.active{color:var(--rest);background:rgba(79,138,131,.12)}.nav-btn span:last-child{text-align:center;line-height:1.15}
 
-  #player{align-items:center;justify-content:space-between;padding:20px 20px calc(28px + env(safe-area-inset-bottom));overflow-y:auto}
+  #player{align-items:center;justify-content:space-between;padding:20px 20px calc(28px + env(safe-area-inset-bottom));overflow:hidden}
   .player-top{width:100%;display:grid;grid-template-columns:52px 1fr 52px;align-items:center}.close-btn{display:grid;place-items:center;background:none;border:none;color:var(--text);font-size:28px;line-height:1;padding:4px;min-width:44px;min-height:44px}.routine-name{text-align:center;font-size:13px;font-weight:850;letter-spacing:.1em;color:var(--text);text-transform:uppercase}.progress-count{font-size:14px;color:var(--text);font-weight:800;text-align:right}
   .ring-wrap{position:relative;flex-shrink:0;width:min(72vw,330px);height:min(72vw,330px);margin:14px 0}.ring-wrap::after{content:"";position:absolute;left:50%;bottom:-25px;width:44px;height:2px;transform:translateX(-50%);background:var(--rest-strong)}
   button.ring-wrap{display:block;padding:0;border:0;border-radius:50%;background:transparent;color:inherit;font:inherit;text-align:center;cursor:pointer;-webkit-tap-highlight-color:transparent}button.ring-wrap:focus-visible{outline:3px solid var(--rest);outline-offset:4px}button.ring-wrap:disabled{cursor:default}.ring-wrap[aria-pressed="true"]::before{content:"Ⅱ";position:absolute;right:10px;top:10px;color:var(--rest);font-size:20px;font-weight:900}.routine-target{font-size:32px;font-weight:900;color:var(--work);margin:14px 0}
@@ -81,7 +81,7 @@
   .exercise-instruction{font-size:14px;line-height:1.4;color:var(--text-muted);text-align:center;margin:6px auto 10px;max-width:32rem}.exercise-instruction summary{cursor:pointer;list-style:none;color:var(--work-light);font-weight:800;padding:7px 12px;display:inline-block}.exercise-instruction summary::-webkit-details-marker{display:none}.exercise-instruction summary::before{content:'ⓘ ';font-weight:400}.exercise-instruction p{margin:6px 12px 10px}.fixed-detail-exercise-name .exercise-instruction{text-align:left;margin:4px 0 0;font-size:12px}
   .controls{width:100%;display:flex;gap:12px;margin-top:20px}.ctrl-btn{flex:1;border:none;border-radius:13px;padding:17px 12px;min-height:54px;font-size:14px;font-weight:900;letter-spacing:.035em;text-transform:uppercase}.ctrl-btn:disabled{opacity:.42;cursor:default}.ctrl-secondary{background:transparent;border:2px solid var(--card);color:var(--text)}.ctrl-primary{background:var(--work);color:#101416}
 
-  #workoutPlayer{padding:16px 20px calc(24px + env(safe-area-inset-bottom));overflow-y:auto}.workout-player-top{width:100%;display:grid;grid-template-columns:52px 1fr 72px;align-items:center}.workout-player-top .routine-name{text-align:center}.elapsed{font-size:16px;font-weight:900;font-variant-numeric:tabular-nums;text-align:right}.workout-stage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:22px 0 12px}.movement-progress{font-size:12px;font-weight:900;letter-spacing:.13em;text-transform:uppercase;color:var(--rest);margin-bottom:18px}.workout-exercise{font-size:clamp(30px,8vw,46px);line-height:1.04;font-weight:950;text-transform:uppercase;letter-spacing:-.025em;margin:0;max-width:600px}.workout-target{font-size:23px;font-weight:900;margin-top:16px;color:var(--work)}.workout-side-note{min-height:20px;margin-top:3px;color:var(--text-muted);font-size:13px;font-weight:700}.workout-paused{min-height:20px;margin-top:14px;color:var(--rest);font-size:12px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}.workout-stats{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:20px}.workout-stat{border:0;background:var(--card);color:var(--card-text);border-radius:14px;padding:14px;text-align:left}.workout-stat-label{display:block;color:var(--card-muted);font-size:10px;font-weight:850;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px}.workout-stat-value{font-size:20px;font-weight:900;font-variant-numeric:tabular-nums}.overall-progress{width:100%;margin-top:14px}.progress-label{display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);font-size:12px;font-weight:750;margin-bottom:7px}.progress-track{height:9px;background:var(--surface);border-radius:999px;overflow:hidden}.progress-fill{height:100%;width:0;background:var(--work);border-radius:999px;transition:width .3s ease}.workout-actions{width:100%;display:flex;flex-direction:column;gap:20px;margin-top:14px}.workout-secondary-controls{display:grid;grid-template-columns:1fr 1fr;gap:12px}.previous-btn{width:100%;min-height:54px;margin:0;border:1px solid var(--surface-2);background:transparent;color:var(--text-muted);border-radius:13px;padding:8px 14px;text-align:left;display:flex;align-items:center;gap:10px}.previous-btn:disabled{opacity:.36;cursor:default}.previous-arrow{font-size:20px}.previous-copy{display:flex;flex-direction:column;gap:1px;font-size:10px;font-weight:850;text-transform:uppercase;letter-spacing:.06em}.previous-copy strong{color:var(--text);font-size:13px;letter-spacing:0;text-transform:none}.complete-btn{width:100%;flex:none}
+  #workoutPlayer{padding:16px 20px calc(24px + env(safe-area-inset-bottom));overflow:hidden}.workout-player-top{width:100%;display:grid;grid-template-columns:52px 1fr 72px;align-items:center}.workout-player-top .routine-name{text-align:center}.elapsed{font-size:16px;font-weight:900;font-variant-numeric:tabular-nums;text-align:right}.workout-stage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:22px 0 12px}.movement-progress{font-size:12px;font-weight:900;letter-spacing:.13em;text-transform:uppercase;color:var(--rest);margin-bottom:18px}.workout-exercise{font-size:clamp(30px,8vw,46px);line-height:1.04;font-weight:950;text-transform:uppercase;letter-spacing:-.025em;margin:0;max-width:600px}.workout-target{font-size:23px;font-weight:900;margin-top:16px;color:var(--work)}.workout-side-note{min-height:20px;margin-top:3px;color:var(--text-muted);font-size:13px;font-weight:700}.workout-paused{min-height:20px;margin-top:14px;color:var(--rest);font-size:12px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}.workout-stats{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:20px}.workout-stat{border:0;background:var(--card);color:var(--card-text);border-radius:14px;padding:14px;text-align:left}.workout-stat-label{display:block;color:var(--card-muted);font-size:10px;font-weight:850;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px}.workout-stat-value{font-size:20px;font-weight:900;font-variant-numeric:tabular-nums}.overall-progress{width:100%;margin-top:14px}.progress-label{display:flex;justify-content:space-between;align-items:center;color:var(--text-muted);font-size:12px;font-weight:750;margin-bottom:7px}.progress-track{height:9px;background:var(--surface);border-radius:999px;overflow:hidden}.progress-fill{height:100%;width:0;background:var(--work);border-radius:999px;transition:width .3s ease}.workout-actions{width:100%;display:flex;flex-direction:column;gap:20px;margin-top:14px}.workout-secondary-controls{display:grid;grid-template-columns:1fr 1fr;gap:12px}.previous-btn{width:100%;min-height:54px;margin:0;border:1px solid var(--surface-2);background:transparent;color:var(--text-muted);border-radius:13px;padding:8px 14px;text-align:left;display:flex;align-items:center;gap:10px}.previous-btn:disabled{opacity:.36;cursor:default}.previous-arrow{font-size:20px}.previous-copy{display:flex;flex-direction:column;gap:1px;font-size:10px;font-weight:850;text-transform:uppercase;letter-spacing:.06em}.previous-copy strong{color:var(--text);font-size:13px;letter-spacing:0;text-transform:none}.complete-btn{width:100%;flex:none}
 
   .page-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:5px 0 25px}.page-header h1{font-size:32px;line-height:1;margin:0;font-weight:950;letter-spacing:-.04em}.page-header-copy{margin:-11px 0 24px;color:var(--text-muted);font-size:14px;line-height:1.45}.back-btn{border:0;background:transparent;color:var(--text);min-width:44px;min-height:44px;font-size:25px;padding:0;text-align:left}.header-spacer{width:44px}
   .workout-paused{border:0;background:transparent;cursor:pointer;padding:12px;min-height:44px;font:inherit;color:var(--rest);font-weight:900}.workout-paused:focus-visible{outline:3px solid var(--rest);outline-offset:3px}.workout-ring-host{display:flex;justify-content:center;padding-bottom:12px}.complete-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}.complete-action{font-weight:900}.complete-next{font-size:13px;font-weight:700;opacity:.85;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.workout-secondary-controls>*{min-width:0}.workout-secondary-controls .ctrl-btn{white-space:normal;overflow-wrap:anywhere}
@@ -172,6 +172,7 @@
   #coachResult .coach-feedback{display:flex;flex-direction:column;gap:12px}
   @media(max-width:380px){.nav-btn{min-width:0;padding:8px 2px;font-size:9px;letter-spacing:0}}
 </style>
+<link rel="stylesheet" href="css/player-layout.css">
 </head>
 <body>
 <svg class="svg-sprite" aria-hidden="true">
@@ -307,15 +308,21 @@
       <div class="routine-name" id="routineName"></div>
       <div class="progress-count" id="progressCount"></div>
     </div>
-    <button class="ring-wrap" id="routineRing" type="button" aria-pressed="false" aria-label="Pause timer" onclick="togglePause()">
-      <svg class="ring" viewBox="0 0 200 200" aria-hidden="true"><circle class="ring-bg" cx="100" cy="100" r="90"></circle><circle class="ring-fg" id="ringFg" cx="100" cy="100" r="90" stroke-dasharray="565.48" stroke-dashoffset="0"></circle></svg>
-      <span class="ring-center"><span class="phase-label" id="phaseLabel">GET READY</span><span class="timer-num" id="timerNum">3</span><span class="reps-num hidden" id="repsNum"></span></span>
-    </button>
-    <div class="routine-target hidden" id="routineTarget"></div>
-    <div class="exercise-name" id="exerciseName" aria-live="polite">Get ready</div>
-    <details class="exercise-instruction hidden" id="routineInstruction"><summary>How to do it</summary><p id="routineInstructionText"></p></details>
-    <div class="timed-cue hidden" id="routineTimedCue" aria-live="assertive"></div>
-    <button class="workout-paused hidden" id="routinePause" type="button" aria-pressed="false" onclick="togglePause()">Pause</button>
+    <div class="routine-stage">
+      <div class="routine-ring-host">
+        <button class="ring-wrap" id="routineRing" type="button" aria-pressed="false" aria-label="Pause timer" onclick="togglePause()">
+          <svg class="ring" viewBox="0 0 200 200" aria-hidden="true"><circle class="ring-bg" cx="100" cy="100" r="90"></circle><circle class="ring-fg" id="ringFg" cx="100" cy="100" r="90" stroke-dasharray="565.48" stroke-dashoffset="0"></circle></svg>
+          <span class="ring-center"><span class="phase-label" id="phaseLabel">GET READY</span><span class="timer-num" id="timerNum">3</span><span class="reps-num hidden" id="repsNum"></span></span>
+        </button>
+      </div>
+      <div class="routine-main-column">
+        <div class="routine-target hidden" id="routineTarget"></div>
+        <div class="exercise-name" id="exerciseName" aria-live="polite">Get ready</div>
+        <details class="exercise-instruction hidden" id="routineInstruction"><summary>How to do it</summary><p id="routineInstructionText"></p></details>
+        <div class="timed-cue hidden" id="routineTimedCue" aria-live="assertive"></div>
+        <button class="workout-paused hidden" id="routinePause" type="button" aria-pressed="false" onclick="togglePause()">Pause</button>
+      </div>
+    </div>
     <div class="controls"><button class="ctrl-btn ctrl-primary complete-btn" id="skipPhaseBtn" type="button" onclick="skipPhase()"><span class="complete-action" id="routineNextAction">Next</span><span class="complete-next hidden" id="routineNextName"></span></button></div>
   </main>
 
@@ -326,58 +333,65 @@
       <div class="elapsed" id="workoutElapsed">00:00</div>
     </div>
     <div class="workout-stage" id="workoutStage">
-      <div class="movement-progress" id="workoutMovementProgress">Movement 1 of 7</div>
-      <h1 class="workout-exercise" id="workoutExercise" aria-live="polite">Pull-ups</h1>
-      <details class="exercise-instruction hidden" id="workoutInstruction"><summary>How to do it</summary><p id="workoutInstructionText"></p></details>
-      <div class="workout-ring-host hidden" id="workoutRingWrap">
-        <button class="ring-wrap" id="workoutRing" type="button" aria-pressed="false" aria-label="Pause timer" onclick="toggleWorkoutPause()">
-          <svg class="ring" viewBox="0 0 200 200" aria-hidden="true"><circle class="ring-bg" cx="100" cy="100" r="90"></circle><circle class="ring-fg" id="workoutRingFg" cx="100" cy="100" r="90" stroke-dasharray="565.48" stroke-dashoffset="0"></circle></svg>
-          <span class="ring-center"><span class="phase-label" id="workoutRingPhase">WORK</span><span class="timer-num" id="workoutRingNum">0</span><span class="reps-num hidden" id="workoutRingReps"></span></span>
-        </button>
-      </div>
-      <div class="workout-target" id="workoutTarget">25 reps</div>
-      <div class="workout-side-note" id="workoutSideNote"></div>
-      <div class="workout-side-note hidden" id="workoutEmomStatus" role="status" aria-live="polite"></div>
-      <div class="workout-side-note hidden" id="workoutDensityStatus" role="status" aria-live="polite"></div>
-      <details class="exercise-instruction hidden" id="densityPartial">
-        <summary>Record partial reps (optional)</summary>
-        <form class="coach-fields" onsubmit="saveDensityPartial(event)">
-          <label for="densityPartialReps"><span id="densityPartialLabel">Confirmed reps</span>
-            <input id="densityPartialReps" type="number" inputmode="numeric" min="1" step="1">
-          </label>
-          <button class="ctrl-btn ctrl-secondary" type="submit" id="densityPartialSave">Save reps</button>
-        </form>
-      </details>
-      <section id="coachAnchorLog" class="hidden" aria-label="Anchor result">
-        <p id="coachAnchorPlanned"></p><p id="coachActualSummary" aria-live="polite"></p>
-        <details id="coachAnchorEdit"><summary>Edit result</summary>
-          <div class="coach-fields">
-            <label>Actual reps<input id="coachActualReps" type="number" min="0" step="1" inputmode="numeric" oninput="coachUI.updateActualSummary()"></label>
-            <div id="coachNumericLoad">
-            <label>Actual load (blank = unknown)<input id="coachActualLoad" type="number" min="0" step="any" inputmode="decimal" oninput="coachUI.updateActualSummary()"></label>
-            <label>Unit<select id="coachLoadUnit" onchange="coachUI.updateActualSummary()"><option value="kg">kg</option><option value="lb">lb</option></select></label>
-            <label>Load means<select id="coachLoadInterpretation" onchange="coachUI.updateActualSummary()"><option value="per-item">Each weight</option><option value="total">Total load</option></select></label>
+      <div class="workout-main-column">
+        <div class="movement-progress" id="workoutMovementProgress">Movement 1 of 7</div>
+        <h1 class="workout-exercise" id="workoutExercise" aria-live="polite">Pull-ups</h1>
+        <div class="workout-side-note" id="workoutSideNote"></div>
+        <div class="workout-side-note hidden" id="workoutEmomStatus" role="status" aria-live="polite"></div>
+        <div class="workout-side-note hidden" id="workoutDensityStatus" role="status" aria-live="polite"></div>
+        <section id="coachAnchorLog" class="hidden" aria-label="Anchor result">
+          <p id="coachActualSummary" aria-live="polite"></p>
+          <details id="coachAnchorEdit"><summary>Edit result</summary>
+            <p id="coachAnchorPlanned"></p>
+            <div class="coach-fields">
+              <label>Actual reps<input id="coachActualReps" type="number" min="0" step="1" inputmode="numeric" oninput="coachUI.updateActualSummary()"></label>
+              <div id="coachNumericLoad">
+              <label>Actual load (blank = unknown)<input id="coachActualLoad" type="number" min="0" step="any" inputmode="decimal" oninput="coachUI.updateActualSummary()"></label>
+              <label>Unit<select id="coachLoadUnit" onchange="coachUI.updateActualSummary()"><option value="kg">kg</option><option value="lb">lb</option></select></label>
+              <label>Load means<select id="coachLoadInterpretation" onchange="coachUI.updateActualSummary()"><option value="per-item">Each weight</option><option value="total">Total load</option></select></label>
+              </div>
+              <div id="coachResistanceSetup" class="hidden">
+                <label><input id="coachSameSetup" type="checkbox" onchange="coachUI.updateActualSummary()"> I used the same resistance setup</label>
+                <label id="coachHarderSetupLabel" class="hidden"><input id="coachHarderSetup" type="checkbox" onchange="coachUI.updateActualSummary()"> I made this same exercise harder</label>
+              </div>
             </div>
-            <div id="coachResistanceSetup" class="hidden">
-              <label><input id="coachSameSetup" type="checkbox" onchange="coachUI.updateActualSummary()"> I used the same resistance setup</label>
-              <label id="coachHarderSetupLabel" class="hidden"><input id="coachHarderSetup" type="checkbox" onchange="coachUI.updateActualSummary()"> I made this same exercise harder</label>
-            </div>
-          </div>
-        </details>
-      </section>
-      <p id="coachPlayerError" class="coach-error" role="alert"></p>
-      <div class="timed-cue hidden" id="workoutTimedCue" aria-live="assertive"></div>
-      <button class="workout-paused" id="workoutPausedState" type="button" aria-pressed="false" onclick="toggleWorkoutPause()">Pause</button>
-      <div class="workout-stats">
-        <div class="workout-stat"><span class="workout-stat-label" id="workoutExerciseProgressLabel">Exercise progress</span><strong class="workout-stat-value" id="workoutExerciseProgress">1 / 7</strong></div>
-        <div class="workout-stat"><span class="workout-stat-label" id="workoutCompletedRepsLabel">Completed reps</span><strong class="workout-stat-value" id="workoutCompletedValue"><span id="workoutCompletedReps">0</span> / 300</strong></div>
+          </details>
+        </section>
+        <div class="timed-cue hidden" id="workoutTimedCue" aria-live="assertive"></div>
+        <button class="workout-paused" id="workoutPausedState" type="button" aria-pressed="false" onclick="toggleWorkoutPause()">Pause</button>
+        <div class="workout-stats">
+          <div class="workout-stat"><span class="workout-stat-label" id="workoutExerciseProgressLabel">Exercise progress</span><strong class="workout-stat-value" id="workoutExerciseProgress">1 / 7</strong></div>
+          <div class="workout-stat"><span class="workout-stat-label" id="workoutCompletedRepsLabel">Completed reps</span><strong class="workout-stat-value" id="workoutCompletedValue"><span id="workoutCompletedReps">0</span> / 300</strong></div>
+        </div>
+        <div class="overall-progress">
+          <div class="progress-label"><span>Total progress</span><span id="workoutProgressPercent">0%</span></div>
+          <div class="progress-track" role="progressbar" aria-label="Workout progress" aria-valuemin="0" aria-valuemax="300" aria-valuenow="0" id="workoutProgressTrack"><div class="progress-fill" id="workoutProgressFill"></div></div>
+        </div>
       </div>
-      <div class="overall-progress">
-        <div class="progress-label"><span>Total progress</span><span id="workoutProgressPercent">0%</span></div>
-        <div class="progress-track" role="progressbar" aria-label="Workout progress" aria-valuemin="0" aria-valuemax="300" aria-valuenow="0" id="workoutProgressTrack"><div class="progress-fill" id="workoutProgressFill"></div></div>
+      <div class="workout-timer-column">
+        <div class="workout-ring-host hidden" id="workoutRingWrap">
+          <button class="ring-wrap" id="workoutRing" type="button" aria-pressed="false" aria-label="Pause timer" onclick="toggleWorkoutPause()">
+            <svg class="ring" viewBox="0 0 200 200" aria-hidden="true"><circle class="ring-bg" cx="100" cy="100" r="90"></circle><circle class="ring-fg" id="workoutRingFg" cx="100" cy="100" r="90" stroke-dasharray="565.48" stroke-dashoffset="0"></circle></svg>
+            <span class="ring-center"><span class="phase-label" id="workoutRingPhase">WORK</span><span class="timer-num" id="workoutRingNum">0</span><span class="reps-num hidden" id="workoutRingReps"></span></span>
+          </button>
+        </div>
+        <div class="workout-detail-controls">
+          <div class="workout-target" id="workoutTarget">25 reps</div>
+          <details class="exercise-instruction hidden" id="workoutInstruction"><summary>How to do it</summary><p id="workoutInstructionText"></p></details>
+          <details class="exercise-instruction hidden" id="densityPartial">
+            <summary>Record partial reps (optional)</summary>
+            <form class="coach-fields" onsubmit="saveDensityPartial(event)">
+              <label for="densityPartialReps"><span id="densityPartialLabel">Confirmed reps</span>
+                <input id="densityPartialReps" type="number" inputmode="numeric" min="1" step="1">
+              </label>
+              <button class="ctrl-btn ctrl-secondary" type="submit" id="densityPartialSave">Save reps</button>
+            </form>
+          </details>
+        </div>
       </div>
     </div>
     <div class="workout-actions">
+      <p id="coachPlayerError" class="coach-error" role="alert"></p>
       <div class="workout-secondary-controls">
         <button class="previous-btn" id="previousWorkoutBtn" type="button" onclick="previousWorkoutMovement()" disabled><span class="previous-arrow" aria-hidden="true">←</span><span class="previous-copy"><span>Previous</span><strong id="previousWorkoutName">None yet</strong></span></button>
         <button class="ctrl-btn ctrl-primary complete-btn" id="completeMovementBtn" type="button" onclick="completeWorkoutMovement()"><span class="complete-action" id="completeMovementAction">Next</span><span class="complete-next hidden" id="completeMovementNext"></span></button>
@@ -604,6 +618,7 @@ function openExerciseDetail(id){
   showScreen('exerciseDetail');
 }
 function showScreen(id){
+  document.getElementById('app').classList.toggle('active-player',id==='player'||id==='workoutPlayer');
   ['home','workouts','generator','equipment','generatedPreview','snackpick','player','workoutPlayer','done','more','exerciseLibrary','exerciseDetail','coach','coachPreview','coachProgress','coachSettings','coachSubstitute','coachResult'].forEach(s=>document.getElementById(s).classList.toggle('hidden',s!==id));
   const landing=['home','workouts','generator','more','coach'].includes(id),nav=document.getElementById('bottomNav');nav.classList.toggle('hidden',!landing);
   [['home','routinesNav'],['workouts','workoutsNav'],['coach','coachNav'],['generator','generatorNav'],['more','moreNav']].forEach(pair=>{const active=id===pair[0],button=document.getElementById(pair[1]);button.classList.toggle('active',active);active?button.setAttribute('aria-current','page'):button.removeAttribute('aria-current')});
@@ -1259,5 +1274,6 @@ if(typeof GarageFitCoachUI!=='undefined'){
   coachUI.init();
 }
 </script>
+<script src="js/player-layout.js"></script>
 </body>
 </html>
