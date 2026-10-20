@@ -237,19 +237,28 @@ constraints apply, and anchors cannot become EMOM work. A supplied prefix must p
 reserved required blocks. Automatic composition uses the same exercise selector, eligibility
 and target contract through `buildMainBlock` and `chooseClosestPrescription`.
 
-The existing player uses one block origin on monotonic active workout time (`performance.now`,
-with a Date fallback). Pause excludes time; Done/Skip ends work but never advances the minute.
+The existing player uses one schedule origin on monotonic active workout time (`performance.now`,
+with a Date fallback). Pause excludes time; Done/Skip work settles the current work and shows
+recovery. Settled recovery offers **Skip rest**, with the immediate next item's name. An early
+rest skip starts the next prescribed minute immediately with a fresh 60-second window, rebasing
+the schedule origin for subsequent minutes only. It does not record another outcome, change
+elapsed time, alter targets/order/minute count, or invent a minute after the last one: the final
+rest skip enters the actual next timeline phase/block or finishes. Without a rest skip, automatic
+boundaries retain their established 60-second beat; late actions use normal catch-up.
 Reps require Done, otherwise they remain skipped/unknown; no partial-rep or load values are
 invented. Timed targets record only measured work before target/window end, then show recovery.
 Delayed callbacks skip unentered windows and join the live minute without backfilling timed
 credit. A hidden page never starts new exercise work; returning observes the live window.
 
 Previous is disabled during EMOM; expired EMOM occurrences cannot be replayed by Previous.
-Direct revisits rejoin the original clock and preserve settled outcomes. Navigation away
+Direct revisits rejoin the current schedule and preserve settled outcomes. Navigation away
 stops timers; a back-forward-cache restoration stays paused for an explicit Resume. Coach
 reload recovery consults only durable outcomes. Standalone early exits retain the existing
-ephemeral policy. Pending saves capture evidence at the action, cannot shift the block origin,
-and cannot advance a different workout after navigation; failures offer Retry save.
+ephemeral policy. Pending saves capture evidence at the action, cannot rebase the schedule,
+and cannot advance a different workout after navigation; failures offer Retry save before rest
+can be skipped. Advancement is blocked while paused/saving. A 350 ms input guard at work/rest
+and minute/phase handoffs prevents rapid duplicate taps from acting on the button's new meaning;
+timer and visibility catch-up still run during that guard.
 
 The same ring shows seconds remaining in the minute; targets remain visible beside work/rest
 status. Minute starts and actual work completion have distinct cues, with no backlog of stale

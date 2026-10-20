@@ -864,7 +864,7 @@ function updateWorkoutPauseUI(){
     const work=emomWork();
     document.getElementById('previousWorkoutBtn').disabled=true;
     document.getElementById('previousWorkoutBtn').setAttribute('aria-label','Previous unavailable: EMOM minutes cannot be replayed');
-    document.getElementById('completeMovementBtn').disabled=disabled||!!(work&&work.settled);
+    document.getElementById('completeMovementBtn').disabled=disabled;
     document.getElementById('coachSkipBtn').disabled=disabled||!!(work&&(work.settled||work.pending));
   }else document.getElementById('previousWorkoutBtn').removeAttribute('aria-label');
   if(isDensityPhase())renderDensityPhase(currentGeneratedPhase());
@@ -933,7 +933,7 @@ function buildGeneratedTimeline(workout){
 // tracking options ({store, source, meaningful, ...}; see js/session-tracker.js). Coach passes
 // its own tracker; the standalone Start button opts in through standaloneGeneratedTracking().
 function startGeneratedWorkout(tracking){
-  if(!generatorState.workout)return;generatorState.densityBlocks=new Map();generatorState.emomBlocks=new Map();generatorState.emomSuspended=false;beginInstructionSession();generatorState.workout=GarageFitGenerator.normaliseWorkout(generatorState.workout);stopTimer();stopGeneratedPhaseTimer();stopWorkoutClock();state.running=false;state.doneDestination='generator';workoutState={mode:'generated',idx:0,completed:[],elapsedMs:0,startedAt:Date.now(),timer:null,paused:false,running:true};generatorState.timeline=buildGeneratedTimeline(generatorState.workout);startGeneratedTracking(tracking);generatorState.timelineIndex=0;generatorState.remaining=0;generatorState.completedMain=0;const player=document.getElementById('workoutPlayer');player.classList.add('generated-player');document.getElementById('workoutPlayerTitle').textContent=FOCUS_LABELS[generatorState.workout.focus]+' · '+generatorState.workout.duration+' min';document.getElementById('doneStats').classList.add('hidden');document.getElementById('generatedDoneStats').classList.add('hidden');document.getElementById('amrapDoneStats').classList.add('hidden');showScreen('workoutPlayer');startWorkoutClock();requestWake();enterGeneratedPhase(0);speak('Get ready. '+generatorState.workout.warmup.exercises[0].name);
+  if(!generatorState.workout)return;generatorState.densityBlocks=new Map();generatorState.emomBlocks=new Map();generatorState.emomSuspended=false;generatorState.emomActionAfterMs=null;beginInstructionSession();generatorState.workout=GarageFitGenerator.normaliseWorkout(generatorState.workout);stopTimer();stopGeneratedPhaseTimer();stopWorkoutClock();state.running=false;state.doneDestination='generator';workoutState={mode:'generated',idx:0,completed:[],elapsedMs:0,startedAt:Date.now(),timer:null,paused:false,running:true};generatorState.timeline=buildGeneratedTimeline(generatorState.workout);startGeneratedTracking(tracking);generatorState.timelineIndex=0;generatorState.remaining=0;generatorState.completedMain=0;const player=document.getElementById('workoutPlayer');player.classList.add('generated-player');document.getElementById('workoutPlayerTitle').textContent=FOCUS_LABELS[generatorState.workout.focus]+' · '+generatorState.workout.duration+' min';document.getElementById('doneStats').classList.add('hidden');document.getElementById('generatedDoneStats').classList.add('hidden');document.getElementById('amrapDoneStats').classList.add('hidden');showScreen('workoutPlayer');startWorkoutClock();requestWake();enterGeneratedPhase(0);speak('Get ready. '+generatorState.workout.warmup.exercises[0].name);
 }
 // Standalone generated workouts add a completed run to shared Training History as a
 // source=generator Session Result. The draft stays in memory: the exit flow promises that
@@ -967,10 +967,14 @@ function resumeGeneratedCountdown(){
   },250);generatorState.phaseTimer=timer;
 }
 function renderGeneratedCountdown(){if(currentGeneratedPhase())renderWorkoutRing()}
-// One block origin on the active workout clock. A callback may observe several elapsed
-// windows, but only work actually entered can earn timed evidence. Nothing rewinds this clock.
+// One schedule origin on the active workout clock. Only an explicit rest skip rebases
+// future windows; the elapsed clock, prescribed timeline and recorded work never change.
 function emomRun(phase=currentGeneratedPhase()){return phase&&generatorState.emomBlocks&&generatorState.emomBlocks.get(phase.blockIndex)}
 function emomWork(phase=currentGeneratedPhase()){const run=emomRun(phase);return run&&run.work.get(phase.occurrenceId)}
+// A second tap must not act on the new meaning of the same button (Done -> Skip rest,
+// or Skip rest -> a new minute/block). Automatic timer/visibility updates remain live.
+function guardEmomAction(){generatorState.emomActionAfterMs=workoutNow()+350}
+function emomActionLocked(){return generatorState.emomActionAfterMs!=null&&workoutNow()<generatorState.emomActionAfterMs}
 function observeEmomMinute(){
   const phase=currentGeneratedPhase(),run=emomRun(phase);if(!run)return;
   let work=emomWork(phase);
@@ -1001,6 +1005,7 @@ async function settleEmomMinute(phase,action){
       else await tracker.recordSkip(phase.occurrenceId);
     }
     work.settled=true;work.retry=false;work.status=phase.timed?(pending.seconds>=phase.target.value?'completed':pending.seconds>0?'partial':'skipped'):pending.action==='done'?'completed':'skipped';
+    if(workoutState.running&&currentGeneratedPhase()===phase&&emomRun(phase)===run){document.getElementById('coachPlayerError').textContent='';guardEmomAction()}
     if(work.status==='completed'&&workoutState.running&&!workoutState.paused&&currentGeneratedPhase()===phase&&emomRun(phase)===run&&currentWorkoutElapsedMs()<run.originMs+phase.endsAtSeconds*1000)playCompletionChime();return true;
   }catch(error){generatorState.trackerError=error;work.retry=true;document.getElementById('coachPlayerError').textContent='Could not save this minute. Tap Retry save.';return false}
 }
@@ -1020,9 +1025,11 @@ function resumeEmomCountdown(){
 }
 async function updateEmomMinute(action){
   if(workoutState.mode!=='generated'||!workoutState.running||workoutState.paused||coachAdvancing||!isEmomPhase())return;
+  if(action&&emomActionLocked())return;
   const initial=currentGeneratedPhase(),timeline=generatorState.timeline;
   observeEmomMinute();syncGeneratedCountdown();
   const work=emomWork(),expired=generatorState.remaining<=0;
+  if(action==='skip-rest'&&!work.settled)return;
   if(work.retry&&!action){renderGeneratedCountdown();updateWorkoutPauseUI();return}
   if(!expired&&!action&&(!initial.timed||work.settled||emomMeasuredSeconds()<initial.target.value)){
     if(!work.settled&&work.startedMs!==null&&initial.timed)showDueTimedCues(generatorState.cueTracker,emomMeasuredSeconds(),'workoutTimedCue');
@@ -1034,6 +1041,7 @@ async function updateEmomMinute(action){
     while(workoutState.running&&!workoutState.paused&&generatorState.timeline===timeline&&isEmomPhase()){
       const phase=currentGeneratedPhase(),run=emomRun(),now=currentWorkoutElapsedMs(),ended=now>=run.originMs+phase.endsAtSeconds*1000;
       const currentWork=emomWork();
+      const skipRest=phase===initial&&action==='skip-rest'&&currentWork.settled;
       if(currentWork.retry&&!action)break;
       if(!currentWork.settled&&(ended||action||phase.timed&&currentWork.startedMs!==null&&emomMeasuredSeconds()>=phase.target.value)){
         const outcomeAction=phase===initial&&action==='done'&&!ended&&currentWork.startedMs!==null?'done':'skip';
@@ -1041,9 +1049,13 @@ async function updateEmomMinute(action){
         if(!workoutState.running||workoutState.paused||generatorState.timeline!==timeline||currentGeneratedPhase()!==phase)return;
       }
       action=null;
-      if(currentWorkoutElapsedMs()<run.originMs+phase.endsAtSeconds*1000)break;
+      if(!skipRest&&currentWorkoutElapsedMs()<run.originMs+phase.endsAtSeconds*1000)break;
       const next=generatorState.timelineIndex+1;
-      if(!isEmomPhase(timeline[next]))beep(660,.1);
+      // Reuse the same timeline/clock. The next prescribed minute gets a fresh 60s;
+      // late actions instead follow normal boundary catch-up, without shifting time.
+      if(skipRest&&!ended&&isEmomPhase(timeline[next]||null)&&timeline[next].blockIndex===phase.blockIndex)run.originMs=now-timeline[next].startsAtSeconds*1000;
+      guardEmomAction();
+      if(!isEmomPhase(timeline[next]||null))beep(660,.1);
       enterGeneratedPhase(next);
     }
   }finally{
@@ -1241,7 +1253,7 @@ function renderGeneratedPhase(){
     player.classList.toggle('rest-phase',work.settled);
     const status=work.retry?'Could not save. Retry this minute.':work.settled?(work.status==='completed'?'Work complete.':work.status==='partial'?'Timed work stopped.':'Work not confirmed.')+' Rest until next minute.':'Finish the target, then rest.';
     const statusEl=document.getElementById('workoutEmomStatus');if(statusEl.textContent!==status)statusEl.textContent=status;
-    setPrimaryAction(work.retry?'Retry save':work.settled||phase.timed?'Next':'Done');
+    setPrimaryAction(work.retry?'Retry save':work.settled?'Skip rest':phase.timed?'Next':'Done');
   }else if(phase.kind==='exercise'){
     name.textContent=phase.exercise.name;target.textContent=phase.timed?'':generatedPhasePrescription(phase).value+' reps';const details=[];if(phase.side)details.push(phase.side.toUpperCase());const load=generatedLoadText(phase.exercise,phase.plannedLoad);if(load)details.push(load);if(phase.plannedLoad&&phase.plannedLoad.relativeLoad)details.push('Adjust stance only if comfortable');note.textContent=details.join(' · ');setPrimaryAction(generatorState.timelineIndex===generatorState.timeline.length-1&&!isCoachPlayer()?'Finish workout':'Next');
   }else if(phase.kind==='round-rest'){
@@ -1266,8 +1278,8 @@ function renderGeneratedPhase(){
   if(isEmomPhase(phase))document.getElementById('coachSkipBtn').classList.toggle('hidden',phase.timed||emomWork(phase).settled||!!emomWork(phase).pending);
   if(['ladder','pyramid'].includes(phase.protocol)&&phase.kind==='exercise'||phase.protocol==='complex'&&phase.kind==='exercise'&&!phase.timed)document.getElementById('coachSkipBtn').classList.remove('hidden');
 }
-function generatedPrimaryAction(){if(!workoutState.running||workoutState.paused||coachAdvancing)return;if(isDensityPhase())return updateDensityBlock('done');if(isEmomPhase())return updateEmomMinute(currentGeneratedPhase().timed?'skip':'done');if(isCoachPlayer())return coachAdvance(currentGeneratedPhase()&&currentGeneratedPhase().timed?'skip':'done');stopGeneratedPhaseTimer();recordGeneratedOutcome(currentGeneratedPhase()&&currentGeneratedPhase().timed?'skip':'done');advanceGeneratedPhase()}
-function generatedSkipWork(){if(!workoutState.running||workoutState.paused||coachAdvancing)return;if(isDensityPhase())return updateDensityBlock('skip');if(isEmomPhase())return updateEmomMinute('skip');if(['ladder','pyramid','complex'].includes(currentGeneratedPhase().protocol)&&!isCoachPlayer()){stopGeneratedPhaseTimer();recordGeneratedOutcome('skip');advanceGeneratedPhase();return}return coachAdvance('skip')}
+function generatedPrimaryAction(){if(!workoutState.running||workoutState.paused||coachAdvancing||emomActionLocked())return;if(isDensityPhase())return updateDensityBlock('done');if(isEmomPhase())return updateEmomMinute(emomWork()?.settled?'skip-rest':currentGeneratedPhase().timed?'skip':'done');if(isCoachPlayer())return coachAdvance(currentGeneratedPhase()&&currentGeneratedPhase().timed?'skip':'done');stopGeneratedPhaseTimer();recordGeneratedOutcome(currentGeneratedPhase()&&currentGeneratedPhase().timed?'skip':'done');advanceGeneratedPhase()}
+function generatedSkipWork(){if(!workoutState.running||workoutState.paused||coachAdvancing||emomActionLocked())return;if(isDensityPhase())return updateDensityBlock('skip');if(isEmomPhase())return updateEmomMinute('skip');if(['ladder','pyramid','complex'].includes(currentGeneratedPhase().protocol)&&!isCoachPlayer()){stopGeneratedPhaseTimer();recordGeneratedOutcome('skip');advanceGeneratedPhase();return}return coachAdvance('skip')}
 function advanceGeneratedPhase(){const phase=currentGeneratedPhase();if(phase&&phase.kind==='exercise'&&phase.section==='main')generatorState.completedMain++;enterGeneratedPhase(generatorState.timelineIndex+1)}
 function previousGeneratedPhase(){if(!workoutState.running||workoutState.paused||coachAdvancing||isEmomPhase())return;const index=previousGeneratedExerciseIndex();if(index<0)return;if(isDensityPhase()){if(index<densityRun().firstIndex)return;return updateDensityBlock('previous')}if(isCoachPlayer())return coachPrevious(index);enterGeneratedPhase(index)}
 function finishGeneratedWorkout(){
