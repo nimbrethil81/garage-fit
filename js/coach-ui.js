@@ -286,7 +286,7 @@
       review: () => engine.programmeReview(definition(), state, clock())};
   }
 
-  function mount({catalogue, equipment, getEquipment, buildTimeline, play, showScreen, stopPlayer}) {
+  function mount({catalogue, equipment, getEquipment, setEquipment, buildTimeline, play, showScreen, stopPlayer}) {
     let storage;
     try { storage=root.localStorage; } catch (error) { storage=null; }
     const store = root.GarageFitCoachStore.createStore(storage);
@@ -422,10 +422,10 @@
       const select = document.createElement('select'); select.setAttribute('aria-label', 'Body emphasis');
       [['','Whole body'],['upper','Upper'],['lower','Lower'],['core','Core']].forEach(([value,label]) => { const option = document.createElement('option'); option.value=value; option.textContent=label; select.append(option); });
       select.value=options.bodyFocus || ''; select.onchange=() => { options.bodyFocus=select.value || null; adjustmentOpen=true; renderToday('Body emphasis'); }; if (!isTennis()) details.append(heading('Body emphasis'), select);
-      details.append(heading('Equipment available today'));
+      details.append(heading('My Equipment'));
       const kit = document.createElement('div'); kit.className = 'equipment-list';
-      equipment.forEach(item => { const control = button(item.name, () => { options.equipment = options.equipment.includes(item.id) ? options.equipment.filter(id => id !== item.id) : [...options.equipment,item.id]; adjustmentOpen=true; renderToday(item.name); }); control.setAttribute('aria-pressed',String(options.equipment.includes(item.id))); kit.append(control); });
-      details.append(kit,help('About today’s equipment','Today’s selection leaves your usual equipment inventory unchanged.')); wrap.append(details);
+      equipment.forEach(item => { const control = button(item.name, () => { const owned=getEquipment(); setEquipment(owned.includes(item.id) ? owned.filter(id => id !== item.id) : [...owned,item.id]); adjustmentOpen=true; renderToday(item.name); }); control.setAttribute('aria-pressed',String(options.equipment.includes(item.id))); kit.append(control); });
+      details.append(kit,help('About My Equipment','Saved across GarageFit for future workouts. Already prepared workouts and workouts in progress keep their original equipment and exercises.')); wrap.append(details);
     }
     // Accessible tappable help rather than long inline explanations.
     function help(label,copy) {
@@ -434,6 +434,9 @@
       info.append(control,paragraph(copy)); retainDisclosure(info,label); return info;
     }
     function render() {
+      // Ownership is shared. Only future planning reads the latest selection;
+      // prepared prescriptions and live trackers retain their original context.
+      if (options) options.equipment=getEquipment().slice();
       const wrap=el('coachContent'); wrap.innerHTML=''; const current=controller.snapshot(), state=current.state;
       if (current.errors.length) {
         wrap.append(paragraph('Some Coach records could not be recovered. Saved evidence has been retained.'),

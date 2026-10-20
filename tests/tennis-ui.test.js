@@ -45,11 +45,11 @@ test('Adjust today summarizes real choices and persisted preferences, retains ex
   const p=await ui();await start(p);
   p.run("let plans=0;const plan=coachUI.controller.plan;coachUI.controller.plan=input=>{plans++;return plan(input);};const adjust=nodes().find(node=>node.id==='coachAdjustToday');adjust.open=true;adjust.ontoggle();");
   assert.equal(p.run('plans'),0);
-  const inventory=p.json('state.ownedEquipment');
   await p.change('Readiness today (optional)','tired');await p.click('15 min');await p.click('Dumbbells');
   assert.match(p.run("nodes().find(node=>node.id==='coachAdjustToday').children[0].attributes['aria-label']"),/Tired.*15 min available.*Bodyweight only/);
   assert.equal(p.run("nodes().find(node=>node.id==='coachAdjustToday').open"),true);
-  assert.deepEqual(p.json('state.ownedEquipment'),inventory);
+  assert.deepEqual(p.json('state.ownedEquipment'),[]);
+  assert.equal(p.storage.get('gf_equipment_inventory'),'[]');
   await p.click('Dumbbells');
   await p.click('Programme settings');
   await p.change('Training focus','movement');await p.change('Typical tennis intensity','hard');
