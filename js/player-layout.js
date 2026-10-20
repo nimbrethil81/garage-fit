@@ -1,5 +1,5 @@
-/* Viewport and disclosure presentation only; playback and outcome recording stay
-   in their existing owners. No dependencies, timers or workout state here. */
+/* Viewport and disclosure presentation; instruction activation delegates to the
+   shared speech owner. No dependencies, timers or workout state here. */
 (function () {
   const app = document.getElementById('app');
   const players = [...document.querySelectorAll('#player,#workoutPlayer')];
@@ -34,6 +34,25 @@
       content.className = 'player-detail-content';
       [...details.children].filter(child => child !== summary).forEach(child => content.appendChild(child));
       heading.append(title, close); surface.append(heading, content); details.appendChild(surface);
+      if (['routineInstruction','workoutInstruction'].includes(details.id) && instructionSpeechAvailable()) {
+        content.classList.add('player-instruction-speech');
+        content.setAttribute('role', 'button');
+        content.setAttribute('tabindex', '0');
+        content.setAttribute('aria-label', 'Read exercise instruction aloud. Activate again to restart.');
+        content.setAttribute('aria-describedby', details.id + 'Text');
+        const icon = document.createElement('span');
+        icon.className = 'player-instruction-speaker';
+        icon.setAttribute('aria-hidden', 'true');
+        icon.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/></svg>';
+        content.prepend(icon);
+        content.addEventListener('click', () => speakDisplayedInstruction(details.id));
+        content.addEventListener('keydown', event => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            if (!event.repeat) speakDisplayedInstruction(details.id);
+          }
+        });
+      }
       if (details.id === 'coachAnchorEdit') {
         // Retain the confirmation outside the editor and show its live text while
         // editing too. Keep the original live region as the sole announcer.
