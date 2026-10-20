@@ -1,0 +1,72 @@
+{
+  "issue": 166,
+  "browser": "Chromium with touch enabled; simulated iPhone safe areas and VisualViewport keyboard resize/pan",
+  "nodeSuite": "node --test tests/*.test.js: 78 files passed, 0 failed",
+  "measuredStates": 390,
+  "nativeEntries": "Six fixed workouts, both Prep & Recover cards, Generator and real Coach start/anchor flows",
+  "interactionChecks": "Touch/click/Space/Enter pause, frozen countdowns, exit/cancel, Escape/Close focus return, long help scroll, Coach actual persistence, density partial persistence",
+  "geometryTolerance": "Player pages have zero measured overflow. Stage bounds permit 1 CSS px for subpixel rounding; normal stages never require scrolling.",
+  "exception": "Only keyboard detail editing and explicitly enlarged-text stages allow contained stage reflow; navigation/page remain stationary.",
+  "viewports": [
+    {
+      "viewport": "375x667",
+      "measuredStates": 65,
+      "normalStates": 62,
+      "maxPlayerOverflowPx": 0,
+      "maxNormalStageOverflowPx": 0,
+      "smallestNormalRingPx": 248.09,
+      "allHitTargetsAtLeast44px": true,
+      "allChecksPassed": true
+    },
+    {
+      "viewport": "393x852",
+      "measuredStates": 65,
+      "normalStates": 62,
+      "maxPlayerOverflowPx": 0,
+      "maxNormalStageOverflowPx": 1,
+      "smallestNormalRingPx": 330,
+      "allHitTargetsAtLeast44px": true,
+      "allChecksPassed": true
+    },
+    {
+      "viewport": "430x932",
+      "measuredStates": 65,
+      "normalStates": 62,
+      "maxPlayerOverflowPx": 0,
+      "maxNormalStageOverflowPx": 0,
+      "smallestNormalRingPx": 330,
+      "allHitTargetsAtLeast44px": true,
+      "allChecksPassed": true
+    },
+    {
+      "viewport": "375x540",
+      "measuredStates": 65,
+      "normalStates": 62,
+      "maxPlayerOverflowPx": 0,
+      "maxNormalStageOverflowPx": 0,
+      "smallestNormalRingPx": 121.09,
+      "allHitTargetsAtLeast44px": true,
+      "allChecksPassed": true
+    },
+    {
+      "viewport": "320x568",
+      "measuredStates": 65,
+      "normalStates": 62,
+      "maxPlayerOverflowPx": 0,
+      "maxNormalStageOverflowPx": 0,
+      "smallestNormalRingPx": 134.8,
+      "allHitTargetsAtLeast44px": true,
+      "allChecksPassed": true
+    },
+    {
+      "viewport": "667x375",
+      "measuredStates": 65,
+      "normalStates": 62,
+      "maxPlayerOverflowPx": 0,
+      "maxNormalStageOverflowPx": 0,
+      "smallestNormalRingPx": 182,
+      "allHitTargetsAtLeast44px": true,
+      "allChecksPassed": true
+    }
+  ]
+}
