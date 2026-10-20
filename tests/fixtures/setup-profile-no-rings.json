@@ -1,0 +1,470 @@
+{
+  "baseline": "d454da9",
+  "fixtures": [
+    {
+      "equipment": [],
+      "duration": 10,
+      "focus": "balanced",
+      "seed": 1121,
+      "draws": 71,
+      "hash": "9c571498c1e14f3bb41312fa520e35223bafcd76016e13c5a4dc323a8eef8daf"
+    },
+    {
+      "equipment": [],
+      "duration": 10,
+      "focus": "strength",
+      "seed": 1121,
+      "draws": 63,
+      "hash": "97da635c1eb4f18154db65e26dba492923e2260c41d79f05441b4cf27bdeddb2"
+    },
+    {
+      "equipment": [],
+      "duration": 10,
+      "focus": "cardio",
+      "seed": 1119,
+      "draws": 68,
+      "hash": "7839067816a67a60494a3366cd743ff34fafa6549f2c4223d13056fc3e3dea78"
+    },
+    {
+      "equipment": [],
+      "duration": 15,
+      "focus": "balanced",
+      "seed": 1621,
+      "draws": 90,
+      "hash": "f7a2fdb96eab589da4ab264eea359e827cc229c5e5580c9c57ba70923f4a3271"
+    },
+    {
+      "equipment": [],
+      "duration": 15,
+      "focus": "strength",
+      "seed": 1621,
+      "draws": 85,
+      "hash": "e1588976d1c535544d90bc1b842e60ceae7003a4ad8aa0f0202a7201d0a6c6e0"
+    },
+    {
+      "equipment": [],
+      "duration": 15,
+      "focus": "cardio",
+      "seed": 1619,
+      "draws": 86,
+      "hash": "0c75d5c52afb6daaa0017064829f6b36c52984e1385c8dd4aa5c5983ebda5a1c"
+    },
+    {
+      "equipment": [],
+      "duration": 20,
+      "focus": "balanced",
+      "seed": 2121,
+      "draws": 110,
+      "hash": "34f5859556ba5fbfb78787e879e17d99f8d821b4bda9da3983fe86321d351007"
+    },
+    {
+      "equipment": [],
+      "duration": 20,
+      "focus": "strength",
+      "seed": 2121,
+      "draws": 102,
+      "hash": "62639c874a4da89ccb43d6e841e7b6126e079e3541d04b07b22f9d79f9896f8a"
+    },
+    {
+      "equipment": [],
+      "duration": 20,
+      "focus": "cardio",
+      "seed": 2119,
+      "draws": 100,
+      "hash": "9aeb10734e79c4e05787327b295f8596a4ac780c39f7a8f7fdb6748f0091a3b7"
+    },
+    {
+      "equipment": [],
+      "duration": 30,
+      "focus": "balanced",
+      "seed": 3121,
+      "draws": 133,
+      "hash": "aec755b0e3adf090a8dc8f04304fbcf142d4632031701740a5b4387c5452f7d9"
+    },
+    {
+      "equipment": [],
+      "duration": 30,
+      "focus": "strength",
+      "seed": 3121,
+      "draws": 138,
+      "hash": "78391abc1f51c31fa3d1693ba7d229c325dfe8abb5422009247fb3d57bc345e7"
+    },
+    {
+      "equipment": [],
+      "duration": 30,
+      "focus": "cardio",
+      "seed": 3119,
+      "draws": 158,
+      "hash": "91016a400ed1a72eca2de61aa0781441d34d36986be75ffc338d6fc0e693ce1a"
+    },
+    {
+      "equipment": [],
+      "duration": 45,
+      "focus": "balanced",
+      "seed": 4621,
+      "draws": 161,
+      "hash": "bde86b0437839037b599c86b45f7b1874ef133063b370ed623ac480c22f7c550"
+    },
+    {
+      "equipment": [],
+      "duration": 45,
+      "focus": "strength",
+      "seed": 4621,
+      "draws": 163,
+      "hash": "ca8541891cf6ad2f45ea166eb2b875e985ab3decfce40c7b13214523d7addf9c"
+    },
+    {
+      "equipment": [],
+      "duration": 45,
+      "focus": "cardio",
+      "seed": 4619,
+      "draws": 185,
+      "hash": "1ea169fb98945b1080a21dc8342d871b47950f070d7642a4ca5d613fc50c3ba3"
+    },
+    {
+      "equipment": [
+        "dumbbells",
+        "bench"
+      ],
+      "duration": 10,
+      "focus": "balanced",
+      "seed": 1121,
+      "draws": 71,
+      "hash": "598f7508db39cdfb2a52f856317c912389e2bbb2936bd8b82358c27108740427"
+    },
+    {
+      "equipment": [
+        "dumbbells",
+        "bench"
+      ],
+      "duration": 10,
+      "focus": "strength",
+      "seed": 1121,
+      "draws": 63,
+      "hash": "c0aba377b5e9924666fff2ec991b812c75cbf1cbff6da06b419a24c13ea387d0"
+    },
+    {
+      "equipment": [
+        "dumbbells",
+        "bench"
+      ],
+      "duration": 10,
+      "focus": "cardio",
+      "seed": 1119,
+      "draws": 68,
+      "hash": "e0f37c43459d01878fa1e15b97a03c42f43889dde455150d2819b01b9f29ea54"
+    },
+    {
+      "equipment": [
+        "dumbbells",
+        "bench"
+      ],
+      "duration": 15,
+      "focus": "balanced",
+      "seed": 1621,
+      "draws": 90,
+      "hash": "d7a7705dfaca1adef50d0e1d37b72db4bf5802e0287616088aa783e9a48ddd1e"
+    },
+    {
+      "equipment": [
+        "dumbbells",
+        "bench"
+      ],
+      "duration": 15,
+      "focus": "strength",
+      "seed": 1621,
+      "draws": 85,
+      "hash": "c94ad2c2c6ef93eafceeab2b63296e99758d28adb1ef4ab55a2c58df641477c9"
+    },
+    {
+      "equipment": [
+        "dumbbells",
+        "bench"
+      ],
+      "duration": 15,
+      "focus": "cardio",
+      "seed": 1619,
+      "draws": 86,
+      "hash": "dae56b56ed166d93cd6be045d35f5a890bf3076240c1cbb456a01919efdac107"
+    },
+    {
+      "equipment": [
+        "dumbbells",
+        "bench"
+      ],
+      "duration": 20,
+      "focus": "balanced",
+      "seed": 2121,
+      "draws": 110,
+      "hash": "163e209d0d992e8d73d57ccd45c99e233d9ba296947da8637b244455fa7fb7e7"
+    },
+    {
+      "equipment": [
+        "dumbbells",
+        "bench"
+      ],
+      "duration": 20,
+      "focus": "strength",
+      "seed": 2121,
+      "draws": 102,
+      "hash": "33b7a8b95e5584b68a9d1f2e2d92842e407cd1d07dfaa97aa6994b028f3aeb0b"
+    },
+    {
+      "equipment": [
+        "dumbbells",
+        "bench"
+      ],
+      "duration": 20,
+      "focus": "cardio",
+      "seed": 2119,
+      "draws": 198,
+      "hash": "f00d2aa829a21cfdf7ba4e345c9b711af8f08e16d8e0459587fe64c9682fd01c"
+    },
+    {
+      "equipment": [
+        "dumbbells",
+        "bench"
+      ],
+      "duration": 30,
+      "focus": "balanced",
+      "seed": 3121,
+      "draws": 133,
+      "hash": "dd5097fb0d1a70409a14088fd24f05d6283d0ba1c37463f7910c496674ce66f7"
+    },
+    {
+      "equipment": [
+        "dumbbells",
+        "bench"
+      ],
+      "duration": 30,
+      "focus": "strength",
+      "seed": 3121,
+      "draws": 138,
+      "hash": "f44b816f3cf486d283828062ddd6e4fec57f849d02b1ea3c4669b64252d18757"
+    },
+    {
+      "equipment": [
+        "dumbbells",
+        "bench"
+      ],
+      "duration": 30,
+      "focus": "cardio",
+      "seed": 3119,
+      "draws": 158,
+      "hash": "723c0e891f112250d08e69f4060e102ce7d8302137fdaa5812b367645ca204f1"
+    },
+    {
+      "equipment": [
+        "dumbbells",
+        "bench"
+      ],
+      "duration": 45,
+      "focus": "balanced",
+      "seed": 4621,
+      "draws": 161,
+      "hash": "fc10d960df867cf268f9340428d56f36bc39518287ada057d2d20ad16db580f5"
+    },
+    {
+      "equipment": [
+        "dumbbells",
+        "bench"
+      ],
+      "duration": 45,
+      "focus": "strength",
+      "seed": 4621,
+      "draws": 163,
+      "hash": "b4e70f48415963834c6eb271ece4e46af32c03936970b57a27fdea2472fdfd1a"
+    },
+    {
+      "equipment": [
+        "dumbbells",
+        "bench"
+      ],
+      "duration": 45,
+      "focus": "cardio",
+      "seed": 4619,
+      "draws": 185,
+      "hash": "fc7431bb92ab591acabb85b828d2585249c8038c250874c7fccdb6dadad96610"
+    },
+    {
+      "equipment": [
+        "trx",
+        "pullup-bar",
+        "kettlebell"
+      ],
+      "duration": 10,
+      "focus": "balanced",
+      "seed": 1121,
+      "draws": 71,
+      "hash": "838f2e11941d4ccc7da80d419df18c6c95f17bf1d766243ec2f1d518b568684b"
+    },
+    {
+      "equipment": [
+        "trx",
+        "pullup-bar",
+        "kettlebell"
+      ],
+      "duration": 10,
+      "focus": "strength",
+      "seed": 1121,
+      "draws": 69,
+      "hash": "272fe5de0489a24c8deeec92e83c5580ec9ee188dedfbaa157c65adc5bcf96a6"
+    },
+    {
+      "equipment": [
+        "trx",
+        "pullup-bar",
+        "kettlebell"
+      ],
+      "duration": 10,
+      "focus": "cardio",
+      "seed": 1119,
+      "draws": 69,
+      "hash": "9d58d6433aa25d5501c7c12cd77e3d4964a403c5ca3fe71532a195168c895fde"
+    },
+    {
+      "equipment": [
+        "trx",
+        "pullup-bar",
+        "kettlebell"
+      ],
+      "duration": 15,
+      "focus": "balanced",
+      "seed": 1621,
+      "draws": 90,
+      "hash": "7b8ce2b5bddd5593a337ac3287e800c615b3db39f07b0e686f50b381fed74d19"
+    },
+    {
+      "equipment": [
+        "trx",
+        "pullup-bar",
+        "kettlebell"
+      ],
+      "duration": 15,
+      "focus": "strength",
+      "seed": 1621,
+      "draws": 85,
+      "hash": "9f6de45637256c0fa65827e630c3a1782def25bcf88db28d54882df9f7b563b8"
+    },
+    {
+      "equipment": [
+        "trx",
+        "pullup-bar",
+        "kettlebell"
+      ],
+      "duration": 15,
+      "focus": "cardio",
+      "seed": 1619,
+      "draws": 85,
+      "hash": "0b159b6e916d35d5580459e48a09b60f52e8f9a9f90b3f4daa265bdcdf2d1f4f"
+    },
+    {
+      "equipment": [
+        "trx",
+        "pullup-bar",
+        "kettlebell"
+      ],
+      "duration": 20,
+      "focus": "balanced",
+      "seed": 2121,
+      "draws": 108,
+      "hash": "69af35f57428130c378e2681e75e502beb95a17df0509c83daec4e890f690adc"
+    },
+    {
+      "equipment": [
+        "trx",
+        "pullup-bar",
+        "kettlebell"
+      ],
+      "duration": 20,
+      "focus": "strength",
+      "seed": 2121,
+      "draws": 101,
+      "hash": "49cc3269c5441470024160e981ceb2ad0bab242cb5ee8473df34860ea08d4052"
+    },
+    {
+      "equipment": [
+        "trx",
+        "pullup-bar",
+        "kettlebell"
+      ],
+      "duration": 20,
+      "focus": "cardio",
+      "seed": 2119,
+      "draws": 100,
+      "hash": "eb8a4c4f81afafbee8aa24e34b260801a0b63b673f540444687f9ea451690de7"
+    },
+    {
+      "equipment": [
+        "trx",
+        "pullup-bar",
+        "kettlebell"
+      ],
+      "duration": 30,
+      "focus": "balanced",
+      "seed": 3121,
+      "draws": 133,
+      "hash": "15ee2cec1a4dfdcaa81894afe2c169530a28289ac46886684f5b5c054e3dd06a"
+    },
+    {
+      "equipment": [
+        "trx",
+        "pullup-bar",
+        "kettlebell"
+      ],
+      "duration": 30,
+      "focus": "strength",
+      "seed": 3121,
+      "draws": 141,
+      "hash": "764a320914e894067325e2bca3ddb4eccfa25769566d632c9017033accd49fc0"
+    },
+    {
+      "equipment": [
+        "trx",
+        "pullup-bar",
+        "kettlebell"
+      ],
+      "duration": 30,
+      "focus": "cardio",
+      "seed": 3119,
+      "draws": 159,
+      "hash": "f7bdd8ca84338cf99dba175d82c3bf343a5245633b7faa1609c5a8eab5b48d82"
+    },
+    {
+      "equipment": [
+        "trx",
+        "pullup-bar",
+        "kettlebell"
+      ],
+      "duration": 45,
+      "focus": "balanced",
+      "seed": 4621,
+      "draws": 153,
+      "hash": "a2c29c24be8cbf45c2d0720c116cd0a5d99b64daf31ee59bf67f905167c95aa9"
+    },
+    {
+      "equipment": [
+        "trx",
+        "pullup-bar",
+        "kettlebell"
+      ],
+      "duration": 45,
+      "focus": "strength",
+      "seed": 4621,
+      "draws": 177,
+      "hash": "de6a104f6b2446e0122d126fe9f53e7c740d135353499a5248514e6eecef318e"
+    },
+    {
+      "equipment": [
+        "trx",
+        "pullup-bar",
+        "kettlebell"
+      ],
+      "duration": 45,
+      "focus": "cardio",
+      "seed": 4619,
+      "draws": 184,
+      "hash": "eb37395b39e2e4c06bac4bd814b7c33b9c7071866658570b45283065f75ab606"
+    }
+  ]
+}
