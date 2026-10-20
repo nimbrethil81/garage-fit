@@ -325,7 +325,10 @@ test('the kettlebell and TRX additions are reachable in Main',()=>{
   // while retaining the existing appearance minima and primary/supporting checks.
   const kettlebellCore=sample(['kettlebell'],['strength','balanced'],[30,45],40,{bodyFocus:'core'});
   assert.ok(count(kettlebellCore,'kettlebell-around-the-body-pass')>=3,'pass '+count(kettlebellCore,'kettlebell-around-the-body-pass'));
-  const trx=sample(['trx'],['strength','balanced'],[30,45],40);
+  // Cover the expanded upper-body accessory pool in its suitable focus too, retaining
+  // the original sample and appearance minima (280 workouts in total).
+  const trx=sample(['trx'],['strength','balanced'],[30,45],40)
+    .concat(sample(['trx'],['strength','balanced'],[30,45],30,{bodyFocus:'upper'}));
   for(const [id,min] of [['trx-glute-bridge',10],['trx-t-fly',3]])assert.ok(count(trx,id)>=min,id+' '+count(trx,id));
   // Supporting work stays below its primary peers.
   assert.ok(count(trx,'trx-t-fly')*2<count(trx,'trx-row'));

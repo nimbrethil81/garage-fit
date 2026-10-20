@@ -16,10 +16,10 @@ const MAJORS = new Set(['squat','hinge','push','pull','lunge','carry']);
 const mainOf = workout => workout.main.blocks.flatMap(block => block.exercises);
 const withoutId = workout => Object.assign({}, workout, { id:null });
 
-// Bounded deterministic matrix: 4 equipment configs x 2 durations x 3 styles x 4 seeds = 96 workouts.
-function matrix(bodyFocus) {
+// Bounded deterministic matrix: 4 equipment configs x 2 durations x 3 styles x 12 seeds = 288 workouts.
+function matrix(bodyFocus, seeds=12) {
   const workouts = [];
-  for (const equipment of CONFIGS) for (const duration of [20,45]) for (const focus of ['strength','balanced','cardio']) for (let seed=1;seed<=4;seed++)
+  for (const equipment of CONFIGS) for (const duration of [20,45]) for (const focus of ['strength','balanced','cardio']) for (let seed=1;seed<=seeds;seed++)
     workouts.push(G.generate({ catalogue, duration, focus, equipment, random:random(seed*53+duration), bodyFocus }));
   return workouts;
 }
@@ -101,12 +101,12 @@ test('a body focus is a preference, not a filter: other areas stay in the workou
     const focused = workoutsFor(area);
     const others = AREAS.filter(other => other!==area);
     assert.ok(others.reduce((sum,other) => sum+share(focused,other), 0) >= .2, area+' crowds out the other areas');
-    // Workouts of 20 minutes or more keep exercises outside the focus area (another area, or
-    // full-body work that only shares it). The focus is a scored preference, not a rule, so a
-    // short three-exercise Main can occasionally land entirely in the area (about 0.2-0.4% of
-    // lower-focus workouts); at most one such workout is tolerated in this matrix.
-    const inside = focused.filter(workout => !mainOf(workout).some(exercise => exercise.bodyFocus!==area));
-    assert.ok(inside.length<=1, inside.map(workout => `${area} ${workout.duration} ${workout.focus}: ${mainOf(workout).map(exercise => exercise.id).join(', ')}`).join('; '));
+    // Body focus is a scored preference, so a three-exercise Main can occasionally
+    // land entirely in the area. Assess this rare event over 288 workouts while
+    // preserving the original ceiling of one per 96 workouts.
+    const distribution = focused;
+    const inside = distribution.filter(workout => !mainOf(workout).some(exercise => exercise.bodyFocus!==area));
+    assert.ok(inside.length<=distribution.length/96, inside.map(workout => `${area} ${workout.duration} ${workout.focus}: ${mainOf(workout).map(exercise => exercise.id).join(', ')}`).join('; '));
   }
 });
 

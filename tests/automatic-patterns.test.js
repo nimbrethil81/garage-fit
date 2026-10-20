@@ -50,6 +50,16 @@ test('seeded standalone matrix spans duration/style/difficulty/body/kit with opt
         if(difficulty==='easy')assert.ok(exercises.every(x=>x.difficulty!=='hard'));
         for(const b of w.main.blocks)row.protocols[b.protocol]=(row.protocols[b.protocol]||0)+1;
       }
+    // Frequency estimates need more draws than the contract matrix above. Include its
+    // original 108 draws, then two independent passes; keep every existing rate bound.
+    let frequencySeed=seed;
+    for(let sample=1;sample<=2;sample++)for(const focus of ['strength','balanced','cardio'])for(const difficulty of ['easy','normal','hard'])
+      for(const bodyFocus of ['full-body','upper','lower','core'])for(const equipment of [[],['dumbbells'],kit]){
+        const w=G.generate({catalogue,duration,focus,difficulty,bodyFocus,equipment,random:random((++frequencySeed*2654435761+duration)>>>0)});
+        row.sessions++;
+        row.blocks[w.main.blocks.length]=(row.blocks[w.main.blocks.length]||0)+1;
+        for(const b of w.main.blocks)row.protocols[b.protocol]=(row.protocols[b.protocol]||0)+1;
+      }
     // Rare ladders have explicit bounded reachability seeds in ladder.test.js.
     for(const protocol of G.GENERATED_PROTOCOLS.filter(p=>!['ladder','pyramid','complex','density'].includes(p)))assert.ok(row.protocols[protocol]>0,`${duration}: ${protocol}`);
     assert.ok((row.protocols.complex||0)<row.sessions/6,'complexes remain occasional');

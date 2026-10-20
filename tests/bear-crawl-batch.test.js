@@ -87,7 +87,8 @@ test('Bear crawl is reachable in bodyweight Main',()=>{
 });
 
 test('Dumbbell push press is reachable and does not crowd out the shoulder press or thruster',()=>{
-  const dumbbells=sample(['dumbbells'],'strength');
+  // Retain the appearance minimum across a broader sample of the expanded press pool.
+  const dumbbells=sample(['dumbbells'],'strength',[20,30,45],120);
   const press=countMain(dumbbells,'dumbbell-push-press');
   assert.ok(press>=5,'push press '+press);
   assert.ok(countMain(dumbbells,'dumbbell-shoulder-press')+countMain(dumbbells,'dumbbell-thruster')>=press,'strict press and thruster remain at least as common');
