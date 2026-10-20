@@ -31,8 +31,9 @@
   .brand{display:flex;align-items:center;gap:9px;color:var(--text)}
   .brand-mark{width:43px;height:30px;flex:none}.brand-name{font-size:21px;font-weight:850;letter-spacing:-.035em}.brand-name strong{color:var(--work);font-weight:850}
 
-  #home,#workouts,#generator,#coach,#equipment,#generatedPreview,#more,#exerciseLibrary,#exerciseDetail{padding:20px 20px 14px;overflow-y:auto}
+  #home,#workouts,#generator,#coach,#equipment,#generatedPreview,#more,#settings,#spokenCues,#exerciseLibrary,#exerciseDetail{padding:20px 20px 14px;overflow-y:auto}
   #exerciseDetail .page-header h1{min-width:0;overflow-wrap:anywhere;font-size:clamp(22px,7vw,32px);line-height:1.15}.library-entry{width:100%;min-height:58px;border:0;border-radius:14px;background:var(--card);color:var(--card-text);padding:16px;text-align:left;font-weight:850;font-size:16px}
+  .settings-entry{margin-top:10px}#spokenCues .library-controls{grid-template-columns:minmax(0,1fr)}#spokenCues .ctrl-btn{flex:none;width:100%;min-height:54px;margin-top:12px}
   .library-controls{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-bottom:16px}.library-controls label{display:flex;flex-direction:column;gap:6px;color:var(--text-muted);font-size:12px;font-weight:750}.library-controls input,.library-controls select{width:100%;min-width:0;border:1px solid var(--surface-2);border-radius:10px;background:var(--surface);color:var(--text);padding:12px;font:inherit;font-size:16px}
   .library-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}.library-row{width:100%;min-height:58px;border:0;border-radius:12px;background:var(--card);color:var(--card-text);padding:12px 15px;text-align:left;display:flex;flex-direction:row;align-items:center;gap:12px}.library-row strong{font-size:15px;line-height:1.3;min-width:0;overflow-wrap:anywhere}.equipment-icon{flex:0 0 32px;width:32px;display:inline-flex;align-items:center;justify-content:center}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.library-empty{color:var(--text-muted)}.library-detail-section{margin:0 0 22px}.library-detail-section h2{font-size:14px;color:var(--rest);margin:0 0 7px}.library-detail-section p{line-height:1.5;margin:0;overflow-wrap:anywhere}
   .home-header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:5px 0 24px}
@@ -448,6 +449,18 @@
     </div>
     <div class="home-intro"><h1 class="screen-title">More</h1></div>
     <button class="library-entry" type="button" onclick="openExerciseLibrary()">Exercise Library →</button>
+    <button class="library-entry settings-entry" type="button" onclick="showScreen('settings')">Settings →</button>
+  </main>
+  <main id="settings" class="screen hidden">
+    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to More" onclick="showScreen('more')">←</button><h1>Settings</h1><span class="header-spacer"></span></header>
+    <button class="library-entry" type="button" onclick="showScreen('spokenCues')">Spoken Cues →</button>
+  </main>
+  <main id="spokenCues" class="screen hidden">
+    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Settings" onclick="showScreen('settings')">←</button><h1>Spoken Cues</h1><span class="header-spacer"></span></header>
+    <p class="page-header-copy" id="spokenVoiceHelp">Voices depend on this browser and device. British English voices appear first. Instructions stay in English with any voice. Your choice is saved on this device.</p>
+    <div class="library-controls"><label for="spokenVoice">Voice<select id="spokenVoice" aria-describedby="spokenVoiceHelp spokenVoiceStatus" onchange="chooseSpokenVoice(this.value)"></select></label></div>
+    <p class="page-header-copy" id="spokenVoiceStatus" role="status"></p>
+    <button class="ctrl-btn ctrl-primary" id="previewVoiceBtn" type="button" onclick="previewSpokenVoice()">Preview voice</button>
   </main>
   <main id="exerciseLibrary" class="screen hidden">
     <header class="page-header"><button class="back-btn" type="button" aria-label="Back to More" onclick="showScreen('more')">←</button><h1>Exercise Library</h1><span class="header-spacer"></span></header>
@@ -492,6 +505,7 @@
 <script src="js/generator.js"></script>
 <script src="js/routine-generator.js"></script>
 <script src="js/timed-cues.js"></script>
+<script src="js/speech-voices.js"></script>
 <script src="js/completion-signal.js"></script>
 <script src="data/sport-profiles.js"></script>
 <script src="data/sport-capabilities.js"></script>
@@ -617,9 +631,33 @@ function openExerciseDetail(id){
   document.getElementById('libraryDetailContexts').textContent=libraryContexts(exercise);
   showScreen('exerciseDetail');
 }
+let currentScreen=null,voicePreviewPlaying=false;
+const speechVoices=GarageFitSpeechVoices.create({getSynthesis:()=>window.speechSynthesis,getStorage:()=>localStorage,onChange:()=>{if(currentScreen==='spokenCues')renderSpokenVoices()}});
+function renderSpokenVoices(){
+  const select=document.getElementById('spokenVoice'),selected=speechVoices.selected(),saved=speechVoices.preference();
+  select.innerHTML='';
+  const add=(value,label,disabled=false)=>{const option=document.createElement('option');option.value=value;option.textContent=label;option.disabled=disabled;select.appendChild(option)};
+  add('','System default');
+  speechVoices.list().forEach((voice,index)=>add(String(index),voice.name+' ('+voice.lang+')'));
+  if(saved&&!selected)add('unavailable',saved.name+' ('+saved.lang+') — unavailable; using system default',true);
+  select.value=selected?String(speechVoices.list().indexOf(selected)):saved?'unavailable':'';
+  const supported=speechVoices.supported()&&typeof SpeechSynthesisUtterance==='function';
+  select.disabled=!supported;
+  document.getElementById('previewVoiceBtn').disabled=!supported||state.running||workoutState.running;
+  document.getElementById('spokenVoiceStatus').textContent=!supported?'Spoken cues are unavailable in this browser.':saved&&!selected?'Your saved voice is unavailable. System default will be used until it returns or you choose another voice.':!speechVoices.list().length?'No device voices are listed yet. System default will be used.':'';
+}
+function stopVoicePreview(){if(voicePreviewPlaying){cancelSpeech();voicePreviewPlaying=false}}
+function chooseSpokenVoice(value){stopVoicePreview();if(value==='')speechVoices.choose(null);else if(/^\d+$/.test(value)){const voice=speechVoices.list()[Number(value)];if(voice)speechVoices.choose(voice)}}
+function previewSpokenVoice(){
+  if(currentScreen!=='spokenCues'||state.running||workoutState.running||!speechVoices.supported())return;
+  voicePreviewPlaying=true;speak('Get ready. Squats. Keep your chest up and move steadily.');
+}
 function showScreen(id){
+  if(currentScreen==='spokenCues'&&id!=='spokenCues')stopVoicePreview();
+  currentScreen=id;
+  if(id==='spokenCues')speechVoices.refresh();
   document.getElementById('app').classList.toggle('active-player',id==='player'||id==='workoutPlayer');
-  ['home','workouts','generator','equipment','generatedPreview','snackpick','player','workoutPlayer','done','more','exerciseLibrary','exerciseDetail','coach','coachPreview','coachProgress','coachSettings','coachSubstitute','coachResult'].forEach(s=>document.getElementById(s).classList.toggle('hidden',s!==id));
+  ['home','workouts','generator','equipment','generatedPreview','snackpick','player','workoutPlayer','done','more','settings','spokenCues','exerciseLibrary','exerciseDetail','coach','coachPreview','coachProgress','coachSettings','coachSubstitute','coachResult'].forEach(s=>document.getElementById(s).classList.toggle('hidden',s!==id));
   const landing=['home','workouts','generator','more','coach'].includes(id),nav=document.getElementById('bottomNav');nav.classList.toggle('hidden',!landing);
   [['home','routinesNav'],['workouts','workoutsNav'],['coach','coachNav'],['generator','generatorNav'],['more','moreNav']].forEach(pair=>{const active=id===pair[0],button=document.getElementById(pair[1]);button.classList.toggle('active',active);active?button.setAttribute('aria-current','page'):button.removeAttribute('aria-current')});
 }
@@ -683,7 +721,7 @@ function swapGeneratedExercise(blockIndex,exerciseIndex){GarageFitGenerator.swap
 let audioCtx=null;function beep(freq=880,dur=.12){try{audioCtx=audioCtx||new(window.AudioContext||window.webkitAudioContext)();const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.frequency.value=freq;o.type='sine';o.connect(g);g.connect(audioCtx.destination);g.gain.setValueAtTime(.15,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+dur);o.start();o.stop(audioCtx.currentTime+dur)}catch(e){}}
 function playCompletionChime(){beep(880,.12)}
 function exerciseCueParts(name,quantity,side){if(!side){const m=/^(.*?)\s+[-\u2013\u2014]\s+(Left|Right)$/i.exec(name);if(m){name=m[1];side=m[2]}}return side?[name+', '+String(side).toLowerCase()+' side.',quantity]:[name+'. '+quantity]}
-function speak(text,followup){try{if(!('speechSynthesis'in window))return;window.speechSynthesis.cancel();/* each part is its own queued utterance: the engine's boundary gives the pause, with no timers */for(const part of [].concat(text,followup).filter(Boolean)){const u=new SpeechSynthesisUtterance(part);u.rate=1;u.pitch=1;window.speechSynthesis.speak(u)}}catch(e){}}function cancelSpeech(){try{if('speechSynthesis'in window)window.speechSynthesis.cancel()}catch(e){}}
+function speak(text,followup){try{if(!('speechSynthesis'in window))return;window.speechSynthesis.cancel();const voice=speechVoices.selected();/* each part is its own queued utterance: the engine's boundary gives the pause, with no timers */for(const part of [].concat(text,followup).filter(Boolean)){const u=new SpeechSynthesisUtterance(part);u.rate=1;u.pitch=1;if(voice)u.voice=voice;window.speechSynthesis.speak(u)}}catch(e){}}function cancelSpeech(){try{if('speechSynthesis'in window)window.speechSynthesis.cancel()}catch(e){}}
 function announceExercise(exercise,announcement,seconds){const entry=exercise&&CATALOGUE[exercise.id],instruction=entry&&entry.instruction;let followup=null;
   if(entry&&entry.voiceInstruction&&instruction&&!instructionSeen.has(entry.id)){
     const cues=exercise.timedCues||entry.timedCues||[],firstCue=seconds==null?Infinity:Math.min(seconds,...cues.map(cue=>cue.at.type==='fraction'?seconds*cue.at.value:cue.at.value));
