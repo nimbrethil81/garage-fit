@@ -8,7 +8,7 @@
   // Layout: separate versioned records, never one ever-growing object -
   //   one active-programme reference, one Programme State per programme instance,
   //   one small ordered Session Result index, one record per Session Result,
-  //   one active Session Draft.
+  //   one active Session Draft, one optional shared Coach preferences record.
   // gf_generator_history is the Generator's own variety mechanism and is never touched here.
   //
   // Failures are surfaced as GarageFitCoachModel.CoachError (code + details), never swallowed:
@@ -22,6 +22,7 @@
   const SESSION_INDEX_KEY = KEY_PREFIX+'session_result_index';
   const SESSION_RESULT_PREFIX = KEY_PREFIX+'session_result:';
   const SESSION_DRAFT_KEY = KEY_PREFIX+'session_draft';
+  const PREFERENCES_KEY = KEY_PREFIX+'preferences';
   // Upper bound on keys inspected when rebuilding a malformed Session Result index.
   const MAX_RECOVERY_KEYS = 10000;
 
@@ -157,6 +158,11 @@
     }
 
     return {
+      // Shared, optional planning preferences. Absent storage means none; reads
+      // never create records, and clearing never touches programme/history data.
+      async loadCoachPreferences() { return readRecord('coach-preferences', PREFERENCES_KEY) || Model.createCoachPreferences(); },
+      async saveCoachPreferences(preferences) { writeRecord('coach-preferences', PREFERENCES_KEY, preferences); },
+      async clearCoachPreferences() { removeRaw(PREFERENCES_KEY); },
       // ---- Active programme reference ----
       async loadActiveProgramme() { return readRecord('active-programme', ACTIVE_PROGRAMME_KEY); },
       async saveActiveProgramme(reference) { writeRecord('active-programme', ACTIVE_PROGRAMME_KEY, reference); },
