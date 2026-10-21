@@ -3,6 +3,7 @@
   //
   // Coach owns longitudinal programme intent; the Generator still builds one workout.
   // These records are the boundaries between them and the evidence of what happened:
+  //   coach-preferences     optional shared user planning preferences
   //   programme-state       mutable current state of one programme instance
   //   active-programme      which programme instance is currently active
   //   session-prescription  Coach-to-Generator request for one session
@@ -16,7 +17,7 @@
 
   const SCHEMA_VERSION = 1;
   const PROGRAMME_SETTINGS_VERSION = 1;
-  const RECORD_KINDS = ['programme-state','active-programme','session-prescription','session-result','session-draft','session-result-index'];
+  const RECORD_KINDS = ['programme-state','active-programme','session-prescription','session-result','session-draft','session-result-index','coach-preferences'];
 
   const PROGRAMME_STATUSES = ['active','paused','completed'];
   const PROGRAMME_MODES = ['development','maintenance'];
@@ -155,6 +156,20 @@
   }
 
   // ---- Shared sub-records ----
+  // Shared user preferences, independent of programme identity and sport settings.
+  // These are approximate routines, never dated performed evidence.
+  const coachPreferences = shape({schemaVersion: exactly(SCHEMA_VERSION),
+    usualExternalActivities: arrayOf(shape({
+      activityType: required(value => typeof value === 'string' && value === value.trim()
+        && value.length > 0 && value.length <= 100, 'a trimmed activity type of 1–100 characters'),
+      sessionsPerWeek: required(value => Number.isFinite(value) && value > 0
+        && value <= Number.MAX_SAFE_INTEGER, 'a finite positive weekly frequency within the safe numeric range')
+    }))
+  }, (value, path, errors) => {
+    if (value.usualExternalActivities.length > 16) fail(errors, path+'.usualExternalActivities', 'must contain at most sixteen activity types');
+    const types = value.usualExternalActivities.map(item => item.activityType.toLowerCase());
+    if (new Set(types).size !== types.length) fail(errors, path+'.usualExternalActivities', 'activity types must be unique ignoring case');
+  });
   const programmeSettings = shape({
     schemaVersion: exactly(PROGRAMME_SETTINGS_VERSION), sportId: knownSport,
     focus: text, weeklyCoachFrequency: positiveInteger,
@@ -523,6 +538,7 @@
   });
 
   const SHAPES = {
+    'coach-preferences': coachPreferences,
     'programme-state': programmeState,
     'active-programme': activeProgramme,
     'session-prescription': sessionPrescription,
@@ -607,6 +623,39 @@
   // Session Results are immutable evidence: the constructed record is deeply frozen.
   const createSessionResult = fields => deepFreeze(create('session-result', fields));
 
+  const createCoachPreferences = (fields = {}) => create('coach-preferences', {usualExternalActivities: [], ...fields});
+
+  // Explicit opt-in context for future consumers. It never feeds a released planner.
+  // Only the existing typed, transient sport reports can establish reported activity;
+  // arbitrary external Session Results, feedback, planned dates and usual days cannot.
+  function externalActivityContext(preferences = createCoachPreferences(), sessionContext = {}, localDay) {
+    assertValid('coach-preferences', preferences);
+    assertSessionContext(sessionContext);
+    const reports = sessionContext.reportedSportActivity || [];
+    if (reports.length) {
+      assertBoundary(localDate, localDay, 'external-activity-context.localDate');
+      const dayNumber = day => {
+        const [year, month, date] = day.split('-').map(Number);
+        const value = new Date(0); value.setUTCFullYear(year, month-1, date); value.setUTCHours(0,0,0,0);
+        return value.getTime()/86400000;
+      };
+      reports.forEach(report => {
+        const age = dayNumber(localDay) - dayNumber(report.localDate);
+        if (age < 0 || age > 6) throw new CoachError('invalid-record',
+          'Reported external activity must be within the last seven local days.', {});
+      });
+    }
+    return deepFreeze({
+      typical: preferences.usualExternalActivities.map(activity => ({...activity, status: 'typical',
+        provenance: 'user-preference', confidence: 'approximate'})),
+      actual: {status: reports.length ? 'confirmed' : 'unknown',
+        provenance: reports.length ? 'session-context.reportedSportActivity' : null,
+        confidence: reports.length ? 'user-reported' : 'unknown',
+        reports: reports.map(report => ({activityType: report.sportId, localDate: report.localDate,
+          reportedIntensity: report.intensity}))}
+    });
+  }
+
   function createProgrammeSettings(fields) {
     assertBoundary(jsonObject, fields, 'programme-settings');
     const profile = sportProfile(fields.sportId);
@@ -637,7 +686,7 @@
     CoachError, validate, assertValid, upgradeRecord, MIGRATIONS,
     canonicalJson, sameRecord, deepFreeze,
     createProgrammeState, createActiveProgramme, createSessionPrescription, createSessionResult, createSessionDraft,
-    programmeDefinitionRef, createProgrammeSettings, updateProgrammeSettings,
+    programmeDefinitionRef, createCoachPreferences, externalActivityContext, createProgrammeSettings, updateProgrammeSettings,
     assertProgrammeSettings, assertSessionContext, isLocalDate
   };
 })(typeof window !== 'undefined' ? window : globalThis);

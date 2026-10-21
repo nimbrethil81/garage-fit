@@ -473,3 +473,47 @@ remain `family-prescription-unsupported`, and published Coach programmes do not 
 replacements whose whole revised workout passes the gate; if none does, the workout is unchanged.
 Any other edit must be revalidated with `validateFamilyWorkout` before it keeps the family label.
 No-family workouts, legacy swaps and published Coach behaviour do not use the gate.
+
+## Optional usual external activity context
+
+`GarageFitCoachModel.createCoachPreferences({usualExternalActivities})` constructs
+one optional version-1 `coach-preferences` record. Each routine is
+`{activityType, sessionsPerWeek}`: a trimmed, user-named activity (1–100 characters)
+and a finite positive approximate weekly frequency (fractional values allowed).
+There are at most sixteen types, unique ignoring case. No sport registry, day,
+intensity, duration or resistance dose is implied. An empty array means none
+configured, not a claim of inactivity.
+
+Coach Store owns `loadCoachPreferences`, `saveCoachPreferences` and
+`clearCoachPreferences`. A missing record returns the empty default without a
+write; malformed or future records reject through the usual Coach errors. This
+shared preference record is independent of all programme instances and Tennis
+settings; existing records need no migration. No activity log or second history
+store is introduced.
+
+Controller methods `saveExternalActivityPreferences(activities)` (replace/edit),
+`clearExternalActivityPreferences()` and `externalActivityContext(sessionContext?)`
+provide the opt-in seam for General Fitness #190 and settings #191. There is no
+new UI or automatic scheduling consumption in this issue. The pure equivalent is
+`GarageFitCoachModel.externalActivityContext(preferences, sessionContext?, localDate?)`.
+Its deeply frozen output separates:
+
+- `typical`: routines labelled `status:'typical'`, `provenance:'user-preference'`,
+  `confidence:'approximate'`. These have no inferred occurrence dates or doses.
+- `actual`: defaults to `status:'unknown'`, null provenance, unknown confidence
+  and empty `reports`. It means participation is unknown, even with routines saved.
+- Explicit existing `sessionContext.reportedSportActivity` can instead yield
+  `actual.status:'confirmed'`, `provenance:'session-context.reportedSportActivity'`,
+  `confidence:'user-reported'`. “Confirmed” means the user reported activity, never
+  verified attendance. Reports retain only activity type, reported local date and
+  `reportedIntensity`; this is not quantified training dose or fatigue. The caller
+  must supply the current local date, and reports must lie within its last seven
+  calendar days. The controller supplies that date from its clock.
+
+Planned matches, usual Tennis days, readiness and generic external Session Result
+status/feedback never confirm participation. No typed reliable external-activity
+report exists in Session Results, so this seam does not mine them or add an
+integration. Preferences/context create no result, training credit/debt, recovery
+state or programme progress. They do not enter released programme planners,
+Generator recency, or Tennis event/readiness behavior. Future consumers must keep
+these approximate preferences separate from performed GarageFit evidence.
