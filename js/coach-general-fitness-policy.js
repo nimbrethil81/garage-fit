@@ -61,6 +61,38 @@
     if (!definition.feasibilityRequirements || !positive(definition.feasibilityRequirements.minimumDurationMinutes)) fail('it needs a minimum duration');
     const completion = definition.completionCriteria || {};
     if (completion.minimumMeaningfulSessions !== null || completion.requireNominalDuration !== false) fail('it never completes automatically');
+    if (definition.benchmarkPolicy !== undefined) validateBenchmarkPolicy(definition, families, durations);
+  }
+
+  // ---- Optional embedded comparable benchmarks (#192, approved Decision 7 C) ----
+  // A definition opts in with `benchmarkPolicy` (General Fitness v2). Released v1 has none and plans
+  // exactly as before. Benchmarks are unloaded one-set rep measurements, recorded through the existing
+  // Session Tracker as ordinary Main work whose requirement id is `benchmark:<benchmarkId>`; the
+  // existing Training History comparison decides what is comparable. Nothing here scores fitness.
+  const BENCHMARK_PREFIX = 'benchmark:';
+  const BENCHMARK_FIELDS = ['workoutFamilyId','workoutFamilyVersion','minimumIntervalDays','minimumMeaningfulSessions',
+    'minimumDurationMinutes','exerciseRestSeconds','benchmarks','consistencyWeeks'];
+  const slug = value => typeof value === 'string' && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
+  function validateBenchmarkPolicy(definition, families, durations) {
+    const policy = definition.benchmarkPolicy, catalogue = root.GarageFitData && root.GarageFitData.exercises;
+    if (!policy || typeof policy !== 'object' || Array.isArray(policy) || Object.keys(policy).some(key => !BENCHMARK_FIELDS.includes(key))) fail('benchmarkPolicy is a closed object');
+    if (!families.some(family => family.workoutFamilyId === policy.workoutFamilyId && family.workoutFamilyVersion === policy.workoutFamilyVersion)) fail('benchmarks belong to a published family in the plan');
+    // Conservative cadence: never more often than about every four weeks.
+    if (!Number.isInteger(policy.minimumIntervalDays) || policy.minimumIntervalDays < 28) fail('benchmarks are offered at most about every four weeks');
+    if (!Number.isInteger(policy.minimumMeaningfulSessions) || policy.minimumMeaningfulSessions < 1) fail('benchmarks wait for a first meaningful session');
+    if (!durations.includes(policy.minimumDurationMinutes) || policy.minimumDurationMinutes < 20) fail('benchmarks need a session of at least 20 minutes');
+    if (!Number.isInteger(policy.exerciseRestSeconds) || policy.exerciseRestSeconds < 0) fail('benchmarks need a fixed rest');
+    if (!Number.isInteger(policy.consistencyWeeks) || policy.consistencyWeeks < 1 || policy.consistencyWeeks > 8) fail('consistency covers one to eight weeks');
+    const items = policy.benchmarks;
+    if (!Array.isArray(items) || !items.length || items.length > 4) fail('it needs one to four reviewed benchmarks');
+    items.forEach(item => {
+      const exercise = catalogue && catalogue[item.exerciseId];
+      if (!item || Object.keys(item).some(key => !['benchmarkId','exerciseId','setupId','capability'].includes(key))
+        || !slug(item.benchmarkId) || !slug(item.setupId) || typeof item.capability !== 'string' || !item.capability) fail('each benchmark needs an id, exercise, setup and capability');
+      if (!exercise || exercise.prescription.type !== 'reps' || (exercise.equipment || []).length || exercise.sidedness === 'per-side' || exercise.sidedness === 'alternating')
+        fail('benchmarks are unloaded bilateral rep exercises');
+    });
+    if (new Set(items.map(item => item.benchmarkId)).size !== items.length || new Set(items.map(item => item.exerciseId)).size !== items.length) fail('benchmarks must be unique');
   }
 
   function assessFeasibility({definition, context}) {
@@ -113,6 +145,41 @@
     });
   }
 
+  // Benchmark occasions in this instance's results: a session that reached its benchmark (completed,
+  // whether measured or skipped) or measured any of it. Abandoned or early exits that never measured
+  // anything offer nothing and cost nothing, so the opportunity simply returns.
+  function benchmarkOccasions(history, state) {
+    return history.sessions.filter(result => result.programmeInstanceId === state.programmeInstanceId
+      && ['completed','partial'].includes(result.finalStatus)).map(result => {
+      const planned = (result.plannedWork || []).filter(item => typeof item.requirementId === 'string' && item.requirementId.startsWith(BENCHMARK_PREFIX));
+      if (!planned.length) return null;
+      const ids = new Set(planned.map(item => item.occurrenceId));
+      const measured = (result.performedWork || []).some(item => ids.has(item.occurrenceId));
+      return result.finalStatus === 'completed' || measured ? result.endedAt || result.startedAt : null;
+    }).filter(Boolean).sort((a, b) => Date.parse(a) - Date.parse(b));
+  }
+  // Is a benchmark opportunity due for today's plan? Pure, with an explicit reason, never a debt.
+  function benchmarkOffer({definition, state, history, today, recovery, intendedFamily}) {
+    const policy = definition.benchmarkPolicy, now = Date.parse(today.now);
+    const occasions = benchmarkOccasions(history, state), last = occasions.length ? occasions[occasions.length - 1] : null;
+    const nextEligibleAt = last ? new Date(Date.parse(last) + policy.minimumIntervalDays * DAY).toISOString() : null;
+    const duration = today.duration || definition.sessionTemplate.duration;
+    const difficulty = today.easyToday ? 'easy' : today.difficulty || definition.sessionTemplate.difficulty;
+    let reason = 'offered';
+    if ((state.meaningfulSessionsCompleted || 0) < policy.minimumMeaningfulSessions) reason = 'too-early';
+    else if (last && now - Date.parse(last) < policy.minimumIntervalDays * DAY) reason = 'recent-benchmark';
+    else if (duration < policy.minimumDurationMinutes) reason = 'short-session';
+    else if (difficulty === 'easy') reason = 'easy-today';
+    else if (recovery.preferLowerDemand) reason = 'recovery-preferred';
+    else if (!intendedFamily || intendedFamily.workoutFamilyId !== policy.workoutFamilyId || intendedFamily.workoutFamilyVersion !== policy.workoutFamilyVersion) reason = 'other-family';
+    return {status: reason === 'offered' ? 'offered' : 'not-offered', reason, lastOccasionAt: last, nextEligibleAt, occasions: occasions.length};
+  }
+  function benchmarkSpec(definition) {
+    const policy = definition.benchmarkPolicy;
+    return {workoutFamilyId: policy.workoutFamilyId, workoutFamilyVersion: policy.workoutFamilyVersion, exerciseRestSeconds: policy.exerciseRestSeconds,
+      items: policy.benchmarks.map(item => ({benchmarkId: item.benchmarkId, exerciseId: item.exerciseId, setupId: item.setupId}))};
+  }
+
   function calculatePriorities(input) {
     const {definition, today, state} = input;
     const balance = definition.familyBalancePolicy, variety = definition.varietyPolicy, recoveryPolicy = definition.recoveryPolicy;
@@ -162,9 +229,11 @@
         balanceScore: value, varietyPenalty, recoveryPenalty, score: value - varietyPenalty - recoveryPenalty,
         lastPerformedAt: last ? last.occurredAt : null, lastFamilyStyleId: last ? last.familyStyleId : null};
     }).sort((a, b) => b.score - a.score || a.index - b.index);
+    const recovery = {preferLowerDemand: reasons.length > 0, reasons};
     return {effects, families,
       attendance: {sessionsPerWeek, level, windowDays: balance.attendanceWindowDays, recommended: clone(definition.recommendedFrequency)},
-      recovery: {preferLowerDemand: reasons.length > 0, reasons},
+      recovery,
+      ...(definition.benchmarkPolicy ? {benchmark: benchmarkOffer({definition, state, history: input.history, today, recovery, intendedFamily: families[0]})} : {}),
       externalActivity: {typicalSessionsPerWeek, mobilityPreference: mobilityBonus, confidence: typical.length ? 'approximate' : 'unknown',
         confirmedReports: reports.length},
       history: {sessions: sessions.map(item => ({sessionResultId: item.sessionResultId, source: item.source, occurredAt: item.occurredAt,
@@ -196,6 +265,9 @@
     const first = priorities.families[0];
     const plan = {candidates: priorities.families.map((family, index) => ({workoutFamilyId: family.workoutFamilyId,
       workoutFamilyVersion: family.workoutFamilyVersion, rationale: rationaleFor(family, index, priorities, first)}))};
+    // An optional comparable benchmark rides in the intended family's session; it never changes the family.
+    const offered = priorities.benchmark && priorities.benchmark.status === 'offered';
+    if (offered) plan.benchmark = benchmarkSpec(definition);
     for (const field of ['excludedImpact','bodyPositions','movementRoom']) if (today[field] !== undefined && today[field] !== null) plan[field] = clone(today[field]);
     return Model.createSessionPrescription({prescriptionId: today.prescriptionId, programmeInstanceId: state.programmeInstanceId,
       // The role is the programme, never the planned family: identity comes from the delivered workout.
@@ -204,6 +276,7 @@
       programmeContext: {objective: definition.objective, frequency: clone(mode.frequency),
         intendedWorkoutFamilyId: first.workoutFamilyId, intendedWorkoutFamilyVersion: first.workoutFamilyVersion,
         recovery: clone(priorities.recovery),
+        ...(offered ? {benchmark: {status: 'offered', optional: true, benchmarkIds: definition.benchmarkPolicy.benchmarks.map(item => item.benchmarkId)}} : {}),
         overrides: [...(today.easyToday ? [{type: 'easy-today'}] : []), ...(today.bodyFocus ? [{type: 'body-focus', value: today.bodyFocus}] : []),
           ...(today.duration && today.duration < template.duration ? [{type: 'duration', value: today.duration}] : [])]}});
   }
@@ -217,7 +290,51 @@
     return {missed: elapsedDays !== null && elapsedDays > 7 / mode.frequency.minSessionsPerWeek, elapsedDays, catchUpSessions: 0, strategy: 'recompute-no-debt'};
   }
 
+  // ---- Progress evidence (#192): three separate, factual views; there is no combined score ----
+  // Capability balance: which training effects were actually performed in the rolling window, across
+  // every GarageFit source. Coverage of training, never a measure of fitness or adequacy.
+  function balanceSummary({definition, history, catalogue, now}) {
+    const sessions = performedSessions({definition, history, catalogue, today: {now}});
+    const measured = sessions.filter(item => item.weight > 0);
+    return {windowDays: definition.coverageTargets.windowDays, sessionCount: measured.length,
+      unmeasuredSessions: sessions.length - measured.length,
+      effects: EFFECTS.map(effect => {
+        const credited = measured.reduce((sum, item) => sum + item.weight * (item.effects[effect] || 0), 0);
+        return {effect, label: EFFECT_LABELS[effect], performedSessions: Math.round(credited * 10) / 10,
+          sessionCount: measured.filter(item => (item.effects[effect] || 0) > 0).length, status: credited > 0 ? 'performed' : 'not-performed'};
+      })};
+  }
+
+  // Demonstrated comparable improvement. Only a completed, single-set rep observation of the exact
+  // benchmark exercise with a recorded rep count and an explicitly confirmed setup can support a claim,
+  // and only against an earlier observation the shared Training History judges comparable (same exercise,
+  // side, setup, prescription mode, protocol and protocol conditions). Everything else stays unknown.
+  function benchmarkImprovement({definition, history, state}) {
+    const History = root.GarageFitTrainingHistory, catalogue = root.GarageFitData.exercises;
+    const known = value => value !== null && value !== undefined;
+    return definition.benchmarkPolicy.benchmarks.map(spec => {
+      const requirementId = BENCHMARK_PREFIX + spec.benchmarkId;
+      const all = history.performances.filter(item => item.programmeInstanceId === state.programmeInstanceId
+        && item.requirementId === requirementId && item.section === 'main');
+      const usable = all.filter(item => item.status === 'completed' && item.exerciseId === spec.exerciseId && item.sets.length === 1
+        && known(item.sets[0].reps.value) && item.sets[0].load.value === null && item.sets[0].resistanceSetup);
+      const point = item => ({sessionResultId: item.sessionResultId, occurredAt: item.occurredAt, reps: item.sets[0].reps.value});
+      const base = {benchmarkId: spec.benchmarkId, exerciseId: spec.exerciseId, label: catalogue[spec.exerciseId].name, capability: spec.capability,
+        recorded: all.length, unusable: all.length - usable.length};
+      if (!all.length) return {...base, status: 'none', latest: null, previous: null, delta: null, incomparable: 0};
+      if (!usable.length) return {...base, status: 'unmeasured', latest: null, previous: null, delta: null, incomparable: 0};
+      const latest = usable[usable.length - 1], earlier = usable.slice(0, -1);
+      const comparisons = earlier.map(item => ({item, result: History.comparePerformanceEvidence(item, latest)}));
+      const match = comparisons.slice().reverse().find(entry => entry.result.comparable && ['improved-reps', 'unchanged-or-insufficient'].includes(entry.result.change));
+      const incomparable = comparisons.filter(entry => !entry.result.comparable).length;
+      if (!match) return {...base, status: earlier.length ? 'not-comparable' : 'baseline', latest: point(latest), previous: null, delta: null, incomparable};
+      const delta = latest.sets[0].reps.value - match.item.sets[0].reps.value;
+      return {...base, status: delta > 0 ? 'improved' : delta === 0 ? 'same' : 'lower', latest: point(latest), previous: point(match.item), delta, incomparable};
+    });
+  }
+
   const policy = Object.freeze({validateDefinition, assessFeasibility, initialiseState, getModeSettings, calculatePriorities,
-    buildPrescription, interpretDose, respondToMissedSessions, isComplete: () => false});
+    buildPrescription, interpretDose, respondToMissedSessions, isComplete: () => false,
+    BENCHMARK_PREFIX, benchmarkOffer, benchmarkSpec, balanceSummary, benchmarkImprovement});
   root.GarageFitCoachGeneralFitnessPolicy = policy;
 })(typeof window !== 'undefined' ? window : globalThis);

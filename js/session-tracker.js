@@ -52,7 +52,10 @@
   // requirement/target by default; callers can override linkage with requirementIdFor(phase).
   // Standalone timelines have none. Suggested targets are never copied into actual results.
   function plannedWorkFromTimeline(timeline, options = {}) {
-    const requirementIdFor = options.requirementIdFor || (phase => phase.section === 'main' && phase.exercise.coachAnchor ? phase.exercise.coachAnchor.requirementId : null);
+    // An embedded Coach benchmark (#192) is linked as 'benchmark:<id>', so its measured sets are
+    // retrieved by that requirement without any stable-anchor state.
+    const requirementIdFor = options.requirementIdFor || (phase => phase.section === 'main' && phase.exercise.coachAnchor ? phase.exercise.coachAnchor.requirementId
+      : phase.section === 'main' && phase.benchmark ? 'benchmark:' + phase.benchmark.benchmarkId : null);
     const seen = new Set();
     return timeline.filter(phase => phase.kind === 'exercise').map(phase => {
       if (!phase.occurrenceId) throw new Error('Timeline exercise phase has no occurrenceId.');

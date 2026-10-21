@@ -190,8 +190,24 @@
     completionCriteria: {minimumMeaningfulSessions: null, requireNominalDuration: false, explicitFinish: true},
     supportsMaintenanceMode: false
   };
+  // #192 (approved Decision 7 C): General Fitness v2 adds occasional, optional embedded comparable
+  // benchmarks to v1's unchanged scheduling; saved v1 instances stay pinned. A small reviewed set of
+  // unloaded, one-set rep measurements is offered first in a suitable Strength & Control session no
+  // more than about every four weeks, never on Easy or recently demanding days, and always skippable
+  // with no debt. `setupId` is the explicit unloaded-setup identity the user confirms when recording.
+  const generalFitnessBenchmarks = {...JSON.parse(JSON.stringify(generalFitness)), version: 2,
+    benchmarkPolicy: {
+      workoutFamilyId: 'strength-control', workoutFamilyVersion: 1,
+      minimumIntervalDays: 28, minimumMeaningfulSessions: 1, minimumDurationMinutes: 20, exerciseRestSeconds: 30,
+      benchmarks: [
+        {benchmarkId: 'push-up', exerciseId: 'push-up', setupId: 'bodyweight', capability: 'push'},
+        {benchmarkId: 'air-squat', exerciseId: 'air-squat', setupId: 'bodyweight', capability: 'squat'},
+        {benchmarkId: 'leg-raises', exerciseId: 'leg-raises', setupId: 'bodyweight', capability: 'core'}
+      ],
+      consistencyWeeks: 4
+    }};
   function freeze(value) { Object.values(value).forEach(item => { if (item && typeof item === 'object') freeze(item); }); return Object.freeze(value); }
   root.GarageFitData = root.GarageFitData || {};
   root.GarageFitData.programmes = freeze({'general-strength-4w': {1: strength, 2: strengthRings}, 'build-arms': {1: arms}, 'tennis-conditioning': {1: tennis, 2: tennisContext, 3: tennisDevelopment, 4: tennisEvents, 5: tennisPilot, 6: tennisMovement, 7: tennisRings},
-    'general-fitness': {1: generalFitness}});
+    'general-fitness': {1: generalFitness, 2: generalFitnessBenchmarks}});
 })(typeof window !== 'undefined' ? window : globalThis);

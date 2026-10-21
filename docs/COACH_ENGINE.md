@@ -594,6 +594,48 @@ without a complete published identity keep neutral copy and are never given a fa
 Programme settings for a definition with `externalActivityPolicy` include an optional, editable
 "Usual activities" section over the shared preferences seam; it never blocks planning.
 
+### Optional comparable benchmarks (#192, v2)
+
+`general-fitness` **version 2** (`benchmarkPolicy`) is v1's scheduling unchanged plus the approved
+Decision 7 C: occasional, optional, embedded benchmarks. Released v1 is not edited; saved v1
+instances stay pinned and never offer one, and new starts select v2. The policy is closed and
+validated: a published family, a cadence of at least 28 days, a first-session wait, a session of
+at least 20 minutes, one fixed rest and one to four reviewed benchmarks, each an unloaded,
+bilateral, rep-based catalogue exercise. Reviewed set: push-up, air squat and leg raises (push,
+squat, core), each with the explicit unloaded setup id `bodyweight`.
+
+- **Offer.** `rationale.priorities.benchmark` explains every plan (`offered` or a reason: too-early,
+  recent-benchmark, short-session, easy-today, recovery-preferred, other-family). It is offered only
+  after a first meaningful session, at least 28 days after the last benchmark *occasion*, in a plan of
+  20 minutes or more that is not Easy, has no recovery preference, and whose first (intended) family is
+  Strength & Control. An occasion is a completed session that reached the benchmark (measured or
+  skipped) or any session that measured one; an abandoned or early exit that measured nothing does not
+  use the opportunity up. Cadence is read from saved results: no benchmark state, queue or debt is
+  stored on Programme State, and a long absence yields a single opportunity.
+- **Embedding.** The prescription's `workoutFamilyPlan.benchmark` (family, rest, items) is honoured by
+  the Generator only for the plan's first family (see [Workout families](WORKOUT_FAMILIES.md#optional-embedded-benchmark-192)).
+  The family choice, replanning and style are those of the benchmark-free plan; if the family cannot carry
+  the block it is delivered without it. Skipping any measurement in the player records nothing.
+- **Recording.** Benchmark occurrences link to requirement `benchmark:<benchmarkId>`, so the existing
+  tracker's `recordAnchor`, drafts, results and recovery carry them with no new record kind. The player
+  shows the shared actuals panel with blank reps and a confirmation that the set was bodyweight only;
+  only entered reps and a confirmed `resistanceSetup` are saved. Planned reps are never copied in.
+- **Comparison.** `GarageFitCoachGeneralFitnessPolicy.benchmarkImprovement` calls
+  `comparePerformanceEvidence`: only completed, single-set, rep-counted observations of the exact exercise
+  with a confirmed setup and no numeric load are usable, and only against an earlier observation that shares
+  exercise, side, setup, prescription mode, protocol and protocol conditions. A changed condition is shown
+  as *not enough comparable evidence* (kept separately, never converted); an improvement, a repeat and a
+  lower result are each reported as such.
+- **Progress.** The shared Your progress screen shows three separate sections for v2 and later:
+  **Training consistency** (credited sessions per recent week, zero weeks included),
+  **Capability balance** (performed training effects over the rolling window across all GarageFit
+  sources, with unmeasured work flagged) and **Demonstrated comparable improvement**. There is no combined
+  score, recovery or cardio metric. The controller reads benchmark observations by exercise for this
+  instance (bounded, newest first) and exposes them as `progressEvidence()`.
+
+`tests/general-fitness-benchmarks.test.js` covers the policy, cadence, embedding, gate, recording,
+recovery, comparison matrix, screens and the unchanged legacy paths.
+
 ## Sport profiles and instance settings
 
 `data/sport-profiles.js` defines immutable sport identities, capabilities, permitted

@@ -175,6 +175,64 @@
       return wrap;
     }
 
+    // ---- General Fitness progress (#192): three separate views, no combined score ----
+    const plural = (count, word) => count+' '+word+(count === 1 ? '' : 's');
+    const weekLabel = (week, index, total) => week.current ? 'This week' : index === total-2 ? 'Last week' : 'Week of '+new Date(week.start).toLocaleDateString(undefined, {day: 'numeric', month: 'short'});
+    // Training consistency: credited sessions per recent week, including zero weeks, with no target to repay.
+    function consistency({weeks}) {
+      const wrap = section('Training consistency · last '+weeks.length+' weeks'), list = node('ul', 'coach-history-list');
+      weeks.slice().reverse().forEach((week, index) => list.append(node('li', null, weekLabel(week, weeks.length-1-index, weeks.length)+' · '+plural(week.count, 'session'))));
+      const active = weeks.filter(week => week.count > 0).length;
+      wrap.append(list, paragraph('Active weeks · '+active+' of '+weeks.length+'. Only sessions with performed main work count. Missed weeks create no catch-up.'));
+      return wrap;
+    }
+    // Capability balance: which training effects were actually performed recently, from every GarageFit source.
+    const balanceStatus = {performed: ['✓', 'Performed'], 'not-performed': ['○', 'Not performed']};
+    function balance({summary}) {
+      const wrap = section('Capability balance · last '+summary.windowDays+' days'), grid = node('div', 'coach-progress-grid');
+      summary.effects.forEach(effect => {
+        const [icon, status] = balanceStatus[effect.status];
+        const lines = [status, effect.sessionCount ? plural(effect.sessionCount, 'session') : 'None recorded'];
+        const detail = [paragraph(effect.sessionCount ? 'Performed in '+plural(effect.sessionCount, 'session')+' in the last '+summary.windowDays+' days, across all your GarageFit workouts.'
+          : 'No performed '+effect.label+' work in the last '+summary.windowDays+' days.')];
+        grid.append(card({key: 'balance-'+effect.effect, label: title(effect.label), lines, detail, icon,
+          className: 'coach-capability-card coverage-'+(effect.status === 'performed' ? 'observed' : 'not-observed')}));
+      });
+      wrap.append(grid);
+      if (summary.unmeasuredSessions) wrap.append(paragraph(plural(summary.unmeasuredSessions, 'recent session')+' had work recorded without an amount, so it is not counted here.'));
+      if (!summary.sessionCount) wrap.append(paragraph('No performed training has been recorded in this window yet.'));
+      wrap.append(paragraph('Training coverage, not a measure of fitness. Balance guides which workout Coach suggests; there is no target to catch up on.'));
+      return wrap;
+    }
+    // Demonstrated comparable improvement: only completed, measured, identically configured benchmark results.
+    function improvementLines(item) {
+      const reps = point => point.reps+' reps · '+dateText(point.occurredAt);
+      if (item.status === 'none') return {line: 'Not measured yet', detail: ['No benchmark has been recorded for '+item.label+'. It is optional.']};
+      if (item.status === 'unmeasured') return {line: 'Not enough comparable evidence', detail: [
+        'It was done without a completed, rep-counted result with a confirmed bodyweight setup, so it cannot be compared.']};
+      if (item.status === 'baseline') return {line: 'Not enough comparable evidence', detail: ['Baseline · '+reps(item.latest), 'Repeat it in a later benchmark to compare.']};
+      if (item.status === 'not-comparable') return {line: 'Not enough comparable evidence', detail: ['Latest · '+reps(item.latest),
+        'Earlier results used different conditions, so they are kept separately and not compared.']};
+      const change = item.status === 'improved' ? 'Improved · '+item.previous.reps+' → '+item.latest.reps+' reps' : item.status === 'same' ? 'Same as last time · '+item.latest.reps+' reps'
+        : 'Lower than last time · '+item.previous.reps+' → '+item.latest.reps+' reps';
+      return {line: change, detail: ['Latest · '+reps(item.latest), 'Compared with · '+reps(item.previous),
+        'Same exercise, bodyweight setup and protocol conditions.', ...(item.incomparable ? [plural(item.incomparable, 'earlier result')+' used different conditions and were not compared.'] : [])]};
+    }
+    function improvement({items, interval}) {
+      const wrap = section('Demonstrated comparable improvement'), grid = node('div', 'coach-progress-grid');
+      const improved = items.filter(item => item.status === 'improved').length, compared = items.filter(item => ['improved','same','lower'].includes(item.status)).length;
+      wrap.append(paragraph(compared ? improved+' of '+compared+' compared benchmark'+(compared === 1 ? '' : 's')+' improved. Each is compared only with an earlier identical measurement.'
+        : 'Not enough comparable evidence yet. Improvement is shown only when the same benchmark is recorded again under identical conditions.'));
+      items.forEach(item => {
+        const {line, detail} = improvementLines(item);
+        const extra = item.unusable && item.status !== 'unmeasured' ? [paragraph(plural(item.unusable, 'result')+' could not be used because reps, completion or setup were not recorded.')] : [];
+        grid.append(card({key: 'benchmark-'+item.benchmarkId, label: item.label, lines: [title(item.capability), line], detail: [...detail.map(paragraph), ...extra],
+          className: 'coach-capability-card coverage-'+(item.status === 'improved' ? 'observed' : 'not-observed')}));
+      });
+      wrap.append(grid, paragraph('Optional benchmarks appear first in a suitable Strength & Control session of '+interval.minutes+' minutes or more, about every '+interval.days/7+' weeks at most. Skipping one has no effect on anything else.'));
+      return wrap;
+    }
+
     function sessionHistory({state, results}) {
       const wrap = section('Recent sessions'), summaries = new Map((state.recentSessionSummaries || []).map(item => [item.sessionResultId, item]));
       const recent = results.filter(result => result.programmeInstanceId === state.programmeInstanceId).slice(-5).reverse();
@@ -197,7 +255,7 @@
       return wrap;
     }
 
-    return {strengthTargets, capabilityGrid, armsExposure, sessionHistory, section};
+    return {strengthTargets, capabilityGrid, armsExposure, consistency, balance, improvement, sessionHistory, section};
   }
   root.GarageFitCoachProgressUI = {createViews, workoutIdentity, sectionLabel, prescriptionText, lastPerformed, nextProgression, loadText};
 })(typeof window !== 'undefined' ? window : globalThis);

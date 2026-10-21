@@ -40,7 +40,8 @@
     const {duration,difficulty,catalogue}=options,owned=options.equipment||[],random=options.random||Math.random;
     const allowed=constraints(options),budget=G.BUDGETS[duration];
     const pool=Object.values(catalogue).filter(ex=>G.generatedPhaseEligible(ex,'main',owned,difficulty)&&allowed(ex)&&suitable(ex,difficulty));
-    return {label,focus,duration,difficulty,catalogue,owned,random,pool,target:budget.main-MARGIN,
+    // A Coach benchmark block (#192) is placed after composition; its time is taken from Main up front.
+    return {label,focus,duration,difficulty,catalogue,owned,random,pool,target:budget.main-MARGIN-(options.reservedMainSeconds||0),
       history:options.history||[],recent:options.recentProtocols||[],bodyFocus:request.bodyFocus};
   }
 

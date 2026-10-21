@@ -16,8 +16,8 @@
   // Saved Coach results credited to this programme that ended in the current local
   // week. The applied ledger excludes saved-but-uncredited evidence; retained
   // summaries preserve a previous non-meaningful credit decision.
-  function creditedThisWeek({state,results,catalogue,now}) {
-    const {start,end}=localWeek(now), summaries=new Map((state.recentSessionSummaries || []).map(item=>[item.sessionResultId,item]));
+  function creditedThisWeek({state,results,catalogue,now,week}) {
+    const {start,end}=week || localWeek(now), summaries=new Map((state.recentSessionSummaries || []).map(item=>[item.sessionResultId,item]));
     const applied=new Set([...(state.currentTargets.reconciliation?.appliedSessionResultIds || []),state.lastAppliedSessionResultId,...summaries.keys()]);
     const candidates=[...new Map(results.filter(result=>result.source==='coach' && result.programmeInstanceId===state.programmeInstanceId
       && applied.has(result.sessionResultId) && ['completed','partial'].includes(result.finalStatus)
@@ -113,6 +113,20 @@
       label:aim ? count+' of '+aim+plural(aim)+' this week' : count+plural(count)+' this week',
       note:aim ? frequency.minSessionsPerWeek+' is acceptable' : frequency.minSessionsPerWeek+'–'+frequency.maxSessionsPerWeek+' recommended'+(maintenance?' in maintenance':'')};
   }
+  // Credited sessions in each of the last N local weeks (oldest first), by the same credit rule as
+  // the current-week card. Zero weeks are shown as zero: there is no target to repay (#192).
+  function weeklyConsistency({definition,state,results,catalogue,now,weeks}) {
+    const policy=(policyRegistry=policyRegistry || root.GarageFitCoachPolicies.createDefaultRegistry()).get(definition.type);
+    const current=localWeek(now).start, list=[];
+    for (let offset=0;offset<weeks;offset++) {
+      const start=new Date(current); start.setDate(start.getDate()-7*offset);
+      const end=new Date(start); end.setDate(end.getDate()+7);
+      const {candidates,history}=creditedThisWeek({state,results,catalogue,now,week:{start,end}});
+      const count=candidates.filter(result=>policy.interpretDose({definition,state,result,history,evidence:history.sessionEvidence(result.sessionResultId)}).meaningful).length;
+      list.unshift({start:start.toISOString(),count,current:offset===0});
+    }
+    return list;
+  }
   // The display name and purpose of a published workout family version, or null.
   function familyDefinition(workoutFamilyId, workoutFamilyVersion) {
     const versions=root.GarageFitData.workoutFamilies?.[workoutFamilyId];
@@ -135,8 +149,25 @@
     const meaningful = root.GarageFitCoachRecovery.meaningful;
     const recovery = root.GarageFitCoachRecovery.createRecovery({store, engine, definitionFor});
     let errors = [], blocked = false;
+    // Benchmark observations (#192) can be older than the rolling window, so they are read by exercise from
+    // this instance's saved results (bounded, newest first), alongside the window already loaded.
+    const BENCHMARK_HISTORY_LIMIT = 24;
+    let benchmarkResults = [], contextResults = [];
+    async function loadBenchmarkResults(def) {
+      benchmarkResults = []; contextResults = [];
+      if (!def.benchmarkPolicy) return;
+      const found = new Map(), prefix = root.GarageFitCoachGeneralFitnessPolicy.BENCHMARK_PREFIX;
+      for (const item of def.benchmarkPolicy.benchmarks) {
+        const query = await store.listSessionResults({programmeInstanceId: state.programmeInstanceId, exerciseId: item.exerciseId, limit: BENCHMARK_HISTORY_LIMIT});
+        errors.push(...query.errors); query.results.forEach(result => found.set(result.sessionResultId, result));
+      }
+      results.forEach(result => { if (result.programmeInstanceId === state.programmeInstanceId) found.set(result.sessionResultId, result); });
+      benchmarkResults = [...found.values()].filter(result => (result.plannedWork || []).some(item => typeof item.requirementId === 'string' && item.requirementId.startsWith(prefix)))
+        .sort((a,b) => Date.parse(a.endedAt) - Date.parse(b.endedAt));
+      contextResults = results.slice();
+    }
     async function recentHistory() {
-      if (!state) { results = []; return; }
+      if (!state) { results = []; benchmarkResults = []; contextResults = []; return; }
       const def = definition(), now=clock(), since = new Date(Math.min(localWeek(now).start.getTime(),
         Date.parse(now) - Math.max(def.coverageTargets.windowDays, def.doseTargets.windowDays || 0) * 86400000)).toISOString();
       const scoped = {programmeInstanceId: state.programmeInstanceId};
@@ -155,6 +186,7 @@
         catch (error) { errors.push(error); }
       }
       results = [...byId.values()].sort((a,b) => Date.parse(a.endedAt) - Date.parse(b.endedAt));
+      await loadBenchmarkResults(def);
     }
     async function load(force = false) {
       errors = []; blocked = false;
@@ -183,6 +215,8 @@
       preview, errors: errors.slice(), blocked, interruptedDraft: draft && !tracker ? clone(draft) : null,
       // Loaded only for a definition that uses them; null there means the record could not be read.
       externalPreferences: externalPreferences && clone(externalPreferences)}; }
+    // Evidence for the optional benchmark views: read-only copies, empty for a definition without benchmarks.
+    function progressEvidence() { return {benchmarkResults: clone(benchmarkResults), contextResults: clone(contextResults)}; }
     function assess(def, equipment, programmeSettings) { return engine.assessProgrammeFeasibility(def,
       {equipment, ...(programmeSettings === undefined ? {} : {programmeSettings})}); }
     async function start(def, equipment, programmeSettings) {
@@ -352,7 +386,7 @@
     };
     const externalActivityContext = async (sessionContext = {}) => Model().externalActivityContext(
       await store.loadCoachPreferences(), sessionContext, localDay(clock()));
-    return {load, snapshot, assess, start, plan, prepare, previewToday, alternatives, substitute, restore, begin, finish, manage, saveProgrammeSettings, trainingEvidence,
+    return {load, snapshot, progressEvidence, assess, start, plan, prepare, previewToday, alternatives, substitute, restore, begin, finish, manage, saveProgrammeSettings, trainingEvidence,
       saveExternalActivityPreferences, clearExternalActivityPreferences, externalActivityContext,
       saveSportReview, variationRecommendations, confirmVariation, declineVariation, sportReview: () => engine.sportReview(definition(),state,clock()),
       review: () => engine.programmeReview(definition(), state, clock())};
@@ -373,6 +407,7 @@
       node.className = primary ? 'generator-primary' : 'ctrl-btn ctrl-secondary'; node.onclick = () => run(action); return node;
     }
     function paragraph(text) { const node = document.createElement('p'); node.textContent = text; return node; }
+    const plural=(count,word)=>count+' '+word+(count===1?'':'s');
     function heading(text) { const node = document.createElement('h2'); node.textContent = text; return node; }
     const tennisViews = root.GarageFitCoachTennisUI.createViews({button,paragraph,heading,catalogue});
     const progressViews = root.GarageFitCoachProgressUI.createViews({button,paragraph,heading,catalogue});
@@ -834,6 +869,14 @@
       wrap.append(intro,phase);
       if (state.anchors.length) wrap.append(progressViews.strengthTargets({state,history,holdReason:hold}));
       if (def.doseTargets.directElbowActions) wrap.append(progressViews.armsExposure({definition:def,state,history,now}));
+      if (def.benchmarkPolicy) {
+        // Three separate views of General Fitness progress; there is no combined fitness score.
+        const policy=root.GarageFitCoachGeneralFitnessPolicy, evidence=controller.progressEvidence();
+        wrap.append(progressViews.consistency({weeks:weeklyConsistency({definition:def,state,results:current.results,catalogue,now,weeks:def.benchmarkPolicy.consistencyWeeks})}),
+          progressViews.balance({summary:policy.balanceSummary({definition:def,history:root.GarageFitTrainingHistory.createHistory(evidence.contextResults,catalogue),catalogue,now})}),
+          progressViews.improvement({items:policy.benchmarkImprovement({definition:def,state,history:root.GarageFitTrainingHistory.createHistory(evidence.benchmarkResults,catalogue)}),
+            interval:{days:def.benchmarkPolicy.minimumIntervalDays,minutes:def.benchmarkPolicy.minimumDurationMinutes}}));
+      }
       if (isTennis()) {
         const pin=def.sportPolicy, policy=root.GarageFitSportCoverage.createPolicy(root.GarageFitData.sportCapabilityPolicies[pin.sportId][pin.version],catalogue);
         const summary=plan?.rationale.priorities.coverage || policy.summarize(history,{now,programmeInstanceId:state.programmeInstanceId,
@@ -901,6 +944,7 @@
           paragraph(def.sessionTemplate.duration+' minutes by default; '+list(def.supportedDurations.filter(duration=>duration!==def.sessionTemplate.duration))+' minutes when needed. Each session chooses one workout type ('
             +list(families)+') from the training you have actually done. No fixed targets or catch-up debt.'),
           paragraph(assessment.status==='infeasible'?'Blocked · '+conflictText(assessment.conflicts):'Each session is built from the equipment you choose that day.'),
+          ...(def.benchmarkPolicy ? [paragraph('Every four weeks or so, a short optional benchmark may be offered first in a suitable Strength & Control session so you can compare like with like. Skip it any time; nothing is owed.')] : []),
           ...(def.externalActivityPolicy ? [paragraph('Optional: add activities you usually do outside GarageFit later in Programme settings.')] : []),
           button('Set up usual equipment',() => root.openEquipment('coach')));
         if (assessment.status!=='infeasible') wrap.append(button('Start programme',async () => {
@@ -994,6 +1038,8 @@
       wrap.append(header);
       messages.status.forEach(message => { const node=text('p','coach-preview-status',message); node.setAttribute('role','status'); wrap.append(node); });
       messages.notices.forEach(message => wrap.append(text('p','coach-preview-notice',message)));
+      // An optional benchmark is described once, plainly, and can be skipped measurement by measurement.
+      if (workout.main.blocks.some(block=>block.benchmark)) wrap.append(text('p','coach-preview-notice','Optional benchmark first: one set each of a few bodyweight exercises, repeated about every four weeks so you can compare. Skip any of it from the player; nothing is owed.'));
       function section(title, list) {
         const node=document.createElement('section'); node.className='coach-preview-section';
         node.append(ui.sectionHeading(title),list); wrap.append(node);
@@ -1010,7 +1056,7 @@
       phase('Warm-up',workout.warmup); phase('Ramp-up',workout.rampup);
       const blocks=workout.main.blocks, main=text('ol','preview-list','');
       blocks.forEach((block,index) => {
-        main.append(ui.blockHeading({index,total:blocks.length,prescription:blockLabel(block)}));
+        main.append(ui.blockHeading({index,total:blocks.length,prescription:(block.benchmark ? 'Optional benchmark · ' : '')+blockLabel(block)}));
         block.exercises.forEach((exercise,exerciseIndex) => {
           ui.appendSetupTransitions(main,workout,{section:'main',blockIndex:index,exerciseIndex});
           const anchor=exercise.coachAnchor, target=!!anchor && stable.has(anchor.requirementId), controls=[];
@@ -1021,13 +1067,13 @@
               if (!revised.workout) { previewEditing=false; showScreen('coach'); render(); showBlocked(revised); return; }
               renderPreview(revised);
             }));
-          } else if (previewEditing && (!anchor || anchor.importance!=='required')) {
+          } else if (previewEditing && !block.benchmark && (!anchor || anchor.importance!=='required')) {
             controls.push(rowControl('Swap','Swap '+exercise.name,() => { root.GarageFitGenerator.swap(workout,index,exerciseIndex,{catalogue,equipment:preview.today.equipment}); renderPreview(preview); }));
           }
           main.append(ui.exerciseRow({index:exerciseIndex,marker:ui.supersetMarker(block,exerciseIndex),name:exercise.name,
-            prescription:ui.occurrenceTargetLabel(block,exerciseIndex)||(target ? targetPrescription(exercise,block) : block.protocol==='emom' ? ui.emomTargetLabel(block,exerciseIndex) : block.protocol==='timed_intervals' ? block.prescription.workSeconds+' sec' : ui.formatPrescription(exercise)),
-            targetLabel:target ? 'Strength target' : null, instruction:catalogue[exercise.id]?.instruction,
-            cue:[target ? effortCue(anchor,context) : null,...(exercise.timedCues || []).map(cue=>cue.text)].filter(Boolean).join(' · '),controls}));
+            prescription:block.benchmark ? 'As many controlled reps as you can' : ui.occurrenceTargetLabel(block,exerciseIndex)||(target ? targetPrescription(exercise,block) : block.protocol==='emom' ? ui.emomTargetLabel(block,exerciseIndex) : block.protocol==='timed_intervals' ? block.prescription.workSeconds+' sec' : ui.formatPrescription(exercise)),
+            targetLabel:target ? 'Strength target' : block.benchmark ? 'Optional benchmark' : null, instruction:catalogue[exercise.id]?.instruction,
+            cue:[target ? effortCue(anchor,context) : block.benchmark ? 'Record your reps in the player, or skip' : null,...(exercise.timedCues || []).map(cue=>cue.text)].filter(Boolean).join(' · '),controls}));
         });
       });
       section('Main workout · '+blocks.length+' block'+(blocks.length===1?'':'s'),main);
@@ -1070,9 +1116,27 @@
       const state=controller.snapshot().state;
       return anchor && anchor.importance==='required' && state && state.anchors.some(item=>item.requirementId===anchor.requirementId);
     }
+    // An embedded optional benchmark (#192): an unloaded one-set rep measurement. It reuses the anchor
+    // actuals panel; only reps the user enters and an explicitly confirmed setup are recorded.
+    function isBenchmarkPhase(phase) {
+      return !!phase && phase.kind==='exercise' && phase.section==='main' && phase.protocol==='rounds' && !phase.timed && !!phase.benchmark;
+    }
+    function renderBenchmark(phase, tracker) {
+      const benchmark=phase.benchmark, existing=tracker.outcome(phase.occurrenceId), actual=existing && existing.sets && existing.sets[0];
+      activeResistance={requirementId:'benchmark:'+benchmark.benchmarkId, setup:benchmark.setupId, numericLoad:false, ready:false, benchmark:true};
+      el('coachResistanceSetup').classList.remove('hidden'); el('coachNumericLoad').classList.add('hidden');
+      el('coachHarderSetupLabel').classList.add('hidden'); el('coachHarderSetup').checked=false;
+      el('coachSameSetupText').textContent='I did this with bodyweight only, no added load';
+      el('coachSameSetup').checked=!!(actual && actual.resistanceSetup);
+      el('coachAnchorPlanned').textContent='Optional benchmark · do as many controlled reps as you can in one set, then enter them. Skip it any time; nothing is owed.';
+      el('coachActualReps').value=actual && actual.reps!==undefined && actual.reps!==null ? actual.reps : '';
+      el('coachAnchorEdit').open=true; updateActualSummary();
+    }
     function renderAnchor(phase, tracker) {
-      const anchor=sessionActive && isProgressionAnchor(phase) && phase.exercise.coachAnchor;
-      el('coachAnchorLog').classList.toggle('hidden',!anchor); el('coachSkipBtn').classList.toggle('hidden',!sessionActive || !phase || phase.kind!=='exercise' || phase.timed);
+      const benchmark=sessionActive && isBenchmarkPhase(phase), anchor=!benchmark && sessionActive && isProgressionAnchor(phase) && phase.exercise.coachAnchor;
+      el('coachAnchorLog').classList.toggle('hidden',!anchor && !benchmark); el('coachSkipBtn').classList.toggle('hidden',!sessionActive || !phase || phase.kind!=='exercise' || phase.timed);
+      el('coachSameSetupText').textContent='I used the same resistance setup';
+      if (benchmark) { renderBenchmark(phase,tracker); return; }
       if (!anchor) return;
       const preview=controller.snapshot().preview, resistance=preview.plan.prescription.programmeContext.anchorResistance;
       activeResistance=resistance && resistance[anchor.requirementId] ? {...resistance[anchor.requirementId],requirementId:anchor.requirementId, prescriptionId:preview.plan.prescription.prescriptionId} : null;
@@ -1092,7 +1156,10 @@
     function actualSet() {
       const reps=el('coachActualReps').value, load=el('coachActualLoad').value;
       const set={reps: reps===''?null:Number(reps), load:load===''?null:Number(load)};
-      if (activeResistance && !activeResistance.numericLoad) {
+      if (activeResistance && activeResistance.benchmark) {
+        set.load=null;
+        if (el('coachSameSetup').checked) set.resistanceSetup=activeResistance.setup;
+      } else if (activeResistance && !activeResistance.numericLoad) {
         set.load=null;
         if (el('coachSameSetup').checked || el('coachHarderSetup').checked) set.resistanceSetup=el('coachHarderSetup').checked
           ? activeResistance.prescriptionId : sessionSetups[activeResistance.requirementId] || activeResistance.setup;
@@ -1102,13 +1169,20 @@
       return set;
     }
     function updateActualSummary() {
-      try { const set=actualSet(); el('coachActualSummary').textContent='Next confirms: '+(set.reps===null?'unknown reps':set.reps+' reps')+' · '+(activeResistance && !activeResistance.numericLoad ? set.resistanceSetup?'resistance setup confirmed':'setup unknown; progression held' : set.load===null?'load unknown':set.load+' '+set.loadUnit+(set.loadInterpretation==='per-item'?' each':' total')); } catch(error) { el('coachActualSummary').textContent=error.message; }
+      try { const set=actualSet();
+        if (activeResistance && activeResistance.benchmark) { el('coachActualSummary').textContent='Optional benchmark · Next records: '+(set.reps===null?'reps not entered, so nothing to compare':set.reps+' reps')
+          +(set.resistanceSetup?' · bodyweight setup confirmed':set.reps===null?'':' · setup not confirmed, so it cannot be compared'); return; }
+        el('coachActualSummary').textContent='Next confirms: '+(set.reps===null?'unknown reps':set.reps+' reps')+' · '+(activeResistance && !activeResistance.numericLoad ? set.resistanceSetup?'resistance setup confirmed':'setup unknown; progression held' : set.load===null?'load unknown':set.load+' '+set.loadUnit+(set.loadInterpretation==='per-item'?' each':' total')); } catch(error) { el('coachActualSummary').textContent=error.message; }
     }
     async function record(phase, tracker, action, elapsed) {
       if (busy) return false; return run(async () => {
         if (!phase || phase.kind!=='exercise') return true;
         if (phase.timed) await tracker.recordTimed(phase.occurrenceId,{plannedSeconds:phase.seconds,elapsedSeconds:elapsed});
         else if (action==='skip' || ['emom','ladder','pyramid','complex','density'].includes(phase.protocol) && action!=='done') await tracker.recordSkip(phase.occurrenceId);
+        else if (isBenchmarkPhase(phase) && sessionActive) {
+          // Done records exactly what was entered: blank reps or an unconfirmed setup stay unknown.
+          const set=actualSet(); await tracker.recordAnchor(phase.occurrenceId,{status:'completed',sets:[set],targetAchieved:null});
+        }
         else if (isProgressionAnchor(phase)) { const set=actualSet(); await tracker.recordAnchor(phase.occurrenceId,{status:'completed',sets:[set],targetAchieved:set.reps===null?null:set.reps>=phase.exercise.prescription.value}); if (set.resistanceSetup) sessionSetups[activeResistance.requirementId]=set.resistanceSetup; }
         else await tracker.recordDone(phase.occurrenceId);
         return true;
@@ -1123,16 +1197,17 @@
     async function saveFeedback(value) {
       await run(async () => { const result=await controller.finish(endKind,{difficulty:value},endSeconds); sessionActive=false;
         const stableIds=new Set(controller.snapshot().state.anchors.map(anchor=>anchor.requirementId));
-        const recorded=result.anchorResults.filter(item=>item.status!=='skipped' && (!isTennis() || stableIds.has(item.requirementId))).length;
+        const recorded=result.anchorResults.filter(item=>item.status!=='skipped' && !item.requirementId.startsWith('benchmark:') && (!isTennis() || stableIds.has(item.requirementId))).length;
+        const measured=result.anchorResults.filter(item=>item.requirementId.startsWith('benchmark:') && item.status==='completed' && item.sets && item.sets.some(set=>set.reps!==null && set.reps!==undefined)).length;
         const identity=root.GarageFitCoachProgressUI.workoutIdentity(result);
         lastSaved=result.finalStatus==='abandoned'?'Session saved · no meaningful main work recorded.'
           : stableIds.size ? 'Session saved · '+result.finalStatus+' · '+recorded+' anchors recorded'
-          : ['Session saved',result.finalStatus,identity?.label].filter(Boolean).join(' · ');
+          : ['Session saved',result.finalStatus,identity?.label,measured ? plural(measured,'benchmark')+' recorded' : null].filter(Boolean).join(' · ');
         resetOptions(); showScreen('coach'); render(); });
     }
     return {open, overview, controller, renderAnchor, record, showEnd, saveFeedback, updateActualSummary,
       isActive: () => sessionActive, run, backFromSubstitute, openProgress, openSettings, back: () => {previewEditing=false;showScreen('coach');render();},
       init: () => { initialisation=run(() => controller.load()); return initialisation; }};
   }
-  root.GarageFitCoachUI = {createController, mount, tennisWeeklyProgress, programmeWeeklyProgress, previewMessages};
+  root.GarageFitCoachUI = {createController, mount, tennisWeeklyProgress, programmeWeeklyProgress, weeklyConsistency, previewMessages};
 })(typeof window !== 'undefined' ? window : globalThis);
