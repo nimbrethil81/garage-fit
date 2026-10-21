@@ -371,3 +371,59 @@ schema/migration decision in `js/coach-model.js`.
 4. Add player labels and preview text in its playback ticket.
 5. Define conservative eligibility from existing metadata where possible, and add it to
    `GENERATED_PROTOCOLS` only in the ticket that authorises selecting it.
+
+
+## Planned equipment setup changes
+
+`normaliseWorkout` owns the derived `workout.setupTransitions` plan (omitted when
+there are no changes). Each entry identifies the upcoming `section`, optional
+`blockIndex`, and `exerciseIndex`, its `fromProfile` / `toProfile`, the plain-text
+`instruction`, and three timing values: `seconds`, `replacesSeconds`, and
+`additionalSeconds`. `setupEquipment` retains the selected equipment for profile
+resolution across normalisation and swaps. Currently the supported `rings-*`
+profiles describe the resolved rings resource; an accompanying bench and unused
+equipment alternatives do not acquire a ring-height configuration.
+
+The pure `planSetupTransitions` helper remembers configuration through bodyweight
+and other-equipment exercises. Matching profiles need no change. The first use
+has no known previous height and adds no adjustment. Ramp-up remains its separate
+preparation flow; the generated workout timeline is Warm-up → Main → Cool-down.
+Phase-boundary and within-phase changes use this same plan. Incompatible repeated
+blocks fail the existing setup compatibility rule; Coach reserves compatible
+blocks separately, or reports its existing partner/time conflicts.
+
+An adjustment reserves **at least 45 seconds**, replacing the ordinary boundary
+rest/changeover rather than adding another rest. A longer existing recovery stays
+intact. Forty-five seconds is a conservative planning allowance for releasing and
+adjusting both straps, levelling the rings, and checking both buckles; it is not a
+universal setup time or a safety deadline. The player and preview say to use the
+existing Pause control if more time is needed. There is no new setting or control.
+
+Main timing sums the protocol work/rest budgets, normal inter-block transitions,
+and all planned Main setup increments exactly once. It must use the global plan:
+a remembered high setup can change at the second exercise of a later block even
+though that block has no isolated internal adjustment. Overall estimates also add
+Warm-up/Cool-down setup increments. The historical ready (3 s) and two generic
+phase transitions (3 s each) remain outside `estimatedSeconds`; Ramp-up remains
+inside that estimate. Replacing a generic phase transition with 45 seconds therefore
+adds **42 seconds** to both the estimate and the played schedule, retaining the
+same legacy nine-second offset. No-ring estimates, random draws, and seeded output
+remain unchanged. Rep-work durations are still estimates, and fixed EMOM/density
+clocks retain their existing envelopes.
+
+Coach required-work preflight, composition, final duration reconciliation and
+prospective swaps share these timing helpers. Profile-bearing generated plans
+respect the nominal duration and any prescribed Main limit; standalone Main targets
+retain their established fitting tolerance. Only optional repeat counts or
+density caps may shrink to pay for setup, and required Coach doses never shrink.
+Preparation swaps include the rounded replacement dose and all resulting setup
+increments before accepting a candidate. Current catalogue rings are Main-only;
+actual phase allowances are reconciled from the selected preparation, and hard
+limits fail explicitly if required work cannot fit.
+
+Preview and player consume the normalized plan directly. A `setup-transition`
+replaces the corresponding timeline rest/boundary (or is inserted when no rest
+exists), displays/speaks the planned instruction and allowance, and uses the
+existing countdown/Pause/Next machinery. It has no occurrence id or exercise
+outcome. Session Tracker and Coach continue to derive evidence exclusively from
+exercise phases, so adjusting equipment cannot earn performed-work credit.

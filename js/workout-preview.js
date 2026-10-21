@@ -21,6 +21,18 @@
     return row;
   }
 
+  function setupTransitionRow(change,phaseLabel) {
+    const row=text('li','preview-setup-transition','');
+    row.append(text('span','preview-index','↔'),text('div','preview-exercise',(phaseLabel?phaseLabel+' · ':'')+change.instruction));
+    row.children[1].append(text('span','preview-prescription',change.seconds+' sec planned allowance · Pause if you need longer'));
+    return row;
+  }
+  function appendSetupTransitions(list,workout,location) {
+    (workout.setupTransitions||[]).filter(change=>change.section===location.section
+      &&change.exerciseIndex===location.exerciseIndex&&(location.section!=='main'||change.blockIndex===location.blockIndex))
+      .forEach(change=>list.appendChild(setupTransitionRow(change)));
+  }
+
   function instructionDisclosure(instruction) {
     if (!instruction) return null;
     const details=root.document.createElement('details'); details.className='exercise-instruction';
@@ -98,5 +110,5 @@
     }).join(' → ');
   }
 
-  root.GarageFitWorkoutPreview={sectionHeading,blockHeading,exerciseRow,instructionDisclosure,formatPrescription,protocolLabel,supersetMarker,emomTargetLabel,occurrenceTargetLabel};
+  root.GarageFitWorkoutPreview={sectionHeading,blockHeading,setupTransitionRow,appendSetupTransitions,exerciseRow,instructionDisclosure,formatPrescription,protocolLabel,supersetMarker,emomTargetLabel,occurrenceTargetLabel};
 })(typeof window==='undefined' ? globalThis : window);

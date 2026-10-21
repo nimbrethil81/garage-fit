@@ -830,7 +830,10 @@
       function phase(title, part) {
         if (!part || !part.exercises.length) return;
         const list=text('ol','preview-list','');
-        part.exercises.forEach((exercise,index) => list.append(ui.exerciseRow({index,name:exercise.name,prescription:ui.formatPrescription(exercise)})));
+        part.exercises.forEach((exercise,index) => {
+          ui.appendSetupTransitions(list,workout,{section:title==='Warm-up'?'warmup':title==='Cool-down'?'cooldown':'rampup',exerciseIndex:index});
+          list.append(ui.exerciseRow({index,name:exercise.name,prescription:ui.formatPrescription(exercise)}));
+        });
         section(title+' · '+Math.round(part.estimatedSeconds/60)+' min',list);
       }
       phase('Warm-up',workout.warmup); phase('Ramp-up',workout.rampup);
@@ -838,6 +841,7 @@
       blocks.forEach((block,index) => {
         main.append(ui.blockHeading({index,total:blocks.length,prescription:blockLabel(block)}));
         block.exercises.forEach((exercise,exerciseIndex) => {
+          ui.appendSetupTransitions(main,workout,{section:'main',blockIndex:index,exerciseIndex});
           const anchor=exercise.coachAnchor, target=!!anchor && stable.has(anchor.requirementId), controls=[];
           if (previewEditing && target) {
             controls.push(rowControl('Substitute','Substitute '+exercise.name,() => showSubstitutes(anchor.requirementId,preview.today)));
