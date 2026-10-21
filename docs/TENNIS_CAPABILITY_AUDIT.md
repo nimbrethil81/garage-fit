@@ -7,8 +7,12 @@ performance. This document owns the conservative editorial limits and catalogue
 gaps. [The Coach contract](COACH_ENGINE.md#sport-capability-coverage) owns the
 coverage API and programme policy.
 
-New Tennis v6 programmes use mapping v2; saved v1–v5 programmes retain mapping v1.
-The table describes current mapping v2 unless a version is named.
+New Tennis v7 programmes use mapping v3; saved v6 programmes retain mapping v2 and
+saved v1–v5 programmes retain mapping v1. Mapping v3 equals v2 plus reviewed ring
+entries: ring rows and ring press-ups as general `push-pull`, and ring face pulls as
+`shoulder-support`. Other ring entries stay unmapped (see
+[rings in Coach](COACH_ENGINE.md#gymnastic-rings-in-coach-programmes-146)).
+The table describes mapping v2 unless a version is named.
 
 ## Coverage available now
 

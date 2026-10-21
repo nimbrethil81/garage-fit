@@ -33,6 +33,15 @@
     feasibilityRequirements: {minimumDurationMinutes: 20, requiredPatterns: ['squat','hinge','lunge','push','pull','core','carry']},
     completionCriteria: {minimumMeaningfulSessions: null, requireNominalDuration: false, blockMeaningfulSessionTarget: 8, explicitFinish: true}
   };
+  // #146: rings are optional equipment. New starts may use ring rows/pull-ups/chin-ups
+  // and ring press-ups as comparable rep-based anchors. They are appended after the
+  // released choices, so owners of other kit keep their v1 default anchors; rings
+  // become the default only when no earlier choice is available. Timed support holds,
+  // dips and supporting-role ring work are not anchors. Saved v1 programmes keep v1.
+  const strengthRings = JSON.parse(JSON.stringify(strength));
+  strengthRings.version = 2;
+  strengthRings.anchorSelectionPolicy.requirements.find(item => item.pattern === 'push').exerciseIds.push('ring-press-up');
+  strengthRings.anchorSelectionPolicy.requirements.find(item => item.pattern === 'pull').exerciseIds.push('ring-row','ring-pull-up','ring-chin-up');
   // Production parameters approved in #61, issuecomment-6122051820.
   const directAnchor = (action, pattern) => ({requirementId: 'anchor-'+action, directElbowAction: action, pattern,
     role: 'primary', importance: 'required', targetSets: 3, prescriptionMode: 'reps',
@@ -135,7 +144,15 @@
       'movement-power': ['lateral-movement','trunk','power'],
       'conditioning-resilience': ['lateral-movement','trunk','endurance']
     }}};
+  // #146: v7 pins Tennis capability mapping v3, which credits the reviewed ring
+  // row/press-up as push-pull work and the ring face pull as shoulder support. Ring
+  // anchors are appended after the released choices; pull-ups, dips, holds and other
+  // stability-heavy ring work are deliberately not Tennis anchors.
+  const tennisRings = {...JSON.parse(JSON.stringify(tennisMovement)), version: 7,
+    sportPolicy: {sportId: 'tennis', version: 3}};
+  tennisRings.anchorSelectionPolicy.requirements.find(item => item.roleId === 'push').exerciseIds.push('ring-press-up');
+  tennisRings.anchorSelectionPolicy.requirements.find(item => item.roleId === 'pull').exerciseIds.push('ring-row');
   function freeze(value) { Object.values(value).forEach(item => { if (item && typeof item === 'object') freeze(item); }); return Object.freeze(value); }
   root.GarageFitData = root.GarageFitData || {};
-  root.GarageFitData.programmes = freeze({'general-strength-4w': {1: strength}, 'build-arms': {1: arms}, 'tennis-conditioning': {1: tennis, 2: tennisContext, 3: tennisDevelopment, 4: tennisEvents, 5: tennisPilot, 6: tennisMovement}});
+  root.GarageFitData.programmes = freeze({'general-strength-4w': {1: strength, 2: strengthRings}, 'build-arms': {1: arms}, 'tennis-conditioning': {1: tennis, 2: tennisContext, 3: tennisDevelopment, 4: tennisEvents, 5: tennisPilot, 6: tennisMovement, 7: tennisRings}});
 })(typeof window !== 'undefined' ? window : globalThis);

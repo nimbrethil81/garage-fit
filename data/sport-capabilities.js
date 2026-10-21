@@ -50,10 +50,18 @@
   tennisHome.capabilities.find(cap => cap.id === 'lower-body').mappings.push(
     group(['kettlebell-lateral-lunge','reverse-lunge-knee-drive'], 'strength-stability',
       'Controlled lower-body loading and balance; knee drive is not automatic explosive power or lateral braking.'));
+  // v3 (#146) adds reviewed ring entries only: ring rows and press-ups are general
+  // push/pull capacity like their TRX/floor equivalents; ring face pulls are controlled
+  // shoulder support. Ring pull-ups, dips, support holds, knee raises and fallouts stay
+  // unmapped (stability-heavy or not tennis-relevant) and earn no capability credit.
+  const tennisRings = {...JSON.parse(JSON.stringify(tennisHome)), version: 3};
+  const ringUpper = tennisRings.capabilities.find(cap => cap.id === 'upper-body').mappings;
+  ringUpper.find(mapping => mapping.facet === 'push-pull').exerciseIds.push('ring-row','ring-press-up');
+  ringUpper.find(mapping => mapping.facet === 'shoulder-support').exerciseIds.push('ring-face-pull');
   function freeze(value) {
     Object.values(value).forEach(item => { if (item && typeof item === 'object') freeze(item); });
     return Object.freeze(value);
   }
   root.GarageFitData = root.GarageFitData || {};
-  root.GarageFitData.sportCapabilityPolicies = freeze({tennis: {1: tennis, 2: tennisHome}});
+  root.GarageFitData.sportCapabilityPolicies = freeze({tennis: {1: tennis, 2: tennisHome, 3: tennisRings}});
 })(typeof window !== 'undefined' ? window : globalThis);
