@@ -55,6 +55,14 @@
   function previewMessages({plan, workout, state, catalogue}) {
     const context=plan.prescription.programmeContext, status=[], notices=[], why=[];
     if ((workout.prescriptionOutcome?.softRelaxations || []).length) status.push('Adjusted · Some supporting choices changed to keep your strength targets.');
+    // A family plan reports transparently when today's settings could not build the
+    // intended workout type, or needed another style within the same family.
+    const replan=workout.familyReplan;
+    if (replan?.replanned) {
+      const requested=familyDefinition(replan.requestedWorkoutFamilyId,replan.requestedWorkoutFamilyVersion);
+      status.push('Adjusted · '+(requested ? requested.name : 'The planned workout type')+' could not be built with today’s options, so another workout type was chosen.');
+    }
+    if ((workout.familyDiagnostics || []).length) status.push('Adjusted · An alternative style within this family was selected to suit your settings.');
     const deferred=(context.deferredAnchorRequirementIds || []).map(id=>state.anchors.find(anchor=>anchor.requirementId===id)).filter(Boolean);
     if (deferred.length) why.push('Not scheduled today · '+deferred.map(anchor=>catalogue[anchor.exerciseId].name).join(', ')+'. Their targets are retained; this is not failed or skipped work.');
     const unavailable=context.maintenanceUnavailable || [];
@@ -90,15 +98,25 @@
     }
     const policy=(policyRegistry=policyRegistry || root.GarageFitCoachPolicies.createDefaultRegistry()).get(definition.type);
     const {candidates,history,start,end}=creditedThisWeek({state,results,catalogue,now});
-    const count=candidates.filter(result=>policy.interpretDose({definition,state,result,history,
-      evidence:history.sessionEvidence(result.sessionResultId)}).meaningful).length;
+    const counted=candidates.filter(result=>policy.interpretDose({definition,state,result,history,
+      evidence:history.sessionEvidence(result.sessionResultId)}).meaningful), count=counted.length;
     const maintenance=state.mode==='maintenance', frequency=maintenance?definition.maintenancePolicy.frequency:definition.recommendedFrequency;
     const plural=value=>value===1?' session':' sessions';
     const aim=!maintenance && frequency.aimSessionsPerWeek;
     const target=aim || frequency.maxSessionsPerWeek;
-    return {count,target,minimum:frequency.minSessionsPerWeek,filled:Math.min(count,target),start:start.toISOString(),end:end.toISOString(),
+    // Sessions that recorded their delivered workout family list it; legacy sessions
+    // without an identity keep neutral copy and are never assigned a family.
+    const identity=root.GarageFitCoachProgressUI.workoutIdentity;
+    const roles=counted.some(result=>identity(result)) ? counted.slice().sort((a,b)=>Date.parse(a.endedAt)-Date.parse(b.endedAt)).map(result=>({
+      sessionResultId:result.sessionResultId,label:identity(result)?.label || 'Workout type unavailable',partial:result.finalStatus==='partial'})) : null;
+    return {count,target,minimum:frequency.minSessionsPerWeek,filled:Math.min(count,target),start:start.toISOString(),end:end.toISOString(),...(roles ? {roles} : {}),
       label:aim ? count+' of '+aim+plural(aim)+' this week' : count+plural(count)+' this week',
       note:aim ? frequency.minSessionsPerWeek+' is acceptable' : frequency.minSessionsPerWeek+'–'+frequency.maxSessionsPerWeek+' recommended'+(maintenance?' in maintenance':'')};
+  }
+  // The display name and purpose of a published workout family version, or null.
+  function familyDefinition(workoutFamilyId, workoutFamilyVersion) {
+    const versions=root.GarageFitData.workoutFamilies?.[workoutFamilyId];
+    return versions && versions[workoutFamilyVersion] || null;
   }
   // Application orchestration. Programme decisions stay in the pure engine;
   // records go through the store and execution evidence through the tracker.
@@ -162,7 +180,9 @@
       try { externalPreferences = await store.loadCoachPreferences(); } catch (error) { errors.push(error); }
     }
     function snapshot() { return {state: state && clone(state), results: clone(results.filter(item => state && item.programmeInstanceId === state.programmeInstanceId)),
-      preview, errors: errors.slice(), blocked, interruptedDraft: draft && !tracker ? clone(draft) : null}; }
+      preview, errors: errors.slice(), blocked, interruptedDraft: draft && !tracker ? clone(draft) : null,
+      // Loaded only for a definition that uses them; null there means the record could not be read.
+      externalPreferences: externalPreferences && clone(externalPreferences)}; }
     function assess(def, equipment, programmeSettings) { return engine.assessProgrammeFeasibility(def,
       {equipment, ...(programmeSettings === undefined ? {} : {programmeSettings})}); }
     async function start(def, equipment, programmeSettings) {
@@ -326,7 +346,8 @@
     };
     const clearExternalActivityPreferences = async () => {
       const cleared = await store.clearCoachPreferences();
-      if (externalPreferences) { externalPreferences = null; preview = null; }
+      if (state && definition().externalActivityPolicy) { externalPreferences = Model().createCoachPreferences(); preview = null; }
+      else if (externalPreferences) { externalPreferences = null; preview = null; }
       return cleared;
     };
     const externalActivityContext = async (sessionContext = {}) => Model().externalActivityContext(
@@ -395,8 +416,11 @@
         return 'A programme requirement cannot be met with today’s options. Adjust equipment or duration.';
       }))].join(' ');
     }
-    function rationale(plan) {
+    function rationale(plan, workout) {
       if (isTennis()) return tennisViews.whyToday(plan);
+      // A family plan explains the delivered family once built, otherwise the intended one.
+      const familyPlan=plan.prescription?.workoutFamilyPlan;
+      if (familyPlan) return workout?.familyReplan?.rationale || familyPlan.candidates[0].rationale;
       const adaptation = plan.rationale.priorities.adaptation;
       if (adaptation && adaptation.recommendation) return adaptation.recommendation;
       const event = plan.rationale.priorities.event;
@@ -469,7 +493,7 @@
       }
       const easy = document.createElement('label'), check = document.createElement('input'); check.type = 'checkbox'; check.checked = options.easyToday;
       check.setAttribute('aria-label','Easy today');
-      check.onchange = () => { options.easyToday = check.checked; adjustmentOpen=true; renderToday('Easy today'); }; easy.append(check, paragraph('Easy today · progression held')); details.append(easy);
+      check.onchange = () => { options.easyToday = check.checked; adjustmentOpen=true; renderToday('Easy today'); }; easy.append(check, paragraph(controller.snapshot().state.anchors.length ? 'Easy today · progression held' : 'Easy today')); details.append(easy);
       const select = document.createElement('select'); select.setAttribute('aria-label', 'Body emphasis');
       [['','Whole body'],['upper','Upper'],['lower','Lower'],['core','Core']].forEach(([value,label]) => { const option = document.createElement('option'); option.value=value; option.textContent=label; select.append(option); });
       select.value=options.bodyFocus || ''; select.onchange=() => { options.bodyFocus=select.value || null; adjustmentOpen=true; renderToday('Body emphasis'); }; if (!isTennis()) details.append(heading('Body emphasis'), select);
@@ -496,10 +520,9 @@
       }
       if (current.interruptedDraft) { wrap.append(heading('Interrupted session'),paragraph('Your recorded work is safe. Save it before starting another session.'),button('Save performed work',() => showEnd('exit',null),true)); return; }
       if (!state || state.status==='completed') {
-        wrap.append(paragraph('A training goal, stable anchors and sessions adapted to the work you actually do.'));
+        wrap.append(paragraph('A training goal and sessions adapted to the work you actually do.'));
         wrap.append(heading('Strength & fitness'));
-        // General Fitness start/home presentation belongs to the shared Coach UX (#191).
-        programmes.filter(programme => !['tennis-conditioning','general-fitness'].includes(programme.type)).forEach(programme => wrap.append(button(programme.name, () => { def=programme; overview(); }, true)));
+        programmes.filter(programme => programme.type !== 'tennis-conditioning').forEach(programme => wrap.append(button(programme.name, () => { def=programme; overview(); }, true)));
         wrap.append(heading('Cross-training'));
         programmes.filter(programme => programme.type === 'tennis-conditioning').forEach(programme => wrap.append(button('Tennis', () => { def=programme; overview(); }, true)));
         if (state) wrap.append(paragraph('Previous programme finished · '+state.meaningfulSessionsCompleted+' meaningful sessions. Your history is saved.'));
@@ -553,7 +576,7 @@
         const card=document.createElement('section'); card.className='coach-card';
         card.append(heading('Workout in progress'),button('Return to workout',()=>showScreen('workoutPlayer'),true)); wrap.append(card); return;
       }
-      if (state.status==='paused') wrap.append(paragraph('Paused · anchors and history preserved.'),button('Resume',() => manage('resume'),true));
+      if (state.status==='paused') wrap.append(paragraph(state.anchors.length ? 'Paused · anchors and history preserved.' : 'Paused · history preserved.'),button('Resume',() => manage('resume'),true));
       else if (reviewDue) {
         const card=document.createElement('section'); card.className='coach-card coach-review';
         card.append(heading('Four-week review'),paragraph(review.meaningfulSessions+' meaningful sessions in this block'+(review.targetMet?' · Block target met':'')),
@@ -569,8 +592,12 @@
         const expired=plan.rationale.priorities.event?.phase==='expired';
         card.append(heading(expired ? 'Event date has passed' : plan.prescription ? 'Today’s workout' : rest ? 'Rest today' : 'Adjust today’s options'));
         if (plan.prescription) {
-          card.append(paragraph([role,plan.prescription.duration+' min'].filter(Boolean).join(' · ')),button('View today’s workout',prepare,true));
+          // A family plan names its intended workout type; the preview shows the delivered one.
+          const intended=plan.prescription.workoutFamilyPlan && familyDefinition(plan.prescription.workoutFamilyPlan.candidates[0].workoutFamilyId,
+            plan.prescription.workoutFamilyPlan.candidates[0].workoutFamilyVersion);
+          card.append(paragraph([role || intended?.name,plan.prescription.duration+' min',intended && plan.prescription.difficulty==='easy' ? 'Easy' : null].filter(Boolean).join(' · ')),button('View today’s workout',prepare,true));
           if (tennis && role && ROLE_PURPOSES[plan.prescription.sessionRole]) card.append(paragraph(ROLE_PURPOSES[plan.prescription.sessionRole]));
+          if (intended) card.append(paragraph(intended.purpose));
           const event=plan.rationale.priorities.event;
           if (event && ['reduced','final'].includes(event.phase)) card.append(paragraph(event.rationale));
           if (!tennis) card.append(help('Why this workout',rationale(plan)));
@@ -580,7 +607,7 @@
         },true),button('Change event date',()=>{openSettings();el('coachSettingsContent').querySelector('input[aria-label="Important event date"]')?.focus();}));
         else if (rest) card.append(paragraph(conflictText(plan.conflicts)));
         else {
-          card.append(paragraph(conflictText(plan.conflicts)),paragraph('Try more time, restore equipment or choose a compatible substitute.'+(tennis?' You can also rest.':'')));
+          card.append(paragraph(conflictText(plan.conflicts)),paragraph((state.anchors.length ? 'Try more time, restore equipment or choose a compatible substitute.' : 'Try more time or restore equipment.')+(tennis?' You can also rest.':'')));
           state.anchors.forEach(anchor=>card.append(button('Substitute '+catalogue[anchor.exerciseId].name,()=>showSubstitutes(anchor.requirementId,options))));
         }
         wrap.append(card);
@@ -619,7 +646,7 @@
     }
     let settingsNotice='', confirmingFinish=false;
     function openSettings() {
-      settingsNotice=''; confirmingFinish=false;
+      settingsNotice=''; confirmingFinish=false; activityDraft=null;
       renderSettings(); showScreen('coachSettings');
       el('coachSettings').querySelector?.('.back-btn')?.focus?.();
     }
@@ -666,23 +693,25 @@
           if (def.eventPolicy) renderEventSettings(plan,state);
         }
       } else {
-        const strength=!def.openEnded, frequency=def.recommendedFrequency;
+        const strength=!def.openEnded, frequency=def.recommendedFrequency, anchored=state.anchors.length>0;
         plan.append(paragraph('Set by the programme; these are not editable.'));
         readOnlyRows(plan,[
           ['Sessions per week',strength ? frequency.minSessionsPerWeek+'–'+frequency.maxSessionsPerWeek+' in development; '
             +def.maintenancePolicy.frequency.minSessionsPerWeek+'–'+def.maintenancePolicy.frequency.maxSessionsPerWeek+' in maintenance'
-            : 'Aim for '+frequency.aimSessionsPerWeek+'; '+frequency.minSessionsPerWeek+' is acceptable'],
-          ['Mode',strength ? (state.mode==='maintenance'?'Maintenance':'Development') : 'Open-ended development · no maintenance mode'],
+            : frequency.aimSessionsPerWeek ? 'Aim for '+frequency.aimSessionsPerWeek+'; '+frequency.minSessionsPerWeek+' is acceptable'
+            : frequency.minSessionsPerWeek+'–'+frequency.maxSessionsPerWeek+' recommended'],
+          ['Mode',strength ? (state.mode==='maintenance'?'Maintenance':'Development') : anchored ? 'Open-ended development · no maintenance mode' : 'Open-ended · no maintenance mode'],
           ...(strength ? [['Four-week block',review.due?'Block complete · review due':'Week '+Math.min(Math.ceil(def.nominalDurationDays/7),Math.floor(review.nominalProgress%def.nominalDurationDays/7)+1)
             +' of '+Math.ceil(def.nominalDurationDays/7)+' · aim for '+def.completionCriteria.blockMeaningfulSessionTarget+' meaningful sessions']] : []),
           ...(def.doseTargets.directElbowActions ? [['Direct arm work',def.doseTargets.directElbowActions.flexion+' curl and '+def.doseTargets.directElbowActions.extension
             +' extension set exposures per rolling '+def.doseTargets.windowDays+' days']] : []),
           ['Session length',durations],
-          ['Strength targets',state.anchors.length+' stable targets']]);
+          ...(anchored ? [['Strength targets',state.anchors.length+' stable targets']] : [])]);
       }
       wrap.append(plan);
+      if (def.externalActivityPolicy) wrap.append(usualActivities(current,locked));
       const manageSection=progressViews.section('Programme management','coach-settings-management');
-      readOnlyRows(manageSection,[['Status',state.status==='paused'?'Paused · targets and history preserved':'Active']]);
+      readOnlyRows(manageSection,[['Status',state.status==='paused'?(state.anchors.length?'Paused · targets and history preserved':'Paused · history preserved'):'Active']]);
       if (!locked) {
         const act=action=>async()=>{ await controller.manage(action); resetOptions(); settingsNotice=''; confirmingFinish=false; renderSettings(); };
         if (review?.due && state.status==='active') {
@@ -695,13 +724,56 @@
         if (!confirmingFinish) manageSection.append(button('Finish programme',()=>{confirmingFinish=true;renderSettings();el('coachSettingsContent').querySelector?.('.coach-finish-confirm button')?.focus?.();}));
         else {
           const confirm=document.createElement('div'); confirm.className='coach-finish-confirm'; confirm.setAttribute('role','group'); confirm.setAttribute('aria-label','Confirm finish programme');
-          confirm.append(paragraph('Finish '+def.name+'? This ends the programme. Your targets and session history stay saved, and you can start a new programme afterwards.'),
+          confirm.append(paragraph('Finish '+def.name+'? This ends the programme. '+(state.anchors.length?'Your targets and session history stay':'Your session history stays')+' saved, and you can start a new programme afterwards.'),
             button('Confirm finish programme',async()=>{ await controller.manage('finish'); resetOptions(); confirmingFinish=false; showScreen('coach'); render(); },true),
             button('Keep programme',()=>{confirmingFinish=false;renderSettings();}));
           manageSection.append(confirm);
         }
       }
       wrap.append(manageSection);
+    }
+    // Optional usual activities outside GarageFit, shared Coach preferences edited in the
+    // existing settings screen. Approximate planning context only: never sessions or credit.
+    let activityDraft=null;
+    function usualActivities(current, locked) {
+      const wrap=progressViews.section('Usual activities (optional)','coach-settings-activities');
+      const saved=current.externalPreferences?.usualExternalActivities || [];
+      wrap.append(paragraph('Other activities you usually do each week, such as running, cycling or a sport. Approximate is fine. They gently guide which workouts Coach suggests and never count as GarageFit sessions.'));
+      if (!current.externalPreferences) wrap.append(paragraph('Your saved usual activities could not be read. Saving or clearing replaces them; nothing else is changed.'));
+      if (locked) {
+        readOnlyRows(wrap,saved.length ? saved.map(item=>[item.activityType,item.sessionsPerWeek+' per week']) : [['Usual activities','None added']]);
+        return wrap;
+      }
+      if (!activityDraft) activityDraft=saved.map(item=>({activityType:item.activityType,sessionsPerWeek:String(item.sessionsPerWeek)}));
+      const form=document.createElement('div'); form.className='coach-settings';
+      activityDraft.forEach((item,index)=>{
+        const row=document.createElement('fieldset'), legend=document.createElement('legend'); legend.textContent='Activity '+(index+1); row.append(legend);
+        const name=document.createElement('input'); name.type='text'; name.maxLength=100; name.value=item.activityType;
+        name.setAttribute('aria-label','Activity '+(index+1)+' name'); name.oninput=()=>{item.activityType=name.value;};
+        const count=document.createElement('input'); count.type='number'; count.min='0'; count.step='any'; count.inputMode='decimal'; count.value=item.sessionsPerWeek;
+        count.setAttribute('aria-label','Activity '+(index+1)+' sessions per week'); count.oninput=()=>{item.sessionsPerWeek=count.value;};
+        const nameField=document.createElement('label'), countField=document.createElement('label'); nameField.className=countField.className='coach-setting';
+        nameField.append(paragraph('Activity'),name); countField.append(paragraph('Usual sessions per week'),count);
+        const remove=button('Remove',()=>{activityDraft.splice(index,1);renderSettings();});
+        remove.setAttribute('aria-label','Remove activity '+(index+1)); row.append(nameField,countField,remove); form.append(row);
+      });
+      if (!activityDraft.length) form.append(paragraph('None added.'));
+      const add=button('Add activity',()=>{activityDraft.push({activityType:'',sessionsPerWeek:''});renderSettings();});
+      add.disabled=activityDraft.length>=16; form.append(add);
+      form.append(button('Save usual activities',async()=>{
+        const activities=activityDraft.filter(item=>item.activityType.trim() || String(item.sessionsPerWeek).trim()).map(item=>({
+          activityType:item.activityType.trim(),sessionsPerWeek:Number(item.sessionsPerWeek)}));
+        if (activities.some(item=>!item.activityType || String(item.sessionsPerWeek).trim()==='' || !Number.isFinite(item.sessionsPerWeek) || item.sessionsPerWeek<=0))
+          throw new Error('Enter a name and a number of sessions per week above zero for each activity, or remove it.');
+        if (new Set(activities.map(item=>item.activityType.toLowerCase())).size!==activities.length) throw new Error('Each activity can be listed once.');
+        await controller.saveExternalActivityPreferences(activities); await controller.load();
+        activityDraft=null; settingsNotice=activities.length?'Usual activities saved.':'Usual activities cleared.'; renderSettings();
+      },true));
+      if (saved.length || !current.externalPreferences) form.append(button('Clear usual activities',async()=>{
+        await controller.clearExternalActivityPreferences(); await controller.load();
+        activityDraft=null; settingsNotice='Usual activities cleared.'; renderSettings();
+      }));
+      wrap.append(form); return wrap;
     }
     function programmeStatus(state) {
       if (state.status==='paused') return 'Paused';
@@ -742,7 +814,8 @@
         phase.append(paragraph(config.weeklyCoachFrequency+' GarageFit sessions per week · '+state.meaningfulSessionsCompleted+' meaningful sessions in total'));
       } else if (def.openEnded) {
         const frequency=def.recommendedFrequency;
-        phase.append(paragraph('Open-ended programme · aim for '+frequency.aimSessionsPerWeek+' sessions per week; '+frequency.minSessionsPerWeek+' is acceptable'),
+        phase.append(paragraph('Open-ended programme · '+(frequency.aimSessionsPerWeek ? 'aim for '+frequency.aimSessionsPerWeek+' sessions per week; '+frequency.minSessionsPerWeek+' is acceptable'
+          : frequency.minSessionsPerWeek+'–'+frequency.maxSessionsPerWeek+' sessions per week')),
           paragraph(state.meaningfulSessionsCompleted+' meaningful sessions in total'));
       } else {
         const review=controller.review(), length=def.nominalDurationDays, weeks=Math.ceil(length/7), target=def.completionCriteria.blockMeaningfulSessionTarget;
@@ -756,8 +829,10 @@
           paragraph((state.mode==='maintenance'?'Maintenance':'Development')+' · '+frequency.minSessionsPerWeek+'–'+frequency.maxSessionsPerWeek+' sessions per week · '
             +state.meaningfulSessionsCompleted+' meaningful sessions in total'));
       }
-      if (state.status==='paused') phase.append(paragraph('Paused · targets and history are preserved.'));
-      wrap.append(intro,phase,progressViews.strengthTargets({state,history,holdReason:hold}));
+      if (state.status==='paused') phase.append(paragraph(state.anchors.length ? 'Paused · targets and history are preserved.' : 'Paused · history is preserved.'));
+      // Strength targets exist only for programmes with stable anchors.
+      wrap.append(intro,phase);
+      if (state.anchors.length) wrap.append(progressViews.strengthTargets({state,history,holdReason:hold}));
       if (def.doseTargets.directElbowActions) wrap.append(progressViews.armsExposure({definition:def,state,history,now}));
       if (isTennis()) {
         const pin=def.sportPolicy, policy=root.GarageFitSportCoverage.createPolicy(root.GarageFitData.sportCapabilityPolicies[pin.sportId][pin.version],catalogue);
@@ -817,6 +892,24 @@
     function overview() {
       if (isTennis()) { tennisOverview(); return; }
       const assessment=controller.assess(def,getEquipment()), wrap=el('coachContent'); wrap.innerHTML='';
+      if (!def.anchorSelectionPolicy) {
+        // An anchor-free programme: no stable targets, each session is built for the day.
+        const list=values=>values.length>1 ? values.slice(0,-1).join(', ')+' or '+values.at(-1) : values.join('');
+        const frequency=def.recommendedFrequency, families=def.familyBalancePolicy.families.map(item=>familyDefinition(item.workoutFamilyId,item.workoutFamilyVersion).name);
+        wrap.append(heading(def.name),
+          paragraph(def.objective+'. Open-ended: '+frequency.minSessionsPerWeek+'–'+frequency.maxSessionsPerWeek+' sessions per week. Pause or finish whenever you choose.'),
+          paragraph(def.sessionTemplate.duration+' minutes by default; '+list(def.supportedDurations.filter(duration=>duration!==def.sessionTemplate.duration))+' minutes when needed. Each session chooses one workout type ('
+            +list(families)+') from the training you have actually done. No fixed targets or catch-up debt.'),
+          paragraph(assessment.status==='infeasible'?'Blocked · '+conflictText(assessment.conflicts):'Each session is built from the equipment you choose that day.'),
+          ...(def.externalActivityPolicy ? [paragraph('Optional: add activities you usually do outside GarageFit later in Programme settings.')] : []),
+          button('Set up usual equipment',() => root.openEquipment('coach')));
+        if (assessment.status!=='infeasible') wrap.append(button('Start programme',async () => {
+          const started=await controller.start(def,getEquipment());
+          if (!started.state) { wrap.append(paragraph(conflictText(started.assessment.conflicts))); return; }
+          resetOptions(); render();
+        },true));
+        wrap.append(button('Back',render)); return;
+      }
       const anchor=def.anchorSelectionPolicy.requirements[0];
       wrap.append(heading(def.name),paragraph(def.type==='tennis-conditioning' ? def.objective+'. Balanced by default, with 2 Coach sessions per week; 1–3 sessions are supported. Pause or finish whenever you choose.' : def.openEnded ? def.objective+'. An open-ended objective: aim for '+def.recommendedFrequency.aimSessionsPerWeek+' sessions per week; two is acceptable. Pause or finish whenever you choose.' : def.objective+' over a nominal four-week block. Aim for '+def.completionCriteria.blockMeaningfulSessionTarget+' meaningful sessions, at '+def.recommendedFrequency.minSessionsPerWeek+'–'+def.recommendedFrequency.maxSessionsPerWeek+' per week.'),
         paragraph(def.type==='tennis-conditioning' ? 'Usually 20–30 minutes. Four stable knee, hinge, push and pull anchors build from 2 × 6 to 2 × 10 reps, about 2 reps in reserve. Each session selects the targets that fit your available 10/15/20/30/45 minutes; both sides are required where applicable. Supporting work rotates from performed history, with no catch-up debt.' : def.sessionTemplate.duration+' minutes by default; '+def.supportedDurations.filter(duration=>duration!==def.sessionTemplate.duration).join(' or ')+' minutes when needed. '+def.anchorSelectionPolicy.requirements.length+' stable '+(def.doseTargets.directElbowActions?'direct curl and extension':'squat, push and pull')+' anchors start at '+anchor.targetSets+' × '+anchor.target.maxReps+' reps.'),
@@ -892,8 +985,12 @@
       const workout=preview.workout, prescription=preview.plan.prescription, context=prescription.programmeContext, state=controller.snapshot().state;
       const stable=new Set(state.anchors.map(anchor=>anchor.requirementId));
       const messages=previewMessages({plan:preview.plan,workout,state,catalogue});
+      // The delivered workout's own family and style, never the planned or requested one.
+      const identity=root.GarageFitCoachProgressUI.workoutIdentity(workout);
       const header=document.createElement('div'); header.className='coach-preview-header';
-      header.append(text('div','preview-kicker',prescription.duration+' min · '+programmeStatus(state)),text('h2','preview-rounds',context.roleLabel || def.name));
+      header.append(text('div','preview-kicker',[prescription.duration+' min',programmeStatus(state),identity && prescription.difficulty==='easy' ? 'Easy' : null].filter(Boolean).join(' · ')),
+        text('h2','preview-rounds',context.roleLabel || identity?.label || def.name));
+      if (identity) header.append(text('p','equipment-note coach-preview-purpose',identity.purpose));
       wrap.append(header);
       messages.status.forEach(message => { const node=text('p','coach-preview-status',message); node.setAttribute('role','status'); wrap.append(node); });
       messages.notices.forEach(message => wrap.append(text('p','coach-preview-notice',message)));
@@ -936,9 +1033,9 @@
       section('Main workout · '+blocks.length+' block'+(blocks.length===1?'':'s'),main);
       phase('Cool-down',workout.cooldown);
       wrap.append(text('div','preview-estimate','≈'+Math.round(workout.estimatedSeconds/60)+' min total'));
-      if (previewEditing) wrap.append(paragraph('Strength target substitutions are just for today. Replanning may change supporting exercises; review the revised workout before starting.'));
+      if (previewEditing && stable.size) wrap.append(paragraph('Strength target substitutions are just for today. Replanning may change supporting exercises; review the revised workout before starting.'));
       const why=document.createElement('details'), summary=text('summary','','Why this workout?'); why.className='generator-options coach-why';
-      const reason=rationale(preview.plan).trim();
+      const reason=rationale(preview.plan,workout).trim();
       why.append(summary,paragraph(reason.charAt(0).toUpperCase()+reason.slice(1)+(/[.!?]$/.test(reason)?'':'.')),...messages.why.map(paragraph));
       if (isTennis()) why.append(...tennisViews.coverageSummary(preview.plan.rationale.priorities.coverage).map(paragraph));
       retainDisclosure(why,'preview-why'); wrap.append(why);
@@ -1027,7 +1124,10 @@
       await run(async () => { const result=await controller.finish(endKind,{difficulty:value},endSeconds); sessionActive=false;
         const stableIds=new Set(controller.snapshot().state.anchors.map(anchor=>anchor.requirementId));
         const recorded=result.anchorResults.filter(item=>item.status!=='skipped' && (!isTennis() || stableIds.has(item.requirementId))).length;
-        lastSaved=result.finalStatus==='abandoned'?'Session saved · no meaningful main work recorded.':'Session saved · '+result.finalStatus+' · '+recorded+' anchors recorded';
+        const identity=root.GarageFitCoachProgressUI.workoutIdentity(result);
+        lastSaved=result.finalStatus==='abandoned'?'Session saved · no meaningful main work recorded.'
+          : stableIds.size ? 'Session saved · '+result.finalStatus+' · '+recorded+' anchors recorded'
+          : ['Session saved',result.finalStatus,identity?.label].filter(Boolean).join(' · ');
         resetOptions(); showScreen('coach'); render(); });
     }
     return {open, overview, controller, renderAnchor, record, showEnd, saveFeedback, updateActualSummary,

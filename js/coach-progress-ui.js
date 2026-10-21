@@ -14,6 +14,16 @@
     if (!known(load) || !unit) return null;
     return load+' '+unit+(interpretation === 'per-item' ? ' each' : interpretation === 'total' ? ' total' : '');
   }
+  // The recorded workout-family identity of a saved session or generated workout, for
+  // display. Records without a complete published identity return null: legacy sessions
+  // keep neutral copy and are never assigned a family label.
+  function workoutIdentity(record) {
+    if (!record || !record.workoutFamilyId) return null;
+    const versions = root.GarageFitData && root.GarageFitData.workoutFamilies && root.GarageFitData.workoutFamilies[record.workoutFamilyId];
+    const family = versions && versions[record.workoutFamilyVersion];
+    const style = family && family.styles.find(item => item.id === record.familyStyleId);
+    return style ? {family: family.name, style: style.name, purpose: family.purpose, label: family.name+' — '+style.name} : null;
+  }
   function perSide(exercise) { return !!exercise && exercise.sidedness === 'per-side'; }
   // Sets/reps only: the prescription. Load is shown separately and never implied.
   function prescriptionText(target, exercise) {
@@ -176,7 +186,8 @@
         const status = result.finalStatus === 'abandoned' ? 'Ended early · no main work counted'
           : result.finalStatus === 'skipped-before-start' ? 'Not started' : title(result.finalStatus);
         const credit = summary ? summary.meaningful ? 'counted' : 'not counted' : null;
-        list.append(node('li', null, [dateText(result.endedAt), status, performed+' performed exercise'+(performed === 1 ? '' : 's'), credit].filter(Boolean).join(' · ')));
+        const identity = workoutIdentity(result);
+        list.append(node('li', null, [dateText(result.endedAt), identity && identity.label, status, performed+' performed exercise'+(performed === 1 ? '' : 's'), credit].filter(Boolean).join(' · ')));
       });
       if (recent.length) wrap.append(list);
       const help = node('details', 'coach-help'), label = node('summary', null, 'ⓘ About your history');
@@ -188,5 +199,5 @@
 
     return {strengthTargets, capabilityGrid, armsExposure, sessionHistory, section};
   }
-  root.GarageFitCoachProgressUI = {createViews, sectionLabel, prescriptionText, lastPerformed, nextProgression, loadText};
+  root.GarageFitCoachProgressUI = {createViews, workoutIdentity, sectionLabel, prescriptionText, lastPerformed, nextProgression, loadText};
 })(typeof window !== 'undefined' ? window : globalThis);

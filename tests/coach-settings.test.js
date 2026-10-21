@@ -22,7 +22,7 @@ async function ui(storage = new Map(), equipment = ['dumbbells','bench']) {
   p.screen = id => !p.run(`document.getElementById(${JSON.stringify(id)}).classList.contains('hidden')`);
   return p;
 }
-const names = {strength: '4-Week General Strength', arms: 'Build Arms', tennis: 'Tennis'};
+const names = {strength: '4-Week General Strength', arms: 'Build Arms', tennis: 'Tennis', fitness: 'General Fitness'};
 async function start(p, key) { await p.click(names[key]); await p.click('Start programme'); assert.ok(p.state()); }
 
 test('all three programme homes open the same Programme settings screen and Back keeps the Coach shell', async () => {
@@ -142,5 +142,63 @@ test('a live workout locks settings with a reason and leaves the draft untouched
     await p.run('coachUI.back()');
     assert.deepEqual(await p.run('pilotStore.loadSessionDraft()'), draft); assert.deepEqual(p.state(), state);
     assert.equal(p.run('coachUI.isActive()'), true);
+  }
+});
+
+test('General Fitness settings stay anchor-free and edit optional usual activities in the shared screen', async () => {
+  const storage = new Map(), p = await ui(storage, ['dumbbells']); await start(p, 'fitness');
+  const before = p.state();
+  await p.click('Programme settings');
+  assert.match(p.text(), /Sessions per week 2–5 recommended/);
+  assert.match(p.text(), /Mode Open-ended · no maintenance mode/);
+  assert.doesNotMatch(p.text(), /Strength targets|stable targets|Four-week|Move to maintenance|Save tennis settings/);
+  assert.match(p.text(), /Usual activities \(optional\).*never count as GarageFit sessions.*None added/);
+  assert.equal(storage.has('gf_coach_preferences'), false, 'opening settings writes nothing');
+  // Optional and non-blocking: Coach home already offers today's workout.
+  await p.run('coachUI.back()'); assert.ok(p.has('View today’s workout')); await p.click('Programme settings');
+  await p.click('Add activity');
+  p.run("field('Activity 1 name').value='  Running ';field('Activity 1 name').oninput();field('Activity 1 sessions per week').value='2.5';field('Activity 1 sessions per week').oninput()");
+  await p.click('Add activity');
+  p.run("field('Activity 2 name').value='running';field('Activity 2 name').oninput();field('Activity 2 sessions per week').value='1';field('Activity 2 sessions per week').oninput()");
+  await p.click('Save usual activities');
+  assert.match(p.run("document.getElementById('coachSettingsError').textContent"), /Each activity can be listed once/);
+  assert.equal(storage.has('gf_coach_preferences'), false);
+  p.run("field('Activity 2 name').value='Tennis';field('Activity 2 name').oninput();field('Activity 2 sessions per week').value='0';field('Activity 2 sessions per week').oninput()");
+  await p.click('Save usual activities');
+  assert.match(p.run("document.getElementById('coachSettingsError').textContent"), /above zero/);
+  p.run("field('Activity 2 sessions per week').value='1';field('Activity 2 sessions per week').oninput()");
+  await p.click('Save usual activities');
+  assert.match(p.text(), /Usual activities saved/);
+  assert.deepEqual(JSON.parse(storage.get('gf_coach_preferences')).usualExternalActivities,
+    [{activityType: 'Running', sessionsPerWeek: 2.5}, {activityType: 'Tennis', sessionsPerWeek: 1}]);
+  assert.deepEqual(p.state(), before, 'preferences never change programme state');
+  // Reloaded values are editable; removing one and saving replaces the list.
+  const q = await ui(storage, ['dumbbells']); await q.click('Programme settings');
+  assert.equal(q.field('Activity 1 name').value, 'Running'); assert.equal(q.field('Activity 2 sessions per week').value, '1');
+  await q.click('Remove', 'coachSettingsContent'); await q.click('Save usual activities');
+  assert.deepEqual(JSON.parse(storage.get('gf_coach_preferences')).usualExternalActivities, [{activityType: 'Tennis', sessionsPerWeek: 1}]);
+  await q.click('Clear usual activities');
+  assert.equal(storage.has('gf_coach_preferences'), false); assert.match(q.text(), /Usual activities cleared.*None added/);
+  // A live workout shows the saved list read-only.
+  await q.run("coachUI.controller.saveExternalActivityPreferences([{activityType:'Cycling',sessionsPerWeek:2}])");
+  await q.run('coachUI.open()'); await q.click('View today’s workout'); await q.click('Start workout', 'coachPreviewContent');
+  await q.run('coachUI.openSettings()');
+  assert.match(q.text(), /Cycling 2 per week/); assert.equal(q.has('Save usual activities'), false); assert.equal(q.field('Activity 1 name'), undefined);
+});
+
+test('damaged usual activities are reported in settings without blocking General Fitness', async () => {
+  const storage = new Map([['gf_coach_preferences', '{"schemaVersion":99}']]), p = await ui(storage, ['dumbbells']); await start(p, 'fitness');
+  await p.run('coachUI.open()');
+  assert.ok(p.has('View today’s workout'), 'planning continues without preferences');
+  await p.click('Programme settings');
+  assert.match(p.text(), /could not be read\. Saving or clearing replaces them/);
+  await p.click('Clear usual activities');
+  assert.equal(storage.has('gf_coach_preferences'), false); assert.doesNotMatch(p.text(), /could not be read/);
+});
+
+test('programmes without external-activity planning show no usual activities settings', async () => {
+  for (const key of ['strength', 'arms', 'tennis']) {
+    const p = await ui(); await start(p, key); await p.click('Programme settings');
+    assert.doesNotMatch(p.text(), /Usual activities/, key); assert.equal(p.has('Add activity'), false);
   }
 });

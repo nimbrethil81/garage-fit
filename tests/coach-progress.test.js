@@ -216,3 +216,39 @@ test('pure helpers label sections and keep unknown or substituted evidence out o
   assert.deepEqual(p.json(`${Progress}.nextProgression({currentTarget:{progressionIntent:'Use the next heavier weight'},progression:{decision:'suggest-load'}},{state:{mode:'development'}})`),
     {text: 'Use the next heavier weight', note: null});
 });
+
+test('session identity shows only where recorded: legacy and unpublished identities keep neutral copy', async () => {
+  const {sessionResult} = require('./helpers/coach-fixtures');
+  const p = pilot(new Map(), 'general-fitness'); await p.start(); const state = p.json('pilot.snapshot().state');
+  const make = (id, endedAt, identity = {}) => sessionResult({sessionResultId: id, programmeInstanceId: state.programmeInstanceId,
+    generatedAt: endedAt, startedAt: endedAt, endedAt, actualDurationSeconds: 600, ...identity});
+  const results = [make('legacy', '2026-10-13T08:00:00Z'),
+    make('known', '2026-10-14T08:00:00Z', {workoutFamilyId: 'athletic-movement', workoutFamilyVersion: 1, familyStyleId: 'dynamic-balance'}),
+    make('unpublished', '2026-10-15T08:00:00Z', {workoutFamilyId: 'athletic-movement', workoutFamilyVersion: 9, familyStyleId: 'dynamic-balance'})];
+  p.run(`globalThis.views=GarageFitCoachProgressUI.createViews({button:()=>document.createElement('button'),
+    paragraph:text=>{const node=document.createElement('p');node.textContent=text;return node;},
+    heading:text=>{const node=document.createElement('h2');node.textContent=text;return node;},catalogue:CATALOGUE});`);
+  const rows = p.json(`views.sessionHistory({state:${JSON.stringify(state)},results:${JSON.stringify(results)}}).children.find(node=>node.className==='coach-history-list').children.map(node=>node.textContent)`);
+  assert.match(rows[1], / · Athletic Movement — Dynamic balance · Completed · /);
+  for (const row of [rows[0], rows[2]]) assert.doesNotMatch(row, /Athletic|—|Workout type/, 'no inferred or guessed family label');
+  // Weekly progress lists recorded identities and neutral copy for the rest.
+  state.currentTargets = {reconciliation: {appliedSessionResultIds: results.map(item => item.sessionResultId)}};
+  const weekly = p.json(`GarageFitCoachUI.programmeWeeklyProgress({definition:pilotDef,state:${JSON.stringify(state)},results:${JSON.stringify(results)},catalogue:CATALOGUE,now:'2026-10-16T08:00:00Z'})`);
+  assert.equal(weekly.count, 3);
+  assert.deepEqual(weekly.roles.map(item => item.label), ['Workout type unavailable', 'Athletic Movement — Dynamic balance', 'Workout type unavailable']);
+  // Programmes whose sessions never record an identity keep their existing weekly shape.
+  const strength = pilot(new Map()); await strength.start(); const strengthState = strength.json('pilot.snapshot().state');
+  const legacy = [make('gs', '2026-10-13T08:00:00Z')].map(item => ({...item, programmeInstanceId: strengthState.programmeInstanceId}));
+  strengthState.currentTargets.reconciliation.appliedSessionResultIds = ['gs'];
+  const gs = strength.json(`GarageFitCoachUI.programmeWeeklyProgress({definition:pilotDef,state:${JSON.stringify(strengthState)},results:${JSON.stringify(legacy)},catalogue:CATALOGUE,now:'2026-10-16T08:00:00Z'})`);
+  assert.equal(gs.count, 1); assert.equal('roles' in gs, false);
+});
+
+test('General Fitness Your progress has no empty strength targets card', async () => {
+  const p = await ui(new Map(), ['dumbbells']);
+  await p.click('General Fitness'); await p.click('Start programme');
+  await p.progress();
+  assert.match(p.text().replace(/\s+/g, ' '), /General Fitness Ongoing Programme phase Open-ended programme · 2–5 sessions per week 0 meaningful sessions in total Recent sessions No saved sessions yet/);
+  assert.doesNotMatch(p.text(), /Strength targets|Targets are prescriptions|Tennis fitness|Arm work/);
+  assert.deepEqual(p.cards(), []);
+});

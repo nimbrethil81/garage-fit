@@ -511,8 +511,8 @@ store is introduced.
 Controller methods `saveExternalActivityPreferences(activities)` (replace/edit),
 `clearExternalActivityPreferences()` and `externalActivityContext(sessionContext?)`
 provide the opt-in seam for General Fitness #190 and settings #191. Only a definition
-with `externalActivityPolicy` (General Fitness v1) consumes it during planning; there is
-no new UI here. The pure equivalent is
+with `externalActivityPolicy` (General Fitness v1) consumes it during planning; its
+optional editor lives in that programme's existing Programme settings (#191). The pure equivalent is
 `GarageFitCoachModel.externalActivityContext(preferences, sessionContext?, localDate?)`.
 Its deeply frozen output separates:
 

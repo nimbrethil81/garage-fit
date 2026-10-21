@@ -578,10 +578,21 @@ attendance, recovery, external context and the history sessions used (`credit: '
 Generator builds the first feasible family and reports any transparent replan (see
 [Workout families](WORKOUT_FAMILIES.md#shared-validation-same-family-fallback-and-edit-integrity));
 the tracker records the delivered family/style. Unsupported durations are planning conflicts;
-a plan no family can build fails visibly with each family's reasons. The Coach start list does
-not offer General Fitness until the shared Coach UX (#191). `tests/general-fitness.test.js`
+a plan no family can build fails visibly with each family's reasons. `tests/general-fitness.test.js`
 covers lifecycle, sequences at 2/3/5 sessions per week, cross-source context, recovery,
 external preferences and the family-plan seam.
+
+**Shared Coach screens (#191).** General Fitness uses the same discovery, home, weekly
+progress, Adjust today, workout card, preview/edit, player, Your progress, session history and
+Programme settings as every programme; there is no separate page, tab or style selector.
+Presentation is neutral to `state.anchors.length`: strength targets, anchor substitution and
+anchor/progression copy render only when anchors exist. The home card names the plan's intended
+family, duration and family purpose; the preview, saved-session notice, weekly list and session
+history show the **delivered** family and style (`GarageFitCoachProgressUI.workoutIdentity`),
+with a status line when the plan was replanned or a same-family style fallback was used. Records
+without a complete published identity keep neutral copy and are never given a family label.
+Programme settings for a definition with `externalActivityPolicy` include an optional, editable
+"Usual activities" section over the shared preferences seam; it never blocks planning.
 
 ## Sport profiles and instance settings
 
