@@ -16,9 +16,14 @@
     flow:['ninety-ninety-hip-switches','downward-upward-dog','worlds-greatest-stretch','squat-to-stand'],
     finish:['cat-cow','downward-upward-dog']};
   const position=exercise=>exercise.bodyPosition==='mixed'?1:exercise.bodyPosition==='floor'?0:2;
-  function compose(options,request) {
+  const ESSENTIAL_FOCUSED=['wall-angel','kneeling-ankle-rocks','thread-the-needle'];
+  const STYLES=['joint-focused','integrated-flow'];
+  function compose(options,request,attempt) {
     const {duration,difficulty,catalogue}=options,owned=options.equipment||[],random=options.random||Math.random;
-    const fail=message=>{throw new F.FamilyContractError('family-not-feasible',message);};
+    const excluded=attempt&&attempt.excludedStyleIds||[];
+    // Diagnostic reason codes (and a style, when only that style failed) travel with the error.
+    const fail=(message,reason,details)=>{const error=new F.FamilyContractError('family-not-feasible',message);
+      Object.assign(error,{reason},details);throw error;};
     // Validate the caller's raw constraints before applying the family's Easy policy.
     const raw={workoutFamilyId:FAMILY,workoutFamilyVersion:1,role:'prep',difficulty};
     for(const field of ['excludedImpact','bodyPositions','movementRoom'])if(options[field]!==undefined)raw[field]=options[field];
@@ -39,10 +44,14 @@
     // This policy promises a whole-body progression, not a loop made from whichever one
     // or two movements survived. Restricted position/impact requests can honestly be infeasible.
     for(const [role,minimum] of [['prep',2],['focused',4],['flow',4],['finish',2]])
-      if(pools[role].length<minimum)fail('Mobility needs more eligible '+role+' movements for broad, connected practice.');
-    if(!['wall-angel','kneeling-ankle-rocks','thread-the-needle'].every(id=>pools.focused.some(ex=>ex.id===id)))
-      fail('Mobility needs shoulder, ankle and thoracic practice in the focused phase.');
-    const style=random()<.5?'joint-focused':'integrated-flow';
+      if(pools[role].length<minimum)fail('Mobility needs more eligible '+role+' movements for broad, connected practice.','insufficient-eligible-movements',{role});
+    if(!ESSENTIAL_FOCUSED.every(id=>pools.focused.some(ex=>ex.id===id)))
+      fail('Mobility needs shoulder, ankle and thoracic practice in the focused phase.','missing-essential-practice',{role:'focused'});
+    const drawn=random()<.5?'joint-focused':'integrated-flow';
+    // Same-family fallback keeps the seeded draw and takes the remaining style.
+    const style=excluded.includes(drawn)?STYLES.find(id=>!excluded.includes(id)):drawn;
+    if(!style)fail('Mobility has no remaining internal style.','no-buildable-style');
+    const styleFail=message=>fail(message,'phase-cannot-fit',{familyStyleId:style});
     const targets=PROFILES[duration].map(value=>value*60);
     // Both keep the reference shape; actual emphasis distinguishes the internal styles.
     const emphasis=Math.round(targets[style==='joint-focused'?2:1]*.08);
@@ -101,7 +110,7 @@
         if(exercises.reduce((sum,ex)=>sum+cap(ex)*sides(ex),0)<workBudget)continue;
         values=exercises.map(()=>10);
         let remaining=workBudget-exercises.reduce((sum,ex)=>sum+10*sides(ex),0);
-        if(remaining<0)fail('Mobility cannot fit its minimum controlled practice into this phase.');
+        if(remaining<0)styleFail('Mobility cannot fit its minimum controlled practice into this phase.');
         // Round-robin dosing fills actual per-side seconds. A small progression across
         // exposures varies practice without ever turning Hard into maximal stretching.
         const priority=exercises.map((ex,index)=>({index,weight:1+(Math.floor(index/list.length)%3)*.08}));
@@ -113,7 +122,7 @@
         }
         break;
       }
-      if(!values)fail('Mobility cannot fill the requested time with bounded, varied practice.');
+      if(!values)styleFail('Mobility cannot fill the requested time with bounded, varied practice.');
       blocks.push({id:'mobility-'+role,protocol:'rounds',intent:'accessory',familyContext:contexts[role],
         exercises:exercises.map(ex=>JSON.parse(JSON.stringify(ex))),
         prescription:{rounds:1,exerciseRestSeconds:0,roundRestSeconds:0},
@@ -122,5 +131,33 @@
     }
     return {familyStyleId:style,blocks};
   }
-  G.registerFamilyComposer(FAMILY,1,compose);
+  // Family quality for the shared gate (#186): the resolved session must still be the published
+  // standing preparation -> focused -> flow -> gentle floor finish, low-fatigue timed practice.
+  const ROLES=['prep','focused','flow','finish'];
+  function quality(workout) {
+    const blocks=workout.main.blocks,issues=[],difficulty=workout.difficulty,style=workout.familyStyleId;
+    if(blocks.length!==4||blocks.some((block,index)=>!block.familyContext||block.familyContext.workoutFamilyId!==FAMILY||block.familyContext.role!==ROLES[index]))
+      return ['phase-structure'];
+    const max=difficulty==='easy'?35:difficulty==='hard'?50:45,maxSide=difficulty==='easy'?30:difficulty==='hard'?40:35;
+    for(const block of blocks) {
+      const role=block.familyContext.role,occurrences=G.resolvedOccurrences(block);
+      if(block.protocol!=='rounds'||block.prescription.rounds!==1)issues.push(role+':not-sequential-flow');
+      for(const [index,item] of occurrences.entries()) {
+        const ex=item.exercise,sides=G.sideCount(ex),cap=sides===2?maxSide:role==='finish'?50:max;
+        if(!item.timed||!(item.seconds>=10&&item.seconds<=cap))issues.push(role+':dose-out-of-range:'+ex.id);
+        if(ex.impact==='high'||difficulty==='easy'&&ex.impact==='medium')issues.push(role+':impact:'+ex.id);
+        if(role==='prep'&&ex.bodyPosition!=='standing')issues.push('prep:not-standing:'+ex.id);
+        const next=occurrences[index+1];
+        if(next) {
+          // Same-level changeovers follow the style; a change of body level always gets twelve seconds.
+          const expected=position(ex)!==position(next.exercise)?12:role==='flow'&&style==='integrated-flow'?3:7;
+          if(item.restAfter!==expected)issues.push(role+':transition-mismatch:'+index);
+        }
+      }
+    }
+    const focused=blocks[1].exercises.map(ex=>ex.id);
+    ESSENTIAL_FOCUSED.filter(id=>!focused.includes(id)).forEach(id=>issues.push('missing-region-coverage:'+id));
+    return [...new Set(issues)];
+  }
+  G.registerFamilyComposer(FAMILY,1,compose,quality);
 })(typeof window==='undefined'?globalThis:window);

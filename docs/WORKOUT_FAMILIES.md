@@ -55,7 +55,7 @@ not accept aliases or guess a family from other fields. `FamilyContractError.cod
 distinguishes unknown family, unsupported version/style/Body Focus, invalid request
 and an empty feasible-style list. An empty list means the composer supplied no
 viable style; actionable feasibility reasons and bounded fallback belong to the
-shared validation/fallback implementation.
+shared validation gate (see the final section).
 
 ## Boundaries
 
@@ -143,8 +143,8 @@ Related variants receive no implicit membership.
 copies. Main validation, normalisation, step resolution and estimation share that
 check. Existing setup compatibility and protocol validators remain authoritative.
 Within-family swaps must preserve the role's membership, canonical safety and every
-occurrence target. Final family composition/quality revalidation remains the later
-shared validator's responsibility.
+occurrence target. Final family composition/quality revalidation uses the shared
+validation gate (see the final section).
 
 Contextual targets use the existing `block.occurrenceTargets` contract from
 [Workout protocols](WORKOUT_PROTOCOLS.md#shared-occurrence-targets). Pass
@@ -169,13 +169,13 @@ exercise-sensitive recovery and sequential-flow characterisation belong to issue
 
 `GarageFitGenerator.generate(options)` enters the common constructor only when
 `workoutFamilyId` is explicit. Catalogue-owned composers register once through
-`registerFamilyComposer(workoutFamilyId, workoutFamilyVersion, compose)`, keyed by
-the canonical definition's versioned `compositionPolicy`. A composer receives
-normalised duration/difficulty plus the unresolved identity and returns
-`{familyStyleId, blocks}`. The wrapper resolves the actual style, normalises the
-existing Main block contracts, validates executable blocks and the whole-session
-budget, and supplies empty generic warm-up/ramp-up/cooldown sections. It does not
-implement the later family quality validator or cross-family fallback.
+`registerFamilyComposer(workoutFamilyId, workoutFamilyVersion, compose, validateQuality)`,
+keyed by the canonical definition's versioned `compositionPolicy`; registration without
+the family's quality validator fails. A composer receives normalised duration/difficulty,
+the unresolved identity and `{excludedStyleIds}`, and returns `{familyStyleId, blocks}`.
+The wrapper resolves the actual style, normalises the existing Main block contracts,
+supplies empty generic warm-up/ramp-up/cooldown sections, and passes the result through
+the shared validation gate below. It never falls back to another family.
 
 A composer may also return `generalPreparation: {focus}`. The wrapper then keeps the
 established generic warm-up, ramp-up and cool-down around the family's Main (the same
@@ -334,7 +334,7 @@ blocks. Every Strength style uses each exercise once. Long rests are a Strength
 feature: round rests are never below 45 s there and never above 45 s in Cardio endurance work.
 No-family generation, Coach prescriptions (still `family-prescription-unsupported`), exercise
 eligibility and fixed workouts are untouched. Final family quality validation and fallback
-remain the shared validator's job (#186).
+belong to the shared gate below.
 
 ### Core & Stability and Full-Body Challenges composition v1
 
@@ -346,7 +346,7 @@ metadata, optional `excludedImpact`/`bodyPositions` filters (malformed values fa
 and the Generator's own protocol validators. Body Focus is ignored (`full-body`). An unbuildable request fails
 `family-not-feasible`. Styles are ranked by seeded weights from duration, difficulty and `recentProtocols`;
 the first that builds is the displayed one. Each exercise is used once where the pool allows, otherwise at most
-twice. Coach prescriptions stay `family-prescription-unsupported`; final quality validation and fallback remain #186.
+twice. Coach prescriptions stay `family-prescription-unsupported`; final quality validation and fallback use the shared gate below.
 
 | Family | Suitable exercises | Style | Resolved structure |
 | --- | --- | --- | --- |
@@ -363,3 +363,57 @@ enough: a short circuit of one or two movements, or an unbalanced one, is not la
 Density needs canonical partners (one setup, position and load, distinct patterns), so it is offered only where
 such balanced pairs exist (short sessions with TRX, bands or broad equipment); other styles take over otherwise.
 EMOM fills whole minutes, so Main can finish up to about a minute short of its target.
+
+## Shared validation, same-family fallback and edit integrity
+
+Every explicit-family workout, from standalone Generator or the Coach replanning seam, passes
+one post-composition gate before it is returned: `GarageFitGenerator.validateFamilyWorkout(workout,
+{catalogue, equipment})` returns `{valid, technicalIssues, qualityIssues}`.
+
+- **Technical legality** (shared): supported identity/style/duration/difficulty; the existing
+  `validateMain` contracts (protocol validators, family membership, occurrence targets/recovery,
+  setup profiles, executable steps, budget tolerance); each Main exercise is the unmodified
+  canonical entry and Main-eligible for the equipment, difficulty and its block's family context;
+  requested `excludedImpact`/`bodyPositions` (kept on the workout as transient `familyConstraints`)
+  hold for every Main exercise; preparation/cool-down exercises are eligible for their phase; and
+  the recomputed timeline equals the stored estimates and fits the selected duration.
+- **Family identity** (family-owned, registered with the composer, evaluated on the resolved blocks
+  and `resolvedOccurrences(block)` timeline): Strength & Control, Cardio & Conditioning, Core &
+  Stability and Full-Body Challenges restate their published suitability, session-balance,
+  exposure, impact and per-style structure rules above. Mobility requires the four
+  prep/focused/flow/finish phases in order, timed doses within the difficulty caps, standing
+  preparation, style-consistent changeovers (twelve seconds for a level change) and focused
+  shoulder/ankle/thoracic practice. Athletic requires approved-context blocks that start and finish
+  with control, footwork across all three movement planes, single-leg control, 2–4 slot drills,
+  per-drill effort caps, exercise-sensitive minimum recovery, integrated blocks followed by
+  recovery and high impact only in `integrated-movement`, never at a block edge or consecutively.
+
+**Same-family fallback.** If composition of one style fails (`familyStyleId` on the composer's
+`family-not-feasible` error) or the gate rejects it, the wrapper composes again with that style in
+`excludedStyleIds`; seeded style draws are unchanged when nothing is excluded. There is at most one
+attempt per published style. An accepted fallback lists the rejected attempts in transient
+`familyDiagnostics`; a manual family choice is never replaced by another family.
+
+**Infeasible family.** When no style passes, `generate` throws `FamilyContractError`
+`family-not-feasible` with `workoutFamilyId`, ordered `reasons` and verified `adjustments`.
+Reason codes: `insufficient-eligible-movements` (with `role`), `missing-essential-practice`,
+`phase-cannot-fit` (style), `no-buildable-style`, `style-technical-invalid` and
+`style-quality-failed` (with `issues`), and `composer-ignored-style-exclusion`. Adjustments are
+single changes, each proven by composing and gating a whole workout with a fixed seed after the
+unchanged settings fail under that seed: `remove-body-position-restriction`,
+`reduce-impact-exclusions` (keeps any `high` exclusion; high impact is never proposed),
+`confirm-movement-room` (families requiring safe movement space), and adjacent supported
+`change-duration`/`change-difficulty`. Equipment is never proposed. No adjustment is listed when
+none verifies. Invalid constraints still fail with `invalid-family-context`.
+
+**Coach replanning.** `generateFamilyReplan(options, candidates)` is the only route that may move
+to another family: the caller supplies its ordered priorities as `{workoutFamilyId, rationale}`
+(a non-empty rationale is required). Each candidate uses the gate and same-family fallback above;
+the returned workout's transient `familyReplan` reports the requested and actual family, style,
+`replanned`, the chosen rationale and earlier infeasible attempts. Coach session prescriptions
+remain `family-prescription-unsupported`, and published Coach programmes do not call it yet.
+
+**Swaps and edits.** For a workout with `workoutFamilyId`, `swap` and `swapPreparation` accept only
+replacements whose whole revised workout passes the gate; if none does, the workout is unchanged.
+Any other edit must be revalidated with `validateFamilyWorkout` before it keeps the family label.
+No-family workouts, legacy swaps and published Coach behaviour do not use the gate.

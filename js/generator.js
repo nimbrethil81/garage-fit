@@ -2999,49 +2999,220 @@
   // this wrapper owns shared identity, executable contracts and whole-session accounting.
   // Requests without a family never enter this path or consume an additional random draw.
   const familyComposers=new Map();
-  function registerFamilyComposer(workoutFamilyId, workoutFamilyVersion, compose) {
+  function registerFamilyComposer(workoutFamilyId, workoutFamilyVersion, compose, validateQuality) {
     const definition=root.GarageFitWorkoutFamilies.getDefinition(workoutFamilyId,workoutFamilyVersion);
     const key=definition.compositionPolicy.id+':'+definition.compositionPolicy.version;
-    if(familyComposers.has(key)||typeof compose!=='function')throw new Error('A family composer must be a function registered once per published policy.');
-    familyComposers.set(key,compose);
+    // Every family owns its programming-identity rules; the shared gate fails closed without them.
+    if(familyComposers.has(key)||typeof compose!=='function'||typeof validateQuality!=='function')
+      throw new Error('A family composer must be a function registered once per published policy, with its family quality validator.');
+    familyComposers.set(key,Object.freeze({compose,validateQuality}));
   }
+  const familyEntry=definition=>familyComposers.get(definition.compositionPolicy.id+':'+definition.compositionPolicy.version);
+  const FAMILY_CONSTRAINT_FIELDS=['excludedImpact','bodyPositions','movementRoom'];
+
+  // Resolved Main timeline for family quality rules: each exercise occurrence in played order,
+  // its resolved per-side seconds (timed work) and the recovery that follows it.
+  function resolvedOccurrences(block) {
+    const list=[];
+    for(const step of resolveBlockSteps(block)){
+      if(step.kind==='exercise')list.push({exercise:block.exercises[step.exerciseIndex],exerciseIndex:step.exerciseIndex,timed:!!step.timed,
+        seconds:step.timed?step.seconds:null,plannedPrescription:step.plannedPrescription||null,restAfter:0});
+      else if(list.length&&Number.isFinite(step.seconds))list[list.length-1].restAfter+=step.seconds;
+    }
+    return list;
+  }
+
+  // The shared post-composition gate (Decision 13 B). Every accepted explicit-family workout, and
+  // every edited one, must pass technical legality (identity, catalogue, equipment, difficulty,
+  // impact/position constraints, executable steps, recomputed timeline within the duration) and
+  // the family's own registered programming-identity rules on the actual resolved composition.
+  function validateFamilyWorkout(workout, options) {
+    options=options||{};
+    const families=root.GarageFitWorkoutFamilies,technicalIssues=[],qualityIssues=[];
+    const result=()=>({valid:!technicalIssues.length&&!qualityIssues.length,technicalIssues,qualityIssues});
+    let definition,entry;
+    try{
+      definition=families.getDefinition(workout.workoutFamilyId,workout.workoutFamilyVersion);
+      families.getStyle(definition.id,workout.familyStyleId,definition.version);
+      entry=familyEntry(definition);
+    }catch(error){technicalIssues.push('identity:'+(error.code||'invalid'));return result();}
+    if(!entry){technicalIssues.push('identity:family-composer-unavailable');return result();}
+    const catalogue=options.catalogue||root.GarageFitData&&root.GarageFitData.exercises;
+    const owned=options.equipment||workout.setupEquipment||[],duration=workout.duration,difficulty=workout.difficulty;
+    if(!catalogue){technicalIssues.push('catalogue:unavailable');return result();}
+    if(!definition.feasibilityRequirements.supportedDurations.includes(duration)||!definition.feasibilityRequirements.supportedDifficulties.includes(difficulty))
+      technicalIssues.push('configuration:unsupported');
+    const blocks=mainBlocks(workout),constraints=workout.familyConstraints||{};
+    if(!blocks.length){technicalIssues.push('main:no-blocks');return result();}
+    // Composers that opt into generic preparation fill the traditional Main budget; others own the whole session.
+    const generic=['warmup','rampup','cooldown'].some(section=>workout[section]&&(workout[section].exercises||[]).length);
+    try{technicalIssues.push(...validateMain(workout.main,catalogue,owned,generic?(BUDGETS[duration]||BUDGETS[20]).main:duration*60));}
+    catch(error){technicalIssues.push('main:unresolvable');}
+    for(const block of blocks)for(const exercise of block.exercises||[]){
+      const source=catalogue[exercise&&exercise.id];
+      if(!source)continue; // validateMain reports unknown exercises.
+      if(exercise.coachAnchor||Object.keys(source).some(key=>JSON.stringify(source[key])!==JSON.stringify(exercise[key])))technicalIssues.push(block.id+':modified-exercise:'+source.id);
+      if(!generatedPhaseEligible(source,'main',owned,difficulty,block.familyContext))technicalIssues.push(block.id+':ineligible:'+source.id);
+      if(Array.isArray(constraints.excludedImpact)&&constraints.excludedImpact.includes(source.impact))technicalIssues.push(block.id+':excluded-impact:'+source.id);
+      if(Array.isArray(constraints.bodyPositions)&&!constraints.bodyPositions.includes(source.bodyPosition))technicalIssues.push(block.id+':excluded-position:'+source.id);
+    }
+    for(const section of ['warmup','rampup','cooldown']){
+      const part=workout[section];
+      if(!part||!Array.isArray(part.exercises)){technicalIssues.push(section+':missing');continue;}
+      for(const exercise of part.exercises)if(!generatedPhaseEligible(catalogue[exercise&&exercise.id],section,owned,difficulty))
+        technicalIssues.push(section+':ineligible:'+(exercise&&exercise.id));
+    }
+    if(!technicalIssues.length){
+      // Stored estimates must describe the resolved timeline, not an edit's stale numbers.
+      const replay=JSON.parse(JSON.stringify(workout));
+      try{
+        recalcWorkoutEstimate(replay);
+        if(replay.main.estimatedDurationSeconds!==workout.main.estimatedDurationSeconds||replay.estimatedSeconds!==workout.estimatedSeconds)
+          technicalIssues.push('timeline:estimate-mismatch');
+      }catch(error){technicalIssues.push('timeline:unresolvable');}
+      if(!(workout.estimatedSeconds<=duration*60))technicalIssues.push('timeline:over-duration');
+    }
+    try{qualityIssues.push(...entry.validateQuality(workout,{catalogue,equipment:owned,definition}).map(issue=>'quality:'+issue));}
+    catch(error){qualityIssues.push('quality:unresolvable');}
+    return result();
+  }
+
   function generateFamilyWorkout(options) {
     const families=root.GarageFitWorkoutFamilies,request=families.resolveRequest(options);
     const definition=families.getDefinition(request.workoutFamilyId,request.workoutFamilyVersion);
     const fail=(code,message)=>{throw new families.FamilyContractError(code,message);};
-    const compose=familyComposers.get(definition.compositionPolicy.id+':'+definition.compositionPolicy.version);
-    if(!compose)fail('family-composer-unavailable','No composer is registered for this workout family version.');
+    const entry=familyEntry(definition);
+    if(!entry)fail('family-composer-unavailable','No composer is registered for this workout family version.');
     if(options.sessionPrescription!=null)fail('family-prescription-unsupported','Family composition does not yet accept Coach session prescriptions.');
     const duration=Number(options.duration),difficulty=options.difficulty==null?'normal':String(options.difficulty).toLowerCase();
     if(!definition.feasibilityRequirements.supportedDurations.includes(duration)||!definition.feasibilityRequirements.supportedDifficulties.includes(difficulty))
       fail('family-configuration-unsupported','Unsupported family duration or difficulty.');
     assertValidCatalogue(options.catalogue);
-    const result=compose({...options,duration,difficulty},request);
-    const identity=families.resolveStyle(request,[result.familyStyleId]);
+    const outcome=composeFamilyWithFallback(options,request,definition,entry,duration,difficulty);
+    if(outcome.workout)return outcome.workout;
+    // Never a fabricated workout, another family or silently relaxed safety: verified reasons and adjustments only.
+    const last=outcome.reasons[outcome.reasons.length-1]||{};
+    const error=new families.FamilyContractError('family-not-feasible',
+      last.detail||definition.name+' cannot build a session that passes family validation with these settings.');
+    error.workoutFamilyId=definition.id;error.workoutFamilyVersion=definition.version;
+    error.reasons=outcome.reasons;
+    error.adjustments=verifiedFamilyAdjustments(options,definition,entry,duration,difficulty);
+    throw error;
+  }
+
+  // Same-family style fallback: each retry excludes a style that failed composition or the gate,
+  // so there is at most one attempt per published style and never another family.
+  function composeFamilyWithFallback(options,request,definition,entry,duration,difficulty) {
+    const families=root.GarageFitWorkoutFamilies,excluded=[],reasons=[];
     const owned=options.equipment||[],random=options.random||Math.random,budget=BUDGETS[duration];
-    const empty=()=>({exercises:[],restSeconds:0,estimatedSeconds:0});
-    const assemble=sections=>normaliseWorkout({schemaVersion:2,id:'generated-'+Date.now(),...identity,
-      duration,difficulty,focus:'balanced',setupEquipment:owned.slice(),...sections,main:{blocks:result.generalPreparation==null?result.blocks:JSON.parse(JSON.stringify(result.blocks))}});
-    let workout;
-    if(result.generalPreparation==null)workout=assemble({warmup:empty(),rampup:empty(),cooldown:empty()});
-    else {
-      // Opt-in composers keep the established generic preparation and cool-down around their Main.
-      // Their durations may run a few seconds over budget, so try bounded alternatives.
-      const mainExercises=result.blocks.flatMap(block=>block.exercises);
-      for(let attempt=0;attempt<6;attempt++){
-        const preparation=buildPreparation(options.catalogue,budget,owned,result.blocks[0].exercises,result.generalPreparation.focus,random,mainExercises,difficulty);
-        const cooldown=buildSection(options.catalogue,'cooldown',budget.cooldown,owned,random);
-        workout=assemble({warmup:{estimatedSeconds:preparation.warmup.estimatedSeconds,restSeconds:preparation.warmup.restSeconds,exercises:preparation.warmup.exercises.map(copyExercise)},
-          rampup:{estimatedSeconds:preparation.rampup.estimatedSeconds,restSeconds:preparation.rampup.restSeconds,exercises:preparation.rampup.exercises.map(copyExercise)},
-          cooldown:{estimatedSeconds:cooldown.estimatedSeconds,restSeconds:cooldown.restSeconds,exercises:cooldown.exercises.map(copyExercise)}});
-        applySetupPlan(workout);
-        if(workout.estimatedSeconds<=duration*60)break;
+    const constraints={};
+    for(const field of FAMILY_CONSTRAINT_FIELDS)if(options[field]!==undefined)constraints[field]=JSON.parse(JSON.stringify(options[field]));
+    for(let attempt=0;attempt<definition.styles.length;attempt++){
+      let result;
+      try{result=entry.compose({...options,duration,difficulty},request,Object.freeze({excludedStyleIds:Object.freeze(excluded.slice())}));}
+      catch(error){
+        if(!(error instanceof families.FamilyContractError)||error.code!=='family-not-feasible')throw error;
+        const styleId=error.familyStyleId;
+        const reason={code:error.reason||'family-not-feasible',...(styleId?{familyStyleId:styleId}:{}),...(error.role?{role:error.role}:{}),detail:error.message};
+        reasons.push(reason);
+        if(styleId&&!excluded.includes(styleId)&&definition.styles.some(style=>style.id===styleId)){excluded.push(styleId);continue;}
+        return {reasons};
+      }
+      if(!result||excluded.includes(result.familyStyleId)){
+        reasons.push({code:'composer-ignored-style-exclusion',familyStyleId:result&&result.familyStyleId,detail:definition.name+' composition repeated a rejected style.'});
+        return {reasons};
+      }
+      const identity=families.resolveStyle(request,[result.familyStyleId]);
+      const empty=()=>({exercises:[],restSeconds:0,estimatedSeconds:0});
+      const assemble=sections=>normaliseWorkout({schemaVersion:2,id:'generated-'+Date.now(),...identity,
+        duration,difficulty,focus:'balanced',setupEquipment:owned.slice(),...sections,main:{blocks:result.generalPreparation==null?result.blocks:JSON.parse(JSON.stringify(result.blocks))}});
+      let workout;
+      if(result.generalPreparation==null){
+        workout=assemble({warmup:empty(),rampup:empty(),cooldown:empty()});
+        // Plain blocks carry no whole-session estimate from normalisation; account for it explicitly.
+        if(!Number.isFinite(workout.estimatedSeconds))applySetupPlan(workout);
+      }
+      else {
+        // Opt-in composers keep the established generic preparation and cool-down around their Main.
+        // Their durations may run a few seconds over budget, so try bounded alternatives.
+        const mainExercises=result.blocks.flatMap(block=>block.exercises);
+        for(let attempt=0;attempt<6;attempt++){
+          const preparation=buildPreparation(options.catalogue,budget,owned,result.blocks[0].exercises,result.generalPreparation.focus,random,mainExercises,difficulty);
+          const cooldown=buildSection(options.catalogue,'cooldown',budget.cooldown,owned,random);
+          workout=assemble({warmup:{estimatedSeconds:preparation.warmup.estimatedSeconds,restSeconds:preparation.warmup.restSeconds,exercises:preparation.warmup.exercises.map(copyExercise)},
+            rampup:{estimatedSeconds:preparation.rampup.estimatedSeconds,restSeconds:preparation.rampup.restSeconds,exercises:preparation.rampup.exercises.map(copyExercise)},
+            cooldown:{estimatedSeconds:cooldown.estimatedSeconds,restSeconds:cooldown.restSeconds,exercises:cooldown.exercises.map(copyExercise)}});
+          applySetupPlan(workout);
+          if(workout.estimatedSeconds<=duration*60)break;
+        }
+      }
+      // Transient constraints let edits be revalidated; they are not persisted family history.
+      if(Object.keys(constraints).length)workout.familyConstraints=constraints;
+      const check=validateFamilyWorkout(workout,{catalogue:options.catalogue,equipment:owned});
+      if(check.valid){
+        if(reasons.length)workout.familyDiagnostics=reasons;
+        return {workout};
+      }
+      reasons.push({code:check.technicalIssues.length?'style-technical-invalid':'style-quality-failed',familyStyleId:identity.familyStyleId,
+        issues:check.technicalIssues.concat(check.qualityIssues),
+        detail:definition.name+' '+identity.familyStyleId+' did not pass family validation.'});
+      excluded.push(identity.familyStyleId);
+    }
+    return {reasons};
+  }
+
+  // Actionable user adjustments, each proven by composing and gating a whole workout with a fixed
+  // seed. Only user-imposed restrictions are offered for removal: high impact is never proposed.
+  function verifiedFamilyAdjustments(options,definition,entry,duration,difficulty) {
+    const families=root.GarageFitWorkoutFamilies,outer=activeTrace;
+    const trial=changes=>{
+      const next={...options,duration,difficulty,...changes};
+      for(const field of Object.keys(changes))if(changes[field]===undefined)delete next[field];
+      let seed=186;
+      next.random=()=>{seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};
+      try{return !!composeFamilyWithFallback(next,families.resolveRequest(next),definition,entry,Number(next.duration),next.difficulty).workout;}
+      catch(error){return false;}
+    };
+    activeTrace=null;
+    try{
+      // If unchanged settings pass under the fixed seed, no single change is proven necessary.
+      if(trial({}))return [];
+      const candidates=[];
+      if(options.bodyPositions!==undefined)candidates.push({code:'remove-body-position-restriction',field:'bodyPositions',remove:true});
+      if(Array.isArray(options.excludedImpact)){
+        const kept=options.excludedImpact.filter(impact=>impact==='high');
+        if(kept.length!==options.excludedImpact.length)candidates.push({code:'reduce-impact-exclusions',field:'excludedImpact',value:kept});
+      }
+      if(options.movementRoom!==true&&definition.feasibilityRequirements.requirements.includes('safe-movement-space'))
+        candidates.push({code:'confirm-movement-room',field:'movementRoom',value:true});
+      const near=(list,value)=>{const index=list.indexOf(value);return [list[index-1],list[index+1]].filter(item=>item!==undefined);};
+      for(const value of near(definition.feasibilityRequirements.supportedDurations,duration))candidates.push({code:'change-duration',field:'duration',value});
+      for(const value of near(definition.feasibilityRequirements.supportedDifficulties,difficulty))candidates.push({code:'change-difficulty',field:'difficulty',value});
+      return candidates.filter(item=>trial({[item.field]:item.remove?undefined:item.value})).map(item=>Object.freeze({...item}));
+    }finally{activeTrace=outer;}
+  }
+
+  // Explicit Coach replanning (Decision 13 B): only a caller that supplies its own ordered family
+  // priorities, each with a rationale, may move to another family. Standalone generate() never does.
+  function generateFamilyReplan(options, candidates) {
+    const families=root.GarageFitWorkoutFamilies;
+    if(!Array.isArray(candidates)||!candidates.length||candidates.some(item=>!item||item.workoutFamilyId==null||typeof item.rationale!=='string'||!item.rationale.trim()))
+      throw new families.FamilyContractError('invalid-family-replan','Family replanning needs ordered family candidates, each with an explicit rationale.');
+    const attempts=[];
+    for(const [index,candidate] of candidates.entries()){
+      try{
+        const workout=generate({...options,workoutFamilyId:candidate.workoutFamilyId,workoutFamilyVersion:candidate.workoutFamilyVersion});
+        workout.familyReplan={requestedWorkoutFamilyId:candidates[0].workoutFamilyId,workoutFamilyId:workout.workoutFamilyId,
+          workoutFamilyVersion:workout.workoutFamilyVersion,familyStyleId:workout.familyStyleId,replanned:index>0,rationale:candidate.rationale,attempts};
+        return workout;
+      }catch(error){
+        if(!(error instanceof families.FamilyContractError)||error.code!=='family-not-feasible')throw error;
+        attempts.push({workoutFamilyId:candidate.workoutFamilyId,code:error.code,reasons:error.reasons||[]});
       }
     }
-    const issues=validateMain(workout.main,options.catalogue,owned,result.generalPreparation==null?duration*60:budget.main);
-    if(issues.length||workout.estimatedSeconds>duration*60)
-      fail('family-composition-invalid','Invalid family composition: '+issues.join(', '));
-    return workout;
+    const error=new families.FamilyContractError('family-not-feasible','No candidate workout family can be generated with these settings.');
+    error.attempts=attempts;
+    throw error;
   }
 
   function swap(workout, blockIndex, exerciseIndex, options) {
@@ -3085,6 +3256,15 @@
         prospective(exercise).main.estimatedDurationSeconds<=budget.main
         && (rx.maximumDurationSeconds==null || prospective(exercise).estimatedSeconds<=rx.maximumDurationSeconds));
     }
+    // An explicit-family workout keeps its label only while it remains that family: every
+    // candidate edit must pass the shared family gate (technical and family identity).
+    if(workout.workoutFamilyId!=null)eligible=eligible.filter(exercise=>{
+      const candidate=JSON.parse(JSON.stringify(workout)),target=mainBlocks(candidate)[blockIndex||0];
+      target.exercises[exerciseIndex]=copyExercise(exercise);
+      if(target.protocol==='complex')target.prescription.targets[exerciseIndex]=complexDefaultTarget(exercise);
+      if(hasConfiguredEquipment(candidate))candidate.setupEquipment=owned.slice();else delete candidate.setupEquipment;
+      try{recalcWorkoutEstimate(candidate);return validateFamilyWorkout(candidate,{catalogue,equipment:owned}).valid;}catch(error){return false;}
+    });
     const fresh=eligible.filter(exercise=>!otherIds.has(exercise.id));if(fresh.length)eligible=fresh;
     // The swapped slot's neighbours in Main order, for the body-focus run limit.
     const mainOrder=blocks.flatMap(item=>item.exercises),position=blocks.slice(0,blockIndex||0).reduce((sum,item)=>sum+item.exercises.length,0)+exerciseIndex;
@@ -3129,6 +3309,12 @@
         estimatedSeconds:workout[section].estimatedSeconds-current.estimatedSeconds+replacement.estimatedSeconds};
       const candidate=setupBudgetCandidate({...workout,setupEquipment:owned},mainBlocks(workout),section,part);
       return hasConfiguredEquipment(candidate)?withinSetupBudget(candidate,workout.sessionPrescription):candidate.estimatedSeconds<=workout.sessionPrescription.maximumDurationSeconds;
+    });
+    if(workout.workoutFamilyId!=null)eligible=eligible.filter(ex=>{
+      const candidate=JSON.parse(JSON.stringify(workout));
+      candidate[section].exercises[exerciseIndex]=phaseExercise(ex,section,roundToFive(current.estimatedSeconds/sideCount(ex)));
+      if(hasConfiguredEquipment(candidate))candidate.setupEquipment=owned.slice();else delete candidate.setupEquipment;
+      try{recalcWorkoutEstimate(candidate);return validateFamilyWorkout(candidate,{catalogue,equipment:owned}).valid;}catch(error){return false;}
     });
     if(section==='warmup') {
       // A swap must not undo the warm-up's lower-body coverage or tip it into upper/trunk skew.
@@ -3181,7 +3367,7 @@
     applySetupPlan(workout);
   }
 
-  root.GarageFitGenerator = { registerFamilyComposer, BUDGETS, RESTS, PROTOCOL_SHAPES, MAIN_PROTOCOLS, GENERATED_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, EQUIPMENT_SETUP_SECONDS, EQUIPMENT_SETUP_NOTE, planSetupTransitions, mainSeconds, EMOM_POLICY, LADDER_POLICY, PYRAMID_POLICY, COMPLEX_POLICY, DENSITY_POLICY, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, WORKOUT_DIFFICULTIES, EXERCISE_DIFFICULTIES, DIFFICULTY_POLICY, workoutDifficulty, difficultyExcluded, difficultyCredit, WORKOUT_BODY_FOCUSES, EXERCISE_BODY_FOCUSES, EXERCISE_DIRECT_ELBOW_ACTIONS, BODY_FOCUS_POLICY, workoutBodyFocus, bodyFocusCredit, SHORTLIST_SIZE, SHORTLIST_MARGIN, WINDOW_MAX_RANKS, SUPPORTING_ROUTE, candidateWindowRanks, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, setupProfilesCompatible, blockSetupCompatible, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_SETUP_PROFILES, VALID_PATTERNS, VALID_WARMUP_AREAS, VALID_STRETCH_TARGETS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, OCCURRENCE_TARGET_LIMITS, resolveOccurrenceTarget, validateOccurrenceTargets, validateOccurrenceRecovery, validateFamilyBlock, validateEmomBlock, validateLadderBlock, validatePyramidBlock, pyramidKind, validateComplexBlock, validateDensityBlock, complexSequenceIssues, buildEmomBlock, protocolCompatible, protocolWeights, recentProtocolsFromResults, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, protocolConditions, selectBlockExercises, selectWarmup, kneeMobilityQualified, upperTrunkTarget, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, SessionPrescriptionError, assessSessionPrescription, generate, swap, swapPreparation };
+  root.GarageFitGenerator = { registerFamilyComposer, validateFamilyWorkout, generateFamilyReplan, resolvedOccurrences, BUDGETS, RESTS, PROTOCOL_SHAPES, MAIN_PROTOCOLS, GENERATED_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, EQUIPMENT_SETUP_SECONDS, EQUIPMENT_SETUP_NOTE, planSetupTransitions, mainSeconds, EMOM_POLICY, LADDER_POLICY, PYRAMID_POLICY, COMPLEX_POLICY, DENSITY_POLICY, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, WORKOUT_DIFFICULTIES, EXERCISE_DIFFICULTIES, DIFFICULTY_POLICY, workoutDifficulty, difficultyExcluded, difficultyCredit, WORKOUT_BODY_FOCUSES, EXERCISE_BODY_FOCUSES, EXERCISE_DIRECT_ELBOW_ACTIONS, BODY_FOCUS_POLICY, workoutBodyFocus, bodyFocusCredit, SHORTLIST_SIZE, SHORTLIST_MARGIN, WINDOW_MAX_RANKS, SUPPORTING_ROUTE, candidateWindowRanks, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, setupProfilesCompatible, blockSetupCompatible, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_SETUP_PROFILES, VALID_PATTERNS, VALID_WARMUP_AREAS, VALID_STRETCH_TARGETS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, OCCURRENCE_TARGET_LIMITS, resolveOccurrenceTarget, validateOccurrenceTargets, validateOccurrenceRecovery, validateFamilyBlock, validateEmomBlock, validateLadderBlock, validatePyramidBlock, pyramidKind, validateComplexBlock, validateDensityBlock, complexSequenceIssues, buildEmomBlock, protocolCompatible, protocolWeights, recentProtocolsFromResults, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, protocolConditions, selectBlockExercises, selectWarmup, kneeMobilityQualified, upperTrunkTarget, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, SessionPrescriptionError, assessSessionPrescription, generate, swap, swapPreparation };
 
   if (typeof window!=='undefined' && typeof document!=='undefined' && typeof window.addEventListener==='function') window.addEventListener('load',()=>{
     if (document.querySelector('script[data-garagefit-rampup-ui]')) return;
