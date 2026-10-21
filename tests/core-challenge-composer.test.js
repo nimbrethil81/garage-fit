@@ -1,0 +1,263 @@
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const {loadAppContext}=require('./helpers/app-context');
+global.window=global;
+for(const path of ['data/equipment','data/exercises','data/workout-families','js/workout-families','js/generator','js/strength-cardio-composer','js/core-challenge-composer'])require('../'+path);
+const G=GarageFitGenerator,F=GarageFitWorkoutFamilies,C=GarageFitData.exercises;
+const CORE='core-stability',CHALLENGE='full-body-challenges';
+const copy=x=>JSON.parse(JSON.stringify(x));
+function rng(seed){return ()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const EQUIPMENT={bodyweight:[],limited:['dumbbells'],bands:['bands'],trx:['trx'],broad:['dumbbells','kettlebell','pullup-bar','trx','rings','barbell','bench','box','bands']};
+const DURATIONS=[10,15,20,30,45],DIFFICULTIES=['easy','normal','hard'];
+const generate=(workoutFamilyId,extra={})=>G.generate({workoutFamilyId,duration:20,difficulty:'normal',catalogue:C,equipment:[],random:rng(7),...extra});
+const exercisesOf=w=>w.main.blocks.flatMap(b=>b.exercises);
+const mean=(list,key)=>list.reduce((sum,ex)=>sum+ex[key],0)/list.length;
+const timed=ex=>String(ex.prescription.type).includes('timed');
+const isHold=ex=>ex.cardio<=2&&timed(ex)&&['none','per-side'].includes(ex.sidedness);
+const LOWER_BODY=['squat','hinge','lunge','carry'];
+
+// Independent restatement of the documented balance rule: every body region is credited and none dominates.
+function regionCredit(list) {
+  const credit={upper:0,lower:0,core:0};
+  for(const ex of list)for(const region of Object.keys(credit))credit[region]+=ex.bodyFocus===region?1:ex.bodyFocus==='full-body'?1/3:0;
+  return credit;
+}
+const emomSeconds=(ex,target)=>Math.max(target.type==='timed'?target.value:0,Math.ceil(ex.estimatedSeconds*target.value/ex.prescription.value));
+const WORK_CAP={easy:30,normal:35,hard:40};
+
+// A displayed style must describe the resolved blocks, not merely label them.
+const STRUCTURE={
+  'controlled-stability':(blocks,w)=>blocks.every(b=>b.protocol==='rounds'&&b.exercises.length>=3&&b.prescription.rounds>=2&&b.prescription.rounds<=4
+    &&b.prescription.exerciseRestSeconds>=15&&b.prescription.roundRestSeconds>=45),
+  'dynamic-core':blocks=>blocks.every(b=>b.protocol==='paired_sets'&&b.exercises.length===2&&b.exercises.filter(isHold).length===1
+    &&b.prescription.sets>=3&&b.prescription.betweenSetsSeconds>=30&&b.prescription.betweenExercisesSeconds===10),
+  rounds:(blocks,w)=>blocks.length<=2&&blocks.every(b=>b.protocol==='rounds'&&b.exercises.length>=3&&b.prescription.rounds>=(w.duration>=20?4:3)
+    &&b.prescription.exerciseRestSeconds>=10&&b.prescription.roundRestSeconds>=30)
+    &&blocks.every(b=>b.exercises.every(ex=>ex.load!=='Heavy'&&ex.strength<5&&(ex.impact!=='high'||w.difficulty==='hard'))),
+  emom:(blocks,w)=>blocks.every(b=>b.protocol==='emom'&&b.exercises.length>=2&&b.prescription.minutes>=4&&b.prescription.minutes<=b.exercises.length*4
+    &&b.prescription.slotSeconds===60&&b.prescription.targets.every((target,i)=>emomSeconds(b.exercises[i],target)<=WORK_CAP[w.difficulty])),
+  ladder:blocks=>blocks.every(b=>b.protocol==='ladder'&&b.exercises.length===2&&b.prescription.stepRestSeconds>=20&&b.prescription.repSteps.length>=3),
+  pyramid:blocks=>blocks.length>=3&&blocks.every(b=>b.protocol==='pyramid'&&b.exercises.length===1&&b.prescription.stepRestSeconds>=60&&b.prescription.steps.length>=3),
+  density:(blocks,w)=>w.difficulty!=='easy'&&blocks.every(b=>b.protocol==='density'&&b.exercises.length===2&&b.prescription.roundRestSeconds>=45&&b.prescription.exerciseRestSeconds>=15)
+};
+
+function assertSession(w,family,{duration,difficulty,equipment}) {
+  const budget=G.BUDGETS[duration],exercises=exercisesOf(w),blocks=w.main.blocks;
+  assert.equal(w.workoutFamilyId,family);assert.equal(w.workoutFamilyVersion,1);
+  assert.ok(F.getDefinition(family).styles.some(s=>s.id===w.familyStyleId));
+  assert.equal(w.duration,duration);assert.equal(w.difficulty,difficulty);assert.equal(w.bodyFocus,'full-body');
+  // Generic preparation and cool-down surround Main; the whole session fits the selected duration.
+  assert.ok(w.warmup.exercises.length&&w.cooldown.exercises.length);
+  assert.ok(w.estimatedSeconds<=duration*60&&w.estimatedSeconds>=duration*60*.84,'estimate '+w.estimatedSeconds);
+  assert.ok(w.main.estimatedDurationSeconds<=budget.main&&w.main.estimatedDurationSeconds>=budget.main*.85,'main '+w.main.estimatedDurationSeconds);
+  assert.equal(w.main.estimatedDurationSeconds,G.mainSeconds(blocks,equipment));
+  assert.deepEqual(G.validateMain(w.main,C,equipment,budget.main),[]);
+  assert.ok(STRUCTURE[w.familyStyleId](blocks,w),'structure must match '+w.familyStyleId);
+  assert.ok(blocks.every(b=>b.familyContext===undefined&&b.occurrenceTargets===undefined&&b.occurrenceRecoverySeconds===undefined));
+  for(const ex of exercises) {
+    assert.deepEqual(ex,C[ex.id]);
+    assert.ok(G.generatedPhaseEligible(ex,'main',equipment,difficulty));
+    assert.ok(difficulty!=='easy'||ex.difficulty!=='hard');
+  }
+  const uses={};
+  for(const ex of exercises)uses[ex.id]=(uses[ex.id]||0)+1;
+  assert.ok(Math.max(...Object.values(uses))<=2,'no exercise appears in more than two places');
+  if(family===CORE) {
+    // Trunk-led, low impact, controlled: no squat/hinge/lunge/carry or press pattern, no conditioning-grade cardio.
+    assert.ok(exercises.every(ex=>ex.bodyFocus==='core'&&ex.patterns.includes('core')&&!ex.patterns.includes('push')
+      &&!ex.patterns.some(p=>LOWER_BODY.includes(p))&&ex.impact==='low'&&ex.cardio<=3));
+    assert.ok(exercises.filter(isHold).length>=exercises.length*.25,'holds carry a meaningful share');
+    assert.ok(mean(exercises,'cardio')<=2.5,'control, not conditioning');
+    assert.ok(new Set(exercises.map(ex=>ex.id)).size>=3);
+  } else {
+    const credit=regionCredit(exercises);
+    assert.ok(exercises.length>=3);
+    for(const value of Object.values(credit))assert.ok(value>=exercises.length*.15-1e-9&&value<=exercises.length*.5+1e-9,JSON.stringify(credit));
+    const sets=blocks.filter(b=>b.exercises.length>1).map(b=>b.exercises.map(ex=>ex.id).sort().join('+'));
+    assert.equal(new Set(sets).size,sets.length,'a multi-exercise block never repeats');
+    // Each protocol keeps its own sensitive-recovery rules through the canonical validators.
+    for(const b of blocks) {
+      if(b.protocol==='rounds') {
+        const flow=[...b.exercises,...(b.prescription.rounds>1?[b.exercises[0]]:[])];
+        assert.ok(b.exercises.filter(ex=>ex.impact==='high').length<=1&&flow.every((ex,i)=>!i||ex.impact!=='high'||flow[i-1].impact!=='high'));
+      }
+      if(b.protocol==='emom')assert.deepEqual(G.validateEmomBlock(b,C),[]);
+      if(b.protocol==='ladder')assert.deepEqual(G.validateLadderBlock(b,C),[]);
+      if(b.protocol==='pyramid')assert.deepEqual(G.validatePyramidBlock(b,C),[]);
+      if(b.protocol==='density')assert.deepEqual(G.validateDensityBlock(b,C),[]);
+    }
+  }
+}
+
+const REPRESENTATIVE=[[10,'easy','bodyweight'],[15,'normal','bodyweight'],[20,'normal','limited'],[30,'hard','limited'],[45,'hard','broad'],[45,'easy','broad'],[20,'hard','bands']];
+
+test('both families register working composers and resolve honest structures with identities from the shared definition',()=>{
+  assert.throws(()=>G.registerFamilyComposer(CORE,1,()=>({})),/once per published policy/);
+  assert.throws(()=>G.registerFamilyComposer(CHALLENGE,1,()=>({})),/once per published policy/);
+  const styles={[CORE]:new Set(),[CHALLENGE]:new Set()};
+  for(const [duration,difficulty,key] of REPRESENTATIVE)for(const family of [CORE,CHALLENGE])for(const seed of [1,2]) {
+    const equipment=EQUIPMENT[key],w=generate(family,{duration,difficulty,equipment,random:rng(seed*977+duration)});
+    assertSession(w,family,{duration,difficulty,equipment});styles[family].add(w.familyStyleId);
+  }
+  assert.ok(styles[CORE].size>=1&&styles[CHALLENGE].size>=3,'representative seeds reach more than one automatic style');
+});
+
+test('every supported style is reachable and displays only the structure it actually has',()=>{
+  const need={[CORE]:['controlled-stability','dynamic-core'],[CHALLENGE]:['rounds','emom','ladder','pyramid','density']};
+  for(const family of [CORE,CHALLENGE]) {
+    const seen=new Set();
+    for(let seed=1;seed<=40&&seen.size<need[family].length;seed++)for(const [duration,difficulty,key] of [[20,'hard','broad'],[30,'normal','broad'],[15,'hard','trx'],[10,'normal','broad'],[10,'hard','bodyweight']]) {
+      const equipment=EQUIPMENT[key],w=generate(family,{duration,difficulty,equipment,random:rng(seed*131+duration)});
+      assertSession(w,family,{duration,difficulty,equipment});seen.add(w.familyStyleId);
+    }
+    assert.deepEqual([...seen].sort(),need[family].slice().sort());
+  }
+});
+
+test('Core sessions are controlled trunk work: holds, controlled movement and bounded local fatigue',()=>{
+  for(const [duration,difficulty,key] of [[10,'easy','bodyweight'],[30,'normal','broad'],[45,'hard','limited']])for(let seed=1;seed<=4;seed++) {
+    const w=generate(CORE,{duration,difficulty,equipment:EQUIPMENT[key],random:rng(seed*17)}),exercises=exercisesOf(w);
+    // Never a generic squat, row or press session, and never ballistic or conditioning-grade work.
+    assert.ok(exercises.every(ex=>ex.patterns.includes('core')&&ex.bodyFocus==='core'));
+    assert.ok(exercises.every(ex=>!ex.patterns.includes('push')&&ex.impact==='low'&&ex.cardio<=3));
+    // Recovery follows demanding rounds and pairs.
+    for(const b of w.main.blocks) {
+      if(b.protocol==='rounds')assert.ok(b.prescription.roundRestSeconds>=45&&b.prescription.exerciseRestSeconds>=15);
+      else assert.ok(b.prescription.betweenSetsSeconds>=30);
+    }
+    // Wherever the pool allows, an exercise is used once rather than repeated back to back across blocks.
+    if(duration<=30)assert.equal(new Set(exercises.map(ex=>ex.id)).size,exercises.length);
+  }
+  // The family does not claim improved technique: it only labels its structure.
+  const w=generate(CORE,{});
+  assert.ok(!/technique|improv/i.test(JSON.stringify({id:w.familyStyleId,name:F.getDefinition(CORE).name,purpose:F.getDefinition(CORE).purpose})));
+});
+
+test('Challenge sessions are balanced whole-body structures; Easy never receives density or hard work',()=>{
+  for(const seed of [1,2,3,4,5,6,7,8]) {
+    const easy=generate(CHALLENGE,{difficulty:'easy',duration:30,equipment:EQUIPMENT.broad,random:rng(seed)});
+    assert.notEqual(easy.familyStyleId,'density');
+    assert.ok(exercisesOf(easy).every(ex=>ex.difficulty!=='hard'));
+    for(const b of G.mainBlocks(easy).filter(b=>b.protocol==='rounds'))assert.ok(b.exercises.every(ex=>ex.impact!=='high'));
+  }
+  // Hard sets stronger work requirements, not shorter recovery: rest floors are the same or longer on Easy.
+  const rest=difficulty=>{
+    const w=generate(CHALLENGE,{difficulty,duration:30,equipment:EQUIPMENT.broad,random:rng(11)});
+    return w.main.blocks.map(b=>b.prescription.roundRestSeconds||b.prescription.stepRestSeconds||60);
+  };
+  assert.ok(Math.min(...rest('easy'))>=Math.min(...rest('hard')));
+});
+
+test('rounds challenges are not ordinary short fixed circuits: they need a full balanced round and enough rounds',()=>{
+  let seen=0;
+  for(let seed=1;seed<=60&&seen<3;seed++)for(const duration of [20,30]) {
+    const w=generate(CHALLENGE,{duration,difficulty:'hard',equipment:EQUIPMENT.broad,random:rng(seed*53+duration)});
+    if(w.familyStyleId!=='rounds')continue;
+    seen++;
+    for(const b of w.main.blocks) {
+      assert.ok(b.exercises.length>=4&&b.prescription.rounds>=4);
+      const regions=new Set(b.exercises.map(ex=>ex.bodyFocus));
+      assert.ok(['upper','lower','core'].every(region=>regions.has(region)),'each round trains upper, lower and core');
+    }
+  }
+  assert.ok(seen>=3,'rounds challenges remain reachable');
+});
+
+test('EMOM, ladder, pyramid and density honour their canonical recovery and effort bounds with Easy/Normal/Hard',()=>{
+  for(const difficulty of DIFFICULTIES)for(const seed of [1,2,3]) {
+    const w=generate(CHALLENGE,{difficulty,duration:30,equipment:EQUIPMENT.broad,random:rng(seed*313)});
+    for(const b of w.main.blocks) {
+      assert.ok(G.estimateBlockDuration(b,EQUIPMENT.broad)>0);
+      if(b.protocol==='emom')for(const [i,target] of b.prescription.targets.entries())assert.ok(emomSeconds(b.exercises[i],target)<=WORK_CAP[difficulty]);
+      if(b.protocol==='ladder')assert.ok(b.prescription.stepRestSeconds>=({easy:40,normal:30,hard:20})[difficulty]);
+      if(b.protocol==='pyramid')assert.ok(b.prescription.stepRestSeconds>=({easy:75,normal:60,hard:60})[difficulty]);
+    }
+  }
+});
+
+test('Body Focus is ignored for both families through the shared definition',()=>{
+  for(const family of [CORE,CHALLENGE]) {
+    const plain=generate(family,{random:rng(3)}),withFocus=generate(family,{random:rng(3),bodyFocus:'upper'});
+    assert.equal(withFocus.bodyFocus,'full-body');
+    assert.deepEqual(withFocus.main.blocks,plain.main.blocks);
+    assert.deepEqual(F.getDefinition(family).bodyFocus,['full-body']);
+  }
+});
+
+test('recent-session history lowers exercise repetition and recent protocols influence style weights',()=>{
+  const overlap=useHistory=>{
+    let repeated=0;
+    for(const seed of [1,2,3,4,5,6]) {
+      const first=exercisesOf(generate(CORE,{duration:30,equipment:EQUIPMENT.broad,random:rng(seed)})).map(ex=>ex.id);
+      const second=generate(CORE,{duration:30,equipment:EQUIPMENT.broad,random:rng(seed+100),...(useHistory?{history:[first]}:{})});
+      repeated+=exercisesOf(second).filter(ex=>first.includes(ex.id)).length;
+    }
+    return repeated;
+  };
+  assert.ok(overlap(true)<overlap(false));
+  const count=recentProtocols=>{
+    let paired=0;
+    for(let seed=1;seed<=30;seed++)if(generate(CORE,{duration:20,difficulty:'hard',equipment:EQUIPMENT.limited,recentProtocols,random:rng(seed)}).familyStyleId==='dynamic-core')paired++;
+    return paired;
+  };
+  assert.ok(count(['paired_sets'])<count([]));
+});
+
+test('impact and position constraints filter the canonical pool and infeasible requests fail honestly',()=>{
+  const lowOnly=generate(CHALLENGE,{excludedImpact:['medium','high'],duration:20,equipment:EQUIPMENT.broad});
+  assert.ok(exercisesOf(lowOnly).every(ex=>ex.impact==='low'));
+  const floor=generate(CORE,{bodyPositions:['floor'],equipment:EQUIPMENT.broad});
+  assert.ok(exercisesOf(floor).every(ex=>ex.bodyPosition==='floor'));
+  for(const [family,extra] of [[CORE,{excludedImpact:['low','medium','high']}],[CHALLENGE,{excludedImpact:['low','medium','high']}],
+    [CORE,{bodyPositions:['standing']}],[CORE,{bodyPositions:['hanging']}],[CHALLENGE,{bodyPositions:['hanging']}]])
+    assert.throws(()=>generate(family,extra),error=>error instanceof F.FamilyContractError&&error.code==='family-not-feasible'&&/cannot build/.test(error.message));
+  for(const bad of [{excludedImpact:['loud']},{excludedImpact:'low'},{bodyPositions:[]},{bodyPositions:['floating']}])
+    for(const family of [CORE,CHALLENGE])assert.throws(()=>generate(family,bad),error=>error.code==='invalid-family-context');
+});
+
+test('family sessions remain determined by the seed and leave Coach prescriptions and no-family generation to their own paths',()=>{
+  for(const family of [CORE,CHALLENGE]) {
+    const first=generate(family,{random:rng(11)}),second=generate(family,{random:rng(11)});
+    assert.deepEqual({...first,id:0},{...second,id:0});
+    assert.throws(()=>generate(family,{sessionPrescription:{}}),error=>error.code==='family-prescription-unsupported');
+    assert.throws(()=>generate(family,{duration:25}),error=>error.code==='family-configuration-unsupported');
+  }
+  const legacy=()=>G.generate({duration:20,focus:'cardio',catalogue:C,equipment:[],random:rng(5)});
+  assert.deepEqual({...legacy(),id:0},{...legacy(),id:0});
+  assert.equal(legacy().workoutFamilyId,undefined);
+  const calls=[],baseline=[];
+  G.generate({duration:20,focus:'balanced',catalogue:C,equipment:[],workoutFamilyId:null,random:()=>{calls.push(1);return .3;}});
+  G.generate({duration:20,focus:'balanced',catalogue:C,equipment:[],random:()=>{baseline.push(1);return .3;}});
+  assert.equal(calls.length,baseline.length);
+});
+
+test('family sessions normalise idempotently and share unique planned occurrences with the player',()=>{
+  const app=loadAppContext(new Map(),{ownIntrinsics:true});
+  for(const family of [CORE,CHALLENGE])for(const [duration,difficulty,key,seed] of [[10,'easy','bodyweight',21],[30,'normal','broad',21],[30,'hard','broad',9],[20,'normal','limited',5]]) {
+    const w=generate(family,{duration,difficulty,equipment:EQUIPMENT[key],random:rng(seed)});
+    assert.deepEqual(copy(G.normaliseWorkout(copy(w))),copy(w));
+    app.input=copy(w);
+    const plan=app.GarageFitSessionTracker.plannedWorkFromTimeline(app.buildGeneratedTimeline(app.input));
+    assert.equal(new Set(plan.map(p=>p.occurrenceId)).size,plan.length);
+    const main=plan.filter(p=>p.section==='main');
+    assert.equal(main.length,w.main.blocks.reduce((sum,b)=>sum+G.resolveBlockSteps(b).filter(s=>s.kind==='exercise')
+      .reduce((n,s)=>n+G.sideCount(b.exercises[s.exerciseIndex]),0),0));
+  }
+});
+
+test('composer loads after the shared composer kit in the application shell',()=>{
+  assert.match(fs.readFileSync('index.html','utf8'),/js\/strength-cardio-composer.js[\s\S]*js\/core-challenge-composer.js/);
+  assert.ok(Object.isFrozen(GarageFitFamilyComposerKit));
+});
+
+test('[Full] five durations × three difficulties × five equipment sets × three seeds per family build valid sessions',()=>{
+  const SEEDS=[1,31,2026];let sessions=0;
+  for(const family of [CORE,CHALLENGE])for(const duration of DURATIONS)for(const difficulty of DIFFICULTIES)for(const key of Object.keys(EQUIPMENT))for(const seed of SEEDS) {
+    const equipment=EQUIPMENT[key];let w;
+    try{w=generate(family,{duration,difficulty,equipment,random:rng(seed*977+duration)});}
+    catch(error){assert.fail('Unexpected infeasibility '+family+' '+duration+' '+difficulty+' '+key+' '+seed+': '+error.message);}
+    sessions++;assertSession(w,family,{duration,difficulty,equipment});
+  }
+  assert.equal(sessions,2*5*3*5*3);
+});

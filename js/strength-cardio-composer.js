@@ -234,6 +234,9 @@
     };
   }
 
+  // Shared construction helpers for later catalogue-owned composers (js/core-challenge-composer.js).
+  root.GarageFitFamilyComposerKit=Object.freeze({MARGIN,copy,sum,fail,ordered,constraints,context,freshState,pick,fitted,sequence,counts,bestOf});
+
   G.registerFamilyComposer('strength-control',1,build('Strength & Control',STRENGTH_STYLES,ctx=>{
     const recent=ctx.recent,rounds=recent.includes('rounds')?.8:1;
     return Object.fromEntries(Object.entries(STRENGTH_WEIGHTS).map(([id,table])=>[id,table[ctx.duration]
