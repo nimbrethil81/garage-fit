@@ -270,6 +270,22 @@
     requirementId: id, importance: oneOf(CONSTRAINT_IMPORTANCE),
     anchorRequirementId: nullable(id), allowedProtocols: arrayOf(oneOf(MAIN_PROTOCOLS))
   });
+  // Ordered Coach family intent (#190). Each candidate names a canonical family version
+  // and why it is offered; the Generator builds the first feasible one through the shared
+  // family gate and reports the actual family. Constraints use the family-context vocabulary.
+  const FAMILY_PLAN_LIMIT = 6;
+  const FAMILY_IMPACTS = ['low','medium','high'];
+  const FAMILY_BODY_POSITIONS = ['standing','floor','hanging','supported','mixed'];
+  const workoutFamilyPlan = shape({
+    candidates: arrayOf(shape({workoutFamilyId: id, workoutFamilyVersion: positiveInteger, rationale: text})),
+    excludedImpact: nullable(arrayOf(oneOf(FAMILY_IMPACTS))),
+    bodyPositions: nullable(arrayOf(oneOf(FAMILY_BODY_POSITIONS))),
+    movementRoom: nullable(boolean)
+  }, (value, path, errors) => {
+    if (!value.candidates.length || value.candidates.length > FAMILY_PLAN_LIMIT) fail(errors, path+'.candidates', 'must contain one to '+FAMILY_PLAN_LIMIT+' families');
+    uniqueBy('workoutFamilyId','family')(value.candidates, path+'.candidates', errors);
+    for (const key of ['excludedImpact','bodyPositions']) if (Array.isArray(value[key]) && new Set(value[key]).size !== value[key].length) fail(errors, path+'.'+key, 'must be unique');
+  });
 
   // One logged set. Every measure may be unknown; nothing is inferred from the plan.
   const setLog = shape(Object.assign({
@@ -446,8 +462,14 @@
     avoidConstraints: nullable(arrayOf(avoidConstraint)),
     protocolConstraints: nullable(arrayOf(protocolConstraint)),
     variationPreference: nullable(oneOf(VARIATION_PREFERENCES)),
+    // Optional, anchor-free family composition request; absent on every released programme.
+    workoutFamilyPlan: nullable(workoutFamilyPlan),
     programmeContext: nullable(jsonObject)
   }, (value, path, errors) => {
+    // Family composers own their programming; they cannot honour anchor or generic Main intent.
+    if (!isMissing(value.workoutFamilyPlan)) ['requiredAnchors','preferredAnchors','movementPriorities','bodyRegionPriorities','avoidConstraints','protocolConstraints']
+      .concat(['optionalMainExerciseIds','mainTimeLimitSeconds','maximumDurationSeconds','variationPreference'])
+      .forEach(key => { if (Array.isArray(value[key]) ? value[key].length : !isMissing(value[key])) fail(errors, path+'.'+key, 'is not supported with a workout family plan'); });
     [['requiredAnchors','required'],['preferredAnchors','preferred']].forEach(([key, importance]) => {
       (value[key] || []).forEach((anchor, index) => {
         if (anchor.importance !== importance) fail(errors, path+'.'+key+'['+index+'].importance', 'must be '+describe(importance)+' in '+key);

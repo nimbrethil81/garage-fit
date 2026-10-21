@@ -39,6 +39,7 @@ Open http://127.0.0.1:8000/ in a browser. There is no build or dependency-instal
 - `js/session-tracker.js` — records what actually happened during a tracked generated workout
 - `js/coach-engine.js`, `js/coach-policies.js`, `js/training-history.js` — pure programme decisions, policy strategies and performed-training evidence
 - `js/coach-tennis-policy.js` — Tennis anchors, performed session roles and duration-specific prescriptions
+- `js/coach-general-fitness-policy.js` — anchor-free General Fitness family scheduling from performed training effects
 - `js/coach-recovery.js` — result/state/draft transaction and startup reconciliation
 - `js/coach-ui.js` — Coach screens and recoverable engine/store/generator/tracker orchestration
 - `js/coach-progress-ui.js` — read-only Your progress views shared by every Coach programme

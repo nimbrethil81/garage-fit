@@ -152,7 +152,46 @@
     sportPolicy: {sportId: 'tennis', version: 3}};
   tennisRings.anchorSelectionPolicy.requirements.find(item => item.roleId === 'push').exerciseIds.push('ring-press-up');
   tennisRings.anchorSelectionPolicy.requirements.find(item => item.roleId === 'pull').exerciseIds.push('ring-row');
+  // #190 approved General Fitness Decisions 1–8: open-ended and anchor-free. Each session
+  // chooses an intended workout family from rolling performed training effects across
+  // GarageFit sources (strength and conditioning foundations first), adapts to recent
+  // attendance without debt, and is built by the shared family composers and gate.
+  // Weights/penalties are transparent planning preferences, not a fitness score.
+  const fitnessFamily = (workoutFamilyId, effects, demanding, repeatable = false) => ({workoutFamilyId, workoutFamilyVersion: 1, effects, demanding, repeatable});
+  const generalFitness = {
+    schemaVersion: 1, id: 'general-fitness', version: 1, type: 'general-fitness',
+    name: 'General Fitness', objective: 'Build balanced everyday fitness without fixed anchors', openEnded: true,
+    supportedDurations: [10, 15, 20, 30, 45],
+    recommendedFrequency: {minSessionsPerWeek: 2, maxSessionsPerWeek: 5},
+    coverageTargets: {windowDays: 28, includeCrossSourceHistory: true},
+    doseTargets: {meaningfulRule: 'any-performed-main-work', sections: ['main']},
+    familyBalancePolicy: {
+      families: [
+        fitnessFamily('strength-control', {strength: 1}, true, true),
+        fitnessFamily('cardio-conditioning', {conditioning: 1}, true),
+        fitnessFamily('full-body-challenges', {challenge: 0.5, strength: 0.25, conditioning: 0.25}, true),
+        fitnessFamily('athletic-movement', {athletic: 1}, false),
+        fitnessFamily('core-stability', {core: 1}, false),
+        fitnessFamily('mobility-movement-quality', {mobility: 1}, false)
+      ],
+      effectWeights: {
+        lowAttendance: {strength: 3, conditioning: 3, challenge: 0.5, athletic: 1, core: 1, mobility: 1},
+        regularAttendance: {strength: 2, conditioning: 2, challenge: 0.5, athletic: 1, core: 1, mobility: 1}
+      },
+      regularAttendanceSessionsPerWeek: 3, attendanceWindowDays: 14
+    },
+    varietyPolicy: {recentSessions: 3, repeatPreviousPenalty: 1, repeatableRepeatPenalty: 0.35, recentRepeatPenalty: 0.25, maximumConsecutiveRepeatable: 2},
+    recoveryPolicy: {recentHours: 24, demandingPenalty: 1.5, reportedIntensities: ['hard'], reportedDays: 1},
+    externalActivityPolicy: {typicalMobilityWeightPerSession: 0.25, maximumTypicalMobilityWeight: 0.5},
+    sessionTemplate: {duration: 30, difficulty: 'normal', bodyFocus: 'full-body'},
+    sequencingRules: {minimumRecoveryHours: 0},
+    missedSessionPolicy: {strategy: 'recompute-no-debt'},
+    feasibilityRequirements: {minimumDurationMinutes: 10, requiredPatterns: []},
+    completionCriteria: {minimumMeaningfulSessions: null, requireNominalDuration: false, explicitFinish: true},
+    supportsMaintenanceMode: false
+  };
   function freeze(value) { Object.values(value).forEach(item => { if (item && typeof item === 'object') freeze(item); }); return Object.freeze(value); }
   root.GarageFitData = root.GarageFitData || {};
-  root.GarageFitData.programmes = freeze({'general-strength-4w': {1: strength, 2: strengthRings}, 'build-arms': {1: arms}, 'tennis-conditioning': {1: tennis, 2: tennisContext, 3: tennisDevelopment, 4: tennisEvents, 5: tennisPilot, 6: tennisMovement, 7: tennisRings}});
+  root.GarageFitData.programmes = freeze({'general-strength-4w': {1: strength, 2: strengthRings}, 'build-arms': {1: arms}, 'tennis-conditioning': {1: tennis, 2: tennisContext, 3: tennisDevelopment, 4: tennisEvents, 5: tennisPilot, 6: tennisMovement, 7: tennisRings},
+    'general-fitness': {1: generalFitness}});
 })(typeof window !== 'undefined' ? window : globalThis);

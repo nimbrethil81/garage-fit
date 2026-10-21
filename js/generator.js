@@ -2494,6 +2494,14 @@
       assertValidCatalogue(context.catalogue);
     }
     catch(error){conflict(assessment.hardConflicts,'invalid-generation-context',[],[],{message:error.message});assessment.status='infeasible';return {assessment};}
+    if(rx.workoutFamilyPlan){
+      // Anchor-free family intent: a cheap, deterministic configuration check. Composition
+      // feasibility is proven only by building the workout through the shared family gate.
+      const {unavailable,usable}=familyPlanCandidates(rx,context);
+      unavailable.forEach(item=>conflict(assessment.warnings,'family-candidate-unavailable',[],[],item));
+      if(!usable.length){conflict(assessment.hardConflicts,'family-plan-unavailable',[],[],{unavailable});assessment.status='infeasible';}
+      return {assessment,context,rx,familyPlan:true};
+    }
     const catalogue=context.catalogue,owned=context.equipment,budget=prescriptionBudget(rx,context.duration),rest=RESTS[context.focus]||RESTS.balanced;
     const hardAvoids=prescriptionList(rx,'avoidConstraints').filter(item=>item.importance==='hard');
     const available=Object.values(catalogue).filter(exercise=>!hardAvoids.some(item=>avoidMatches(exercise,item)));
@@ -2847,6 +2855,7 @@
   function generatePrescribedWorkout(options) {
     const prepared=prepareSessionPrescription(options),{assessment,context,rx}=prepared;
     if(assessment.status==='infeasible')throw new SessionPrescriptionError(assessment);
+    if(prepared.familyPlan)return generateFamilyPlanWorkout(prepared);
     const hasRequirements=['requiredAnchors','preferredAnchors','movementPriorities','bodyRegionPriorities','avoidConstraints','protocolConstraints'].some(key=>prescriptionList(rx,key).length)||rx.optionalMainExerciseIds!=null||rx.variationPreference||rx.mainTimeLimitSeconds!=null||rx.maximumDurationSeconds!=null;
     // An empty prescription can use the exact ordinary flow, including its RNG consumption.
     if(!hasRequirements){
@@ -3213,6 +3222,48 @@
     const error=new families.FamilyContractError('family-not-feasible','No candidate workout family can be generated with these settings.');
     error.attempts=attempts;
     throw error;
+  }
+
+  // Coach family plans (#190) reuse the replanning route above. Candidates whose published
+  // definition, composer or duration/difficulty support is missing are reported, never built.
+  function familyPlanCandidates(rx,context) {
+    const families=root.GarageFitWorkoutFamilies,usable=[],unavailable=[];
+    for(const candidate of rx.workoutFamilyPlan.candidates){
+      let reason=null;
+      try{
+        const definition=families.getDefinition(candidate.workoutFamilyId,candidate.workoutFamilyVersion);
+        if(!familyEntry(definition))reason='family-composer-unavailable';
+        else if(!definition.feasibilityRequirements.supportedDurations.includes(context.duration)||!definition.feasibilityRequirements.supportedDifficulties.includes(context.difficulty))
+          reason='family-configuration-unsupported';
+      }catch(error){reason=error&&error.code||'unknown-workout-family';}
+      if(reason)unavailable.push({workoutFamilyId:candidate.workoutFamilyId,workoutFamilyVersion:candidate.workoutFamilyVersion,reason});
+      else usable.push(candidate);
+    }
+    return {usable,unavailable};
+  }
+  function generateFamilyPlanWorkout(prepared) {
+    const {rx,context,assessment}=prepared,plan=rx.workoutFamilyPlan,{usable,unavailable}=familyPlanCandidates(rx,context);
+    const options={catalogue:context.catalogue,duration:context.duration,difficulty:context.difficulty,bodyFocus:context.bodyFocus,equipment:context.equipment,
+      history:context.history||[],recentProtocols:context.recentProtocols,random:context.random};
+    for(const field of FAMILY_CONSTRAINT_FIELDS)if(plan[field]!=null)options[field]=jsonCopy(plan[field]);
+    const skipped=unavailable.map(item=>({workoutFamilyId:item.workoutFamilyId,code:item.reason,reasons:[]}));
+    let workout;
+    try{workout=generateFamilyReplan(options,usable.map(item=>({workoutFamilyId:item.workoutFamilyId,workoutFamilyVersion:item.workoutFamilyVersion,rationale:item.rationale})));}
+    catch(error){
+      if(!(error instanceof root.GarageFitWorkoutFamilies.FamilyContractError)||error.code!=='family-not-feasible')throw error;
+      throw new SessionPrescriptionError({...assessment,status:'infeasible',hardConflicts:[{code:'family-plan-not-feasible',requirementIds:[],exerciseIds:[],
+        attempts:skipped.concat(jsonCopy(error.attempts||[]))}]});
+    }
+    // The delivered family is the actual composition; the planned first choice stays visible.
+    const requested=plan.candidates[0];
+    workout.familyReplan={...workout.familyReplan,requestedWorkoutFamilyId:requested.workoutFamilyId,requestedWorkoutFamilyVersion:requested.workoutFamilyVersion,
+      replanned:workout.workoutFamilyId!==requested.workoutFamilyId||workout.workoutFamilyVersion!==requested.workoutFamilyVersion,
+      attempts:skipped.concat(workout.familyReplan.attempts)};
+    // No generic sessionPrescription is attached: family swaps use the family gate, not Main budgets.
+    workout.prescriptionOutcome={prescriptionId:rx.prescriptionId,status:workout.familyReplan.replanned?'partially-feasible':'feasible',
+      satisfiedHardRequirementIds:[],requiredAnchorPlacements:[],preferredSatisfied:[],preferredMissed:[],preferredAnchorPlacements:[],
+      prioritiesSatisfied:[],prioritiesMissed:[],variationPreference:null,softRelaxations:[],warnings:jsonCopy(assessment.warnings),familyPlan:jsonCopy(workout.familyReplan)};
+    return workout;
   }
 
   function swap(workout, blockIndex, exerciseIndex, options) {
