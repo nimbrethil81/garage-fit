@@ -841,3 +841,47 @@ v5 behavior; `tests/tennis-pilot.test.js` also checks v6 home lateral-control co
 Neither simulation proves athletic outcomes or universal feasibility. Tennis v5's
 short-session omission tie-break uses earlier performed anchor history after rolling
 dose ties; saved v1–v4 retain their original rules without automatic migration.
+
+## Gymnastic rings in Coach programmes (#146)
+
+Rings are optional equipment and never required. New starts select General
+Strength v2 and Tennis v7; Build Arms stays v1. Released definitions (General
+Strength v1, Tennis v1–v6) and Tennis capability mappings v1/v2 are unchanged.
+Saved instances keep their pinned version, anchors, targets, history and drafts;
+there is no automatic upgrade or remapping. Adopting a v2/v7 ring anchor means
+finishing the current programme and explicitly starting a new one.
+
+| Programme | Ring anchors for new starts | Optional ring work | Saved instances |
+| --- | --- | --- | --- |
+| General Strength v2 | push: ring press-up; pull: ring row, ring pull-up, ring chin-up | Generic Main filler (any eligible ring entry) | v1 anchors and alternatives unchanged; no ring alternatives |
+| Build Arms v1 | flexion: ring biceps curl; extension: ring triceps extension (via `directElbowAction`) | Generic maintenance/filler | Ring curl/extension available immediately as temporary substitutes |
+| Tennis v7 | push: ring press-up; pull: ring row | Ring face pull as `upper-body` shoulder support (mapping v3); other ring entries are unmapped generic filler | v1–v6 anchors, alternatives and mappings unchanged |
+
+Ring IDs are appended after the released choices, so owners of other suitable kit
+keep the released default anchors. A ring anchor becomes the default only when no
+earlier choice is available (for example Tennis with rings but no row/pull-up kit,
+which v6 could not start). Otherwise it is an explicit `anchorSelections` choice or
+a temporary substitute; the start screen has no anchor picker. General Strength
+needs dumbbells for its carry, which also provide its default press and row.
+
+Ring anchors use the programme's existing comparable contract: two (or three for
+Build Arms) rep-based `rounds` sets with the definition's fixed starting reps.
+Hard ring press-ups/pull-ups/chin-ups are unavailable on Easy days rather than
+eased by lowering reps. Build Arms and Tennis progress non-numeric ring anchors only
+through explicit confirmed resistance setup; no load is inferred from ring height or
+body angle. General Strength keeps its released double-progression rule for every
+non-numeric anchor, as for TRX rows and push-ups. Substitutes and anchors keep exact
+exercise identity, so ring and bar/TRX work remain separate performed series.
+
+Deliberately excluded as anchors: ring dips and foot-assisted dips (deep supported
+shoulder extension, not comparable to the released presses), timed support holds
+(the anchors are rep-based), neutral-grip ring pull-ups (redundant with the two
+reviewed vertical pulls), face pulls, curls/extensions outside Build Arms, knee
+raises and fallouts. Tennis also excludes ring pull-ups/chin-ups as anchors.
+Mapping v3 leaves pull-ups, dips, holds, knee raises and fallouts unmapped; they
+earn no tennis capability credit and can only appear as generic optional filler.
+
+Setup grouping and ring-adjustment transitions come from the shared Generator
+(#113/#114); Coach adds no ring rules. `tests/rings-coach-programmes.test.js`
+covers the matrix above, equipment on/off, seeded workouts in all three programmes,
+setup compatibility, timing, recovery and history attribution.

@@ -158,12 +158,12 @@ test('summary compaction preserves review counts and a pure history rebuild', as
 test('an unavailable pinned definition version is retained and blocks reinterpretation', async () => {
   const p=pilot();await p.start();
   await p.run(`(async()=>{
-    const state={...pilot.snapshot().state,programmeDefinitionVersion:2};
+    const state={...pilot.snapshot().state,programmeDefinitionVersion:99};
     await pilotStore.saveProgrammeState(state);
     await pilotStore.saveActiveProgramme(GarageFitCoachModel.createActiveProgramme(GarageFitCoachModel.programmeDefinitionRef(state)));
   })()`);
   const q=pilot(p.storage);await q.run('pilot.load()');
   assert.equal(q.run('pilot.snapshot().blocked'),true);
   assert.match(q.run('pilot.snapshot().errors[0].message'),/definition version/);
-  assert.equal((await q.run("pilotStore.loadProgrammeState('programme:1')")).programmeDefinitionVersion,2);
+  assert.equal((await q.run("pilotStore.loadProgrammeState('programme:1')")).programmeDefinitionVersion,99);
 });
