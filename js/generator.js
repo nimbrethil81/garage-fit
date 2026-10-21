@@ -2942,6 +2942,7 @@
   }
 
   function generateWorkout(options) {
+    if(options.workoutFamilyId!=null)return generateFamilyWorkout(options);
     if(options.sessionPrescription!=null)return generatePrescribedWorkout(options);
     const catalogue=options.catalogue;
     const duration=Number(options.duration);
@@ -2991,6 +2992,39 @@
     const issues=validateMain(workout.main,catalogue,owned,budget.main);
     const fatal=issues.filter(issue=>issue!=='main:duration-out-of-tolerance');
     if(fatal.length)throw new Error('Invalid generated Main: '+fatal.join(', '));
+    return workout;
+  }
+
+  // One explicit-family construction seam. Composers own programming and style feasibility;
+  // this wrapper owns shared identity, executable contracts and whole-session accounting.
+  // Requests without a family never enter this path or consume an additional random draw.
+  const familyComposers=new Map();
+  function registerFamilyComposer(workoutFamilyId, workoutFamilyVersion, compose) {
+    const definition=root.GarageFitWorkoutFamilies.getDefinition(workoutFamilyId,workoutFamilyVersion);
+    const key=definition.compositionPolicy.id+':'+definition.compositionPolicy.version;
+    if(familyComposers.has(key)||typeof compose!=='function')throw new Error('A family composer must be a function registered once per published policy.');
+    familyComposers.set(key,compose);
+  }
+  function generateFamilyWorkout(options) {
+    const families=root.GarageFitWorkoutFamilies,request=families.resolveRequest(options);
+    const definition=families.getDefinition(request.workoutFamilyId,request.workoutFamilyVersion);
+    const fail=(code,message)=>{throw new families.FamilyContractError(code,message);};
+    const compose=familyComposers.get(definition.compositionPolicy.id+':'+definition.compositionPolicy.version);
+    if(!compose)fail('family-composer-unavailable','No composer is registered for this workout family version.');
+    if(options.sessionPrescription!=null)fail('family-prescription-unsupported','Family composition does not yet accept Coach session prescriptions.');
+    const duration=Number(options.duration),difficulty=options.difficulty==null?'normal':String(options.difficulty).toLowerCase();
+    if(!definition.feasibilityRequirements.supportedDurations.includes(duration)||!definition.feasibilityRequirements.supportedDifficulties.includes(difficulty))
+      fail('family-configuration-unsupported','Unsupported family duration or difficulty.');
+    assertValidCatalogue(options.catalogue);
+    const result=compose({...options,duration,difficulty},request);
+    const identity=families.resolveStyle(request,[result.familyStyleId]);
+    const empty=()=>({exercises:[],restSeconds:0,estimatedSeconds:0});
+    const workout=normaliseWorkout({schemaVersion:2,id:'generated-'+Date.now(),...identity,
+      duration,difficulty,focus:'balanced',setupEquipment:(options.equipment||[]).slice(),
+      warmup:empty(),rampup:empty(),cooldown:empty(),main:{blocks:result.blocks}});
+    const issues=validateMain(workout.main,options.catalogue,options.equipment||[],duration*60);
+    if(issues.length||workout.estimatedSeconds>duration*60)
+      fail('family-composition-invalid','Invalid family composition: '+issues.join(', '));
     return workout;
   }
 
@@ -3131,7 +3165,7 @@
     applySetupPlan(workout);
   }
 
-  root.GarageFitGenerator = { BUDGETS, RESTS, PROTOCOL_SHAPES, MAIN_PROTOCOLS, GENERATED_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, EQUIPMENT_SETUP_SECONDS, EQUIPMENT_SETUP_NOTE, planSetupTransitions, mainSeconds, EMOM_POLICY, LADDER_POLICY, PYRAMID_POLICY, COMPLEX_POLICY, DENSITY_POLICY, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, WORKOUT_DIFFICULTIES, EXERCISE_DIFFICULTIES, DIFFICULTY_POLICY, workoutDifficulty, difficultyExcluded, difficultyCredit, WORKOUT_BODY_FOCUSES, EXERCISE_BODY_FOCUSES, EXERCISE_DIRECT_ELBOW_ACTIONS, BODY_FOCUS_POLICY, workoutBodyFocus, bodyFocusCredit, SHORTLIST_SIZE, SHORTLIST_MARGIN, WINDOW_MAX_RANKS, SUPPORTING_ROUTE, candidateWindowRanks, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, setupProfilesCompatible, blockSetupCompatible, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_SETUP_PROFILES, VALID_PATTERNS, VALID_WARMUP_AREAS, VALID_STRETCH_TARGETS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, OCCURRENCE_TARGET_LIMITS, resolveOccurrenceTarget, validateOccurrenceTargets, validateOccurrenceRecovery, validateFamilyBlock, validateEmomBlock, validateLadderBlock, validatePyramidBlock, pyramidKind, validateComplexBlock, validateDensityBlock, complexSequenceIssues, buildEmomBlock, protocolCompatible, protocolWeights, recentProtocolsFromResults, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, protocolConditions, selectBlockExercises, selectWarmup, kneeMobilityQualified, upperTrunkTarget, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, SessionPrescriptionError, assessSessionPrescription, generate, swap, swapPreparation };
+  root.GarageFitGenerator = { registerFamilyComposer, BUDGETS, RESTS, PROTOCOL_SHAPES, MAIN_PROTOCOLS, GENERATED_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, EQUIPMENT_SETUP_SECONDS, EQUIPMENT_SETUP_NOTE, planSetupTransitions, mainSeconds, EMOM_POLICY, LADDER_POLICY, PYRAMID_POLICY, COMPLEX_POLICY, DENSITY_POLICY, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, WORKOUT_DIFFICULTIES, EXERCISE_DIFFICULTIES, DIFFICULTY_POLICY, workoutDifficulty, difficultyExcluded, difficultyCredit, WORKOUT_BODY_FOCUSES, EXERCISE_BODY_FOCUSES, EXERCISE_DIRECT_ELBOW_ACTIONS, BODY_FOCUS_POLICY, workoutBodyFocus, bodyFocusCredit, SHORTLIST_SIZE, SHORTLIST_MARGIN, WINDOW_MAX_RANKS, SUPPORTING_ROUTE, candidateWindowRanks, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, setupProfilesCompatible, blockSetupCompatible, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_SETUP_PROFILES, VALID_PATTERNS, VALID_WARMUP_AREAS, VALID_STRETCH_TARGETS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, OCCURRENCE_TARGET_LIMITS, resolveOccurrenceTarget, validateOccurrenceTargets, validateOccurrenceRecovery, validateFamilyBlock, validateEmomBlock, validateLadderBlock, validatePyramidBlock, pyramidKind, validateComplexBlock, validateDensityBlock, complexSequenceIssues, buildEmomBlock, protocolCompatible, protocolWeights, recentProtocolsFromResults, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, protocolConditions, selectBlockExercises, selectWarmup, kneeMobilityQualified, upperTrunkTarget, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, SessionPrescriptionError, assessSessionPrescription, generate, swap, swapPreparation };
 
   if (typeof window!=='undefined' && typeof document!=='undefined' && typeof window.addEventListener==='function') window.addEventListener('load',()=>{
     if (document.querySelector('script[data-garagefit-rampup-ui]')) return;

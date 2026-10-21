@@ -16,7 +16,8 @@ impact or space configuration. Policy references do not register working compose
 
 Load `js/workout-families.js` after the data file. Both standalone Generator and
 Coach consumers use `GarageFitWorkoutFamilies`; neither maintains a second family
-table. This foundation does not yet route existing generation through families.
+table. Explicit Mobility requests use the constructor below; other existing generation
+continues through its established path.
 
 1. `resolveRequest(options)` resolves the requested family/version and effective
    Body Focus. Missing/null `workoutFamilyId` returns `null`: continue the existing
@@ -163,3 +164,72 @@ The foundation tests demonstrate shared rounds, supersets and intervals plus exi
 advanced protocol compatibility, not specialist composition. Whole-session allocation,
 exercise-sensitive recovery and sequential-flow characterisation belong to issue 05
 (#181); no new protocol or player is introduced here.
+
+## Explicit family composition
+
+`GarageFitGenerator.generate(options)` enters the common constructor only when
+`workoutFamilyId` is explicit. Catalogue-owned composers register once through
+`registerFamilyComposer(workoutFamilyId, workoutFamilyVersion, compose)`, keyed by
+the canonical definition's versioned `compositionPolicy`. A composer receives
+normalised duration/difficulty plus the unresolved identity and returns
+`{familyStyleId, blocks}`. The wrapper resolves the actual style, normalises the
+existing Main block contracts, validates executable blocks and the whole-session
+budget, and supplies empty generic warm-up/ramp-up/cooldown sections. It does not
+implement the later family quality validator or cross-family fallback.
+
+Missing composers fail with `family-composer-unavailable`; unsupported duration or
+difficulty fails with `family-configuration-unsupported`. An explicit family plus
+Coach `sessionPrescription` currently fails with `family-prescription-unsupported`:
+Coach integration belongs to its own ticket. No-family Coach and standalone calls
+retain their existing paths and random consumption. These transient workout identity
+fields introduce no persisted family history or preference migrations.
+
+### Mobility composition v1
+
+Load `js/mobility-composer.js` after the Generator and approved Mobility membership.
+It implements the reference prep/focused/flow/finish minute profiles:
+
+| Total | Preparation | Focused mobility | Integrated flow | Gentle finish |
+| --- | --- | --- | --- | --- |
+| 10 | 1 | 4 | 4 | 1 |
+| 15 | 2 | 5 | 6 | 2 |
+| 20 | 3 | 7 | 8 | 2 |
+| 30 | 3 | 11 | 13 | 3 |
+| 45 | 4 | 17 | 20 | 4 |
+
+Each phase is one `rounds:1` block with ordered occurrences, contextual timed
+prescriptions and explicit per-gap recovery; all phase boundaries, changeovers and
+both sides of unilateral work count in the selected total. Generic preparation and
+cooldown remain empty because the family owns the entire progression. The common
+player's three-second Ready countdown remains outside the exercise-session budget.
+
+The automatically resolved styles have different practice pacing, within the
+flexible profiles. `joint-focused` transfers 8% of flow time into focused regional
+practice, favours longer individual joint exposures and gives deliberate seven-second
+resets between movements on the same level. `integrated-flow` transfers 8% of focused
+time into connected flow, uses shorter focused primers, longer connected movement
+exposures and three-second flow changeovers on the same level. A body-level change
+gets twelve seconds in either style. These are comfortable movement targets, not
+instructions to push stretch intensity; the catalogue's controlled-range cues apply.
+
+Preparation stays standing. Focused practice covers shoulders, hips, ankles,
+adductors and thoracic rotation, grouping standing work before floor work. Flow
+sweeps connect floor rotations and dog practice through the mixed-position lunge
+stretch into standing hip/squat movement, then return as needed. The gentle finish
+descends once and stays on the floor for further comfortable spinal/dog practice.
+Phase boundaries remain at the same body level. Later exposures use modestly varied
+targets; they do not repeat a generic strength round/rest cycle.
+
+Short sessions retain broad regional essentials. Longer durations introduce more
+of the approved M1–M15 set before extending full regional sweeps. At 30/45 minutes
+the complete feasible bodyweight pool is used; TRX contributes only when selected.
+Easy excludes medium impact and caps individual focused/flow work at 35 seconds
+bilaterally or 30 seconds per side; Normal caps these at 45/35 and Hard at 50/40.
+The gentle finish uses comfortable bilateral movement, capped at 50 seconds on all
+difficulties. Hard changes exposure, never asks for maximal stretching or impact.
+
+Optional `excludedImpact`, `bodyPositions` and `movementRoom` options pass through
+the central membership context gates. No large movement space is assumed. A request
+that leaves too few eligible movements or loses required shoulder/ankle/thoracic
+practice fails with `family-not-feasible`, including standing-only and floor-only
+restrictions. It never substitutes a different family or an unapproved exercise.
