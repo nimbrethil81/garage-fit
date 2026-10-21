@@ -4,7 +4,7 @@
   // eligibility is canonical Main eligibility narrowed by reviewed catalogue metadata, and
   // construction reuses the Generator's selector and the shared composer kit.
   const G=root.GarageFitGenerator,K=root.GarageFitFamilyComposerKit;
-  const {copy,sum,fail,ordered,context,fitted,sequence,counts,bestOf}=K;
+  const {copy,sum,fail,ordered,context,fitted,sequence,counts,bestOf,between,repeated,meanOf}=K;
   const timed=ex=>String(ex.prescription.type).includes('timed');
   const blockOf=(protocol,intent,exercises,prescription,extra)=>({protocol,intent,exercises,prescription,...extra});
   const rounded=prescription=>({rounds:prescription.rounds,rest:{exercise:prescription.exerciseRestSeconds,round:prescription.roundRestSeconds}});
@@ -236,10 +236,56 @@
       density:d==='easy'?0:(long?3:1.5)*(recent.includes('density')?.6:1)};
   }
 
+  // ---- Family quality rules for the shared gate (docs/WORKOUT_FAMILIES.md, #186) ----
+  const CORE_STRUCTURE={
+    'controlled-stability':b=>b.protocol==='rounds'&&between(b.exercises.length,3,6)&&between(b.prescription.rounds,2,4)
+      &&b.prescription.exerciseRestSeconds>=15&&b.prescription.roundRestSeconds>=45&&b.exercises.every(ex=>ex.cardio<=2),
+    'dynamic-core':b=>b.protocol==='paired_sets'&&b.exercises.length===2&&b.exercises.filter(isHold).length===1
+      &&between(b.prescription.sets,3,4)&&b.prescription.betweenExercisesSeconds===10&&b.prescription.betweenSetsSeconds>=30
+  };
+  function coreQuality(workout) {
+    const blocks=workout.main.blocks,list=blocks.flatMap(block=>block.exercises),issues=[];
+    if(blocks.some(block=>block.familyContext!=null))issues.push('unexpected-family-context');
+    list.filter(ex=>!trunkLed(ex)).forEach(ex=>issues.push('unsuitable-exercise:'+ex.id));
+    if(new Set(list.map(ex=>ex.id)).size<3)issues.push('insufficient-core-variety');
+    if(list.filter(isHold).length<list.length*.25)issues.push('insufficient-holds');
+    if(meanOf(list,'cardio')>2.5)issues.push('not-controlled');
+    issues.push(...repeated(list,2));
+    if(!blocks.every(CORE_STRUCTURE[workout.familyStyleId]))issues.push('style-structure-mismatch');
+    return issues;
+  }
+  const emomWork=(ex,target)=>Math.max(target.type==='timed'?target.value:0,Math.ceil(ex.estimatedSeconds*target.value/ex.prescription.value));
+  const CHALLENGE_STRUCTURE={
+    rounds:(blocks,w)=>blocks.length<=2&&blocks.every(b=>{
+      const rest=ROUNDS_REST[w.difficulty];
+      return b.protocol==='rounds'&&between(b.exercises.length,3,6)&&b.prescription.rounds>=(w.duration>=20?4:3)
+        &&b.prescription.exerciseRestSeconds>=rest.exercise&&b.prescription.roundRestSeconds>=rest.round&&impactSafe(b.exercises,b.prescription.rounds)
+        &&b.exercises.every(ex=>ex.load!=='Heavy'&&ex.strength<5&&(ex.impact!=='high'||w.difficulty==='hard'));
+    }),
+    emom:(blocks,w)=>blocks.every(b=>b.protocol==='emom'&&b.exercises.length>=2&&between(b.prescription.minutes,4,b.exercises.length*4)
+      &&b.prescription.slotSeconds===60&&b.prescription.targets.every((target,i)=>emomWork(b.exercises[i],target)<=EMOM_WORK[w.difficulty])),
+    ladder:(blocks,w)=>blocks.every(b=>b.protocol==='ladder'&&b.exercises.length===2&&b.prescription.repSteps.length>=3
+      &&b.prescription.stepRestSeconds>=stepFloor[w.difficulty].ladder),
+    pyramid:(blocks,w)=>blocks.length>=3&&blocks.every(b=>b.protocol==='pyramid'&&b.exercises.length===1&&b.prescription.steps.length>=3
+      &&b.prescription.stepRestSeconds>=stepFloor[w.difficulty].pyramid),
+    density:(blocks,w)=>w.difficulty!=='easy'&&blocks.every(b=>b.protocol==='density'&&b.exercises.length===2
+      &&b.prescription.exerciseRestSeconds>=15&&b.prescription.roundRestSeconds>=45)
+  };
+  function challengeQuality(workout) {
+    const blocks=workout.main.blocks,list=blocks.flatMap(block=>block.exercises),issues=[];
+    if(blocks.some(block=>block.familyContext!=null))issues.push('unexpected-family-context');
+    if(!balanced(list))issues.push('unbalanced-body-regions');
+    if(!distinctBlocks(blocks))issues.push('repeated-block');
+    issues.push(...repeated(list,2));
+    if(!CHALLENGE_STRUCTURE[workout.familyStyleId](blocks,workout))issues.push('style-structure-mismatch');
+    return issues;
+  }
+
   function build(label,styles,weights,suitable,focus) {
-    return (options,request)=>{
-      const ctx=context(options,request,label,suitable,focus),table=weights(ctx);
-      for(const {id} of ordered(Object.keys(styles).map(id=>({id,weight:table[id]})),ctx.random)) {
+    return (options,request,attempt)=>{
+      const ctx=context(options,request,label,suitable,focus),table=weights(ctx),excluded=attempt&&attempt.excludedStyleIds||[];
+      // Same-family fallback: styles the shared gate rejected are skipped; the draw stream is unchanged.
+      for(const {id} of ordered(Object.keys(styles).map(id=>({id,weight:table[id]})),ctx.random).filter(entry=>!excluded.includes(entry.id))) {
         // Prefer sessions that use each exercise once; repeat at most twice only when the pool requires it.
         const made=styles[id](ctx,1)||styles[id](ctx,2);
         if(made)return {familyStyleId:id,blocks:made.blocks,generalPreparation:{focus}};
@@ -247,6 +293,6 @@
       return fail(label+' cannot build a suitable '+ctx.duration+'-minute session from the selected equipment and constraints.');
     };
   }
-  G.registerFamilyComposer('core-stability',1,build('Core & Stability',CORE_STYLES,coreWeights,trunkLed,'strength'));
-  G.registerFamilyComposer('full-body-challenges',1,build('Full-Body Challenges',CHALLENGE_STYLES,challengeWeights,()=>true,'balanced'));
+  G.registerFamilyComposer('core-stability',1,build('Core & Stability',CORE_STYLES,coreWeights,trunkLed,'strength'),coreQuality);
+  G.registerFamilyComposer('full-body-challenges',1,build('Full-Body Challenges',CHALLENGE_STYLES,challengeWeights,()=>true,'balanced'),challengeQuality);
 })(typeof window==='undefined'?globalThis:window);

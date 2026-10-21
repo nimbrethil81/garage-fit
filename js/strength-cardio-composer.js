@@ -10,7 +10,8 @@
   const IMPACTS=['low','medium','high'],POSITIONS=['standing','floor','supported','hanging','mixed'];
   const copy=value=>JSON.parse(JSON.stringify(value));
   const sum=list=>list.reduce((total,value)=>total+value,0);
-  const fail=message=>{throw new F.FamilyContractError('family-not-feasible',message);};
+  // Diagnostic reason codes travel with the error; the shared gate reports them (#186).
+  const fail=(message,reason='no-buildable-style')=>{const error=new F.FamilyContractError('family-not-feasible',message);error.reason=reason;throw error;};
 
   // Resistance work is controlled, strength-led and non-ballistic; cardio work is cardio-led.
   const controlled=ex=>ex.strength>=2&&ex.strength>=ex.cardio&&!ex.conditioning&&ex.impact!=='high';
@@ -223,10 +224,11 @@
   }
 
   function build(label,styles,weights,suitable,focus) {
-    return (options,request)=>{
-      const ctx=context(options,request,label,suitable,focus);
+    return (options,request,attempt)=>{
+      const ctx=context(options,request,label,suitable,focus),excluded=attempt&&attempt.excludedStyleIds||[];
       const ranked=ordered(Object.keys(styles).map(id=>({id,weight:weights(ctx)[id]})),ctx.random);
-      for(const {id} of ranked) {
+      // Same-family fallback: styles the shared gate rejected are skipped; the draw stream is unchanged.
+      for(const {id} of ranked.filter(entry=>!excluded.includes(entry.id))) {
         const made=styles[id](ctx);
         if(made)return {familyStyleId:id,blocks:made.blocks,generalPreparation:{focus}};
       }
@@ -234,13 +236,60 @@
     };
   }
 
+  // ---- Family quality rules for the shared gate (docs/WORKOUT_FAMILIES.md, #186) ----
+  // They restate each family's published identity on the actual resolved blocks, so an edit or a
+  // composition that no longer reads as the family cannot keep its label.
+  const between=(value,low,high)=>Number.isFinite(value)&&value>=low&&value<=high;
+  const exposures=list=>{const counts=new Map();for(const ex of list)counts.set(ex.id,(counts.get(ex.id)||0)+1);return counts;};
+  const repeated=(list,limit)=>[...exposures(list)].filter(([,count])=>count>limit).map(([id])=>'repeated-exercise:'+id);
+  const meanOf=(list,key)=>sum(list.map(ex=>ex[key]))/list.length;
+  const STRENGTH_STRUCTURE={
+    'straight-sets':b=>b.protocol==='rounds'&&b.exercises.length===1&&between(b.prescription.rounds,3,4)&&between(b.prescription.roundRestSeconds,45,120),
+    'paired-sets':b=>b.protocol==='paired_sets'&&between(b.prescription.sets,3,4)&&b.prescription.betweenExercisesSeconds===10&&between(b.prescription.betweenSetsSeconds,45,120),
+    'controlled-circuits':b=>b.protocol==='rounds'&&between(b.exercises.length,3,6)&&between(b.prescription.exerciseRestSeconds,20,30)&&between(b.prescription.roundRestSeconds,60,120)
+  };
+  function strengthQuality(workout) {
+    const blocks=workout.main.blocks,list=blocks.flatMap(block=>block.exercises),issues=[];
+    if(blocks.some(block=>block.familyContext!=null))issues.push('unexpected-family-context');
+    list.filter(ex=>!controlled(ex)).forEach(ex=>issues.push('unsuitable-exercise:'+ex.id));
+    if(meanOf(list,'strength')-meanOf(list,'cardio')<.5)issues.push('not-resistance-led');
+    issues.push(...repeated(list,1));
+    if(!blocks.every(STRENGTH_STRUCTURE[workout.familyStyleId]))issues.push('style-structure-mismatch');
+    return issues;
+  }
+  const workShare=block=>{
+    const work=G.resolvedOccurrences(block).reduce((total,item)=>total+(item.timed?item.seconds:item.exercise.estimatedSeconds),0);
+    return work/G.estimateBlockDuration(block);
+  };
+  const enduranceShaped=b=>b.protocol==='rounds'&&b.exercises.length>=3&&between(b.prescription.exerciseRestSeconds,10,20)&&between(b.prescription.roundRestSeconds,20,45)
+    &&b.exercises.every(ex=>ex.impact!=='high'&&ex.load!=='Heavy'&&ex.strength<=3&&ex.difficulty!=='hard');
+  const intervalsShaped=b=>b.protocol==='timed_intervals'&&between(b.exercises.length,3,5)&&between(b.prescription.cycles,2,5)
+    &&between(b.prescription.workSeconds/b.prescription.transitionSeconds,1,3)
+    &&b.exercises.every(ex=>intervalCapable(ex)&&b.prescription.workSeconds<=intervalCap(ex));
+  const CARDIO_STRUCTURE={
+    endurance:blocks=>blocks.every(enduranceShaped),
+    intervals:blocks=>blocks.every(intervalsShaped),
+    'mixed-conditioning':blocks=>blocks.some(enduranceShaped)&&blocks.some(intervalsShaped)&&blocks.every(b=>enduranceShaped(b)||intervalsShaped(b))
+  };
+  function cardioQuality(workout) {
+    const blocks=workout.main.blocks,list=blocks.flatMap(block=>block.exercises),issues=[];
+    if(blocks.some(block=>block.familyContext!=null))issues.push('unexpected-family-context');
+    list.filter(ex=>!cardioLed(ex,workout.difficulty)).forEach(ex=>issues.push('unsuitable-exercise:'+ex.id));
+    if(meanOf(list,'cardio')-meanOf(list,'strength')<.5)issues.push('not-cardio-led');
+    if(!impactSafe(blocks))issues.push('high-impact-sequencing');
+    issues.push(...repeated(list,2));
+    if(blocks.some(block=>workShare(block)<.5))issues.push('not-work-dominant');
+    if(!CARDIO_STRUCTURE[workout.familyStyleId](blocks))issues.push('style-structure-mismatch');
+    return issues;
+  }
+
   // Shared construction helpers for later catalogue-owned composers (js/core-challenge-composer.js).
-  root.GarageFitFamilyComposerKit=Object.freeze({MARGIN,copy,sum,fail,ordered,constraints,context,freshState,pick,fitted,sequence,counts,bestOf});
+  root.GarageFitFamilyComposerKit=Object.freeze({MARGIN,copy,sum,fail,between,repeated,meanOf,ordered,constraints,context,freshState,pick,fitted,sequence,counts,bestOf});
 
   G.registerFamilyComposer('strength-control',1,build('Strength & Control',STRENGTH_STYLES,ctx=>{
     const recent=ctx.recent,rounds=recent.includes('rounds')?.8:1;
     return Object.fromEntries(Object.entries(STRENGTH_WEIGHTS).map(([id,table])=>[id,table[ctx.duration]
       *(id==='paired-sets'?(recent.includes('paired_sets')?.6:1):rounds)]));
-  },controlled,'strength'));
-  G.registerFamilyComposer('cardio-conditioning',1,build('Cardio & Conditioning',CARDIO_STYLES,cardioWeights,cardioLed,'cardio'));
+  },controlled,'strength'),strengthQuality);
+  G.registerFamilyComposer('cardio-conditioning',1,build('Cardio & Conditioning',CARDIO_STYLES,cardioWeights,cardioLed,'cardio'),cardioQuality);
 })(typeof window==='undefined'?globalThis:window);

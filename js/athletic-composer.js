@@ -8,9 +8,12 @@
     integrated:['grapevine-cross-steps','lateral-shuffle','reverse-lunge-knee-drive','bear-crawl','alternating-lateral-lunge','skater-jumps']
   };
   const STYLES=['footwork-coordination','dynamic-balance','integrated-movement'];
-  function compose(options,request) {
+  function compose(options,request,attempt) {
     const {duration,difficulty,catalogue}=options,owned=options.equipment||[],random=options.random||Math.random;
-    const fail=message=>{throw new F.FamilyContractError('family-not-feasible',message);};
+    const excluded=attempt&&attempt.excludedStyleIds||[];
+    // Diagnostic reason codes (and a style, when only that style failed) travel with the error.
+    const fail=(message,reason,details)=>{const error=new F.FamilyContractError('family-not-feasible',message);
+      Object.assign(error,{reason},details);throw error;};
     const contexts={};
     for(const role of Object.keys(ORDER)) {
       const context={workoutFamilyId:FAMILY,workoutFamilyVersion:request.workoutFamilyVersion,role,difficulty};
@@ -23,12 +26,15 @@
     const pools=Object.fromEntries(Object.keys(ORDER).map(role=>[role,ORDER[role].map(id=>catalogue[id]).filter(ex=>ex
       &&G.generatedPhaseEligible(ex,'main',owned,difficulty,contexts[role])&&G.protocolCompatible(ex,'rounds',contexts[role]))]));
     for(const role of Object.keys(ORDER))if(pools[role].length<2)
-      fail('Athletic Movement needs at least two eligible '+role+' drills; low-impact-only integrated practice needs confirmed movement room.');
+      fail('Athletic Movement needs at least two eligible '+role+' drills; low-impact-only integrated practice needs confirmed movement room.','insufficient-eligible-movements',{role});
     const has=(role,id)=>pools[role].some(ex=>ex.id===id);
     if(!['forward-back-line-steps','lateral-step-and-stick','quarter-turn-pivot-steps'].every(id=>has('footwork',id))
       ||!has('control','single-leg-balance-reach')||!has('control','knee-to-opposite-elbow'))
-      fail('Athletic Movement needs standing forward/back, lateral, rotation and balance practice.');
-    const style=STYLES[Math.min(2,Math.floor(random()*3))],targets=PROFILES[duration].map(n=>n*60);
+      fail('Athletic Movement needs standing forward/back, lateral, rotation and balance practice.','missing-essential-practice');
+    // Same-family fallback keeps the seeded draw and takes the next remaining style.
+    const drawn=Math.min(2,Math.floor(random()*3));
+    const style=[0,1,2].map(offset=>STYLES[(drawn+offset)%3]).find(id=>!excluded.includes(id)),targets=PROFILES[duration].map(n=>n*60);
+    if(!style)fail('Athletic Movement has no remaining internal style.','no-buildable-style');
     const emphasized=STYLES.indexOf(style)+1,donor=emphasized===1?2:1;
     const shift=Math.round(targets[donor]*.08);targets[emphasized]+=shift;targets[donor]-=shift;
     const blocks=[];
@@ -61,7 +67,8 @@
         const score=Math.abs(budget-nominal);
         if(!best||score<best.score)best={rounds,sequence,gaps,score};
       }
-      if(!best)fail('Athletic Movement cannot fit bounded technical efforts and recovery into '+stage+' ('+budget+' s; '+list.map(ex=>ex.id).join(', ')+').');
+      if(!best)fail('Athletic Movement cannot fit bounded technical efforts and recovery into '+stage+' ('+budget+' s; '+list.map(ex=>ex.id).join(', ')+').',
+        'phase-cannot-fit',{familyStyleId:style});
       const {rounds,sequence,gaps}=best,values=sequence.map(()=>10);
       let remaining=budget-gaps.reduce((sum,n)=>sum+n,0)-sequence.reduce((sum,ex)=>sum+10*G.sideCount(ex),0);
       while(remaining>0) {
@@ -128,5 +135,38 @@
     drill('finish','control',light(['quarter-turn-pivot-steps','knee-to-opposite-elbow']),finish+G.BLOCK_TRANSITION_SECONDS);
     return {familyStyleId:style,blocks};
   }
-  G.registerFamilyComposer(FAMILY,1,compose);
+  // Family quality for the shared gate (#186): approved drills only, standing preparation and
+  // finish, three-plane footwork plus single-leg control, bounded technical efforts with
+  // exercise-sensitive recovery, and high impact only as the integrated style's optional route.
+  const minimumRecovery=(a,b)=>a.impact==='high'||b.impact==='high'?40:a.bodyPosition!==b.bodyPosition||a.bodyPosition==='floor'||b.bodyPosition==='floor'?25
+    :a.impact==='medium'||b.impact==='medium'?20:G.sideCount(a)===2||G.sideCount(b)===2?16:8;
+  function quality(workout) {
+    const blocks=workout.main.blocks,issues=[],difficulty=workout.difficulty;
+    if(!blocks.length||blocks.some(block=>!block.familyContext||block.familyContext.workoutFamilyId!==FAMILY))return ['phase-structure'];
+    const roles=blocks.map(block=>block.familyContext.role);
+    if(roles[0]!=='control'||roles[roles.length-1]!=='control'||!['footwork','control','integrated'].every(role=>roles.includes(role)))issues.push('phase-structure');
+    // Integrated practice always leads into gentle active recovery, never another demanding block.
+    roles.forEach((role,index)=>{if(role==='integrated'&&roles[index+1]!=='control')issues.push('integrated-without-recovery:'+index);});
+    const planes=new Set(blocks.filter(block=>block.familyContext.role==='footwork').flatMap(block=>block.exercises.flatMap(ex=>ex.movementPlanes||[])));
+    ['sagittal','frontal','transverse'].filter(plane=>!planes.has(plane)).forEach(plane=>issues.push('missing-footwork-plane:'+plane));
+    if(!blocks.some(block=>block.familyContext.role==='control'&&block.exercises.some(ex=>ex.sidedness==='per-side'&&ex.bodyPosition==='standing')))
+      issues.push('missing-single-leg-control');
+    const played=[];
+    for(const block of blocks) {
+      const occurrences=G.resolvedOccurrences(block);
+      if(block.protocol!=='rounds'||!(block.exercises.length>=2&&block.exercises.length<=4)||new Set(block.exercises.map(ex=>ex.id)).size<2)issues.push('drill-structure:'+block.id);
+      if(block.exercises[0].impact==='high'||block.exercises[block.exercises.length-1].impact==='high')issues.push('high-impact-block-edge:'+block.id);
+      for(const [index,item] of occurrences.entries()) {
+        const ex=item.exercise,cap=ex.impact==='high'?15:ex.bodyPosition==='floor'?20:G.sideCount(ex)===2?22:difficulty==='easy'?25:30;
+        if(!item.timed||!(item.seconds>=10&&item.seconds<=cap))issues.push('dose-out-of-range:'+ex.id);
+        if(ex.impact==='high'&&workout.familyStyleId!=='integrated-movement')issues.push('high-impact-outside-integrated-style:'+ex.id);
+        const next=occurrences[index+1];
+        if(next&&item.restAfter<minimumRecovery(ex,next.exercise))issues.push('recovery-too-short:'+block.id+':'+index);
+      }
+      played.push(...occurrences.map(item=>item.exercise));
+    }
+    if(played.some((ex,index)=>index&&ex.impact==='high'&&played[index-1].impact==='high'))issues.push('consecutive-high-impact');
+    return [...new Set(issues)];
+  }
+  G.registerFamilyComposer(FAMILY,1,compose,quality);
 })(typeof window==='undefined'?globalThis:window);
