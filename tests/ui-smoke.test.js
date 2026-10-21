@@ -67,7 +67,7 @@ test('Generator preview/player and both fixed players initialise without runtime
   };
   context.window=context;context.globalThis=context;
   vm.createContext(context);
-  for (const file of ['data/equipment.js','data/exercises.js','data/workouts.js','js/generator.js','js/routine-generator.js','js/timed-cues.js','js/speech-voices.js','js/completion-signal.js','js/coach-model.js','js/coach-store.js','js/session-tracker.js','js/workout-preview.js','js/masthead.js']) vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),context,{filename:file});
+  for (const file of ['data/equipment.js','data/exercises.js','data/workouts.js','data/workout-families.js','js/workout-families.js','js/generator.js','js/routine-generator.js','js/timed-cues.js','js/speech-voices.js','js/completion-signal.js','js/coach-model.js','js/coach-store.js','js/session-tracker.js','js/workout-preview.js','js/masthead.js']) vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),context,{filename:file});
   const inline=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].at(-1)[1];
   vm.runInContext(inline,context,{filename:'index-inline.js'});
   vm.runInContext(fs.readFileSync(path.join(root,'js/rampup-ui.js'),'utf8'),context,{filename:'js/rampup-ui.js'});
@@ -99,7 +99,7 @@ test('Generator preview/player and both fixed players initialise without runtime
   // Additional options, defaulting to Full Body and Normal.
   assert.match(html,/<h2>Workout style<\/h2>\s*<div class="choice-row focus-row" id="focusChoices">/);
   assert.deepEqual(elements.focusChoices.children.map(button=>button.textContent),['Strength','Mixed','Cardio']);
-  assert.match(html,/<details class="generator-options" id="generatorOptions">\s*<summary>Additional options<span class="generator-options-value" id="generatorOptionsValue"><\/span><\/summary>[\s\S]*?<h2>Body focus<\/h2>\s*<div class="choice-row body-focus-row" id="bodyFocusChoices"><\/div>[\s\S]*?id="difficultyChoices"[\s\S]*?<\/details>\s*<button class="generator-primary"/);
+  assert.match(html,/<details class="generator-options" id="generatorOptions">\s*<summary>Additional options<span class="generator-options-value" id="generatorOptionsValue"><\/span><\/summary>[\s\S]*?<h2>Body focus<\/h2>\s*<div class="choice-row body-focus-row" id="bodyFocusChoices"><\/div>[\s\S]*?id="difficultyChoices"[\s\S]*?<\/details>\s*<p[^>]*id="generatorFamilyError"[^>]*><\/p>\s*<button class="generator-primary"/);
   assert.deepEqual(elements.bodyFocusChoices.children.map(button=>button.textContent),['Upper','Full Body','Lower','Core']);
   assert.deepEqual(elements.bodyFocusChoices.children.map(button=>button.attributes['aria-pressed']),['false','true','false','false']);
   assert.deepEqual(elements.difficultyChoices.children.map(button=>button.textContent),['Easy','Normal','Hard']);
