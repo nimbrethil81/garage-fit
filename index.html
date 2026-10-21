@@ -87,7 +87,7 @@
   .page-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:5px 0 25px}.page-header h1{font-size:32px;line-height:1;margin:0;font-weight:950;letter-spacing:-.04em}.page-header-copy{margin:-11px 0 24px;color:var(--text-muted);font-size:14px;line-height:1.45}.back-btn{border:0;background:transparent;color:var(--text);min-width:44px;min-height:44px;font-size:25px;padding:0;text-align:left}.header-spacer{width:44px}
   .workout-paused{border:0;background:transparent;cursor:pointer;padding:12px;min-height:44px;font:inherit;color:var(--rest);font-weight:900}.workout-paused:focus-visible{outline:3px solid var(--rest);outline-offset:3px}.workout-ring-host{display:flex;justify-content:center;padding-bottom:12px}.complete-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}.complete-action{font-weight:900}.complete-next{font-size:13px;font-weight:700;opacity:.85;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.workout-secondary-controls>*{min-width:0}.workout-secondary-controls .ctrl-btn{white-space:normal;overflow-wrap:anywhere}
   .generator-card{background:var(--card);color:var(--card-text);border-radius:20px;padding:20px;margin-bottom:14px}.generator-card h2{font-size:12px;text-transform:uppercase;letter-spacing:.12em;margin:0 0 13px;color:var(--card-muted)}
-  .choice-row{display:grid;gap:8px}.duration-row{grid-template-columns:repeat(5,1fr)}.focus-row{grid-template-columns:repeat(3,1fr)}.choice-btn{border:1px solid #cdd4d1;background:transparent;color:var(--card-text);border-radius:11px;padding:13px 5px;font-size:13px;font-weight:850}.choice-btn.selected{border-color:var(--work);background:#f3ded3;color:var(--work-dark)}
+  .choice-row{display:grid;gap:8px}.duration-row{grid-template-columns:repeat(5,1fr)}.focus-row{grid-template-columns:repeat(3,1fr)}.choice-btn{border:1px solid #cdd4d1;background:transparent;color:var(--card-text);border-radius:11px;padding:13px 5px;font-size:13px;font-weight:850}.choice-btn:disabled{opacity:.45;cursor:default}.family-row{grid-template-columns:repeat(2,minmax(0,1fr))}.choice-btn.selected{border-color:var(--work);background:#f3ded3;color:var(--work-dark)}
   .generator-options{margin:0 0 14px}.generator-options summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;min-height:44px;padding:0 4px;color:var(--text-muted);font-size:13px;font-weight:850}.generator-options summary::-webkit-details-marker{display:none}.generator-options summary:focus-visible{outline:3px solid var(--rest);outline-offset:3px;border-radius:10px}.generator-options summary::after{content:'+';margin-left:auto;width:25px;height:25px;border-radius:50%;display:grid;place-items:center;background:var(--surface);color:var(--text-muted);font-size:16px}.generator-options[open] summary::after{content:'−'}.generator-options-value{color:var(--work-light)}.generator-options .generator-card{margin:6px 0 0}.body-focus-row{grid-template-columns:repeat(4,1fr)}.difficulty-row{grid-template-columns:repeat(3,1fr)}
   .generator-equipment{width:100%;border:1px solid var(--surface-2);background:transparent;color:var(--text);border-radius:15px;padding:15px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;margin-bottom:14px}.generator-equipment span{display:flex;flex-direction:column;gap:3px;font-size:14px;font-weight:850}.generator-equipment small{color:var(--text-muted);font-size:11px;font-weight:650}.generator-equipment .icon{color:var(--rest)}
   .generator-primary{width:100%;border:0;background:var(--work);color:#101416;border-radius:15px;padding:18px;font-weight:950;text-transform:uppercase;letter-spacing:.04em;font-size:15px}.setup-hint{background:rgba(79,138,131,.14);border:1px solid var(--rest-strong);border-radius:14px;padding:13px 14px;margin-bottom:14px;color:var(--text-muted);font-size:12px;line-height:1.45}.setup-hint strong{display:block;color:var(--text);font-size:13px;margin-bottom:2px}
@@ -270,6 +270,10 @@
     <details class="generator-options" id="generatorOptions">
       <summary>Additional options<span class="generator-options-value" id="generatorOptionsValue"></span></summary>
       <div class="generator-card">
+        <h2 id="familyChoicesLabel">Workout family</h2>
+        <div class="choice-row family-row" id="familyChoices" role="group" aria-labelledby="familyChoicesLabel"></div>
+      </div>
+      <div class="generator-card">
         <h2>Body focus</h2>
         <div class="choice-row body-focus-row" id="bodyFocusChoices"></div>
       </div>
@@ -278,6 +282,7 @@
         <div class="choice-row difficulty-row" id="difficultyChoices"></div>
       </div>
     </details>
+    <p class="equipment-note hidden" id="generatorFamilyError" role="alert" tabindex="-1"></p>
     <button class="generator-primary" type="button" onclick="generateWorkout()">Generate workout</button>
   </main>
 
@@ -294,6 +299,8 @@
   <main id="generatedPreview" class="screen hidden">
     <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Generator" onclick="showLanding('generator')">←</button><h1>Workout</h1><span class="header-spacer"></span></header>
     <div class="preview-kicker" id="previewKicker">20 min · Mixed</div>
+    <p class="equipment-note hidden" id="previewFamilyPurpose"></p>
+    <p class="equipment-note hidden" id="previewFamilyAlternative"></p>
     <div class="preview-rounds" id="previewRounds">3 rounds</div>
     <ol class="preview-list" id="previewList"></ol>
     <div class="preview-timing"><div class="preview-time-card"><strong id="previewWarmup">3 min</strong>Warm-up</div><div class="preview-time-card"><strong id="previewCooldown">2 min</strong>Cool-down</div></div>
@@ -560,7 +567,7 @@ let state={key:null,list:[],idx:0,phase:'ready',remaining:0,timer:null,paused:fa
 let workoutState={mode:'fixed',workout:null,idx:0,round:1,completedRounds:0,additionalReps:0,history:[],completed:[],elapsedMs:0,startedAt:0,timer:null,paused:false,running:false,expired:false,result:null};
 // Display labels; the generator's focus key for Mixed remains 'balanced'.
 const FOCUS_LABELS={strength:'Strength',balanced:'Mixed',cardio:'Cardio'},BODY_FOCUS_LABELS={upper:'Upper','full-body':'Full Body',lower:'Lower',core:'Core'},DIFFICULTY_LABELS={easy:'Easy',normal:'Normal',hard:'Hard'};
-let generatorState={duration:20,focus:'balanced',bodyFocus:'full-body',difficulty:'normal',workout:null,equipmentReturn:'generator',timeline:[],timelineIndex:0,phaseTimer:null,remaining:0,completedMain:0,cueTracker:null,tracker:null,trackedResult:null,trackerError:null,standaloneTracking:false};
+let generatorState={workoutFamilyId:null,duration:20,focus:'balanced',bodyFocus:'full-body',difficulty:'normal',workout:null,equipmentReturn:'generator',timeline:[],timelineIndex:0,phaseTimer:null,remaining:0,completedMain:0,cueTracker:null,tracker:null,trackedResult:null,trackerError:null,standaloneTracking:false};
 let exitState={type:null,wasPaused:false,lastFocus:null};
 let instructionSeen=new Set();
 // Ownership lets disclosure resets stop only manual narration, preserving due
@@ -682,6 +689,7 @@ function previewSpokenVoice(){
 function showScreen(id){
   if(manualInstructionSpeech&&id!==currentScreen)cancelSpeech();
   if(currentScreen==='spokenCues'&&id!=='spokenCues')stopVoicePreview();
+  if(!['generator','generatedPreview','equipment'].includes(id)){generatorState.workoutFamilyId=null;clearGeneratorFamilyError()}
   currentScreen=id;
   if(id==='spokenCues')speechVoices.refresh();
   document.getElementById('app').classList.toggle('active-player',id==='player'||id==='workoutPlayer');
@@ -699,19 +707,25 @@ function equipmentSummary(){
   if(!state.ownedEquipment.length)return 'Bodyweight only';const names=EQUIPMENT.filter(item=>state.ownedEquipment.includes(item.id)).map(item=>item.name);return names.length<=2?names.join(' · '):names.slice(0,2).join(' · ')+' +'+(names.length-2);
 }
 function renderGenerator(){
+  clearGeneratorFamilyError();
+  const family=generatorState.workoutFamilyId?GarageFitWorkoutFamilies.getDefinition(generatorState.workoutFamilyId):null;
+  const familyWrap=document.getElementById('familyChoices');familyWrap.innerHTML='';
+  [null,...Object.keys(GarageFitData.workoutFamilies)].forEach(value=>{const button=document.createElement('button');button.type='button';button.id='family-choice-'+(value||'any');button.className='choice-btn'+(generatorState.workoutFamilyId===value?' selected':'');button.textContent=value?GarageFitWorkoutFamilies.getDefinition(value).name:'None / Any';button.setAttribute('aria-pressed',String(generatorState.workoutFamilyId===value));button.onclick=()=>{selectGeneratorFamily(value);document.getElementById(button.id).focus()};familyWrap.appendChild(button)});
   const durations=[10,15,20,30,45],focuses=['strength','balanced','cardio'];
   const durationWrap=document.getElementById('durationChoices');durationWrap.innerHTML='';durations.forEach(value=>{const button=document.createElement('button');button.type='button';button.className='choice-btn'+(generatorState.duration===value?' selected':'');button.textContent=value+' min';button.setAttribute('aria-pressed',String(generatorState.duration===value));button.onclick=()=>selectGeneratorDuration(value);durationWrap.appendChild(button)});
-  const focusWrap=document.getElementById('focusChoices');focusWrap.innerHTML='';focuses.forEach(value=>{const button=document.createElement('button');button.type='button';button.className='choice-btn'+(generatorState.focus===value?' selected':'');button.textContent=FOCUS_LABELS[value];button.setAttribute('aria-pressed',String(generatorState.focus===value));button.onclick=()=>selectGeneratorFocus(value);focusWrap.appendChild(button)});
-  const bodyFocusWrap=document.getElementById('bodyFocusChoices');bodyFocusWrap.innerHTML='';Object.keys(BODY_FOCUS_LABELS).forEach(value=>{const button=document.createElement('button');button.type='button';button.className='choice-btn'+(generatorState.bodyFocus===value?' selected':'');button.textContent=BODY_FOCUS_LABELS[value];button.setAttribute('aria-pressed',String(generatorState.bodyFocus===value));button.onclick=()=>selectGeneratorBodyFocus(value);bodyFocusWrap.appendChild(button)});
+  const focusWrap=document.getElementById('focusChoices');focusWrap.innerHTML='';focuses.forEach(value=>{const button=document.createElement('button');button.type='button';button.className='choice-btn'+(generatorState.focus===value?' selected':'');button.textContent=FOCUS_LABELS[value];button.setAttribute('aria-pressed',String(generatorState.focus===value));button.disabled=!!family;button.onclick=()=>selectGeneratorFocus(value);focusWrap.appendChild(button)});
+  const bodyFocusWrap=document.getElementById('bodyFocusChoices');bodyFocusWrap.innerHTML='';Object.keys(BODY_FOCUS_LABELS).forEach(value=>{const button=document.createElement('button');button.type='button';button.className='choice-btn'+(generatorState.bodyFocus===value?' selected':'');button.textContent=BODY_FOCUS_LABELS[value];button.setAttribute('aria-pressed',String(generatorState.bodyFocus===value));button.disabled=!!family&&family.bodyFocus.length===1;button.onclick=()=>selectGeneratorBodyFocus(value);bodyFocusWrap.appendChild(button)});
   const difficultyWrap=document.getElementById('difficultyChoices');difficultyWrap.innerHTML='';Object.keys(DIFFICULTY_LABELS).forEach(value=>{const button=document.createElement('button');button.type='button';button.className='choice-btn'+(generatorState.difficulty===value?' selected':'');button.textContent=DIFFICULTY_LABELS[value];button.setAttribute('aria-pressed',String(generatorState.difficulty===value));button.onclick=()=>selectGeneratorDifficulty(value);difficultyWrap.appendChild(button)});
   document.getElementById('generatorOptionsValue').textContent=generatorOptionsSummary(generatorState);
   document.getElementById('generatorEquipmentSummary').textContent=equipmentSummary();document.getElementById('equipmentSetupHint').classList.toggle('hidden',state.equipmentConfigured);
 }
-// Non-default additional options (body focus, difficulty), e.g. "· Upper · Hard"; empty when both are default.
-function generatorOptionsSummary(options){return [options.bodyFocus&&options.bodyFocus!=='full-body'?BODY_FOCUS_LABELS[options.bodyFocus]:null,options.difficulty&&options.difficulty!=='normal'?DIFFICULTY_LABELS[options.difficulty]:null].filter(Boolean).map(label=>'· '+label).join(' ')}
+// Summarise the active family and effective additional options without disabled preferences.
+function generatorOptionsSummary(options){const family=options.workoutFamilyId?GarageFitWorkoutFamilies.getDefinition(options.workoutFamilyId,options.workoutFamilyVersion):null;return [family?family.name:null,(!family||family.bodyFocus.length>1)&&options.bodyFocus&&options.bodyFocus!=='full-body'?BODY_FOCUS_LABELS[options.bodyFocus]:null,options.difficulty&&options.difficulty!=='normal'?DIFFICULTY_LABELS[options.difficulty]:null].filter(Boolean).map(label=>'· '+label).join(' ')}
 function selectGeneratorDuration(value){generatorState.duration=value;try{localStorage.setItem('gf_generator_duration',String(value))}catch(e){}renderGenerator()}
-function selectGeneratorFocus(value){generatorState.focus=value;try{localStorage.setItem('gf_generator_focus',value)}catch(e){}renderGenerator()}
-function selectGeneratorBodyFocus(value){generatorState.bodyFocus=value;try{localStorage.setItem('gf_generator_body_focus',value)}catch(e){}renderGenerator()}
+function selectGeneratorFamily(value){if(value!==null)GarageFitWorkoutFamilies.getDefinition(value);generatorState.workoutFamilyId=value;clearGeneratorFamilyError();renderGenerator()}
+function clearGeneratorFamilyError(){document.getElementById('generatorFamilyError').classList.add('hidden')}
+function selectGeneratorFocus(value){if(generatorState.workoutFamilyId)return;generatorState.focus=value;try{localStorage.setItem('gf_generator_focus',value)}catch(e){}renderGenerator()}
+function selectGeneratorBodyFocus(value){if(generatorState.workoutFamilyId&&GarageFitWorkoutFamilies.getDefinition(generatorState.workoutFamilyId).bodyFocus.length===1)return;generatorState.bodyFocus=value;try{localStorage.setItem('gf_generator_body_focus',value)}catch(e){}renderGenerator()}
 function selectGeneratorDifficulty(value){generatorState.difficulty=value;try{localStorage.setItem('gf_generator_difficulty',value)}catch(e){}renderGenerator()}
 function openEquipment(returnTo){generatorState.equipmentReturn=returnTo||'generator';renderEquipment();showScreen('equipment')}
 function renderEquipment(){const wrap=document.getElementById('equipmentList');wrap.innerHTML='';EQUIPMENT.forEach(item=>{const selected=state.ownedEquipment.includes(item.id),button=document.createElement('button');button.type='button';button.className='equipment-item'+(selected?' selected':'');button.textContent=item.name;button.setAttribute('aria-pressed',String(selected));if(item.id==='rings'&&selected)button.setAttribute('aria-describedby','ringsSetupGuidance');button.onclick=()=>toggleEquipmentItem(item.id);wrap.appendChild(button)});document.getElementById('ringsSetupGuidance').classList.toggle('hidden',!state.ownedEquipment.includes('rings'))}
@@ -724,14 +738,33 @@ async function refreshGeneratorProtocols(){
   try{const query=await GarageFitCoachStore.createStore(localStorage).listSessionResults({source:'generator',limit:4});generatorRecentProtocols=GarageFitGenerator.recentProtocolsFromResults(query.results)}catch(e){generatorRecentProtocols=[]}
 }
 refreshGeneratorProtocols();
+function familyFailureMessage(error){
+  const family=GarageFitWorkoutFamilies.getDefinition(generatorState.workoutFamilyId),codes=(error.reasons||[]).map(reason=>reason.code);
+  const reason=codes.includes('insufficient-eligible-movements')||codes.includes('missing-essential-practice')?'There are too few suitable movements for its required practice.':codes.includes('phase-cannot-fit')?'Its movement practice and recovery cannot fit the selected time.':'A suitable session with the required movement balance and recovery could not be built.';
+  const adjustments=(error.adjustments||[]).map(item=>item.code==='change-duration'?'Try '+item.value+' minutes.':item.code==='change-difficulty'?'Try '+DIFFICULTY_LABELS[item.value]+' difficulty.':item.code==='confirm-movement-room'?'This family needs confirmed room for travelling movements.':item.code==='remove-body-position-restriction'?'Allow more body positions.':item.code==='reduce-impact-exclusions'?'Allow more low or medium impact movement while keeping high impact excluded.':null).filter(Boolean);
+  return family.name+' is unavailable with these settings. '+reason+' '+(adjustments.join(' ')||'Choose another family or None / Any.');
+}
 function generateWorkout(){
-  generatorState.workout=GarageFitGenerator.generate({catalogue:CATALOGUE,duration:generatorState.duration,focus:generatorState.focus,bodyFocus:generatorState.bodyFocus,difficulty:generatorState.difficulty,equipment:state.ownedEquipment,history:getGeneratedHistory(),recentProtocols:generatorRecentProtocols});renderGeneratedPreview();showScreen('generatedPreview');
+  clearGeneratorFamilyError();
+  const options={catalogue:CATALOGUE,duration:generatorState.duration,focus:generatorState.focus,bodyFocus:generatorState.bodyFocus,difficulty:generatorState.difficulty,equipment:state.ownedEquipment,history:getGeneratedHistory(),recentProtocols:generatorRecentProtocols};
+  if(generatorState.workoutFamilyId)options.workoutFamilyId=generatorState.workoutFamilyId;
+  try{generatorState.workout=GarageFitGenerator.generate(options)}catch(error){
+    if(!generatorState.workoutFamilyId||error.code!=='family-not-feasible')throw error;
+    const message=document.getElementById('generatorFamilyError');message.textContent=familyFailureMessage(error);message.classList.remove('hidden');showScreen('generator');message.focus();return;
+  }
+  renderGeneratedPreview();showScreen('generatedPreview');
+}
+function generatedWorkoutIdentity(workout){
+  if(!workout.workoutFamilyId)return FOCUS_LABELS[workout.focus];
+  const family=GarageFitWorkoutFamilies.getDefinition(workout.workoutFamilyId,workout.workoutFamilyVersion);
+  return family.name+' · '+GarageFitWorkoutFamilies.getStyle(family.id,workout.familyStyleId,family.version).name;
 }
 function formatPrescription(exercise){return GarageFitWorkoutPreview.formatPrescription(exercise)}
 function protocolLabel(block){return GarageFitWorkoutPreview.protocolLabel(block)}
 function renderGeneratedPreview(){
   const workout=GarageFitGenerator.normaliseWorkout(generatorState.workout),blocks=workout.main.blocks,options=generatorOptionsSummary(workout);
-  document.getElementById('previewKicker').textContent=workout.duration+' min · '+FOCUS_LABELS[workout.focus]+(options?' '+options:'');
+  document.getElementById('previewKicker').textContent=workout.duration+' min · '+generatedWorkoutIdentity(workout)+(workout.workoutFamilyId?(workout.bodyFocus!=='full-body'?' · '+BODY_FOCUS_LABELS[workout.bodyFocus]:'')+(workout.difficulty!=='normal'?' · '+DIFFICULTY_LABELS[workout.difficulty]:''):(options?' '+options:''));
+  const purpose=document.getElementById('previewFamilyPurpose'),alternative=document.getElementById('previewFamilyAlternative');purpose.textContent=workout.workoutFamilyId?GarageFitWorkoutFamilies.getDefinition(workout.workoutFamilyId,workout.workoutFamilyVersion).purpose:'';purpose.classList.toggle('hidden',!workout.workoutFamilyId);alternative.textContent=workout.familyDiagnostics&&workout.familyDiagnostics.length?'An alternative style within this family was selected to suit your settings.':'';alternative.classList.toggle('hidden',!alternative.textContent);
   document.getElementById('previewRounds').textContent=blocks.length+' main block'+(blocks.length===1?'':'s');
   const list=document.getElementById('previewList');list.innerHTML='';
   (workout.setupTransitions||[]).filter(change=>change.section==='warmup').forEach(change=>list.appendChild(GarageFitWorkoutPreview.setupTransitionRow(change,'Warm-up')));
@@ -983,7 +1016,7 @@ function buildGeneratedTimeline(workout){
 // tracking options ({store, source, meaningful, ...}; see js/session-tracker.js). Coach passes
 // its own tracker; the standalone Start button opts in through standaloneGeneratedTracking().
 function startGeneratedWorkout(tracking){
-  if(!generatorState.workout)return;generatorState.densityBlocks=new Map();generatorState.emomBlocks=new Map();generatorState.emomSuspended=false;generatorState.emomActionAfterMs=null;beginInstructionSession();generatorState.workout=GarageFitGenerator.normaliseWorkout(generatorState.workout);stopTimer();stopGeneratedPhaseTimer();stopWorkoutClock();state.running=false;state.doneDestination='generator';workoutState={mode:'generated',idx:0,completed:[],elapsedMs:0,startedAt:Date.now(),timer:null,paused:false,running:true};generatorState.timeline=buildGeneratedTimeline(generatorState.workout);startGeneratedTracking(tracking);generatorState.timelineIndex=0;generatorState.remaining=0;generatorState.completedMain=0;const player=document.getElementById('workoutPlayer');player.classList.add('generated-player');document.getElementById('workoutPlayerTitle').textContent=FOCUS_LABELS[generatorState.workout.focus]+' · '+generatorState.workout.duration+' min';document.getElementById('doneStats').classList.add('hidden');document.getElementById('generatedDoneStats').classList.add('hidden');document.getElementById('amrapDoneStats').classList.add('hidden');showScreen('workoutPlayer');startWorkoutClock();requestWake();enterGeneratedPhase(0);speak('Get ready. '+generatorState.timeline.find(phase=>phase.kind==='exercise').exercise.name);
+  if(!generatorState.workout)return;generatorState.densityBlocks=new Map();generatorState.emomBlocks=new Map();generatorState.emomSuspended=false;generatorState.emomActionAfterMs=null;beginInstructionSession();generatorState.workout=GarageFitGenerator.normaliseWorkout(generatorState.workout);stopTimer();stopGeneratedPhaseTimer();stopWorkoutClock();state.running=false;state.doneDestination='generator';workoutState={mode:'generated',idx:0,completed:[],elapsedMs:0,startedAt:Date.now(),timer:null,paused:false,running:true};generatorState.timeline=buildGeneratedTimeline(generatorState.workout);startGeneratedTracking(tracking);generatorState.timelineIndex=0;generatorState.remaining=0;generatorState.completedMain=0;const player=document.getElementById('workoutPlayer');player.classList.add('generated-player');document.getElementById('workoutPlayerTitle').textContent=generatedWorkoutIdentity(generatorState.workout)+' · '+generatorState.workout.duration+' min';document.getElementById('doneStats').classList.add('hidden');document.getElementById('generatedDoneStats').classList.add('hidden');document.getElementById('amrapDoneStats').classList.add('hidden');showScreen('workoutPlayer');startWorkoutClock();requestWake();enterGeneratedPhase(0);speak('Get ready. '+generatorState.timeline.find(phase=>phase.kind==='exercise').exercise.name);
 }
 // Standalone generated workouts add a completed run to shared Training History as a
 // source=generator Session Result. The draft stays in memory: the exit flow promises that
