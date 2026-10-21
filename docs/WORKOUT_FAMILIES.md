@@ -16,7 +16,7 @@ impact or space configuration. Policy references do not register working compose
 
 Load `js/workout-families.js` after the data file. Both standalone Generator and
 Coach consumers use `GarageFitWorkoutFamilies`; neither maintains a second family
-table. Explicit Mobility, Athletic, Strength & Control and Cardio & Conditioning requests use the constructor below; other existing generation
+table. Explicit requests for any of the six families use the constructor below; other existing generation
 continues through its established path.
 
 1. `resolveRequest(options)` resolves the requested family/version and effective
@@ -335,3 +335,31 @@ feature: round rests are never below 45 s there and never above 45 s in Cardio e
 No-family generation, Coach prescriptions (still `family-prescription-unsupported`), exercise
 eligibility and fixed workouts are untouched. Final family quality validation and fallback
 remain the shared validator's job (#186).
+
+### Core & Stability and Full-Body Challenges composition v1
+
+Load `js/core-challenge-composer.js` after `js/strength-cardio-composer.js`: it reuses that module's frozen
+`GarageFitFamilyComposerKit` (seeded style ordering, shared block sequencing and fitting) and the same
+`generalPreparation` opt-in, so warm-up, Main and cool-down total at most the selected duration. Neither family
+has a membership table or catalogue change: eligibility is canonical Main eligibility narrowed by reviewed
+metadata, optional `excludedImpact`/`bodyPositions` filters (malformed values fail `invalid-family-context`)
+and the Generator's own protocol validators. Body Focus is ignored (`full-body`). An unbuildable request fails
+`family-not-feasible`. Styles are ranked by seeded weights from duration, difficulty and `recentProtocols`;
+the first that builds is the displayed one. Each exercise is used once where the pool allows, otherwise at most
+twice. Coach prescriptions stay `family-prescription-unsupported`; final quality validation and fallback remain #186.
+
+| Family | Suitable exercises | Style | Resolved structure |
+| --- | --- | --- | --- |
+| Core & Stability | `bodyFocus` core with a core pattern, no press pattern, low impact, cardio ≤ 3; session mean cardio ≤ 2.5 and at least a quarter holds (timed, cardio ≤ 2, no alternation) | `controlled-stability` (favours Easy and short sessions) | `rounds` circuits of 3–6 alternating holds and controlled (cardio ≤ 2) movement, 2–4 rounds, 15 s+ between exercises, 45 s+ between rounds |
+| | | `dynamic-core` (favours Hard and long sessions) | `paired_sets` blocks of one hold and one dynamic trunk movement, 3–4 sets, 10 s changeover, 30 s+ between sets; needs three distinct exercises, so not offered at 10 minutes |
+| Full-Body Challenges | any Main-eligible exercise; every style needs the session balanced: upper, lower and core each credited (full-body work counts one third to each) for 15–50% of the exercises, and no multi-exercise block repeats | `rounds` | one or two blocks of 3–6 exercises, one per body region first (upper, lower, core, full-body), 3 rounds (4+ from 20 minutes); no Heavy or strength 5 work, high impact only on Hard and never adjacent or more than one per round; Easy 20/50 s, Normal 15/40 s, Hard 10/30 s minimum exercise/round rest |
+| | | `emom` | whole-minute blocks rotating upper, lower and core (two regions when under six minutes); work scaled to at most 30/35/40 s of each minute on Easy/Normal/Hard; at most four minutes per exercise |
+| | | `ladder` | two-exercise ladders (two regions per block), ascending or descending, step rest at least 40/30/20 s |
+| | | `pyramid` | one rep pyramid per block, regions rotating, at least three blocks, step rest at least 75/60/60 s (rep pyramids only) |
+| | | `density` | never on Easy; two-exercise blocks of two or three fixed rounds with the whole time cap reserved, 15 s+ exercise and 45 s+ round rest |
+
+`rounds` is the least likely style and only qualifies as a challenge when a round itself is balanced and long
+enough: a short circuit of one or two movements, or an unbalanced one, is not labelled Full-Body Challenges.
+Density needs canonical partners (one setup, position and load, distinct patterns), so it is offered only where
+such balanced pairs exist (short sessions with TRX, bands or broad equipment); other styles take over otherwise.
+EMOM fills whole minutes, so Main can finish up to about a minute short of its target.
