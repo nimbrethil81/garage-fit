@@ -339,6 +339,27 @@
       fail(errors, path+'.sportReview.easierNextSession', 'requires explicit worse sport feedback');
   });
 
+  // Optional per-anchor namespace for definition opt-in exercise-variation progression.
+  // Evidence entries summarise applied Session Results (which remain the authority);
+  // declines and confirmed transitions are explicit user decisions. Bounded by design.
+  const VARIATION_EVIDENCE_LIMIT = 8, VARIATION_TRANSITION_LIMIT = 32;
+  const VARIATION_EVIDENCE_OUTCOMES = ['qualifying','hold-maintenance','hold-easy-today','incomplete','incomparable','unknown-actuals','below-target'];
+  const anchorVariationProgression = shape({schemaVersion: exactly(1), exerciseId: id, since: nullable(timestamp),
+    evidence: arrayOf(shape({sessionResultId: id, occurredAt: timestamp, outcome: oneOf(VARIATION_EVIDENCE_OUTCOMES),
+      minimumValue: nullable(nonNegativeNumber), conditionsKey: nullable(text)})),
+    declined: arrayOf(shape({edgeId: id, recommendationId: text, declinedAt: timestamp})),
+    transitions: arrayOf(shape({transitionId: text, edgeId: id, fromExerciseId: id, toExerciseId: id, confirmedAt: timestamp,
+      evidenceSessionResultIds: arrayOf(id), previousTarget: nullable(jsonObject)}, (value, path, errors) => {
+      if (value.fromExerciseId === value.toExerciseId) fail(errors, path+'.toExerciseId', 'must differ from fromExerciseId');
+    }))
+  }, (value, path, errors) => {
+    if (value.evidence.length > VARIATION_EVIDENCE_LIMIT) fail(errors, path+'.evidence', 'must retain at most '+VARIATION_EVIDENCE_LIMIT+' sessions');
+    if (value.transitions.length > VARIATION_TRANSITION_LIMIT) fail(errors, path+'.transitions', 'must retain at most '+VARIATION_TRANSITION_LIMIT+' transitions');
+    uniqueBy('sessionResultId','session')(value.evidence, path+'.evidence', errors);
+    uniqueBy('edgeId','edge')(value.declined, path+'.declined', errors);
+    uniqueBy('transitionId','transition')(value.transitions, path+'.transitions', errors);
+  });
+
   const programmeState = shape(Object.assign({schemaVersion: exactly(SCHEMA_VERSION)}, definitionRefFields, {
     status: oneOf(PROGRAMME_STATUSES),
     mode: oneOf(PROGRAMME_MODES),
@@ -352,6 +373,13 @@
     recentSubstitutions: nullable(arrayOf(jsonObject)),
     lastAppliedSessionResultId: nullable(id)
   }), (value, path, errors) => {
+    (value.anchors || []).forEach((anchor, index) => {
+      if (!Object.prototype.hasOwnProperty.call(anchor, 'variationProgression')) return;
+      const anchorPath = path+'.anchors['+index+'].variationProgression';
+      const before = errors.length;
+      anchorVariationProgression(anchor.variationProgression, anchorPath, errors);
+      if (before === errors.length && anchor.variationProgression.exerciseId !== anchor.exerciseId) fail(errors, anchorPath+'.exerciseId', 'must match the anchor exercise');
+    });
     const targets = value.currentTargets;
     if (!targets) return;
     // Enduring choices occupy a reserved, typed namespace; they are not derived dose.
@@ -595,6 +623,7 @@
     OCCURRENCE_STATUSES, DRAFT_STATES, ANCHOR_IMPORTANCE, LOAD_UNITS, LOAD_INTERPRETATIONS, TARGET_TYPES,
     WORKOUT_STYLES, WORKOUT_DIFFICULTIES, WORKOUT_BODY_FOCUSES, MAIN_PROTOCOLS, ERROR_CODES,
     MOVEMENT_PATTERNS, MOVEMENT_PRIORITIES, BODY_REGION_PRIORITIES, CONSTRAINT_IMPORTANCE, PRESCRIPTION_MODES, VARIATION_PREFERENCES,
+    VARIATION_EVIDENCE_LIMIT, VARIATION_TRANSITION_LIMIT, VARIATION_EVIDENCE_OUTCOMES,
     CoachError, validate, assertValid, upgradeRecord, MIGRATIONS,
     canonicalJson, sameRecord, deepFreeze,
     createProgrammeState, createActiveProgramme, createSessionPrescription, createSessionResult, createSessionDraft,

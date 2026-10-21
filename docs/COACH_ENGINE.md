@@ -193,8 +193,10 @@ the active draft. Startup reconciles saved results before allowing another sessi
 The store also discovers an immutable result stranded by an interrupted index write.
 Interrupted Coach drafts recover automatically on reload using only durable outcomes.
 
-Permanent anchor replacement and a complete previous-programmes browser remain
-optional future extensions; records are retained for them.
+Unreviewed permanent anchor replacement and a complete previous-programmes browser
+remain optional future extensions; records are retained for them. Reviewed,
+user-confirmed variation changes are described in
+[Exercise-variation progression](#exercise-variation-progression-opt-in).
 
 ## Coach screens
 
@@ -239,6 +241,12 @@ are `getModeSettings`, `assessPlannedSession`, `interpretProgression`,
 The optional `validateProgrammeSettings({definition, settings})` hook receives
 frozen inputs and throws for policy-specific restrictions beyond the sport profile.
 It runs on creation, settings updates and definition-bound state operations.
+
+Two further optional hooks support exercise-variation progression:
+`anchorAlternatives` (see substitutions below) and `progressionHold({definition, state,
+result, mode})`, which returns the hold code (`hold-maintenance`, `hold-easy-today`) a
+performed result is subject to, or `null`. A definition can opt in only when its policy
+implements both. Tennis deliberately does not inherit `progressionHold`.
 
 Hooks receive an object with the relevant `definition`, `catalogue`, `context`
 (at start), `state`, `history`, `today`, `mode`, `priorities`, `prescription`,
@@ -404,6 +412,70 @@ no-ops. Cumulative credited exposure lives in `currentTargets.dose`; per-anchor
 progression evidence lives in `anchors[].progression`. Only meaningful performed
 results add override/substitution summaries. Store these records through Coach Store;
 no engine/history/policy operation accesses storage directly.
+
+## Exercise-variation progression (opt-in)
+
+Within an exercise, progression stays the policy's automatic, evidence-based rule.
+Moving a stable anchor to another exercise is never automatic: Coach may recommend a
+reviewed edge, and only an explicit user confirmation changes the anchor. No released
+definition opts in, so their behaviour and stored records are unchanged.
+
+A definition opts in with `variationProgressionPolicy.edges`. Each edge is reviewed
+programme data, not catalogue hierarchy or a "next harder" inference:
+
+| Field | Meaning |
+| --- | --- |
+| `edgeId` | Stable ID, unique in the definition |
+| `requirementId` | The anchor requirement; at most one edge per requirement and `fromExerciseId` |
+| `fromExerciseId` / `toExerciseId` | Two catalogue exercises, both requirement candidates, in the requirement's prescription mode (and direct action, if any) |
+| `evidence` | `consecutiveSessions` (1–8) and `minimumRepsPerSet` (reps mode) or `minimumSecondsPerSet` (time mode) |
+| `repromptAfterSessions` | Qualifying sessions after a decline before the same edge is offered again (1–8) |
+| `startingTarget` | `target` in the requirement mode and optional `progressionIntent`; sets and protocols come from the requirement |
+
+Applying a Coach result records, for an anchor with an outgoing edge, one bounded
+evidence entry in `anchors[].variationProgression` (`schemaVersion: 1`, validated by
+Coach Model; at most 8 entries and 32 transitions). Results remain the authority. An
+entry is `qualifying` only when every planned Main occurrence of the full anchor dose
+was completed with the anchor's own exercise, every set has a confirmed actual at or
+above its planned target, and the observations are comparable (known side, protocol and
+conditions). Otherwise it records `incomplete`, `unknown-actuals`, `below-target`,
+`incomparable`, or the policy's hold. Any such performed attempt restarts the
+consecutive count, as does changed protocol conditions; sessions where the anchor was
+not performed, or only substituted just for today, are no evidence either way.
+Timed holds use the tracker's measured seconds. Each edge reads only its own anchor's
+exercise, so support-hold work never implies dip readiness.
+
+```js
+const items = engine.variationProgressionRecommendations(definition, state, {equipment});
+// [{recommendationId, edgeId, requirementId, fromExerciseId, toExerciseId,
+//   evidenceSessionResultIds, evidence, currentTarget, startingTarget}]
+engine.confirmVariationProgression(definition, state, {recommendationId, equipment, now});
+engine.declineVariationProgression(definition, state, {recommendationId, equipment, now});
+// → {status: 'confirmed' | 'already-applied' | 'declined' | 'already-declined' | 'stale', state}
+```
+
+A recommendation needs an active programme whose mode allows progression, the
+required consecutive qualifying entries, and the target exercise eligible for the
+requirement with the supplied equipment (policy `anchorAlternatives`). It is a read and
+never changes state. Its ID names the edge and latest evidence result, so newer
+evidence, pausing, maintenance or missing equipment makes an older ID `stale`; stale
+decisions return the state unchanged. Declining records only the decision. Confirming
+changes the anchor's identity, `selectedAt` and `currentTarget` to the starting target,
+clears its comparison baseline and load fields, and appends a transition with the
+evidence IDs and previous target. Prior Session Results stay untouched; Training History
+already starts a new series for the new exercise. The transition ID makes a replayed
+confirmation an exact no-op, and older results applied later cannot rewrite the new
+series. `rebuildDerivedState` preserves these anchor decisions.
+
+The controller exposes `variationRecommendations(equipment)`, `confirmVariation(id,
+equipment)` and `declineVariation(id, equipment)`. Decisions use the same durable
+settings-change path: refused while a session or draft exists, applied to the stored
+state, and previews are invalidated. Coach home shows the current and proposed
+exercise, the factual evidence and starting target, with **Try progression** and
+**Continue current exercise**. A future programme version opts in by adding reviewed
+edges and thresholds to a new definition version; existing instances stay pinned to
+their saved definition. `tests/variation-progression.test.js` and
+`tests/variation-progression-ui.test.js` pin this contract with test-only fixtures.
 
 ## Build Arms
 

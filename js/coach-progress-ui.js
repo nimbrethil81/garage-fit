@@ -109,6 +109,9 @@
           detail.push(paragraph(dateText(performed.occurredAt)+' · '+performed.status+' · actual recorded work'));
           performed.sets.forEach((set, index) => detail.push(paragraph(setText(set, index))));
         } else detail.push(paragraph('No performed sets recorded yet for '+name+'.'));
+        const transition = (anchor.variationProgression && anchor.variationProgression.transitions || []).slice(-1)[0];
+        if (transition) detail.push(paragraph('You chose to progress from '+(catalogue[transition.fromExerciseId]?.name || transition.fromExerciseId)
+          +' on '+dateText(transition.confirmedAt)+'. Its history is kept as a separate series.'));
         const substitute = laterSubstitution(anchor, performed);
         if (substitute) detail.push(paragraph('On '+dateText(substitute.occurredAt)+' you used '+(catalogue[substitute.exerciseId]?.name || substitute.exerciseId)
           +' just for that session. It is a separate series and did not change this target.'));

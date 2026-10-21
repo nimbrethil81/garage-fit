@@ -605,6 +605,9 @@
         || input.definition.eventPolicy && item.type === 'tennis-event' && ['refine','reduced','final','expired'].includes(item.value))
       ? strength.interpretProgression(input) : copy(input.state.anchors),
     assessPlannedSession, anchorAlternatives, reduceForShortSession: ({prescription}) => copy(prescription),
+    // Tennis has phase/event/feedback holds beyond the shared strength holds, so it does
+    // not inherit variation-progression support; a future version must define its own.
+    progressionHold: undefined,
     getModeSettings: ({definition,state}) => {
       const frequency = settings(definition,state).weeklyCoachFrequency;
       return {frequency: {minSessionsPerWeek: frequency,maxSessionsPerWeek: frequency}, allowProgression: state.mode !== 'maintenance'};
