@@ -16,7 +16,7 @@ impact or space configuration. Policy references do not register working compose
 
 Load `js/workout-families.js` after the data file. Both standalone Generator and
 Coach consumers use `GarageFitWorkoutFamilies`; neither maintains a second family
-table. Explicit Mobility requests use the constructor below; other existing generation
+table. Explicit Mobility and Athletic requests use the constructor below; other existing generation
 continues through its established path.
 
 1. `resolveRequest(options)` resolves the requested family/version and effective
@@ -233,3 +233,63 @@ the central membership context gates. No large movement space is assumed. A requ
 that leaves too few eligible movements or loses required shoulder/ankle/thoracic
 practice fails with `family-not-feasible`, including standing-only and floor-only
 restrictions. It never substitutes a different family or an unapproved exercise.
+
+### Athletic Movement composition v1
+
+Load `js/athletic-composer.js` after the Generator and approved Athletic membership.
+It uses the common composer registration, contextual targets and per-gap recovery;
+there is no specialist player or new protocol. Its flexible minute profiles are:
+
+| Total | Preparation | Footwork | Balance/control | Integrated + finish |
+| --- | --- | --- | --- | --- |
+| 10 | 2 | 3 | 3 | 2 |
+| 15 | 3 | 4 | 5 | 3 |
+| 20 | 3 | 6 | 6 | 5 |
+| 30 | 4 | 9 | 10 | 7 |
+| 45 | 5 | 14 | 15 | 11 |
+
+Each small `rounds` drill has two to four movement slots and at least two distinct
+approved exercises. Longer phases introduce complementary pairs/triples before
+extending their technical practice. Preparation gently introduces standing
+cross-body coordination, forward/back steps and pivots. Footwork includes
+forward/back, lateral and rotational practice; control combines single-leg balance
+with stepping, sticking and cross-body coordination. Integrated drills join travelling
+steps, controlled lunges and, when room permits, crawling. They begin and end standing;
+floor changes stay inside an explicit recovery gap. A low-impact grapevine/crawl route
+revisits grapevine on either side of the crawl to preserve that standing bridge.
+
+Automatic `footwork-coordination` transfers 8% of control time into footwork and
+favours longer footwork exposures with twelve-second light resets. `dynamic-balance`
+transfers 8% of footwork time into control and favours longer per-side balance
+exposures. `integrated-movement` transfers 8% of footwork time into integrated practice
+and its finish; it alone can optionally introduce permitted high-impact work.
+The latter styles use fifteen-second light drill resets. Identity reflects the
+actual composition and cannot be forced by legacy style/focus inputs.
+
+All exercises retain their canonical catalogue identity and instructions. Timed
+technical efforts last 10–25 seconds bilaterally on Easy or 10–30 on Normal/Hard;
+per-side efforts cap at 22 seconds, crawling at 20, and optional jumping at 15.
+Recovery follows both sides: at least sixteen seconds around unilateral work,
+twenty around medium-impact combinations, twenty-five around floor changes/crawling,
+and forty around high impact. Gentle preparation/finish changes use eight seconds.
+Fitting can extend each recovery by up to twenty-five seconds, preserving work caps
+and never shortening the exercise-sensitive minimum. Hard does not compress rest.
+
+Integrated blocks always lead into gentle active recovery: a minute allocated to
+cross-body knee/elbow and pivot practice between longer-session blocks, or the
+gentle stepping finish after the final block. Thus the shared three-second block
+transition never joins consecutive demanding integrated blocks. Optional high-impact
+drills never begin/end a block or occur consecutively across rounds/blocks. The
+finish receives at least thirty seconds; all work, both sides, recovery and block
+transitions count exactly once in the selected whole-session duration. Generic
+warm-up/ramp-up/cooldown sections remain empty; only Ready's three seconds sit outside.
+
+All durations/difficulties have an ordinary in-place bodyweight route, including
+Hard without high impact. Travelling drills require explicit `movementRoom:true`.
+High impact additionally requires Hard and an explicit exclusion list permitting it;
+permission still allows sessions without jumps. A low-impact-only bodyweight route
+is available with confirmed room. With no confirmed room, the approved integrated
+pool contains only the two medium-impact lunge combinations: combining that space
+restriction with exclusion of medium impact fails `family-not-feasible`. Floor-only,
+hanging-only and other requests losing the standing directional/balance essentials
+also fail honestly. Membership is never expanded to fill time; A9/A13 remain deferred.
