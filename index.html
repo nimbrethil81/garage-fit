@@ -364,7 +364,7 @@
               <label>Load means<select id="coachLoadInterpretation" onchange="coachUI.updateActualSummary()"><option value="per-item">Each weight</option><option value="total">Total load</option></select></label>
               </div>
               <div id="coachResistanceSetup" class="hidden">
-                <label><input id="coachSameSetup" type="checkbox" onchange="coachUI.updateActualSummary()"> I used the same resistance setup</label>
+                <label><input id="coachSameSetup" type="checkbox" onchange="coachUI.updateActualSummary()"> <span id="coachSameSetupText">I used the same resistance setup</span></label>
                 <label id="coachHarderSetupLabel" class="hidden"><input id="coachHarderSetup" type="checkbox" onchange="coachUI.updateActualSummary()"> I made this same exercise harder</label>
               </div>
             </div>
@@ -978,7 +978,7 @@ function appendBlockTimeline(timeline,block,blockIndex,totalBlocks){
     ...(block.familyContext.bodyPositions?{bodyPositions:Object.freeze(block.familyContext.bodyPositions.slice())}:{})});
   GarageFitGenerator.resolveBlockSteps(block).forEach(step=>{
     if(step.kind==='exercise'){
-      const exercise=block.exercises[step.exerciseIndex],stepMeta=Object.assign({},meta,{set:step.set,cycle:step.cycle,...(step.ladderStep?{ladderStep:step.ladderStep}:{}),...(step.pyramidStep?{pyramidStep:step.pyramidStep}:{}),...(step.complexSequence?{complexSequence:step.complexSequence}:{}),...(step.densityRound?{densityRound:step.densityRound}:{})});
+      const exercise=block.exercises[step.exerciseIndex],stepMeta=Object.assign({},meta,{set:step.set,cycle:step.cycle,...(block.benchmark&&block.benchmark.items[step.exerciseIndex]?{benchmark:Object.freeze({...block.benchmark.items[step.exerciseIndex]})}:{}),...(step.ladderStep?{ladderStep:step.ladderStep}:{}),...(step.pyramidStep?{pyramidStep:step.pyramidStep}:{}),...(step.complexSequence?{complexSequence:step.complexSequence}:{}),...(step.densityRound?{densityRound:step.densityRound}:{})});
       ['plannedPrescription','plannedLoad','variableTarget','estimatedSeconds'].forEach(key=>{if(step[key]!==undefined)stepMeta[key]=step[key]});
       if(block.protocol==='emom')Object.assign(stepMeta,step);
       timeline.push(...makeGeneratedExercisePhases(exercise,'main',step.round||null,step.exerciseIndex,Object.assign(stepMeta,{intervalSeconds:step.timed?step.seconds:undefined})));

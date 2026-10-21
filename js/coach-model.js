@@ -276,15 +276,32 @@
   const FAMILY_PLAN_LIMIT = 6;
   const FAMILY_IMPACTS = ['low','medium','high'];
   const FAMILY_BODY_POSITIONS = ['standing','floor','hanging','supported','mixed'];
+  // Optional embedded comparable benchmark (#192): a short block of fixed, bodyweight-style rep
+  // measurements the Generator may place first in Main of the named family. `setupId` is the
+  // explicit setup identity the user confirms when recording; nothing is inferred from the plan.
+  const BENCHMARK_ITEM_LIMIT = 4;
+  const familyBenchmark = shape({
+    workoutFamilyId: id, workoutFamilyVersion: positiveInteger, exerciseRestSeconds: nonNegativeInteger,
+    items: arrayOf(shape({benchmarkId: id, exerciseId: id, setupId: id}))
+  }, (value, path, errors) => {
+    if (!value.items.length || value.items.length > BENCHMARK_ITEM_LIMIT) fail(errors, path+'.items', 'must contain one to '+BENCHMARK_ITEM_LIMIT+' benchmarks');
+    uniqueBy('benchmarkId','benchmark')(value.items, path+'.items', errors);
+    uniqueBy('exerciseId','exercise')(value.items, path+'.items', errors);
+  });
   const workoutFamilyPlan = shape({
     candidates: arrayOf(shape({workoutFamilyId: id, workoutFamilyVersion: positiveInteger, rationale: text})),
     excludedImpact: nullable(arrayOf(oneOf(FAMILY_IMPACTS))),
     bodyPositions: nullable(arrayOf(oneOf(FAMILY_BODY_POSITIONS))),
-    movementRoom: nullable(boolean)
+    movementRoom: nullable(boolean),
+    benchmark: nullable(familyBenchmark)
   }, (value, path, errors) => {
     if (!value.candidates.length || value.candidates.length > FAMILY_PLAN_LIMIT) fail(errors, path+'.candidates', 'must contain one to '+FAMILY_PLAN_LIMIT+' families');
     uniqueBy('workoutFamilyId','family')(value.candidates, path+'.candidates', errors);
     for (const key of ['excludedImpact','bodyPositions']) if (Array.isArray(value[key]) && new Set(value[key]).size !== value[key].length) fail(errors, path+'.'+key, 'must be unique');
+    // A benchmark belongs to the plan's first (intended) family: it never changes family identity.
+    if (!isMissing(value.benchmark) && (value.candidates[0].workoutFamilyId !== value.benchmark.workoutFamilyId
+      || value.candidates[0].workoutFamilyVersion !== value.benchmark.workoutFamilyVersion))
+      fail(errors, path+'.benchmark', 'must name the plan’s first family');
   });
 
   // One logged set. Every measure may be unknown; nothing is inferred from the plan.

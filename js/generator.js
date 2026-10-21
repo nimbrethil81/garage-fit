@@ -3051,8 +3051,11 @@
     if(!catalogue){technicalIssues.push('catalogue:unavailable');return result();}
     if(!definition.feasibilityRequirements.supportedDurations.includes(duration)||!definition.feasibilityRequirements.supportedDifficulties.includes(difficulty))
       technicalIssues.push('configuration:unsupported');
-    const blocks=mainBlocks(workout),constraints=workout.familyConstraints||{};
+    const allBlocks=mainBlocks(workout),constraints=workout.familyConstraints||{};
+    // An embedded benchmark is checked on its own; it never counts towards the family's identity.
+    const blocks=allBlocks.filter(block=>block.benchmark==null);
     if(!blocks.length){technicalIssues.push('main:no-blocks');return result();}
+    technicalIssues.push(...benchmarkBlockIssues(allBlocks,catalogue,owned,difficulty,constraints,workout));
     // Composers that opt into generic preparation fill the traditional Main budget; others own the whole session.
     const generic=['warmup','rampup','cooldown'].some(section=>workout[section]&&(workout[section].exercises||[]).length);
     try{technicalIssues.push(...validateMain(workout.main,catalogue,owned,generic?(BUDGETS[duration]||BUDGETS[20]).main:duration*60));}
@@ -3081,9 +3084,58 @@
       }catch(error){technicalIssues.push('timeline:unresolvable');}
       if(!(workout.estimatedSeconds<=duration*60))technicalIssues.push('timeline:over-duration');
     }
-    try{qualityIssues.push(...entry.validateQuality(workout,{catalogue,equipment:owned,definition}).map(issue=>'quality:'+issue));}
+    try{qualityIssues.push(...entry.validateQuality(blocks.length===allBlocks.length?workout:{...workout,main:{...workout.main,blocks}},{catalogue,equipment:owned,definition}).map(issue=>'quality:'+issue));}
     catch(error){qualityIssues.push('quality:unresolvable');}
     return result();
+  }
+
+  // ---- Optional embedded comparable benchmark (#192) ----
+  // A Coach family plan may ask for one short block of fixed, unloaded rep measurements placed first
+  // in Main, so the effort is taken fresh and under the same conditions every time. It is never a
+  // family style: the composer only reserves its time, the family gate ignores it when judging the
+  // family's identity, and it is dropped (not the family) when it cannot be placed.
+  const BENCHMARK_MARGIN_SECONDS=60;
+  const benchmarkExerciseIssue=(source,exercise,owned,difficulty,constraints)=>{
+    if(!source)return 'unknown';
+    if(!generatedPhaseEligible(source,'main',owned,difficulty))return 'ineligible';
+    if(source.prescription.type!=='reps'||sideCount(source)!==1||source.setupProfile||(source.equipment||[]).length)return 'unsuitable';
+    if(!protocolCompatible(source,'rounds'))return 'protocol';
+    if(Array.isArray(constraints.excludedImpact)&&constraints.excludedImpact.includes(source.impact))return 'excluded-impact';
+    if(Array.isArray(constraints.bodyPositions)&&!constraints.bodyPositions.includes(source.bodyPosition))return 'excluded-position';
+    if(exercise&&JSON.stringify(exercise)!==JSON.stringify(source))return 'modified';
+    return null;
+  };
+  function benchmarkBlock(spec,catalogue,owned,difficulty,constraints) {
+    const items=spec.items.filter(item=>!benchmarkExerciseIssue(catalogue[item.exerciseId],null,owned,difficulty,constraints));
+    if(!items.length)return null;
+    const block={id:'benchmark-1',protocol:'rounds',intent:'strength',exercises:items.map(item=>jsonCopy(catalogue[item.exerciseId])),
+      prescription:{rounds:1,exerciseRestSeconds:spec.exerciseRestSeconds,roundRestSeconds:0},rounds:1,rest:{exercise:spec.exerciseRestSeconds,round:0},
+      benchmark:{workoutFamilyId:spec.workoutFamilyId,workoutFamilyVersion:spec.workoutFamilyVersion,
+        items:items.map(item=>({benchmarkId:item.benchmarkId,exerciseId:item.exerciseId,setupId:item.setupId}))}};
+    block.estimatedDurationSeconds=block.estimatedSeconds=estimateBlockDuration(block,owned);
+    return block.estimatedDurationSeconds>0?block:null;
+  }
+  // Integrity of a placed benchmark block, checked by the shared family gate (and so after edits).
+  function benchmarkBlockIssues(blocks,catalogue,owned,difficulty,constraints,workout) {
+    const issues=[];
+    blocks.forEach((block,index)=>{
+      if(block.benchmark==null)return;
+      const spec=block.benchmark,id=block.id;
+      if(index!==0)issues.push(id+':benchmark-not-first');
+      if(spec.workoutFamilyId!==workout.workoutFamilyId||spec.workoutFamilyVersion!==workout.workoutFamilyVersion)issues.push(id+':benchmark-family-mismatch');
+      const p=block.prescription||{};
+      if(block.protocol!=='rounds'||p.rounds!==1||p.roundRestSeconds!==0||!Number.isFinite(p.exerciseRestSeconds)||p.exerciseRestSeconds<0
+        ||block.familyContext!=null||block.occurrenceTargets||block.occurrenceRecoverySeconds)issues.push(id+':benchmark-shape');
+      if(!Array.isArray(spec.items)||spec.items.length!==block.exercises.length||new Set(spec.items.map(item=>item&&item.benchmarkId)).size!==spec.items.length)issues.push(id+':benchmark-items');
+      (block.exercises||[]).forEach((exercise,position)=>{
+        const problem=benchmarkExerciseIssue(catalogue[exercise&&exercise.id],exercise,owned,difficulty,constraints);
+        if(problem)issues.push(id+':benchmark-'+problem+':'+(exercise&&exercise.id));
+        // Each measurement keeps the exercise its benchmark names, so results stay comparable.
+        if(spec.items&&spec.items[position]&&(!exercise||spec.items[position].exerciseId!==exercise.id))issues.push(id+':benchmark-exercise-mismatch:'+(exercise&&exercise.id));
+      });
+    });
+    if(blocks.filter(block=>block.benchmark!=null).length>1)issues.push('main:multiple-benchmarks');
+    return issues;
   }
 
   function generateFamilyWorkout(options) {
@@ -3116,9 +3168,13 @@
     const owned=options.equipment||[],random=options.random||Math.random,budget=BUDGETS[duration];
     const constraints={};
     for(const field of FAMILY_CONSTRAINT_FIELDS)if(options[field]!==undefined)constraints[field]=JSON.parse(JSON.stringify(options[field]));
+    // An optional benchmark is placed only for the intended family; its time is reserved from the composer's Main.
+    const bench=options.benchmark&&options.benchmark.workoutFamilyId===request.workoutFamilyId&&options.benchmark.workoutFamilyVersion===request.workoutFamilyVersion
+      ?benchmarkBlock(options.benchmark,options.catalogue,owned,difficulty,constraints):null;
+    const reserved=bench?bench.estimatedDurationSeconds+BLOCK_TRANSITION_SECONDS+BENCHMARK_MARGIN_SECONDS:0;
     for(let attempt=0;attempt<definition.styles.length;attempt++){
       let result;
-      try{result=entry.compose({...options,duration,difficulty},request,Object.freeze({excludedStyleIds:Object.freeze(excluded.slice())}));}
+      try{result=entry.compose({...options,duration,difficulty,...(reserved?{reservedMainSeconds:reserved}:{})},request,Object.freeze({excludedStyleIds:Object.freeze(excluded.slice())}));}
       catch(error){
         if(!(error instanceof families.FamilyContractError)||error.code!=='family-not-feasible')throw error;
         const styleId=error.familyStyleId;
@@ -3133,8 +3189,10 @@
       }
       const identity=families.resolveStyle(request,[result.familyStyleId]);
       const empty=()=>({exercises:[],restSeconds:0,estimatedSeconds:0});
+      // Only composers that fill the traditional Main budget honour the reservation.
+      const placed=bench&&result.generalPreparation!=null?[jsonCopy(bench),...result.blocks]:result.blocks;
       const assemble=sections=>normaliseWorkout({schemaVersion:2,id:'generated-'+Date.now(),...identity,
-        duration,difficulty,focus:'balanced',setupEquipment:owned.slice(),...sections,main:{blocks:result.generalPreparation==null?result.blocks:JSON.parse(JSON.stringify(result.blocks))}});
+        duration,difficulty,focus:'balanced',setupEquipment:owned.slice(),...sections,main:{blocks:result.generalPreparation==null?result.blocks:JSON.parse(JSON.stringify(placed))}});
       let workout;
       if(result.generalPreparation==null){
         workout=assemble({warmup:empty(),rampup:empty(),cooldown:empty()});
@@ -3247,10 +3305,19 @@
       history:context.history||[],recentProtocols:context.recentProtocols,random:context.random};
     for(const field of FAMILY_CONSTRAINT_FIELDS)if(plan[field]!=null)options[field]=jsonCopy(plan[field]);
     const skipped=unavailable.map(item=>({workoutFamilyId:item.workoutFamilyId,code:item.reason,reasons:[]}));
-    let workout;
-    try{workout=generateFamilyReplan(options,usable.map(item=>({workoutFamilyId:item.workoutFamilyId,workoutFamilyVersion:item.workoutFamilyVersion,rationale:item.rationale})));}
+    let workout=null;
+    const candidates=usable.map(item=>({workoutFamilyId:item.workoutFamilyId,workoutFamilyVersion:item.workoutFamilyVersion,rationale:item.rationale}));
+    const FamilyError=root.GarageFitWorkoutFamilies.FamilyContractError;
+    if(plan.benchmark!=null){
+      // The benchmark is an optional addition to the intended family. If that family cannot carry it,
+      // plan again without it so the family choice (and its fallbacks) is exactly what it would have been.
+      try{workout=generateFamilyReplan({...options,benchmark:jsonCopy(plan.benchmark)},candidates);}
+      catch(error){if(!(error instanceof FamilyError)||error.code!=='family-not-feasible')throw error;}
+      if(workout&&!mainBlocks(workout).some(block=>block.benchmark!=null))workout=null;
+    }
+    try{if(!workout)workout=generateFamilyReplan(options,candidates);}
     catch(error){
-      if(!(error instanceof root.GarageFitWorkoutFamilies.FamilyContractError)||error.code!=='family-not-feasible')throw error;
+      if(!(error instanceof FamilyError)||error.code!=='family-not-feasible')throw error;
       throw new SessionPrescriptionError({...assessment,status:'infeasible',hardConflicts:[{code:'family-plan-not-feasible',requirementIds:[],exerciseIds:[],
         attempts:skipped.concat(jsonCopy(error.attempts||[]))}]});
     }
@@ -3279,6 +3346,10 @@
     const catalogue=options.catalogue,owned=options.equipment||[],random=options.random||Math.random;
     const blocks=mainBlocks(workout),block=blocks[blockIndex||0],current=block&&block.exercises[exerciseIndex];
     if(!block||!current)return workout;
+    if(block.benchmark!=null){
+      const error=new Error('A benchmark measurement keeps its fixed exercise so results stay comparable.');
+      error.code='benchmark-swap';error.exerciseId=current.id;throw error;
+    }
     const otherExercises=blocks.flatMap((item,bIndex)=>item.exercises.filter((_,eIndex)=>bIndex!==(blockIndex||0)||eIndex!==exerciseIndex));
     const otherIds=new Set(otherExercises.map(exercise=>exercise.id));
     // A swap keeps the workout's difficulty (its Main eligibility and score preference) and body focus.

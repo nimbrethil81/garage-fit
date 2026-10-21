@@ -486,6 +486,21 @@ use the family gate rather than Main budgets. If no candidate builds, generation
 The released General Strength, Build Arms and Tennis programmes never send a family plan;
 General Fitness (see [Coach engine](COACH_ENGINE.md#general-fitness)) is the only caller.
 
+### Optional embedded benchmark (#192)
+
+A family plan may also carry `benchmark: {workoutFamilyId, workoutFamilyVersion, exerciseRestSeconds, items:
+[{benchmarkId, exerciseId, setupId}]}` (one to four items; it must name the plan's first family). Only a composer
+that opts into general preparation honours it. `composeFamilyWithFallback` builds one `rounds` block (one round,
+the fixed rest, round rest 0, the eligible reviewed exercises, `block.benchmark` metadata) and passes its time plus
+a 60 s margin to the composer as `reservedMainSeconds`, then places it first in Main. Items that are ineligible for
+the equipment, difficulty, `excludedImpact` or `bodyPositions` are dropped; with none left no block is added. If
+the intended family cannot be built with the block, `generateFamilyPlanWorkout` plans again without it, so the
+benchmark never changes which family is delivered. The shared gate judges family identity on the non-benchmark
+blocks only and checks the benchmark block separately (first, one block, fixed shape, canonical unmodified
+unloaded exercises matching their items, with the whole session still within the duration). `swap` refuses a benchmark exercise
+(`benchmark-swap`); other swaps re-pass the gate. The timeline gives each benchmark phase `phase.benchmark`, which
+the tracker links as requirement `benchmark:<benchmarkId>`.
+
 **Swaps and edits.** For a workout with `workoutFamilyId`, `swap` and `swapPreparation` accept only
 replacements whose whole revised workout passes the gate; if none does, the workout is unchanged.
 Any other edit must be revalidated with `validateFamilyWorkout` before it keeps the family label.
