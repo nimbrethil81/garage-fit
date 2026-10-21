@@ -12,7 +12,7 @@
       register(type, policy) {
         if (typeof type !== 'string' || !type.trim() || policies.has(type)) throw new Error('Policy types must be non-empty and registered once.');
         requiredHooks.forEach(name => { if (!policy || typeof policy[name] !== 'function') throw new Error('Policy must implement '+name+'.'); });
-        [...optionalHooks, 'anchorAlternatives'].forEach(name => { if (policy[name] !== undefined && typeof policy[name] !== 'function') throw new Error('Invalid policy hook '+name+'.'); });
+        [...optionalHooks, 'anchorAlternatives', 'progressionHold'].forEach(name => { if (policy[name] !== undefined && typeof policy[name] !== 'function') throw new Error('Invalid policy hook '+name+'.'); });
         policies.set(type, Object.freeze({...policy}));
         return registry;
       },
@@ -429,6 +429,12 @@
       return {...clone(anchor), progression: {exerciseId, lastSessionResultId: result.sessionResultId, lastOccurredAt: occurredAt, decision, comparisons}};
     });
   }
+  // The same holds double progression applies. Variation-progression evidence uses it so
+  // deliberately held work can never establish readiness for a harder exercise.
+  function progressionHold({mode, result}) {
+    if (mode && mode.allowProgression === false) return 'hold-maintenance';
+    return (result.overrides || []).some(item => item.type === 'easy-today') ? 'hold-easy-today' : null;
+  }
   function respondToMissedSessions({definition, state, history, today, mode}) {
     const sessions = history.sessionsForProgramme(state.programmeInstanceId, {until: today.now}).slice().reverse()
       .filter(session => interpretDose({definition, evidence: history.sessionEvidence(session.sessionResultId)}).meaningful);
@@ -447,7 +453,7 @@
 
   const generalStrengthPolicy = Object.freeze({validateDefinition: validateStrengthDefinition, assessFeasibility, initialiseState,
     getModeSettings, assessPlannedSession, calculatePriorities, buildPrescription, reduceForShortSession, interpretDose, interpretProgression,
-    respondToMissedSessions, isComplete, anchorAlternatives});
+    respondToMissedSessions, isComplete, anchorAlternatives, progressionHold});
   function validateArmsDefinition(definition) {
     validateStrengthDefinition(definition);
     positive(definition.doseTargets.windowDays, 'direct-dose window');

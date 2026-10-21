@@ -281,8 +281,21 @@
       return engine.updateProgrammeSettings(def,previous,patch,{now,localDate:localDay(now)});
     });
     const saveSportReview = response => saveProgrammeChange((def,previous) => engine.recordSportReview(def,previous,response,clock()));
+    // Optional exercise-variation progression. Offered only between sessions; deciding
+    // re-checks the durable state, so a stale or replayed choice never changes it twice.
+    function variationRecommendations(equipment) {
+      if (blocked || !state || state.status !== 'active' || draft || tracker || pendingResult) return [];
+      return engine.variationProgressionRecommendations(definition(), state, {equipment});
+    }
+    const decideVariation = (method, recommendationId, equipment) => saveProgrammeChange((def,previous) => {
+      const outcome = engine[method](def,previous,{recommendationId,equipment,now:clock()});
+      if (outcome.status === 'stale') throw new Error('This progression suggestion is out of date. Coach has refreshed your options.');
+      return outcome.state;
+    });
+    const confirmVariation = (recommendationId, equipment) => decideVariation('confirmVariationProgression', recommendationId, equipment);
+    const declineVariation = (recommendationId, equipment) => decideVariation('declineVariationProgression', recommendationId, equipment);
     return {load, snapshot, assess, start, plan, prepare, previewToday, alternatives, substitute, restore, begin, finish, manage, saveProgrammeSettings,
-      saveSportReview, sportReview: () => engine.sportReview(definition(),state,clock()),
+      saveSportReview, variationRecommendations, confirmVariation, declineVariation, sportReview: () => engine.sportReview(definition(),state,clock()),
       review: () => engine.programmeReview(definition(), state, clock())};
   }
 
@@ -532,10 +545,32 @@
           state.anchors.forEach(anchor=>card.append(button('Substitute '+catalogue[anchor.exerciseId].name,()=>showSubstitutes(anchor.requirementId,options))));
         }
         wrap.append(card);
+        if (state.status==='active') renderVariationProgressions(wrap);
       }
       if (lastSaved) wrap.append(paragraph(lastSaved));
       if (def.sportReviewPolicy && controller.sportReview()?.due) wrap.append(paragraph('An optional tennis check-in is ready in Your progress.'));
       wrap.append(progressLink(),settingsLink());
+    }
+    // A reviewed, optional move to a harder exercise variation. Factual evidence only:
+    // the copy never claims readiness, and the user explicitly chooses or defers.
+    function renderVariationProgressions(wrap) {
+      controller.variationRecommendations(options.equipment).forEach(item => {
+        const from=catalogue[item.fromExerciseId], to=catalogue[item.toExerciseId], sessions=item.evidence.consecutiveSessions;
+        const amount=item.evidence.minimumSecondsPerSet!==undefined ? item.evidence.minimumSecondsPerSet+' sec' : item.evidence.minimumRepsPerSet+' reps';
+        const start=root.GarageFitCoachProgressUI.prescriptionText(item.startingTarget,to);
+        const card=document.createElement('section'); card.className='coach-card coach-variation';
+        card.setAttribute('aria-label','Optional progression · '+to.name);
+        const decide=(method,message)=>async()=>{
+          try { await controller[method](item.recommendationId,options.equipment); lastSaved=message; if (method==='confirmVariation') delete options.anchorSubstitutions; }
+          finally { render(); }
+        };
+        card.append(heading('Optional progression'),
+          paragraph('Your last '+(sessions===1?'session':sessions+' sessions')+' of '+from.name+' had every set completed at '+amount+' or more.'),
+          paragraph('You could try '+to.name+', starting at '+start+'. Choose it only if it feels right; it starts its own targets and your '+from.name+' history is kept.'),
+          button('Try progression',decide('confirmVariation','Now training '+to.name+' · starting at '+start+'.'),true),
+          button('Continue current exercise',decide('declineVariation','Keeping '+from.name+'. Coach will suggest this again only after more full sessions.')));
+        wrap.append(card);
+      });
     }
     function progressLink() {
       const link=button('Your progress',openProgress); link.classList?.add('coach-destination'); return link;
