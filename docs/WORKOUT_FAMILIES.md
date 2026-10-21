@@ -71,3 +71,85 @@ shared validation/fallback implementation.
 - Existing published Coach definitions, saved preferences and historical records
   remain unchanged. Persistent family identity/history is a later contract; this
   module neither stores identities nor relabels legacy sessions.
+
+## Family-scoped exercise membership and prescriptions
+
+After the Generator module loads, the catalogue-owning module registers its reviewed
+membership policy once with `GarageFitWorkoutFamilies.registerMembershipPolicy({
+workoutFamilyId, workoutFamilyVersion: 1, entries})`. The registry resolves the
+definition's versioned `membershipPolicy` reference; duplicate registration and
+unknown versions fail. Registered data is copied and deeply frozen. There are no
+production membership entries in this foundation: the Mobility and Athletic catalogue
+tickets own their complete approved tables. Neither Coach nor Generator supplies a
+separate table, guessed exercise aliases or grants copied from saved data.
+
+Each entry identifies one exact canonical `exerciseId` and family-specific `role`,
+its allowed `protocols`, and reviewed `prescriptions`. Roles describe contextual
+usage, independently of the exercise's global `mainRole` and Coach `sessionRole`.
+Protocols come from the existing `GarageFitGenerator.MAIN_PROTOCOLS` vocabulary;
+membership never relaxes a protocol's canonical exercise restrictions or validator.
+An entry may set `requiresMovementRoom: true`; that is unavailable unless the
+planning context explicitly confirms sufficient room. It does not add a space UI.
+
+Each prescription is `{type, minValue, maxValue, secondsPerRep?}`. The type retains
+canonical sidedness (`unilateral-` only for per-side exercises). Bounds are positive,
+whole reps where appropriate, and cannot exceed the shared occurrence-target ceilings.
+Canonical exercise prescriptions remain the defaults. A contextual mode or dose is
+allowed only within an explicitly reviewed prescription range; intrinsic
+`prescriptionModes` restrictions still apply. Timed work estimates its actual planned
+seconds on each side. Rep work uses the canonical rep estimate, or a reviewed
+`secondsPerRep` estimate (1–30 seconds); conversion from a timed default to reps
+requires that pacing estimate. These are planned targets/estimates, never measured
+reps, achieved loads or completion evidence.
+
+Blocks carry a plain JSON `familyContext`:
+
+```js
+{
+  workoutFamilyId: 'mobility-movement-quality', workoutFamilyVersion: 1,
+  role: 'flow', difficulty: 'normal', excludedImpact: ['high'],
+  bodyPositions: ['standing', 'floor'], movementRoom: false
+}
+```
+
+Only family/version/role are required. Omitted difficulty is Normal; omitted
+`excludedImpact` excludes high impact; omitted `bodyPositions` adds no position
+restriction; omitted room confirmation is false. An explicit empty impact exclusion
+list does not override Easy difficulty or protocol safety. Supplied malformed
+constraints fail closed. Selected equipment remains an input to eligibility and Main
+validation through their existing equipment arguments; a family grant cannot bypass it.
+
+`getMembership(context, exerciseId)` resolves the central reviewed entry, including
+after JSON round-trip. `generatedPhaseEligible(exercise, 'main', equipment,
+difficulty, context)` applies that grant plus canonical equipment, difficulty, impact,
+position and room checks. Other phases retain their original rules. A warm-up-only or
+cool-down-only ID can therefore be explicitly authorised as family Main without
+changing `generator`, `main`, preparation metadata or global catalogue validation.
+Related variants receive no implicit membership.
+
+`protocolCompatible(exercise, protocol, context)` additionally checks membership.
+`validateFamilyBlock` rechecks the canonical catalogue and rejects modified exercise
+copies. Main validation, normalisation, step resolution and estimation share that
+check. Existing setup compatibility and protocol validators remain authoritative.
+Within-family swaps must preserve the role's membership, canonical safety and every
+occurrence target. Final family composition/quality revalidation remains the later
+shared validator's responsibility.
+
+Contextual targets use the existing `block.occurrenceTargets` contract from
+[Workout protocols](WORKOUT_PROTOCOLS.md#shared-occurrence-targets). Pass
+`{familyContext}` to `resolveOccurrenceTarget` when resolving them directly. Defaults
+and null entries must also satisfy the registered ranges. Invalid/stale grants or
+targets produce no executable steps, estimate zero, and fail normalisation instead
+of silently reverting to a default. Normalisation copies the context and targets and
+recomputes duration. Original catalogue objects and prescriptions are never rewritten.
+
+The common preview/player consume the same resolved targets. Main exercise phases
+carry the transient context so Session Tracker can validate permitted mode changes;
+the context is not a new persisted workout-family identity/history field. Existing
+variable-target evidence rules and saved record schemas remain unchanged. Without
+an explicit family context, these seams retain the original behaviour and RNG use.
+
+The foundation tests demonstrate shared rounds, supersets and intervals plus existing
+advanced protocol compatibility, not specialist composition. Whole-session allocation,
+exercise-sensitive recovery and sequential-flow characterisation belong to issue 05
+(#181); no new protocol or player is introduced here.

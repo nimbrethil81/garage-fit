@@ -79,6 +79,11 @@ boundaries retain their existing semantics; occurrence IDs do not depend on targ
 Invalid overrides resolve to no steps, estimate zero, and fail normalisation. Normalisation
 owns a copy of the input overrides and recomputes their estimates rather than trusting caches.
 
+Explicit workout-family blocks may authorise reviewed contextual modes and doses through
+the [shared family membership contract](WORKOUT_FAMILIES.md#family-scoped-exercise-membership-and-prescriptions).
+The same occurrence targets and protocol validators apply; canonical exercise metadata
+and ordinary no-family target resolution are unchanged.
+
 Coach anchor blocks reject occurrence overrides. Variable-target phases cannot link to an
 anchor or open the anchor actuals UI. Their timed evidence is capped to the planned occurrence,
 and rep Done records completion without inventing measurements. Training History retains their

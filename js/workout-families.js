@@ -52,6 +52,63 @@
       fail('family-style-unavailable', 'No feasible internal style supplied for this workout family.');
     return Object.freeze({...selection, familyStyleId: feasibleStyleIds[0]});
   }
+  // Catalogue-owning tickets register reviewed policy data once; neither entry point
+  // can grant eligibility by changing an exercise copy or supplying its own table.
+  const membershipPolicies = new Map();
+  const membershipKey = definition => definition.membershipPolicy.id + ':' + definition.membershipPolicy.version;
+  const identifier = value => typeof value === 'string' && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
+  function freezeTree(value) {
+    Object.values(value).forEach(item => { if (item && typeof item === 'object') freezeTree(item); });
+    return Object.freeze(value);
+  }
+  function registerMembershipPolicy({workoutFamilyId, workoutFamilyVersion = 1, entries} = {}) {
+    const definition = getDefinition(workoutFamilyId, workoutFamilyVersion), key = membershipKey(definition);
+    if (membershipPolicies.has(key)) fail('duplicate-family-membership', 'A published membership policy may be registered only once.');
+    if (!Array.isArray(entries)) fail('invalid-family-membership', 'Membership entries must be an array.');
+    const seen = new Set();
+    for (const entry of entries) {
+      if (!entry || Object.keys(entry).some(field => !['exerciseId', 'role', 'protocols', 'prescriptions', 'requiresMovementRoom'].includes(field))
+        || !identifier(entry.exerciseId) || !identifier(entry.role) || seen.has(entry.exerciseId + ':' + entry.role)
+        || !Array.isArray(entry.protocols) || !entry.protocols.length
+        || entry.protocols.some(protocol => !root.GarageFitGenerator || !root.GarageFitGenerator.MAIN_PROTOCOLS.has(protocol))
+        || new Set(entry.protocols).size !== entry.protocols.length
+        || entry.requiresMovementRoom !== undefined && typeof entry.requiresMovementRoom !== 'boolean'
+        || !Array.isArray(entry.prescriptions) || !entry.prescriptions.length)
+        fail('invalid-family-membership', 'Invalid or duplicate family membership entry.');
+      seen.add(entry.exerciseId + ':' + entry.role);
+      const types = new Set();
+      for (const target of entry.prescriptions) {
+        const timed = target && ['timed', 'unilateral-timed'].includes(target.type);
+        if (!target || Object.keys(target).some(field => !['type', 'minValue', 'maxValue', 'secondsPerRep'].includes(field))
+          || !['reps', 'unilateral-reps', 'timed', 'unilateral-timed'].includes(target.type) || types.has(target.type)
+          || !Number.isFinite(target.minValue) || !Number.isFinite(target.maxValue)
+          || target.minValue <= 0 || target.maxValue < target.minValue || target.maxValue > (timed ? 300 : 100)
+          || !timed && (!Number.isInteger(target.minValue) || !Number.isInteger(target.maxValue))
+          || target.secondsPerRep !== undefined && (timed || !Number.isFinite(target.secondsPerRep) || target.secondsPerRep < 1 || target.secondsPerRep > 30))
+          fail('invalid-family-membership', 'Invalid contextual prescription bounds.');
+        types.add(target.type);
+      }
+    }
+    const policy = freezeTree(JSON.parse(JSON.stringify({id: definition.membershipPolicy.id,
+      version: definition.membershipPolicy.version, entries})));
+    membershipPolicies.set(key, policy);
+    return policy;
+  }
+  function getMembership(context, exerciseId) {
+    if (!context || typeof context !== 'object' || Array.isArray(context)
+      || Object.keys(context).some(field => !['workoutFamilyId', 'workoutFamilyVersion', 'role', 'difficulty', 'excludedImpact', 'bodyPositions', 'movementRoom'].includes(field))
+      || !identifier(context.role)
+      || context.difficulty !== undefined && !['easy', 'normal', 'hard'].includes(context.difficulty)
+      || context.excludedImpact !== undefined && (!Array.isArray(context.excludedImpact) || context.excludedImpact.some(impact => !['low', 'medium', 'high'].includes(impact)))
+      || context.bodyPositions !== undefined && (!Array.isArray(context.bodyPositions) || !context.bodyPositions.length || context.bodyPositions.some(position => !['standing', 'floor', 'supported', 'hanging', 'mixed'].includes(position)))
+      || context.movementRoom !== undefined && typeof context.movementRoom !== 'boolean')
+      fail('invalid-family-context', 'Invalid family exercise context.');
+    const definition = getDefinition(context.workoutFamilyId, context.workoutFamilyVersion === undefined ? 1 : context.workoutFamilyVersion);
+    const policy = membershipPolicies.get(membershipKey(definition));
+    if (!policy) fail('family-membership-unavailable', 'No reviewed membership policy is registered for this family version.');
+    return policy.entries.find(entry => entry.exerciseId === exerciseId && entry.role === context.role) || null;
+  }
   root.GarageFitWorkoutFamilies = Object.freeze({FamilyContractError,
-    FAMILY_IDS: Object.freeze(Object.keys(definitions)), getDefinition, getStyle, resolveRequest, resolveStyle});
+    FAMILY_IDS: Object.freeze(Object.keys(definitions)), getDefinition, getStyle, resolveRequest, resolveStyle,
+    registerMembershipPolicy, getMembership});
 })(typeof window !== 'undefined' ? window : globalThis);

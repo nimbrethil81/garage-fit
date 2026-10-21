@@ -59,8 +59,10 @@
       const timed=emom?target.type==='timed':!!phase.timed;
       if(phase.plannedPrescription){
         if(!root.GarageFitGenerator)throw new Error('Occurrence targets need the shared Generator resolver.');
+        if(phase.familyContext!=null&&!root.GarageFitGenerator.protocolCompatible(exercise,phase.protocol,phase.familyContext))throw new Error('Unauthorised family protocol.');
         root.GarageFitGenerator.resolveOccurrenceTarget(exercise,{plannedPrescription:phase.plannedPrescription,
-          ...(phase.plannedLoad?{plannedLoad:phase.plannedLoad}:{})},phase.protocol==='timed_intervals'?{timedIntervalSeconds:phase.protocolConditions.workSeconds}:{});
+          ...(phase.plannedLoad?{plannedLoad:phase.plannedLoad}:{})},{familyContext:phase.familyContext,
+            ...(phase.protocol==='timed_intervals'?{timedIntervalSeconds:phase.protocolConditions.workSeconds}:{})});
         if(timed!==prescription.type.includes('timed')||timed&&phase.seconds!==prescription.value
           ||emom&&(target.type!==prescription.type||target.value!==prescription.value))throw new Error('Contradictory occurrence target.');
       }
