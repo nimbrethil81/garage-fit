@@ -22,7 +22,7 @@ async function ui(storage = new Map(), equipment = ['dumbbells','bench']) {
   p.summary = () => p.run("nodes('coachContent').find(node=>node.id==='coachAdjustToday').children[0].attributes['aria-label']");
   return p;
 }
-const names = {strength: '4-Week General Strength', arms: 'Build Arms', tennis: 'Tennis'};
+const names = {strength: '4-Week General Strength', arms: 'Build Arms', tennis: 'Tennis', fitness: 'General Fitness'};
 async function start(p, key) { await p.click(names[key]); await p.click('Start programme'); assert.ok(p.state()); }
 
 test('all three programmes share the compact home hierarchy with programme-appropriate status', async () => {
@@ -212,4 +212,75 @@ test('shared equipment edits preserve the live Coach workout, durable draft and 
   const results=await p.run('pilotStore.listSessionResults()');
   assert.equal(results.results.length,1);
   assert.ok(results.results[0].performedWork.some(work=>work.exerciseId===state.anchors.find(anchor=>anchor.requirementId==='anchor-squat').exerciseId));
+});
+
+test('General Fitness is offered and runs home → preview/edit → player → save → progress on the shared screens', async () => {
+  const p = await ui(new Map(), ['dumbbells']);
+  assert.match(p.text(), /A training goal and sessions adapted to the work you actually do\. Strength & fitness.*Build Arms General Fitness Cross-training Tennis/);
+  assert.doesNotMatch(p.text(), /stable anchors/);
+  await p.click('General Fitness');
+  assert.match(p.text(), /Open-ended: 2–5 sessions per week.*10, 15, 20 or 45 minutes when needed.*Mobility & Movement Quality\) from the training you have actually done\. No fixed targets/);
+  assert.doesNotMatch(p.text(), /stable|anchors start|Strength target/i);
+  await p.click('Start programme');
+  const state = p.state(); assert.equal(state.programmeDefinitionId, 'general-fitness'); assert.deepEqual(state.anchors, []);
+  // The same compact hierarchy as every programme, with anchor-free copy.
+  const classes = p.json("document.getElementById('coachContent').children.map(node=>node.className)");
+  assert.deepEqual(classes.slice(0, 4), ['coach-tennis-intro','coach-weekly','generator-options','coach-card']);
+  assert.match(p.run("nodes('coachContent').find(node=>node.className==='coach-status').textContent"), /Ongoing/);
+  assert.equal(p.weekly().text, '0 sessions this week'); assert.deepEqual(p.weekly().segments, ['minimum','minimum','','','']);
+  assert.equal(p.summary(), 'Adjust today · 30 min available · Dumbbells');
+  assert.equal(p.run("field('Readiness today (optional)')"), undefined);
+  const home = p.text();
+  assert.match(home, /Easy today/); assert.doesNotMatch(home, /progression held|stable anchor|anchor substitution|Strength target|tennis/i);
+  const plan = p.json('coachUI.controller.plan({duration:30,equipment:["dumbbells"]})');
+  const intended = p.json(`GarageFitData.workoutFamilies[${JSON.stringify(plan.prescription.workoutFamilyPlan.candidates[0].workoutFamilyId)}][1]`);
+  assert.match(home, new RegExp(`Today’s workout ${intended.name} · 30 min View today’s workout ${intended.purpose}`));
+  assert.match(home, /Why this workout/);
+  // Preview shows the delivered family, style and purpose; one Edit control; swaps only in edit mode.
+  await p.click('View today’s workout');
+  const workout = p.json('coachUI.controller.snapshot().preview.workout');
+  const family = p.json(`GarageFitData.workoutFamilies[${JSON.stringify(workout.workoutFamilyId)}][1]`), style = family.styles.find(item => item.id === workout.familyStyleId);
+  assert.equal(p.run("nodes('coachPreviewContent').find(node=>node.className==='preview-rounds').textContent"), family.name+' — '+style.name);
+  assert.equal(p.run("nodes('coachPreviewContent').find(node=>node.className==='equipment-note coach-preview-purpose').textContent"), family.purpose);
+  assert.deepEqual(p.json("nodes('coachPreviewContent').filter(node=>/Edit Workout|Done Editing/.test(node.textContent)&&node.onclick).map(node=>node.textContent)"), ['Edit Workout']);
+  assert.equal(p.json("nodes('coachPreviewContent').filter(node=>node.className==='swap-btn').length"), 0);
+  assert.doesNotMatch(p.run("copyText('coachPreviewContent')"), /Strength target|Substitute/);
+  await p.click('Edit Workout', 'coachPreviewContent');
+  assert.ok(p.json("nodes('coachPreviewContent').filter(node=>node.className==='swap-btn'&&/^Swap /.test(node.attributes['aria-label'])).length") > 0);
+  assert.doesNotMatch(p.run("copyText('coachPreviewContent')"), /Strength target substitutions/);
+  await p.click('Done Editing', 'coachPreviewContent');
+  // Identical player entry; the saved session keeps its delivered identity.
+  await p.click('Start workout', 'coachPreviewContent');
+  assert.equal(p.run('currentScreen'), 'workoutPlayer'); assert.equal(p.run('coachUI.isActive()'), true);
+  await p.run(`(async()=>{const tracker=coachPlayerTracker();for(const work of tracker.plannedWork().filter(item=>item.section==='main'))await tracker.recordDone(work.occurrenceId);})()`);
+  await p.run("coachUI.showEnd('complete',1800)"); await p.run("coachUI.saveFeedback('about-right')");
+  const label = family.name+' — '+style.name;
+  assert.equal(p.weekly().text, '1 session this week');
+  assert.deepEqual(p.json("nodes('coachContent').find(node=>node.className==='coach-weekly-roles').children.map(node=>node.textContent)"), ['✓ '+label]);
+  assert.match(p.text(), new RegExp('Session saved · completed · '+label));
+  const result = (await p.run('pilotStore.listSessionResults()')).results[0];
+  assert.equal(result.workoutFamilyId, workout.workoutFamilyId); assert.equal(result.familyStyleId, workout.familyStyleId);
+  await p.click('Your progress');
+  const progress = p.run("copyText('coachProgressContent')");
+  assert.match(progress, /Open-ended programme · 2–5 sessions per week/);
+  assert.match(progress, new RegExp('Recent sessions .*'+label+' · Completed'));
+  assert.doesNotMatch(progress, /Strength targets|undefined/);
+});
+
+test('General Fitness preview reports a replanned family or style fallback; anchor-free pause and blocked copy stay neutral', async () => {
+  const p = await ui(new Map(), ['dumbbells']); await start(p, 'fitness');
+  const plan = p.json('coachUI.controller.plan({duration:30,equipment:[]})'), state = p.state();
+  const workout = {main: {blocks: []}, prescriptionOutcome: {softRelaxations: []},
+    familyReplan: {requestedWorkoutFamilyId: 'mobility-movement-quality', requestedWorkoutFamilyVersion: 1, workoutFamilyId: 'core-stability', replanned: true},
+    familyDiagnostics: [{familyStyleId: 'dynamic-core'}]};
+  const messages = p.json(`GarageFitCoachUI.previewMessages({plan:${JSON.stringify(plan)},workout:${JSON.stringify(workout)},state:${JSON.stringify(state)},catalogue:CATALOGUE})`);
+  assert.deepEqual(messages.status, ['Adjusted · Mobility & Movement Quality could not be built with today’s options, so another workout type was chosen.',
+    'Adjusted · An alternative style within this family was selected to suit your settings.']);
+  assert.deepEqual(messages.notices, []);
+  await p.run("coachUI.controller.manage('pause')"); await p.run('coachUI.open()');
+  assert.match(p.text(), /Paused · history preserved\./); assert.doesNotMatch(p.text(), /anchors and history/);
+  await p.click('Resume');
+  p.run("coachUI.controller.plan=()=>({prescription:null,conflicts:[{code:'family-plan-unavailable'}],rationale:{priorities:{}}})"); await p.run('coachUI.open()');
+  assert.match(p.text(), /Adjust today’s options .*Try more time or restore equipment\./);
+  assert.equal(p.json("nodes('coachContent').filter(node=>/^Substitute /.test(node.textContent)).length"), 0);
 });
