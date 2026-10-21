@@ -3,6 +3,8 @@
 Load `data/sport-profiles.js`, `coach-model.js`, `training-history.js`, `coach-policies.js`, then
 `coach-engine.js`. For Tennis also load `data/sport-capabilities.js`, `sport-coverage.js`
 and `coach-tennis-policy.js` (after `coach-policies.js`, before creating the engine).
+General Fitness similarly needs `coach-general-fitness-policy.js` (after `coach-policies.js`)
+and, to generate its sessions, the workout-family modules and composers.
 These scripts use the repository's `GarageFit*` globals and run
 in Node without browser, storage, player, clock or third-party dependencies.
 They are dormant until a caller explicitly creates an engine.
@@ -229,7 +231,8 @@ and `tests/coach-settings.test.js`.
 `createRegistry({type: policy})` returns a registry with `register`, `get`, and
 `types`. Duplicate types and incomplete strategies are rejected.
 `createDefaultRegistry()` registers the parameterised `general-strength` and
-`build-arms` strategies, plus `tennis-conditioning` when its module is loaded.
+`build-arms` strategies, plus `tennis-conditioning` and `general-fitness` when their
+modules are loaded.
 Other programmes register their own type and hooks.
 
 Required hooks are `validateDefinition`, `assessFeasibility`, `initialiseState`,
@@ -524,6 +527,61 @@ core and carry in seven days. Short sessions omit maintenance preferences; later
 sessions recompute deficits without debt. The catalogue currently needs dumbbells
 for carry maintenance. `tests/build-arms.test.js` pins these production rules;
 `tests/coach-pilot.test.js` pins General Strength's end-to-end flow.
+
+## General Fitness
+
+`general-fitness` version 1 (`data/programmes.js`, policy `js/coach-general-fitness-policy.js`)
+implements the approved #190 Decisions 1–8 on the same registry, lifecycle, store/recovery,
+prescribed Generator seam and player. It is open-ended and **anchor-free**: start needs no
+anchors or equipment prerequisite (`assessFeasibility` returns `prescription: null`), state
+holds `anchors: []`, there is no progression, maintenance mode, review or automatic completion,
+and pause/resume/finish are the common transitions. Its own Coach results are credited through
+the common performed Main-work rule; nothing else is.
+
+Each plan chooses an intended **workout family first**, then lets the shared composer resolve
+the internal style from performed protocol recency and the shared gate validate it:
+
+- **Performed training effects.** The rolling 28-day window reads performed sessions from every
+  GarageFit source the caller supplies (this and other Coach instances, standalone Generator,
+  fixed workouts; the controller adds a bounded cross-source query because the definition sets
+  `coverageTargets.includeCrossSourceHistory`). A session with a recorded family contributes its
+  family's effect shares (`strength`, `conditioning`, `challenge` (Full-Body Challenges also
+  shares a quarter each with strength and conditioning), `athletic`, `core`, `mobility`); a
+  legacy/generic session contributes effects derived from its performed Main exercises' metadata
+  (core body focus, conditioning/cardio-dominant, otherwise strength ≥ 3). Partial sessions
+  count their performed fraction of planned Main work. Preparation, planned-only, skipped and
+  external records contribute nothing. These are planning inputs, never programme credit.
+- **Balance and attendance.** Effect target weights favour the strength and conditioning
+  foundations (3/3 against 1 for athletic, core, mobility and 0.5 for challenge below three
+  performed sessions a week over the last 14 days; 2/2 against the same at or above it). Each
+  family scores its effect shares of `targetShare × (performed sessions + 1) − performed effect`;
+  needs recompute every plan, so missed days, gaps or 2–5 weekly sessions create no debt,
+  catch-up session or rigid rotation. After a long absence the plan matches a fresh start.
+- **Variety.** The previous family is penalised (Strength & Control only lightly, at most two in a
+  row) and recent repeats in the last three sessions add a small penalty; exercises and
+  protocols vary through the Generator's existing cross-source `history`/`recentProtocols`.
+  There are no novelty quotas.
+- **Recovery and intensity.** A demanding performed session (Strength, Cardio, Challenges, or
+  derived strength/conditioning work) within 24 hours, or a confirmed `reportedSportActivity`
+  with hard intensity today or yesterday, orders lower-demand families first. Duration, existing
+  difficulty (`difficulty`, or `easyToday` for Easy), body focus (Strength & Control only),
+  equipment and optional `excludedImpact`/`bodyPositions`/`movementRoom` come from today's
+  context. No readiness prompt or rest recommendation is introduced.
+- **External preferences.** With `todayContext.externalActivity` (the controller supplies
+  `externalActivityContext` for this definition) typical routines raise the mobility weight by
+  0.25 per weekly session, capped at 0.5, labelled approximate. They never earn effect credit.
+
+The prescription has `sessionRole: 'general-fitness'`, no anchors and a `workoutFamilyPlan` of
+all six families in priority order, each with its rationale; `programmeContext` records the
+intended family and recovery reasons, and `rationale.priorities` exposes effects, family scores,
+attendance, recovery, external context and the history sessions used (`credit: 'none'`). The
+Generator builds the first feasible family and reports any transparent replan (see
+[Workout families](WORKOUT_FAMILIES.md#shared-validation-same-family-fallback-and-edit-integrity));
+the tracker records the delivered family/style. Unsupported durations are planning conflicts;
+a plan no family can build fails visibly with each family's reasons. The Coach start list does
+not offer General Fitness until the shared Coach UX (#191). `tests/general-fitness.test.js`
+covers lifecycle, sequences at 2/3/5 sessions per week, cross-source context, recovery,
+external preferences and the family-plan seam.
 
 ## Sport profiles and instance settings
 

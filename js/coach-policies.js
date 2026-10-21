@@ -508,6 +508,7 @@
   const buildArmsPolicy = Object.freeze({...generalStrengthPolicy, validateDefinition: validateArmsDefinition,
     calculatePriorities: armsPriorities, buildPrescription: armsPrescription, interpretDose: armsDose, isComplete: () => false});
   const createDefaultRegistry = () => createRegistry({'general-strength': generalStrengthPolicy, 'build-arms': buildArmsPolicy,
-    ...(root.GarageFitCoachTennisPolicy ? {'tennis-conditioning': root.GarageFitCoachTennisPolicy} : {})});
+    ...(root.GarageFitCoachTennisPolicy ? {'tennis-conditioning': root.GarageFitCoachTennisPolicy} : {}),
+    ...(root.GarageFitCoachGeneralFitnessPolicy ? {'general-fitness': root.GarageFitCoachGeneralFitnessPolicy} : {})});
   root.GarageFitCoachPolicies = {createRegistry, createDefaultRegistry, assertDefinition, generalStrengthPolicy, buildArmsPolicy, requiredHooks, optionalHooks};
 })(typeof window !== 'undefined' ? window : globalThis);

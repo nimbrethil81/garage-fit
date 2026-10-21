@@ -241,8 +241,9 @@ would push the whole session past the selected duration. Mobility and Athletic d
 
 Missing composers fail with `family-composer-unavailable`; unsupported duration or
 difficulty fails with `family-configuration-unsupported`. An explicit family plus
-Coach `sessionPrescription` currently fails with `family-prescription-unsupported`:
-Coach integration belongs to its own ticket. No-family Coach and standalone calls
+Coach `sessionPrescription` fails with `family-prescription-unsupported`: Coach asks
+for families only through a prescription's `workoutFamilyPlan` (see Coach replanning
+below). No-family Coach and standalone calls
 retain their existing paths and random consumption. These transient workout identity
 fields introduce no persisted family history or preference migrations.
 
@@ -388,7 +389,7 @@ estimate; high-impact intervals last at most 40 s, never run back to back (inclu
 block wrap-around) and make up at most half of a block; no exercise appears in more than two
 blocks. Every Strength style uses each exercise once. Long rests are a Strength
 feature: round rests are never below 45 s there and never above 45 s in Cardio endurance work.
-No-family generation, Coach prescriptions (still `family-prescription-unsupported`), exercise
+No-family generation, explicit-family Coach prescriptions (still `family-prescription-unsupported`), exercise
 eligibility and fixed workouts are untouched. Final family quality validation and fallback
 belong to the shared gate below.
 
@@ -402,7 +403,7 @@ metadata, optional `excludedImpact`/`bodyPositions` filters (malformed values fa
 and the Generator's own protocol validators. Body Focus is ignored (`full-body`). An unbuildable request fails
 `family-not-feasible`. Styles are ranked by seeded weights from duration, difficulty and `recentProtocols`;
 the first that builds is the displayed one. Each exercise is used once where the pool allows, otherwise at most
-twice. Coach prescriptions stay `family-prescription-unsupported`; final quality validation and fallback use the shared gate below.
+twice. Explicit-family Coach prescriptions stay `family-prescription-unsupported`; final quality validation and fallback use the shared gate below.
 
 | Family | Suitable exercises | Style | Resolved structure |
 | --- | --- | --- | --- |
@@ -466,8 +467,24 @@ none verifies. Invalid constraints still fail with `invalid-family-context`.
 to another family: the caller supplies its ordered priorities as `{workoutFamilyId, rationale}`
 (a non-empty rationale is required). Each candidate uses the gate and same-family fallback above;
 the returned workout's transient `familyReplan` reports the requested and actual family, style,
-`replanned`, the chosen rationale and earlier infeasible attempts. Coach session prescriptions
-remain `family-prescription-unsupported`, and published Coach programmes do not call it yet.
+`replanned`, the chosen rationale and earlier infeasible attempts.
+
+A Coach Session Prescription reaches this route only through its optional
+`workoutFamilyPlan`: `{candidates: [{workoutFamilyId, workoutFamilyVersion, rationale}],
+excludedImpact?, bodyPositions?, movementRoom?}` (one to six unique families). Coach Model
+rejects a plan combined with anchors, Main priorities, avoid/protocol constraints, an optional
+Main pool, time limits or a variation preference, because family composers own their
+programming. `assessSessionPrescription` stays pure and cheap: it reports candidates whose
+published definition, composer or duration/difficulty support is missing as
+`family-candidate-unavailable` warnings, and `family-plan-unavailable` when none remains.
+Generation calls `generateFamilyReplan` with the usable candidates in order; the workout's
+`familyReplan` names the plan's first family as requested, `replanned` when the delivered
+family differs, and every skipped or infeasible attempt. `prescriptionOutcome.familyPlan`
+repeats it with no anchor placements. No generic `sessionPrescription` is attached, so swaps
+use the family gate rather than Main budgets. If no candidate builds, generation throws
+`SessionPrescriptionError` with hard conflict `family-plan-not-feasible` and the attempts.
+The released General Strength, Build Arms and Tennis programmes never send a family plan;
+General Fitness (see [Coach engine](COACH_ENGINE.md#general-fitness)) is the only caller.
 
 **Swaps and edits.** For a workout with `workoutFamilyId`, `swap` and `swapPreparation` accept only
 replacements whose whole revised workout passes the gate; if none does, the workout is unchanged.
@@ -493,8 +510,9 @@ store is introduced.
 
 Controller methods `saveExternalActivityPreferences(activities)` (replace/edit),
 `clearExternalActivityPreferences()` and `externalActivityContext(sessionContext?)`
-provide the opt-in seam for General Fitness #190 and settings #191. There is no
-new UI or automatic scheduling consumption in this issue. The pure equivalent is
+provide the opt-in seam for General Fitness #190 and settings #191. Only a definition
+with `externalActivityPolicy` (General Fitness v1) consumes it during planning; there is
+no new UI here. The pure equivalent is
 `GarageFitCoachModel.externalActivityContext(preferences, sessionContext?, localDate?)`.
 Its deeply frozen output separates:
 
@@ -516,4 +534,6 @@ report exists in Session Results, so this seam does not mine them or add an
 integration. Preferences/context create no result, training credit/debt, recovery
 state or programme progress. They do not enter released programme planners,
 Generator recency, or Tennis event/readiness behavior. Future consumers must keep
-these approximate preferences separate from performed GarageFit evidence.
+these approximate preferences separate from performed GarageFit evidence. General
+Fitness does: typical routines only bound a small mobility preference and confirmed
+reports only order lower-demand families first.

@@ -111,6 +111,8 @@
       return def;
     }} = {}) {
     let state = null, results = [], preview = null, previewKey = null, tracker = null, draft = null, pendingResult = null, preparationContext = null;
+    // Shared approximate preferences, read only for a definition that opts into them (#190).
+    let externalPreferences = null;
     const definition = () => definitionFor(state);
     const meaningful = root.GarageFitCoachRecovery.meaningful;
     const recovery = root.GarageFitCoachRecovery.createRecovery({store, engine, definitionFor});
@@ -122,6 +124,10 @@
       const scoped = {programmeInstanceId: state.programmeInstanceId};
       const queries = [await store.listSessionResults({...scoped, since}), await store.listSessionResults({...scoped, limit: 8})];
       if (def.coverageTargets.includeStandaloneHistory) queries.push(await store.listSessionResults({source: 'generator', since}));
+      // Performed context from every GarageFit source (bounded). It informs planning only:
+      // the engine credits this instance's own Coach results and nothing else.
+      if (def.coverageTargets.includeCrossSourceHistory) queries.push(await store.listSessionResults({sources: ['coach','generator','fixed'],
+        performedOnly: true, since, limit: root.GarageFitTrainingHistory.MAX_RECENT_SESSION_LIMIT, candidateLimit: root.GarageFitTrainingHistory.MAX_RECENT_SESSION_LIMIT}));
       const byId = new Map();
       queries.forEach(query => { errors.push(...query.errors); query.results.forEach(result => byId.set(result.sessionResultId, result)); });
       const lastMeaningful = (state.recentSessionSummaries || []).slice().reverse().find(item => item.meaningful);
@@ -146,7 +152,14 @@
         if (state) engine.validateProgrammeState(definition(),state);
         await recentHistory();
       } catch (error) { errors.push(error); blocked = true; state = null; }
+      await loadExternalPreferences();
       return snapshot();
+    }
+    // Damaged preferences are reported but never block the programme: planning then has none.
+    async function loadExternalPreferences() {
+      externalPreferences = null;
+      if (!state || !definition().externalActivityPolicy) return;
+      try { externalPreferences = await store.loadCoachPreferences(); } catch (error) { errors.push(error); }
     }
     function snapshot() { return {state: state && clone(state), results: clone(results.filter(item => state && item.programmeInstanceId === state.programmeInstanceId)),
       preview, errors: errors.slice(), blocked, interruptedDraft: draft && !tracker ? clone(draft) : null}; }
@@ -162,11 +175,15 @@
       if (!started.state) return started;
       await store.saveProgrammeState(started.state);
       await store.saveActiveProgramme(Model().createActiveProgramme(Model().programmeDefinitionRef(started.state)));
-      state = started.state; preview = null; return started;
+      state = started.state; preview = null;
+      await loadExternalPreferences();
+      return started;
     }
     function today(input = {}) {
-      const now = clock(), localDate = localDay(now);
-      return {...input, ...(definition().contextPolicy ? {localDate} : {}), now, prescriptionId: id('prescription')};
+      const now = clock(), localDate = localDay(now), def = definition();
+      const external = def.externalActivityPolicy ? {localDate, externalActivity: Model().externalActivityContext(
+        externalPreferences || Model().createCoachPreferences(), input.sessionContext || {}, localDate)} : {};
+      return {...input, ...(def.contextPolicy ? {localDate} : {}), ...external, now, prescriptionId: id('prescription')};
     }
     function plan(input) { return engine.planNextSession(definition(), state, results, today(input)); }
     // Everything that shapes today's session: the user's choices (not the request
@@ -183,7 +200,8 @@
       const key = preparationKey(input), context = today(input), plan = engine.planNextSession(definition(), state, results, context);
       preparationContext = context;
       if (!plan.prescription) return {status: 'infeasible', plan, today: context};
-      const history = results.filter(item => item.programmeInstanceId === state.programmeInstanceId).slice(-4).reverse()
+      const crossSource = definition().coverageTargets.includeCrossSourceHistory;
+      const history = results.filter(item => crossSource || item.programmeInstanceId === state.programmeInstanceId).slice(-4).reverse()
         .map(item => [...new Set((item.performedWork || []).filter(work => ['completed','partial'].includes(work.status)).map(work => work.exerciseId))]);
       const workout = root.GarageFitGenerator.generate({catalogue, sessionPrescription: plan.prescription, history, recentProtocols:root.GarageFitGenerator.recentProtocolsFromResults(results)});
       preview = {workout, plan, today: context, generatedAt: clock()}; previewKey = key;
@@ -299,10 +317,18 @@
     // credited results passed to the released programme planner or anchors.
     const trainingEvidence = options => root.GarageFitTrainingHistory.loadRecentSummary(store, catalogue, options);
     // Preferences are shared user context, never part of programme state, credited
-    // history, preview inputs or Tennis settings. No automatic planner consumption.
-    const saveExternalActivityPreferences = activities => store.saveCoachPreferences(
-      Model().createCoachPreferences({usualExternalActivities: activities}));
-    const clearExternalActivityPreferences = () => store.clearCoachPreferences();
+    // history or Tennis settings. Only a definition with externalActivityPolicy (General
+    // Fitness) receives them as approximate planning context; a change re-plans its preview.
+    const saveExternalActivityPreferences = async activities => {
+      const saved = await store.saveCoachPreferences(Model().createCoachPreferences({usualExternalActivities: activities}));
+      if (state && definition().externalActivityPolicy) { externalPreferences = await store.loadCoachPreferences(); preview = null; }
+      return saved;
+    };
+    const clearExternalActivityPreferences = async () => {
+      const cleared = await store.clearCoachPreferences();
+      if (externalPreferences) { externalPreferences = null; preview = null; }
+      return cleared;
+    };
     const externalActivityContext = async (sessionContext = {}) => Model().externalActivityContext(
       await store.loadCoachPreferences(), sessionContext, localDay(clock()));
     return {load, snapshot, assess, start, plan, prepare, previewToday, alternatives, substitute, restore, begin, finish, manage, saveProgrammeSettings, trainingEvidence,
@@ -472,7 +498,8 @@
       if (!state || state.status==='completed') {
         wrap.append(paragraph('A training goal, stable anchors and sessions adapted to the work you actually do.'));
         wrap.append(heading('Strength & fitness'));
-        programmes.filter(programme => programme.type !== 'tennis-conditioning').forEach(programme => wrap.append(button(programme.name, () => { def=programme; overview(); }, true)));
+        // General Fitness start/home presentation belongs to the shared Coach UX (#191).
+        programmes.filter(programme => !['tennis-conditioning','general-fitness'].includes(programme.type)).forEach(programme => wrap.append(button(programme.name, () => { def=programme; overview(); }, true)));
         wrap.append(heading('Cross-training'));
         programmes.filter(programme => programme.type === 'tennis-conditioning').forEach(programme => wrap.append(button('Tennis', () => { def=programme; overview(); }, true)));
         if (state) wrap.append(paragraph('Previous programme finished · '+state.meaningfulSessionsCompleted+' meaningful sessions. Your history is saved.'));

@@ -35,7 +35,8 @@ test('released definitions stay unchanged; General Strength v2 and Tennis v7 onl
   for (const [id, versions] of Object.entries(P)) for (const [version, definition] of Object.entries(versions)) {
     vm.runInContext(`R7.registry.get(R7.P[${JSON.stringify(id)}][${version}].type).validateDefinition(R7.P[${JSON.stringify(id)}][${version}])`, app);
     const released = !(id === GS && version === '2' || id === TENNIS && version === '7');
-    if (released) for (const requirement of definition.anchorSelectionPolicy.requirements)
+    // Anchor-free General Fitness (#190) has no anchor candidates to check.
+    if (released) for (const requirement of definition.anchorSelectionPolicy ? definition.anchorSelectionPolicy.requirements : [])
       assert.ok(!(requirement.exerciseIds || []).some(item => RING_IDS.includes(item)), id + ' v' + version + ' is released and ring-free');
   }
   assert.deepEqual(P[GS][1].anchorSelectionPolicy.requirements.map(item => item.exerciseIds.slice(-2)), [['trx-squat', 'air-squat'], ['push-up', 'incline-push-up'], ['pull-up', 'chin-up']]);
