@@ -52,6 +52,8 @@ function loadAppContext(storage = new Map(), options = {}) {
   }
   const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].at(-1)[1];
   vm.runInContext(inline, context, { filename:'index-inline.js' });
+  // Opt into the shipped post-inline Ramp-up timeline/preview extension for integrated runs.
+  if (options.rampupUi) vm.runInContext(fs.readFileSync(path.join(root,'js/rampup-ui.js'),'utf8'),context,{filename:'js/rampup-ui.js'});
   return context;
 }
 

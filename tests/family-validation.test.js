@@ -107,6 +107,36 @@ test('Preview swaps revalidate the whole workout and keep each family label hone
   }
 });
 
+test('explicit family safety constraints cover preparation and cooldown, including preparation swaps',()=>{
+  for(const constraints of [{excludedImpact:['medium','high']},{excludedImpact:['high'],bodyPositions:['standing']}]) {
+    for(const family of ['strength-control','cardio-conditioning']) {
+      const w=generate(family,{...constraints,random:()=>0.4});
+      const check=()=>{
+        assert.equal(validate(w).valid,true);
+        for(const section of ['warmup','rampup','cooldown'])for(const ex of w[section].exercises) {
+          assert.equal(constraints.excludedImpact.includes(ex.impact),false,section+': '+ex.id);
+          if(constraints.bodyPositions)assert.ok(constraints.bodyPositions.includes(ex.bodyPosition),section+': '+ex.id);
+        }
+      };
+      check();
+      const omitted=copy(w);omitted.rampup.exercises=[];
+      assert.ok(validate(omitted).technicalIssues.includes('rampup:missing-exercises'),'constraints cannot be satisfied by silently dropping preparation');
+      for(const section of ['warmup','rampup'])for(let seed=1;seed<=3;seed++) {
+        G.swapPreparation(w,section,0,{catalogue:C,equipment:[],random:rng(seed)});check();
+      }
+      const high=copy(w);high.rampup.exercises[0]=copy(C['skater-jumps']);
+      assert.ok(validate(high).technicalIssues.includes('rampup:excluded-impact:skater-jumps'));
+      if(constraints.bodyPositions) {
+        const floor=copy(w);floor.cooldown.exercises[0]=copy(C['childs-pose']);
+        assert.ok(validate(floor).technicalIssues.includes('cooldown:excluded-position:childs-pose'));
+      }
+    }
+  }
+  const unavailable=infeasible(()=>generate('core-stability',{bodyPositions:['floor']}));
+  assert.ok(unavailable.reasons.every(reason=>reason.code==='preparation-not-feasible'));
+  assert.ok(unavailable.adjustments.some(item=>item.code==='remove-body-position-restriction'));
+});
+
 test('an infeasible manual family request returns verified reasons and adjustments, never another family',()=>{
   const athletic=infeasible(()=>generate('athletic-movement',{bodyPositions:['floor']}));
   assert.equal(athletic.workoutFamilyId,'athletic-movement');
@@ -136,16 +166,16 @@ test('an infeasible manual family request returns verified reasons and adjustmen
 });
 
 test('Coach replanning crosses family only explicitly, reporting the actual family and rationale',()=>{
-  const options={duration:20,difficulty:'normal',catalogue:C,equipment:[],random:rng(9),bodyPositions:['floor']};
+  const options={duration:20,difficulty:'normal',catalogue:C,equipment:[],random:rng(9),excludedImpact:['medium','high']};
   const w=G.generateFamilyReplan(options,[
     {workoutFamilyId:'athletic-movement',rationale:'Priority: athletic movement this week.'},
-    {workoutFamilyId:'core-stability',rationale:'Floor-only today, so trunk control keeps the weekly priorities.'}]);
+    {workoutFamilyId:'core-stability',rationale:'Low-impact trunk control keeps the weekly priorities.'}]);
   assert.equal(w.workoutFamilyId,'core-stability');
   assert.equal(w.familyReplan.requestedWorkoutFamilyId,'athletic-movement');
   assert.equal(w.familyReplan.workoutFamilyId,'core-stability');
   assert.equal(w.familyReplan.familyStyleId,w.familyStyleId);
   assert.equal(w.familyReplan.replanned,true);
-  assert.equal(w.familyReplan.rationale,'Floor-only today, so trunk control keeps the weekly priorities.');
+  assert.equal(w.familyReplan.rationale,'Low-impact trunk control keeps the weekly priorities.');
   assert.deepEqual(w.familyReplan.attempts.map(item=>[item.workoutFamilyId,item.reasons[0].code]),[['athletic-movement','insufficient-eligible-movements']]);
   assert.ok(validate(w).valid);
   const first=G.generateFamilyReplan({...options,bodyPositions:undefined},[{workoutFamilyId:'mobility-movement-quality',rationale:'Recovery day.'}]);

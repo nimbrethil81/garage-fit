@@ -447,11 +447,13 @@ Main timing sums the protocol work/rest budgets, normal inter-block transitions,
 and all planned Main setup increments exactly once. It must use the global plan:
 a remembered high setup can change at the second exercise of a later block even
 though that block has no isolated internal adjustment. Overall estimates also add
-Warm-up/Cool-down setup increments. The historical ready (3 s) and two generic
-phase transitions (3 s each) remain outside `estimatedSeconds`; Ramp-up remains
-inside that estimate. Replacing a generic phase transition with 45 seconds therefore
-adds **42 seconds** to both the estimate and the played schedule, retaining the
-same legacy nine-second offset. No-ring estimates, random draws, and seeded output
+Warm-up/Cool-down setup increments. Ready (3 s) and generic phase boundaries (3 s
+each) remain outside `estimatedSeconds`; Ramp-up work remains inside that estimate.
+The shipped Ramp-up player has three boundaries when Warm-up, Ramp-up and Cool-down
+are all present, for **12 seconds** total overhead; without Ramp-up the legacy
+Warm-up/Main/Cool-down schedule has nine. Whole-session Mobility/Athletic plans
+have only Ready's three seconds. Replacing a generic phase transition with 45 seconds
+adds **42 seconds** to both the estimate and the played schedule. No-ring estimates, random draws, and seeded output
 remain unchanged. Rep-work durations are still estimates, and fixed EMOM/density
 clocks retain their existing envelopes.
 

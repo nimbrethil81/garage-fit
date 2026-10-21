@@ -207,8 +207,10 @@ test('recent-session history lowers exercise repetition and recent protocols inf
 test('impact and position constraints filter the canonical pool and infeasible requests fail honestly',()=>{
   const lowOnly=generate(CHALLENGE,{excludedImpact:['medium','high'],duration:20,equipment:EQUIPMENT.broad});
   assert.ok(exercisesOf(lowOnly).every(ex=>ex.impact==='low'));
-  const floor=generate(CORE,{bodyPositions:['floor'],equipment:EQUIPMENT.broad});
-  assert.ok(exercisesOf(floor).every(ex=>ex.bodyPosition==='floor'));
+  // A floor-only Main used to pass by leaking standing warm-up movements. The whole
+  // session now honours the restriction and explains the unavailable preparation.
+  assert.throws(()=>generate(CORE,{bodyPositions:['floor'],equipment:EQUIPMENT.broad}),
+    error=>error.code==='family-not-feasible'&&error.reasons.every(reason=>reason.code==='preparation-not-feasible'));
   for(const [family,extra] of [[CORE,{excludedImpact:['low','medium','high']}],[CHALLENGE,{excludedImpact:['low','medium','high']}],
     [CORE,{bodyPositions:['standing']}],[CORE,{bodyPositions:['hanging']}],[CHALLENGE,{bodyPositions:['hanging']}]])
     assert.throws(()=>generate(family,extra),error=>error instanceof F.FamilyContractError&&error.code==='family-not-feasible'&&/cannot build/.test(error.message));

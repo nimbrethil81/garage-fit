@@ -432,7 +432,10 @@ one post-composition gate before it is returned: `GarageFitGenerator.validateFam
   setup profiles, executable steps, budget tolerance); each Main exercise is the unmodified
   canonical entry and Main-eligible for the equipment, difficulty and its block's family context;
   requested `excludedImpact`/`bodyPositions` (kept on the workout as transient `familyConstraints`)
-  hold for every Main exercise; preparation/cool-down exercises are eligible for their phase; and
+  hold for every exercise, including generic warm-up, ramp-up and cool-down. Those sections
+  use a constraint-filtered preparation pool, remain phase-eligible and cannot be silently
+  omitted when a composer requires generic preparation. A constrained request that cannot
+  provide that preparation fails with explained same-family unavailability. Finally,
   the recomputed timeline equals the stored estimates and fits the selected duration.
 - **Family identity** (family-owned, registered with the composer, evaluated on the resolved blocks
   and `resolvedOccurrences(block)` timeline): Strength & Control, Cardio & Conditioning, Core &

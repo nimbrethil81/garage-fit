@@ -71,6 +71,14 @@ files, so keep expensive generation inside the marked test callback.
 The separate exhaustive catalogue audit remains `node scripts/audit-exercise-reachability.js`;
 it belongs to neither tier. Run it for catalogue batches and material generator-policy changes.
 
+The integrated family gate (`tests/integrated-family-gate.test.js`) reports accepted versus
+genuinely infeasible cases for 180 Generator/Coach routes, two seeds and four constraint/equipment
+profiles. Its Full sweeps also track real 20-session General Fitness experiences at 2/3/5 weekly.
+For repeatable browser evidence, serve the checkout and run
+`python scripts/verify-family-player.py --url http://127.0.0.1:8000` (existing Playwright/Chromium
+installation required). It reuses the shared viewport checks and exports resolved scripts,
+measurements and screenshots to `/tmp/family-player`; browser emulation does not certify physical devices.
+
 See [AGENTS.md](AGENTS.md) for contribution, validation and delivery instructions.
 
 ## Contracts and diagnostics
