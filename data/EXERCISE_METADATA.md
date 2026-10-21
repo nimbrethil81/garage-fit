@@ -287,6 +287,10 @@ Rules enforced by validation:
 Exercises with no phase flags (for example `easy-recovery-walk`) exist for fixed
 workouts.
 
+Exercises with no phase flags can also be family-only: a reviewed workout-family membership
+policy (for example `data/mobility-membership.js`) authorises them as family Main without
+any global promotion. See [Workout families](../docs/WORKOUT_FAMILIES.md).
+
 ### Workout difficulty (generator policy)
 
 The Generator's optional Difficulty setting is `easy`, `normal` (the default) or `hard`.

@@ -79,8 +79,11 @@ membership policy once with `GarageFitWorkoutFamilies.registerMembershipPolicy({
 workoutFamilyId, workoutFamilyVersion: 1, entries})`. The registry resolves the
 definition's versioned `membershipPolicy` reference; duplicate registration and
 unknown versions fail. Registered data is copied and deeply frozen. There are no
-production membership entries in this foundation: the Mobility and Athletic catalogue
-tickets own their complete approved tables. Neither Coach nor Generator supplies a
+production membership entries in the shared foundation: each catalogue ticket owns its
+complete approved table. The Mobility table (approved M1-M15, roles `prep`, `focused`,
+`flow` and `finish`) lives in `data/mobility-membership.js`, loaded after the Generator.
+Its eight new movements are family-only catalogue entries with no phase flags; the seven
+existing ones keep their canonical flags. Neither Coach nor Generator supplies a
 separate table, guessed exercise aliases or grants copied from saved data.
 
 Each entry identifies one exact canonical `exerciseId` and family-specific `role`,

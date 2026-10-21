@@ -42,11 +42,12 @@ function loadAppContext(storage = new Map(), options = {}) {
     setInterval: () => 0, clearInterval(){}, setTimeout: callback => callback()
   };
   if (options.ownIntrinsics) ['JSON','Math','Date','Set','Map'].forEach(name => delete context[name]);
+  // options.familyPolicies=false omits production workout-family membership so a test can register fixtures.
   // Inject clocks, timers or event dispatch before scripts register their listeners.
   if (options.configure) options.configure(context);
   context.window = context; context.globalThis = context;
   vm.createContext(context);
-  for (const file of ['data/equipment.js','js/equipment-icons.js','data/exercises.js','data/workouts.js','data/workout-families.js','js/workout-families.js','js/generator.js','js/routine-generator.js','js/timed-cues.js','js/speech-voices.js','js/completion-signal.js','data/sport-profiles.js','data/sport-capabilities.js','js/coach-model.js','js/coach-store.js','js/session-tracker.js','data/programmes.js','js/training-history.js','js/sport-coverage.js','js/coach-policies.js','js/coach-tennis-policy.js','js/coach-engine.js','js/coach-recovery.js','js/coach-tennis-ui.js','js/coach-progress-ui.js','js/coach-ui.js','js/workout-preview.js','js/masthead.js']) {
+  for (const file of ['data/equipment.js','js/equipment-icons.js','data/exercises.js','data/workouts.js','data/workout-families.js','js/workout-families.js','js/generator.js',...(options.familyPolicies===false?[]:['data/mobility-membership.js']),'js/routine-generator.js','js/timed-cues.js','js/speech-voices.js','js/completion-signal.js','data/sport-profiles.js','data/sport-capabilities.js','js/coach-model.js','js/coach-store.js','js/session-tracker.js','data/programmes.js','js/training-history.js','js/sport-coverage.js','js/coach-policies.js','js/coach-tennis-policy.js','js/coach-engine.js','js/coach-recovery.js','js/coach-tennis-ui.js','js/coach-progress-ui.js','js/coach-ui.js','js/workout-preview.js','js/masthead.js']) {
     vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), context, { filename:file });
   }
   const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].at(-1)[1];

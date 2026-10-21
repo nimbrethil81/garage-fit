@@ -162,7 +162,7 @@ test('setup safety and family grants survive serialisation and constrain ordinar
 });
 
 test('shared preview/player/tracker use contextual targets and per-side occurrence timing without invented measurements',async()=>{
-  const app=loadAppContext(new Map(),{ownIntrinsics:true}),run=code=>vm.runInContext(code,app);
+  const app=loadAppContext(new Map(),{ownIntrinsics:true,familyPolicies:false}),run=code=>vm.runInContext(code,app);
   app.membershipFixture=copy(mobilityEntries);app.membershipFixture[0].prescriptions[0].maxValue=60;
   run("GarageFitWorkoutFamilies.registerMembershipPolicy({workoutFamilyId:'mobility-movement-quality',entries:membershipFixture})");
   const w=workout(block(['hamstring-sweeps','cossack-squat'],[dose('reps',6),dose('timed',25)]));
