@@ -81,12 +81,12 @@ function sample(equipment,focus,durations=[20,30,45],seeds=100){
 }
 const countMain=(workouts,id)=>workouts.filter(workout=>mainIds(workout).includes(id)).length;
 
-test('Bear crawl is reachable in bodyweight Main',()=>{
+test('[Full] Bear crawl is reachable in bodyweight Main',()=>{
   const bodyweight=sample([],'balanced');
   assert.ok(countMain(bodyweight,'bear-crawl')>=20,'bear crawl '+countMain(bodyweight,'bear-crawl'));
 });
 
-test('Dumbbell push press is reachable and does not crowd out the shoulder press or thruster',()=>{
+test('[Full] Dumbbell push press is reachable and does not crowd out the shoulder press or thruster',()=>{
   // Retain the appearance minimum across a broader sample of the expanded press pool.
   const dumbbells=sample(['dumbbells'],'strength',[20,30,45],120);
   const press=countMain(dumbbells,'dumbbell-push-press');
@@ -96,13 +96,13 @@ test('Dumbbell push press is reachable and does not crowd out the shoulder press
     assert.ok(mainIds(workout).filter(id=>G.sameFamily(catalogue[id],catalogue['dumbbell-push-press'])).length<=3);
 });
 
-test('TRX pike is reachable alongside the existing TRX core exercises',()=>{
+test('[Full] TRX pike is reachable alongside the existing TRX core exercises',()=>{
   const trx=sample(['trx'],'strength');
   assert.ok(countMain(trx,'trx-pike')>=10,'trx pike '+countMain(trx,'trx-pike'));
   assert.ok(countMain(trx,'trx-knee-tuck')+countMain(trx,'trx-mountain-climber')>=1);
 });
 
-test('the supporting Pallof press is reachable with bands and dumbbells and stays secondary',()=>{
+test('[Full] the supporting Pallof press is reachable with bands and dumbbells and stays secondary',()=>{
   const mixed=sample(['dumbbells','bands'],'strength');
   const pallof=countMain(mixed,'band-pallof-press');
   assert.ok(pallof>=10,'pallof press '+pallof);
@@ -110,7 +110,7 @@ test('the supporting Pallof press is reachable with bands and dumbbells and stay
   for(const workout of mixed)assert.ok(mainIds(workout).filter(id=>id==='band-pallof-press').length<=1);
 });
 
-test('the rare supporting Dumbbell biceps curl is reachable and stays secondary',()=>{
+test('[Full] the rare supporting Dumbbell biceps curl is reachable and stays secondary',()=>{
   // Optional pyramid choices change the draw stream; retain a bounded 360-workout
   // sample for this rare supporting role without changing its frequency threshold.
   const mixed=sample(['dumbbells','kettlebell'],'strength',[20,30,45],120);

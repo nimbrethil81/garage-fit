@@ -117,7 +117,7 @@ test('Dumbbell plank pull-through and renegade row are each reachable with dumbb
   assert.ok(countMain(dumbbells,'dumbbell-renegade-row')>=3,'renegade row '+countMain(dumbbells,'dumbbell-renegade-row'));
 });
 
-test('the rare supporting Dumbbell lateral raise is reachable and stays secondary',()=>{
+test('[Full] the rare supporting Dumbbell lateral raise is reachable and stays secondary',()=>{
   const mixed=sample(['dumbbells','kettlebell'],'strength',[30,45],150);
   const raise=countMain(mixed,'dumbbell-lateral-raise');
   assert.ok(raise>=1,'lateral raise '+raise);

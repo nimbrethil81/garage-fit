@@ -98,7 +98,7 @@ function sample(equipment,focus,durations,seeds,base=1){
 const countMain=(workouts,id)=>workouts.filter(workout=>mainIds(workout).includes(id)).length;
 const countPrep=(workouts,id,phase)=>workouts.filter(workout=>prepIds(workout,phase).includes(id)).length;
 
-test('Glute bridge, Ski abs and Dumbbell wood chop are reachable in Main',()=>{
+test('[Full] Glute bridge, Ski abs and Dumbbell wood chop are reachable in Main',()=>{
   const bodyweight=sample([],'balanced',[20,30,45],40);
   assert.ok(countMain(bodyweight,'glute-bridge')>=10,'glute bridge '+countMain(bodyweight,'glute-bridge'));
   assert.ok(countMain(bodyweight,'ski-abs')>=10,'ski abs '+countMain(bodyweight,'ski-abs'));
@@ -106,7 +106,7 @@ test('Glute bridge, Ski abs and Dumbbell wood chop are reachable in Main',()=>{
   assert.ok(countMain(dumbbells,'dumbbell-wood-chop')>=5,'wood chop '+countMain(dumbbells,'dumbbell-wood-chop'));
 });
 
-test('the rare supporting Dumbbell floor fly stays reachable in Main and secondary; Scapular pull-up is never in Main',()=>{
+test('[Full] the rare supporting Dumbbell floor fly stays reachable in Main and secondary; Scapular pull-up is never in Main',()=>{
   const strength=sample(['dumbbells'],'strength',[30,45],150);
   const fly=countMain(strength,'dumbbell-floor-fly');
   assert.ok(fly>=1,'floor fly '+fly);

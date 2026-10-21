@@ -7,25 +7,31 @@ GarageFit is a dependency-free browser PWA for fixed and generated workouts.
 1. Inspect the relevant implementation and tests.
 2. Treat `data/exercises.js` as the canonical exercise catalogue; `data/EXERCISE_METADATA.md` defines its fields.
 3. Treat tests as the executable specification of established generator behaviour.
-4. Run all tests after changes: `node --test tests/*.test.js`
 
 ## Development principles
 
 - Prefer general generator rules and exercise metadata over exercise-specific hard coding.
 - Keep exercise metadata minimal and orthogonal. Before adding a new metadata field, prefer reusing an existing field or expressing phase-specific behaviour as generator policy. Add metadata only when it describes an intrinsic property of the exercise and cannot be represented cleanly by the existing model.
 - Preserve established behaviour unless the requested change requires otherwise.
-- Add or update regression tests for generator behaviour changes.
 - Keep the implementation dependency-free unless explicitly authorised.
 - Do not introduce new product decisions merely to complete a task.
 - New primary tabs must reuse the shared masthead (`js/masthead.js`, `data-masthead` host) and the existing `showScreen()` / `#bottomNav` behaviour, and extend `tests/primary-masthead.test.js`. Inspect existing components and styles before creating new patterns.
 - When adding or editing exercises, follow the catalogue and editorial rules in data/EXERCISE_METADATA.md, including the exercise-instruction standard.
 
-## Catalogue reachability
+## Testing and reachability
 
-- Exercise additions must include bounded, deterministic reachability coverage for every generated phase they are flagged for.
-- Catalogue batches and material generator-policy changes must run the full audit: `node scripts/audit-exercise-reachability.js`.
-- Audit warnings (rare or dominant exercises) require review against intended roles, not automatic frequency equalisation.
-- The detailed rules are in the adding-an-exercise workflow in `data/EXERCISE_METADATA.md`.
+- Fast: `node --test --test-skip-pattern='\[Full\]' tests/*.test.js`; Full: `node --test tests/*.test.js` (all tests).
+- During implementation run targeted tests, then Fast; isolated low-risk UI/copy/player-layout changes need Fast before PR.
+- Generator, Coach construction, exercise eligibility, workout protocol or persistence contract changes need Full before PR.
+- Catalogue batches/material generator-policy changes need Full plus `node scripts/audit-exercise-reachability.js`; the separate exhaustive audit is in neither tier.
+- Documentation-only edits need proportionate validation; run expensive checks once near PR readiness, repeating only to investigate failures or relevant changes.
+- Test observable behaviour and meaningful regressions, including changed generator behaviour; extend existing suites when sensible.
+- Tests are Fast by default; mark only justified expensive sweeps with `[Full]` in the test name (see README).
+- Use the smallest meaningful deterministic fixtures and seed/matrix sizes; check existing tests/audits to avoid duplicate assurance.
+- Explain new expensive Full-only sweeps briefly in the PR: distinct risk beyond cheaper tests and why Full-only suits it; no tracking file or approval ceremony.
+- Reuse native Node tooling; no new dependencies/framework layers without approval, and never trade essential safety, workout-construction or persistence protection for speed.
+- Exercise additions need bounded deterministic reachability for every flagged generated phase; follow `data/EXERCISE_METADATA.md`.
+- Review audit warnings against intended roles, without automatic frequency equalisation.
 
 ## Architecture
 

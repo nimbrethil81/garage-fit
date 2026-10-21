@@ -167,7 +167,7 @@ test('Build Arms uses ring curls/extensions as direct anchors with confirmed-set
   assert.ok(after.every(item => item.currentTarget.suggestedLoad === undefined && item.comparisonBaseline?.load === undefined));
 });
 
-test('seeded Coach workouts in all three programmes contain suitable ring work with compatible setups and honest timing', async () => {
+test('[Full] seeded Coach workouts in all three programmes contain suitable ring work with compatible setups and honest timing', async () => {
   const cases = [
     [GS, 2, ['rings', 'dumbbells', 'bench'], {'anchor-pull': 'ring-row'}],
     [TENNIS, 7, ['rings'], {}],

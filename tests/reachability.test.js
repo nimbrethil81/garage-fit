@@ -61,16 +61,22 @@ function sample(equipment,seeds=40){
 }
 const mainIds=workout=>workout.main.blocks.flatMap(block=>block.exercises.map(exercise=>exercise.id));
 const count=(workouts,id,phase='main')=>workouts.filter(workout=>(phase==='main'?mainIds(workout):workout[phase].exercises.map(ex=>ex.id)).includes(id)).length;
-const kettlebell=sample(['kettlebell'],80);
-const trx=sample(['trx']);
-const bodyweight=sample([]);
+let kettlebell,trx,bodyweight,bands;
+function prepareSamples(){
+  kettlebell??=sample(['kettlebell'],80);
+  trx??=sample(['trx']);
+  bodyweight??=sample([]);
+  bands??=sample(['bands'],20);
+}
 
-test('Knee to Opposite Elbow is reachable in Warm-up and never leaks into Ramp-up',()=>{
+test('[Full] Knee to Opposite Elbow is reachable in Warm-up and never leaks into Ramp-up',()=>{
+  prepareSamples();
   assert.ok(count(bodyweight,'knee-to-opposite-elbow','warmup')>=2,'cross-body knee warm-up');
   assert.equal(count(bodyweight,'knee-to-opposite-elbow','rampup'),0);
 });
 
-test('primary and supporting Main exercises in dense same-pattern pools are reachable, and supporting work stays secondary',()=>{
+test('[Full] primary and supporting Main exercises in dense same-pattern pools are reachable, and supporting work stays secondary',()=>{
+  prepareSamples();
   const singleLeg=count(kettlebell,'kettlebell-single-leg-deadlift');
   const suitcase=count(kettlebell,'kettlebell-suitcase-deadlift');
   const twist=count(kettlebell,'kettlebell-russian-twist');
@@ -87,7 +93,8 @@ test('primary and supporting Main exercises in dense same-pattern pools are reac
     assert.ok(mainIds(workout).filter(item=>item===id).length<=1,mainIds(workout).join(','));
 });
 
-test('the kettlebell halo is reachable in Warm-up, never in Ramp-up, and no Warm-up repeats a major pattern',()=>{
+test('[Full] the kettlebell halo is reachable in Warm-up, never in Ramp-up, and no Warm-up repeats a major pattern',()=>{
+  prepareSamples();
   assert.ok(count(kettlebell,'kettlebell-halo','warmup')>=2,'halo in warm-up');
   assert.equal(count(kettlebell,'kettlebell-halo','rampup'),0);
   for(const workout of kettlebell.concat(trx)){
@@ -106,8 +113,8 @@ test('Ramp-up avoids consecutive high-impact work whenever a lower-impact altern
 
 // Warm-up expansion: every new warm-up movement is reachable in a bounded deterministic
 // sample for its equipment, and none leaks into Ramp-up.
-const bands=sample(['bands'],20);
-test('the warm-up expansion exercises are reachable in Warm-up and never in Ramp-up',()=>{
+test('[Full] the warm-up expansion exercises are reachable in Warm-up and never in Ramp-up',()=>{
+  prepareSamples();
   const reach={
     bodyweight:['marching-on-the-spot','standing-knee-curls','shallow-knee-bends','heel-toe-rocks','ankle-circles','calf-raises',
       'side-step-touches','leg-swings-forward-back','leg-swings-side','hamstring-sweeps','shoulder-rolls','standing-side-bends','body-hoops'],

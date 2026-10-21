@@ -311,14 +311,14 @@ function sample(equipment,focuses,durations,seeds,extra={}){
 }
 const count=(workouts,id)=>workouts.filter(workout=>mainIds(workout).includes(id)).length;
 
-test('the bodyweight additions are reachable in Main',()=>{
+test('[Full] the bodyweight additions are reachable in Main',()=>{
   const bodyweight=sample([],['strength','balanced','cardio'],[20,30,45],20);
   for(const [id,min] of [['alternating-lateral-lunge',10],['squat-pulses',5],['plank-up-downs',10]])assert.ok(count(bodyweight,id)>=min,id+' '+count(bodyweight,id));
   const core=sample([],['strength','balanced'],[30,45],20,{bodyFocus:'core'});
   assert.ok(count(core,'dead-bug')>=3,'dead bug '+count(core,'dead-bug'));
 });
 
-test('the kettlebell and TRX additions are reachable in Main',()=>{
+test('[Full] the kettlebell and TRX additions are reachable in Main',()=>{
   const kettlebell=sample(['kettlebell'],['strength','balanced'],[30,45],40);
   for(const [id,min] of [['kettlebell-sumo-squat',20],['kettlebell-suitcase-deadlift',2]])assert.ok(count(kettlebell,id)>=min,id+' '+count(kettlebell,id));
   // Automatic EMOM routing (#79) changes seeded paths. Broaden rare-role samples
@@ -334,7 +334,7 @@ test('the kettlebell and TRX additions are reachable in Main',()=>{
   assert.ok(count(trx,'trx-t-fly')*2<count(trx,'trx-row'));
 });
 
-test('the dumbbell additions are reachable in Main; the arm and fly accessories stay rare supporting work',()=>{
+test('[Full] the dumbbell additions are reachable in Main; the arm and fly accessories stay rare supporting work',()=>{
   const dumbbells=sample(['dumbbells'],['strength','balanced'],[30,45],40);
   assert.ok(count(dumbbells,'dumbbell-sumo-squat')>=10,'sumo '+count(dumbbells,'dumbbell-sumo-squat'));
   // The dumbbell accessory pool is crowded (see the PR's audit notes); an Upper focus reaches it.

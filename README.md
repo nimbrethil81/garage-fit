@@ -46,11 +46,29 @@ Open http://127.0.0.1:8000/ in a browser. There is no build or dependency-instal
 
 ## Tests
 
-Requires Node.js.
+Requires Node.js 22.1 or newer (native `--test-skip-pattern` support). Run from the repository root.
+
+Fast — behavioural tests, essential construction/safety/persistence checks and representative deterministic cases:
+
+```sh
+node --test --test-skip-pattern='\[Full\]' tests/*.test.js
+```
+
+Full — every test, including the expensive seeded sweeps, with unchanged fixtures and seed counts:
 
 ```sh
 node --test tests/*.test.js
 ```
+
+New `tests/*.test.js` files automatically join both tiers. Only individually marked
+`[Full]` test names are excluded from Fast; keep lightweight checks in the same
+file unmarked. Full has no filter. Use the marker for costly distribution,
+reachability or multi-session matrices whose broader sampling adds assurance
+beyond the representative checks retained in Fast. Both commands load all test
+files, so keep expensive generation inside the marked test callback.
+
+The separate exhaustive catalogue audit remains `node scripts/audit-exercise-reachability.js`;
+it belongs to neither tier. Run it for catalogue batches and material generator-policy changes.
 
 See [AGENTS.md](AGENTS.md) for contribution, validation and delivery instructions.
 

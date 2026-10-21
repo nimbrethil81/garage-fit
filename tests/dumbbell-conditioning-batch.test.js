@@ -117,15 +117,20 @@ function sample(equipment,focuses,durations,seeds=20){
 }
 const countMain=(workouts,id)=>workouts.filter(workout=>mainIds(workout).includes(id)).length;
 const countPrep=(workouts,id,phase)=>workouts.filter(workout=>prepIds(workout,phase).includes(id)).length;
-const dumbbells=sample(['dumbbells'],['strength','balanced','cardio'],[30,45]);
-const bodyweight=sample([],['balanced','cardio'],[30,45],40);
+let dumbbells,bodyweight;
+function prepareSamples(){
+  dumbbells??=sample(['dumbbells'],['strength','balanced','cardio'],[30,45]);
+  bodyweight??=sample([],['balanced','cardio'],[30,45],40);
+}
 
-test('dumbbell Main exercises are reachable, including both members of the shared class',()=>{
+test('[Full] dumbbell Main exercises are reachable, including both members of the shared class',()=>{
+  prepareSamples();
   for(const id of ['devils-press','dumbbell-snatch','dumbbell-renegade-row'])
     assert.ok(countMain(dumbbells,id)>=2,id+' '+countMain(dumbbells,id));
 });
 
-test('bodyweight Main and Ramp-up reachability for Cossack squat and switch kicks',()=>{
+test('[Full] bodyweight Main and Ramp-up reachability for Cossack squat and switch kicks',()=>{
+  prepareSamples();
   assert.ok(countMain(bodyweight,'cossack-squat')>=2,'cossack main '+countMain(bodyweight,'cossack-squat'));
   assert.ok(countMain(bodyweight,'switch-kicks')>=2,'switch kicks main '+countMain(bodyweight,'switch-kicks'));
   assert.ok(countPrep(bodyweight,'cossack-squat','rampup')>=2,'cossack ramp-up');
@@ -134,7 +139,8 @@ test('bodyweight Main and Ramp-up reachability for Cossack squat and switch kick
     assert.ok(!prepIds(workout,'warmup').includes(id),id);
 });
 
-test('Devil\'s press and dumbbell snatch are not usually adjacent in generated Main',()=>{
+test('[Full] Devil\'s press and dumbbell snatch are not usually adjacent in generated Main',()=>{
+  prepareSamples();
   let adjacent=0,both=0;
   for(const workout of dumbbells){
     const ids=mainIds(workout);
