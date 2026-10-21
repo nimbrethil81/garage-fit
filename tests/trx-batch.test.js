@@ -41,7 +41,7 @@ test('per-side TRX exercises prescribe and budget both sides; bilateral ones do 
   assert.ok(catalogue['trx-pistol-squat'].patterns.includes('lunge'));
 });
 
-test('the new TRX exercises are reachable in generated TRX-only Main workouts',()=>{
+test('[Full] the new TRX exercises are reachable in generated TRX-only Main workouts',()=>{
   const seen=new Set();
   for(const focus of ['strength','balanced'])for(const duration of [20,30,45])for(let seed=1;seed<=60;seed++){
     const workout=GarageFitGenerator.generate({catalogue,duration,focus,equipment:['trx'],random:random(seed*7+duration)});

@@ -249,7 +249,7 @@ function sample(equipment,focuses,durations,seeds,extra={}){
 }
 const count=(workouts,id)=>workouts.filter(workout=>mainIds(workout).includes(id)).length;
 
-test('the bodyweight additions are reachable in Main',()=>{
+test('[Full] the bodyweight additions are reachable in Main',()=>{
   const bodyweight=sample([],['strength','balanced','cardio'],[20,30,45],10);
   for(const [id,min] of [['hollow-body-hold',5],['reverse-lunge-knee-drive',5]])assert.ok(count(bodyweight,id)>=min,id+' '+count(bodyweight,id));
   const core=sample([],['strength','balanced'],[30,45],20,{bodyFocus:'core'});
@@ -258,7 +258,7 @@ test('the bodyweight additions are reachable in Main',()=>{
   assert.ok(count(core,'bear-plank-shoulder-taps')<count(core,'hollow-body-hold'));
 });
 
-test('the dumbbell additions are reachable in Main; the front raise is supporting work used once at most',()=>{
+test('[Full] the dumbbell additions are reachable in Main; the front raise is supporting work used once at most',()=>{
   const upper=sample(['dumbbells'],['strength','balanced'],[30,45],20,{bodyFocus:'upper'});
   for(const [id,min] of [['dumbbell-arnold-press',10],['dumbbell-close-grip-floor-press',5]])assert.ok(count(upper,id)>=min,id+' '+count(upper,id));
   const lower=sample(['dumbbells'],['strength','balanced'],[30,45],20,{bodyFocus:'lower'});
@@ -269,7 +269,7 @@ test('the dumbbell additions are reachable in Main; the front raise is supportin
   for(const workout of upper.concat(easyUpper))assert.ok(mainIds(workout).filter(id=>id==='dumbbell-alternating-front-raise').length<=1);
 });
 
-test('the kettlebell and TRX additions are reachable in Main',()=>{
+test('[Full] the kettlebell and TRX additions are reachable in Main',()=>{
   const kettlebell=sample(['kettlebell'],['strength','balanced'],[30,45],20);
   assert.ok(count(kettlebell,'kettlebell-lateral-lunge')>=5,'lateral lunge '+count(kettlebell,'kettlebell-lateral-lunge'));
   const kettlebellCore=sample(['kettlebell'],['strength','balanced'],[30,45],20,{bodyFocus:'core'});

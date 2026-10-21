@@ -101,7 +101,7 @@ test('required anchors survive many seeds, recent penalties, supporting roles an
   }
 });
 
-test('preferred anchors are strongly favoured but can miss normal shortlist selection',()=>{
+test('[Full] preferred anchors are strongly favoured but can miss normal shortlist selection',()=>{
   const preferred=anchor({importance:'preferred',requirementId:'preferred',exerciseId:'dumbbell-biceps-curl'});
   let preferredHits=0,baselineHits=0;
   for(let seed=1;seed<=100;seed++){

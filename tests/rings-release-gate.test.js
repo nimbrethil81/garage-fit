@@ -17,7 +17,7 @@ const CONFIGS={
 };
 const mainOf=w=>w.main.blocks.flatMap(b=>b.exercises);
 
-test('equipment configurations only select ring entries when rings are owned, with valid budgets',()=>{
+test('[Full] equipment configurations only select ring entries when rings are owned, with valid budgets',()=>{
   assert.equal(RING_IDS.length,14);
   const ringsSeen={};
   let n=0;

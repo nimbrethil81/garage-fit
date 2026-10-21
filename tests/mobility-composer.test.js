@@ -15,7 +15,24 @@ const generate=(extra={})=>G.generate({workoutFamilyId:FAMILY,duration:20,diffic
 const seconds=phases=>phases.reduce((sum,p)=>sum+(p.kind==='exercise'?(p.timed?p.seconds:p.estimatedSeconds/G.sideCount(p.exercise)):p.seconds),0);
 const exerciseIds=w=>new Set(w.main.blocks.flatMap(b=>b.exercises.map(ex=>ex.id)));
 
-test('five durations × three difficulties × eight seeds × bodyweight/TRX resolve progressive, bounded player plans',()=>{
+// Representative production construction stays in Fast; Full retains every matrix seed and assertion.
+test('representative Mobility sessions preserve eligibility, exact budgets and durable player plans',()=>{
+  const app=loadAppContext(new Map(),{ownIntrinsics:true});
+  for(const [duration,difficulty,equipment] of [[10,'easy',[]],[20,'normal',['trx']],[45,'hard',[]]]) {
+    const w=generate({duration,difficulty,equipment});
+    assert.deepEqual(G.validateMain(w.main,C,equipment,duration*60),[]);
+    assert.equal(w.estimatedSeconds,duration*60);
+    assert.ok(w.main.blocks.every(b=>b.exercises.every(ex=>G.generatedPhaseEligible(ex,'main',equipment,difficulty,b.familyContext)&&ex.impact!=='high')));
+    app.input=copy(w);const timeline=app.buildGeneratedTimeline(app.input);
+    assert.equal(seconds(timeline)-3,duration*60);
+    const plan=app.GarageFitSessionTracker.plannedWorkFromTimeline(timeline);
+    assert.equal(plan.length,timeline.filter(p=>p.kind==='exercise').length);
+    assert.equal(new Set(plan.map(p=>p.occurrenceId)).size,plan.length);
+    assert.deepEqual(copy(G.normaliseWorkout(copy(w))),copy(w));
+  }
+});
+
+test('[Full] five durations × three difficulties × eight seeds × bodyweight/TRX resolve progressive, bounded player plans',()=>{
   const app=loadAppContext(new Map(),{ownIntrinsics:true});
   vm.runInContext(fs.readFileSync('js/rampup-ui.js','utf8'),app);
   const styles=new Set();let sessions=0;

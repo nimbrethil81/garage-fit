@@ -328,7 +328,7 @@ test('Tennis entry and player distinguish stable progression anchors from rep an
   assert.ok(p.json('coachUI.controller.snapshot().state.anchors').every(anchor => anchor.currentTarget.target.maxReps === 6));
 });
 
-test('v6 actual paired Main roles differ across equipment, budgets and RNG without changing stable targets',()=>{
+test('[Full] v6 actual paired Main roles differ across equipment, budgets and RNG without changing stable targets',()=>{
   const {roles}=require('./helpers/tennis-movement');
   for(const kit of [equipment,['trx'],['dumbbells','kettlebell','trx','pullup-bar']])
     for(const duration of [20,30,45]) for(const seed of [1,29,95]) for(const frequency of [2,3]) {

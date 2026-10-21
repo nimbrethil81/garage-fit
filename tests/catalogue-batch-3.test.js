@@ -113,28 +113,28 @@ function reachable(workouts,ids){
   }
 }
 
-test('bodyweight and hanging additions are reachable under appropriate focuses',()=>{
+test('[Full] bodyweight and hanging additions are reachable under appropriate focuses',()=>{
   reachable(sample([],'core'),['bird-dog','side-plank-reach-through']);
   reachable(sample([],'lower',['cardio','balanced']),['fast-feet']);
   reachable(sample(['pullup-bar'],'core'),['hanging-oblique-knee-raise']);
 });
-test('dumbbell primaries and pullover are reachable in longer Main workouts',()=>{
+test('[Full] dumbbell primaries and pullover are reachable in longer Main workouts',()=>{
   reachable(sample(['dumbbells'],'upper'),['single-arm-dumbbell-floor-press','dumbbell-pullover']);
   reachable(sample(['dumbbells'],'lower'),['dumbbell-split-squat']);
 });
-test('the patternless supporting calf raise is reachable without fabricated lower-body patterns',()=>{
+test('[Full] the patternless supporting calf raise is reachable without fabricated lower-body patterns',()=>{
   assert.deepEqual(catalogue['dumbbell-single-leg-calf-raise'].patterns,[]);
   const workouts=sample(['dumbbells'],'lower');
   reachable(workouts,['dumbbell-single-leg-calf-raise']);
   for(const workout of workouts)assert.ok(main(workout).filter(ex=>ex.id==='dumbbell-single-leg-calf-raise').length<=1);
 });
-test('TRX accessories and both kettlebell additions are reachable',()=>{
+test('[Full] TRX accessories and both kettlebell additions are reachable',()=>{
   reachable(sample(['trx'],'upper'),['trx-face-pull','trx-chest-fly']);
   reachable(sample(['kettlebell'],'upper'),['kettlebell-half-kneeling-press']);
   reachable(sample(['kettlebell'],'lower'),['kettlebell-dead-stop-swing']);
 });
 
-test('the expanded accessory pool retains old and new supporting opportunities',()=>{
+test('[Full] the expanded accessory pool retains old and new supporting opportunities',()=>{
   const workouts=sample(['dumbbells','trx','pullup-bar'],'upper',['strength','balanced'],60);
   reachable(workouts,['dumbbell-floor-fly','dumbbell-hammer-curl','dumbbell-overhead-triceps-extension',
     'dumbbell-lateral-raise','dumbbell-alternating-front-raise','dumbbell-pullover','trx-face-pull','trx-chest-fly']);

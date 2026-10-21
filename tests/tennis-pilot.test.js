@@ -4,14 +4,14 @@ const {create,seed,validate,confirm,summary,simulate,matrix,kits,day}=require('.
 const {pilot}=require('./helpers/coach-pilot');
 const copy=value=>JSON.parse(JSON.stringify(value));
 
-test('Tennis pilot setup matrix verifies actual feasible generated outputs or explained shortages/rest',async()=>{
+test('[Full] Tennis pilot setup matrix verifies actual feasible generated outputs or explained shortages/rest',async()=>{
   const report=await matrix({focuses:['balanced'],frequencies:[1,3]});
   assert.equal(report.totals.cells,80);
   assert.ok(report.totals.feasible>0&&report.totals.startBlocked>0);
   assert.ok(report.shortages.bodyweight.some(c=>c.requirementId==='tennis-anchor-pull'));
 });
 
-test('seeded eight-week production runs preserve four anchors, immutable evidence, budgets and truthful coverage',async()=>{
+test('[Full] seeded eight-week production runs preserve four anchors, immutable evidence, budgets and truthful coverage',async()=>{
   for(const frequency of [1,2,3]) {
     const r=await simulate({frequency,duration:30});
     assert.equal(r.performed,frequency*8);assert.equal(r.blocked,0);
@@ -125,7 +125,7 @@ test('missing equipment today explains omitted anchors or fails safely without i
   assert.deepEqual(p.json('pilot.snapshot().state'),before);assert.equal(p.run('pilot.snapshot().results.length'),0);
 });
 
-test('v6 home performed sessions observe lateral control while saved v5 remains pinned',async()=>{
+test('[Full] v6 home performed sessions observe lateral control while saved v5 remains pinned',async()=>{
   for(const frequency of [2,3]) {
     const r=await simulate({frequency,version:6,weeks:8});
     assert.equal(r.performed,frequency*8);assert.equal(r.blocked,0);

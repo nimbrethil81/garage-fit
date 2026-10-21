@@ -32,7 +32,7 @@ function check(w,equipment){
   }
 }
 
-test('seeded standalone matrix spans duration/style/difficulty/body/kit with optional patterns and bounded quality',t=>{
+test('[Full] seeded standalone matrix spans duration/style/difficulty/body/kit with optional patterns and bounded quality',t=>{
   const report={};let seed=0;
   for(const duration of [10,15,20,30,45]){
     const row=report[duration]={sessions:0,protocols:{},blocks:{},maxMainError:0};
@@ -72,7 +72,7 @@ test('seeded standalone matrix spans duration/style/difficulty/body/kit with opt
   t.diagnostic(JSON.stringify(report));
 });
 
-test('both production Coach programmes keep exact rounds anchors and recovery while optional EMOM remains reachable',t=>{
+test('[Full] both production Coach programmes keep exact rounds anchors and recovery while optional EMOM remains reachable',t=>{
   const report={};
   for(const name of ['general-strength-4w','build-arms']){
     const def=GarageFitData.programmes[name][1],before=copy(def),state=engine.startProgramme(def,{programmeInstanceId:name,equipment:kit},'2026-10-17T08:00:00Z').state;
