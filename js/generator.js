@@ -3018,11 +3018,27 @@
     assertValidCatalogue(options.catalogue);
     const result=compose({...options,duration,difficulty},request);
     const identity=families.resolveStyle(request,[result.familyStyleId]);
+    const owned=options.equipment||[],random=options.random||Math.random,budget=BUDGETS[duration];
     const empty=()=>({exercises:[],restSeconds:0,estimatedSeconds:0});
-    const workout=normaliseWorkout({schemaVersion:2,id:'generated-'+Date.now(),...identity,
-      duration,difficulty,focus:'balanced',setupEquipment:(options.equipment||[]).slice(),
-      warmup:empty(),rampup:empty(),cooldown:empty(),main:{blocks:result.blocks}});
-    const issues=validateMain(workout.main,options.catalogue,options.equipment||[],duration*60);
+    const assemble=sections=>normaliseWorkout({schemaVersion:2,id:'generated-'+Date.now(),...identity,
+      duration,difficulty,focus:'balanced',setupEquipment:owned.slice(),...sections,main:{blocks:result.generalPreparation==null?result.blocks:JSON.parse(JSON.stringify(result.blocks))}});
+    let workout;
+    if(result.generalPreparation==null)workout=assemble({warmup:empty(),rampup:empty(),cooldown:empty()});
+    else {
+      // Opt-in composers keep the established generic preparation and cool-down around their Main.
+      // Their durations may run a few seconds over budget, so try bounded alternatives.
+      const mainExercises=result.blocks.flatMap(block=>block.exercises);
+      for(let attempt=0;attempt<6;attempt++){
+        const preparation=buildPreparation(options.catalogue,budget,owned,result.blocks[0].exercises,result.generalPreparation.focus,random,mainExercises,difficulty);
+        const cooldown=buildSection(options.catalogue,'cooldown',budget.cooldown,owned,random);
+        workout=assemble({warmup:{estimatedSeconds:preparation.warmup.estimatedSeconds,restSeconds:preparation.warmup.restSeconds,exercises:preparation.warmup.exercises.map(copyExercise)},
+          rampup:{estimatedSeconds:preparation.rampup.estimatedSeconds,restSeconds:preparation.rampup.restSeconds,exercises:preparation.rampup.exercises.map(copyExercise)},
+          cooldown:{estimatedSeconds:cooldown.estimatedSeconds,restSeconds:cooldown.restSeconds,exercises:cooldown.exercises.map(copyExercise)}});
+        applySetupPlan(workout);
+        if(workout.estimatedSeconds<=duration*60)break;
+      }
+    }
+    const issues=validateMain(workout.main,options.catalogue,owned,result.generalPreparation==null?duration*60:budget.main);
     if(issues.length||workout.estimatedSeconds>duration*60)
       fail('family-composition-invalid','Invalid family composition: '+issues.join(', '));
     return workout;

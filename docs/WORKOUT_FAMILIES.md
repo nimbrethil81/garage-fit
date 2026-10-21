@@ -16,7 +16,7 @@ impact or space configuration. Policy references do not register working compose
 
 Load `js/workout-families.js` after the data file. Both standalone Generator and
 Coach consumers use `GarageFitWorkoutFamilies`; neither maintains a second family
-table. Explicit Mobility and Athletic requests use the constructor below; other existing generation
+table. Explicit Mobility, Athletic, Strength & Control and Cardio & Conditioning requests use the constructor below; other existing generation
 continues through its established path.
 
 1. `resolveRequest(options)` resolves the requested family/version and effective
@@ -177,6 +177,12 @@ existing Main block contracts, validates executable blocks and the whole-session
 budget, and supplies empty generic warm-up/ramp-up/cooldown sections. It does not
 implement the later family quality validator or cross-family fallback.
 
+A composer may also return `generalPreparation: {focus}`. The wrapper then keeps the
+established generic warm-up, ramp-up and cool-down around the family's Main (the same
+`buildPreparation`/`buildSection` selection and phase budgets as the traditional route,
+chosen after Main) instead of empty sections, retrying that bounded preparation if it
+would push the whole session past the selected duration. Mobility and Athletic do not opt in.
+
 Missing composers fail with `family-composer-unavailable`; unsupported duration or
 difficulty fails with `family-configuration-unsupported`. An explicit family plus
 Coach `sessionPrescription` currently fails with `family-prescription-unsupported`:
@@ -293,3 +299,39 @@ pool contains only the two medium-impact lunge combinations: combining that spac
 restriction with exclusion of medium impact fails `family-not-feasible`. Floor-only,
 hanging-only and other requests losing the standing directional/balance essentials
 also fail honestly. Membership is never expanded to fill time; A9/A13 remain deferred.
+
+### Strength & Control and Cardio & Conditioning composition v1
+
+Load `js/strength-cardio-composer.js` after the Generator. These families have no
+membership table: eligibility is the canonical Main eligibility (equipment, difficulty,
+protocol compatibility, setup profiles) narrowed by family suitability from reviewed
+metadata, and construction reuses the Generator's recipe-driven `selectBlockExercises`,
+scoring, recency `history`, `recentProtocols`, Body Focus credit and block estimators.
+They opt into `generalPreparation`; Main targets the traditional Main budget less a 15 s
+margin and is filled to within 6% (at least 40 s), so warm-up, Main and cool-down total
+at most the selected duration. Blocks are ordinary legacy protocols with no family context.
+
+Optional `excludedImpact` and `bodyPositions` filter the pool (malformed values fail
+`invalid-family-context`); `movementRoom` is irrelevant because nothing travels. A request
+that leaves no style able to build a credible session fails `family-not-feasible`.
+
+Styles are ranked by seeded weights from duration, difficulty and `recentProtocols`; the first
+style that builds a valid session is the displayed one, so the label always matches the blocks.
+
+| Family | Suitable exercises | Style | Resolved structure |
+| --- | --- | --- | --- |
+| Strength & Control | strength ≥ 2 and ≥ cardio, not conditioning, never high impact; session mean strength exceeds mean cardio by 0.5 | `straight-sets` (favours long sessions) | one-exercise `rounds` blocks, 3–4 sets, 45–120 s rest scaled to strength/load, strength ≥ 3 movements where available |
+| | | `paired-sets` (favours short sessions) | `paired_sets` blocks of contrasting movements, 3–4 sets, 10 s changeover, 45–120 s rest per pair |
+| | | `controlled-circuits` | `rounds` blocks of 3–6 varied movements, 20–30 s between, 60–120 s between rounds |
+| Cardio & Conditioning | cardio ≥ 3 and ≥ strength, never high impact on Easy; session mean cardio exceeds mean strength by 0.5; Body Focus ignored | `endurance` | `rounds` circuits of low/medium-impact, non-heavy, non-hard-rated, strength ≤ 3 work with 10–20 s exercise rests and 20–45 s round rests (work ≥ 50% of time) |
+| | | `intervals` | `timed_intervals` blocks, work:rest between 1:1 and 3:1 (30/30–45/15), 2–5 cycles of 3–5 timed-compatible bilateral exercises |
+| | | `mixed-conditioning` | alternating endurance circuits and interval blocks, at least one of each |
+
+Safety rules for Cardio: a rep-prescribed movement is never timed longer than its catalogue
+estimate; high-impact intervals last at most 40 s, never run back to back (including cycle and
+block wrap-around) and make up at most half of a block; no exercise appears in more than two
+blocks. Every Strength style uses each exercise once. Long rests are a Strength
+feature: round rests are never below 45 s there and never above 45 s in Cardio endurance work.
+No-family generation, Coach prescriptions (still `family-prescription-unsupported`), exercise
+eligibility and fixed workouts are untouched. Final family quality validation and fallback
+remain the shared validator's job (#186).
