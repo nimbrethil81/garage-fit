@@ -71,6 +71,15 @@
   }
 
   function protocolLabel(block) {
+    if(block.occurrenceRecoverySeconds){
+      const steps=root.GarageFitGenerator.resolveBlockSteps(block),work=steps.filter(step=>step.kind==='exercise');
+      const recovery=steps.filter(step=>step.kind!=='exercise').map(step=>step.seconds);
+      if(recovery.length<work.length-1)recovery.push(0);
+      const min=Math.min(...recovery),max=Math.max(...recovery),p=block.prescription;
+      const title=block.protocol==='timed_intervals'?'Timed intervals · '+p.cycles+' cycles':block.protocol==='paired_sets'
+        ?'Superset · '+p.sets+' sets · A then B':'Mini-circuit · '+p.rounds+(p.rounds===1?' round':' rounds');
+      return title+(recovery.length?' · Recovery '+min+(min===max?'':'–'+max)+' sec between movements/rounds':' · No recovery between movements');
+    }
     if(block.protocol==='density'){
       const p=block.prescription;
       return 'Density · '+p.repeats+' fixed rounds · '+p.timeCapSeconds+' sec cap · '+p.exerciseRestSeconds+' sec between exercises · '+p.roundRestSeconds+' sec between rounds · Finish the target, then stop; no racing';
