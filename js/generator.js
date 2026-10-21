@@ -676,12 +676,15 @@
         block.rounds=block.prescription.rounds;
         block.rest={exercise:block.prescription.exerciseRestSeconds,round:block.prescription.roundRestSeconds};
       }
+      const familyIssues=validateFamilyBlock(block,undefined,workout.setupEquipment);
+      if(familyIssues.length)throw new Error('Invalid family context in '+block.id+': '+familyIssues.join(', '));
+      if(block.familyContext!=null)block.familyContext=JSON.parse(JSON.stringify(block.familyContext));
       if(!blockSetupCompatible(block,null,workout.setupEquipment))throw new Error('Invalid setup-profile-conflict in '+block.id+'.');
       const targetIssues=validateOccurrenceTargets(block);
       if(targetIssues.length)throw new Error('Invalid occurrence targets in '+block.id+': '+targetIssues.join(', '));
       if(block.occurrenceTargets)block.occurrenceTargets=JSON.parse(JSON.stringify(block.occurrenceTargets));
       const estimate=estimateBlockDuration(block,workout.setupEquipment);
-      block.estimatedDurationSeconds=block.exercises.some(ex=>ex.setupProfile)||['emom','ladder','pyramid','complex','density'].includes(block.protocol)||block.occurrenceTargets?estimate:Number.isFinite(block.estimatedDurationSeconds)?block.estimatedDurationSeconds:Number.isFinite(block.estimatedSeconds)?block.estimatedSeconds:estimate;
+      block.estimatedDurationSeconds=block.familyContext||block.exercises.some(ex=>ex.setupProfile)||['emom','ladder','pyramid','complex','density'].includes(block.protocol)||block.occurrenceTargets?estimate:Number.isFinite(block.estimatedDurationSeconds)?block.estimatedDurationSeconds:Number.isFinite(block.estimatedSeconds)?block.estimatedSeconds:estimate;
       block.estimatedSeconds=block.estimatedDurationSeconds;
       return block;
     });
@@ -689,7 +692,7 @@
     workout.schemaVersion=Math.max(2,Number(workout.schemaVersion)||0);
     workout.main={blocks,transitionSeconds:BLOCK_TRANSITION_SECONDS,estimatedDurationSeconds:blockSeconds+BLOCK_TRANSITION_SECONDS*Math.max(0,blocks.length-1)};
     workout.blocks=workout.main.blocks;
-    if(blocks.some(block=>block.occurrenceTargets||['ladder','pyramid','complex','density'].includes(block.protocol))){
+    if(blocks.some(block=>block.familyContext||block.occurrenceTargets||['ladder','pyramid','complex','density'].includes(block.protocol))){
       const preparation=['warmup','rampup','cooldown'].map(section=>workout[section]&&workout[section].estimatedSeconds);
       if(preparation.every(Number.isFinite))workout.estimatedSeconds=preparation.reduce((sum,seconds)=>sum+seconds,0)+workout.main.estimatedDurationSeconds;
     }
@@ -697,8 +700,13 @@
     return workout;
   }
 
-  function protocolCompatible(exercise, protocol) {
+  function protocolCompatible(exercise, protocol, familyContext) {
     if (!exercise || !MAIN_PROTOCOLS.has(protocol)) return false;
+    if(familyContext!=null){
+      try{const membership=familyMembership(exercise,familyContext);
+        if(!membership||!membership.protocols.includes(protocol))return false;
+      }catch(error){return false;}
+    }
     if (protocol==='emom') return emomExerciseEligible(exercise);
     if (protocol==='ladder') return ladderExerciseEligible(exercise);
     if (protocol==='pyramid') return pyramidExerciseEligible(exercise);
@@ -1186,18 +1194,26 @@
   const OCCURRENCE_TARGET_LIMITS=Object.freeze({maxOccurrences:256,maxReps:100,maxSecondsPerSide:300,maxEstimatedSeconds:600,maxLoad:1000});
   const plainTarget=value=>!!value&&Object.prototype.toString.call(value)==='[object Object]'
     &&(Object.getPrototypeOf(value)===null||Object.getPrototypeOf(Object.getPrototypeOf(value))===null);
-  function resolveOccurrenceTarget(exercise, target, {timedIntervalSeconds}={}) {
+  function resolveOccurrenceTarget(exercise, target, {timedIntervalSeconds,familyContext}={}) {
     if(!plainTarget(target)||Object.keys(target).some(key=>!['plannedPrescription','plannedLoad'].includes(key)))throw new Error('Invalid occurrence target fields.');
     const p=target.plannedPrescription,base=exercise&&exercise.prescription,limit=OCCURRENCE_TARGET_LIMITS;
-    const interval=Number.isFinite(timedIntervalSeconds),expected=interval?'timed':base&&base.type;
+    const membership=familyContext==null?null:familyMembership(exercise,familyContext);
+    if(familyContext!=null&&!membership)throw new Error('Exercise is not authorised in this family context.');
+    const contextual=membership&&membership.prescriptions.find(item=>p&&item.type===p.type);
+    const interval=Number.isFinite(timedIntervalSeconds),expected=interval?'timed':contextual?p.type:base&&base.type;
     if(!base||!Number.isFinite(base.value)||base.value<=0||!plainTarget(p)||Object.keys(p).some(key=>!['type','value'].includes(key))||p.type!==expected
       ||!['reps','unilateral-reps','timed','unilateral-timed'].includes(p.type)
       ||!Number.isFinite(p.value)||p.value<=0)throw new Error('Invalid occurrence prescription.');
+    if(membership&&(!contextual||p.value<contextual.minValue||p.value>contextual.maxValue))
+      throw new Error('Occurrence target is outside the reviewed family prescription.');
+    if(membership&&Array.isArray(exercise.prescriptionModes)&&!exercise.prescriptionModes.includes(prescriptionMode(p.type)))
+      throw new Error('Family prescription conflicts with an intrinsic exercise mode restriction.');
     const timed=p.type.includes('timed'),sides=sideCount(exercise);
     if((sides===2)!==p.type.startsWith('unilateral')||!timed&&!Number.isInteger(p.value)
       ||p.value>(timed?limit.maxSecondsPerSide:limit.maxReps)
       ||interval&&p.value>timedIntervalSeconds)throw new Error('Unsafe or contradictory occurrence prescription.');
-    const seconds=timed?p.value*sides:Math.ceil(exercise.estimatedSeconds/sides*p.value/base.value)*sides;
+    if(!timed&&base.type.includes('timed')&&(!contextual||!contextual.secondsPerRep))throw new Error('Contextual reps require a reviewed pacing estimate.');
+    const seconds=timed?p.value*sides:contextual&&contextual.secondsPerRep?Math.ceil(contextual.secondsPerRep*p.value)*sides:Math.ceil(exercise.estimatedSeconds/sides*p.value/base.value)*sides;
     if(!Number.isFinite(seconds)||seconds<=0||seconds>limit.maxEstimatedSeconds)throw new Error('Invalid occurrence duration.');
     const resolved={plannedPrescription:Object.freeze({...p}),estimatedSeconds:seconds};
     if(target.plannedLoad!==undefined){
@@ -1227,11 +1243,12 @@
     const issues=[];
     for(let index=0;index<count;index++){
       if(!Object.prototype.hasOwnProperty.call(targets,index)){issues.push('invalid-occurrence-target:'+index);continue;}
-      if(targets[index]===null)continue;
+      if(targets[index]===null&&block.familyContext==null)continue;
       try{
-        const exercise=exercises[index%exercises.length],options=block.protocol==='timed_intervals'?{timedIntervalSeconds:p.workSeconds}:{};
-        const resolved=resolveOccurrenceTarget(exercise,targets[index],options);
-        if(catalogue)resolveOccurrenceTarget(catalogue[exercise.id],targets[index],options);
+        const exercise=exercises[index%exercises.length],options={familyContext:block.familyContext,...(block.protocol==='timed_intervals'?{timedIntervalSeconds:p.workSeconds}:{})};
+        const target=targets[index]===null?{plannedPrescription:block.protocol==='timed_intervals'?{type:'timed',value:p.workSeconds}:exercise.prescription}:targets[index];
+        const resolved=resolveOccurrenceTarget(exercise,target,options);
+        if(catalogue)resolveOccurrenceTarget(catalogue[exercise.id],target,options);
         if(block.protocol==='emom'&&(resolved.plannedPrescription.value>p.targets[index%exercises.length].value||resolved.estimatedSeconds>EMOM_POLICY.maxWorkSeconds))throw new Error('Unsafe minute target.');
       }catch(error){issues.push('invalid-occurrence-target:'+index);}
     }
@@ -1249,6 +1266,7 @@
   function estimateBlockWorkDuration(block) {
     if(!block||!Array.isArray(block.exercises)||!block.exercises.length)return 0;
     if(block.protocol&&!MAIN_PROTOCOLS.has(block.protocol))return 0;
+    if(block.familyContext!=null&&validateFamilyBlock(block).length)return 0;
     if(validateOccurrenceTargets(block).length)return 0;
     if(block.protocol==='density')return validateDensityBlock(block).length?0:block.prescription.timeCapSeconds;
     if(['ladder','pyramid','complex','density'].includes(block.protocol))return resolveBlockSteps(block).reduce((sum,step)=>sum+(step.kind==='exercise'?step.estimatedSeconds:step.seconds),0);
@@ -1276,6 +1294,7 @@
   // block-relative minute windows; their targets never describe the length of the slot.
   function resolveBlockSteps(block) {
     const steps=[],p=block.prescription||{},exercises=block.exercises||[];
+    if(block.familyContext!=null&&validateFamilyBlock(block).length)return steps;
     if(validateOccurrenceTargets(block).length)return steps;
     if(block.protocol==='density'){
       if(validateDensityBlock(block).length)return steps;
@@ -1348,7 +1367,7 @@
         return Object.freeze({...step,variableTarget:true,plannedPrescription:Object.freeze({...plannedPrescription}),
           estimatedSeconds:step.timed?step.seconds:exercise.estimatedSeconds});
       }
-      const resolved=resolveOccurrenceTarget(exercises[step.exerciseIndex],target,block.protocol==='timed_intervals'?{timedIntervalSeconds:p.workSeconds}:{});
+      const resolved=resolveOccurrenceTarget(exercises[step.exerciseIndex],target,{familyContext:block.familyContext,...(block.protocol==='timed_intervals'?{timedIntervalSeconds:p.workSeconds}:{})});
       const timed=resolved.plannedPrescription.type.includes('timed');
       return Object.freeze({...step,...resolved,variableTarget:true,timed,
         ...(timed?{seconds:resolved.plannedPrescription.value}:{}),
@@ -1595,10 +1614,49 @@
     return issues;
   }
 
+  function familyMembership(exercise, context) {
+    if(!root.GarageFitWorkoutFamilies)throw new Error('Shared workout family contracts are unavailable.');
+    return root.GarageFitWorkoutFamilies.getMembership(context,exercise&&exercise.id);
+  }
+  function familyExerciseEligible(exercise, owned, difficulty, context) {
+    const membership=familyMembership(exercise,context);
+    return !!membership && (owned===undefined||requirementsMet(exercise,owned))
+      && !difficultyExcluded(exercise,workoutDifficulty(difficulty))
+      && !difficultyExcluded(exercise,workoutDifficulty(context.difficulty))
+      && !(context.excludedImpact||['high']).includes(exercise.impact)
+      && (!context.bodyPositions||context.bodyPositions.includes(exercise.bodyPosition))
+      && (!membership.requiresMovementRoom||context.movementRoom===true);
+  }
+  // Family blocks are authorised against the central policy and canonical catalogue,
+  // never against edited metadata in the block. No-family validation stays unchanged.
+  function validateFamilyBlock(block, catalogue, owned) {
+    if(block.familyContext==null)return [];
+    catalogue=catalogue||root.GarageFitData&&root.GarageFitData.exercises||{};
+    const issues=[],exercises=block.exercises||[];
+    if(!Array.isArray(exercises)||!exercises.length)return ['family:no-exercises'];
+    for(const [index,exercise] of exercises.entries()){
+      const source=catalogue[exercise&&exercise.id];
+      try{
+        if(!source||!familyExerciseEligible(source,owned,undefined,block.familyContext)
+          ||!protocolCompatible(source,block.protocol,block.familyContext))issues.push('family:ineligible:'+(exercise&&exercise.id));
+        if(source&&(exercise.coachAnchor||Object.keys(source).some(key=>JSON.stringify(source[key])!==JSON.stringify(exercise[key]))))issues.push('family:modified-exercise:'+exercise.id);
+        if(source&&block.occurrenceTargets===undefined){
+          const p=block.prescription||{},targets=block.protocol==='ladder'?(p.repSteps||[]).map(value=>({type:'reps',value}))
+            :block.protocol==='pyramid'?(p.steps||[]).map(step=>({type:'reps',value:step.reps}))
+            :['emom','complex','density'].includes(block.protocol)?[p.targets&&p.targets[index]]
+            :[block.protocol==='timed_intervals'?{type:'timed',value:p.workSeconds}:source.prescription];
+          for(const plannedPrescription of targets)resolveOccurrenceTarget(source,{plannedPrescription},
+            {familyContext:block.familyContext,...(block.protocol==='timed_intervals'?{timedIntervalSeconds:p.workSeconds}:{})});
+        }
+      }catch(error){issues.push('family:invalid-context-or-prescription:'+(exercise&&exercise.id));}
+    }
+    return [...new Set(issues)];
+  }
   function validateMain(main, catalogue, owned, targetSeconds) {
     const issues=[];
     if(!main||!Array.isArray(main.blocks)||!main.blocks.length)return ['main:no-blocks'];
     for(const block of main.blocks){
+      issues.push(...validateFamilyBlock(block,catalogue,owned).map(issue=>block.id+':'+issue));
       if(!MAIN_PROTOCOLS.has(block.protocol)){issues.push(block.id+':invalid-protocol');continue;}
       if(block.protocol==='emom'){
         const invalid=validateEmomBlock(block,catalogue);
@@ -1626,7 +1684,7 @@
       for(const exercise of block.exercises||[]){
         if(!catalogue[exercise.id])issues.push(block.id+':unknown-exercise:'+exercise.id);
         else if(!requirementsMet(catalogue[exercise.id],owned))issues.push(block.id+':equipment:'+exercise.id);
-        else if(!protocolCompatible(catalogue[exercise.id],block.protocol))issues.push(block.id+':incompatible:'+exercise.id);
+        else if(!protocolCompatible(catalogue[exercise.id],block.protocol,block.familyContext))issues.push(block.id+':incompatible:'+exercise.id);
       }
       const p=block.prescription||{};
       issues.push(...validateOccurrenceTargets(block,catalogue).map(issue=>block.id+':'+issue));
@@ -1734,8 +1792,9 @@
   // safety/suitability rules (e.g. no high-impact Warm-up). Selection only scores these
   // candidates. The reachability audit (scripts/audit-exercise-reachability.js) reuses this so
   // it never re-implements phase rules. `difficulty` is the workout difficulty (default Normal).
-  function generatedPhaseEligible(exercise, phase, owned, difficulty) {
+  function generatedPhaseEligible(exercise, phase, owned, difficulty, familyContext) {
     if (!exercise || !requirementsMet(exercise,owned)) return false;
+    if(phase==='main'&&familyContext!=null){try{return familyExerciseEligible(exercise,owned,difficulty,familyContext);}catch(error){return false;}}
     if (phase==='main') return !!(exercise.generator && exercise.main) && !difficultyExcluded(exercise,difficulty);
     if (phase==='warmup') return !!exercise.warmup && exercise.impact!=='high' && preparationMetadataValid(exercise);
     if (phase==='rampup') return !!exercise.rampup && preparationMetadataValid(exercise) && exercise.prepFatigue<=3 && exercise.prepComplexity<=3 && !difficultyExcluded(exercise,difficulty);
@@ -2908,11 +2967,12 @@
     // A swap keeps the workout's difficulty (its Main eligibility and score preference) and body focus.
     const difficulty=workoutDifficulty(workout.difficulty);
     const bodyFocus=workoutBodyFocus(workout.bodyFocus);
-    let eligible=Object.values(catalogue).filter(exercise=>generatedPhaseEligible(exercise,'main',owned,difficulty)&&protocolCompatible(exercise,block.protocol)&&exercise.id!==current.id&&!mainFamilyCapReached(exercise,otherExercises));
+    let eligible=Object.values(catalogue).filter(exercise=>generatedPhaseEligible(exercise,'main',owned,difficulty,block.familyContext)&&protocolCompatible(exercise,block.protocol,block.familyContext)&&exercise.id!==current.id&&!mainFamilyCapReached(exercise,otherExercises));
     // The whole block after the swap. A complex movement takes its own default target;
     // the sequence count, changeover and recovery stay as planned.
     const replaced=exercise=>({...block,exercises:block.exercises.map((item,index)=>index===exerciseIndex?exercise:item),
       ...(block.protocol==='complex'?{prescription:{...block.prescription,targets:block.prescription.targets.map((target,index)=>index===exerciseIndex?complexDefaultTarget(exercise):target)}}:{})});
+    if(block.familyContext!=null)eligible=eligible.filter(exercise=>!validateFamilyBlock(replaced(exercise),catalogue,owned).length);
     eligible=eligible.filter(exercise=>blockSetupCompatible(replaced(exercise),catalogue,owned));
     const prospective=exercise=>setupBudgetCandidate({...workout,setupEquipment:owned},blocks.map(item=>item===block?replaced(exercise):item));
     eligible=eligible.filter(exercise=>!(hasConfiguredEquipment(workout)||exercise.setupProfile)||withinSetupBudget(prospective(exercise),workout.sessionPrescription));
@@ -3026,7 +3086,7 @@
     applySetupPlan(workout);
   }
 
-  root.GarageFitGenerator = { BUDGETS, RESTS, PROTOCOL_SHAPES, MAIN_PROTOCOLS, GENERATED_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, EQUIPMENT_SETUP_SECONDS, EQUIPMENT_SETUP_NOTE, planSetupTransitions, mainSeconds, EMOM_POLICY, LADDER_POLICY, PYRAMID_POLICY, COMPLEX_POLICY, DENSITY_POLICY, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, WORKOUT_DIFFICULTIES, EXERCISE_DIFFICULTIES, DIFFICULTY_POLICY, workoutDifficulty, difficultyExcluded, difficultyCredit, WORKOUT_BODY_FOCUSES, EXERCISE_BODY_FOCUSES, EXERCISE_DIRECT_ELBOW_ACTIONS, BODY_FOCUS_POLICY, workoutBodyFocus, bodyFocusCredit, SHORTLIST_SIZE, SHORTLIST_MARGIN, WINDOW_MAX_RANKS, SUPPORTING_ROUTE, candidateWindowRanks, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, setupProfilesCompatible, blockSetupCompatible, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_SETUP_PROFILES, VALID_PATTERNS, VALID_WARMUP_AREAS, VALID_STRETCH_TARGETS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, OCCURRENCE_TARGET_LIMITS, resolveOccurrenceTarget, validateOccurrenceTargets, validateEmomBlock, validateLadderBlock, validatePyramidBlock, pyramidKind, validateComplexBlock, validateDensityBlock, complexSequenceIssues, buildEmomBlock, protocolCompatible, protocolWeights, recentProtocolsFromResults, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, protocolConditions, selectBlockExercises, selectWarmup, kneeMobilityQualified, upperTrunkTarget, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, SessionPrescriptionError, assessSessionPrescription, generate, swap, swapPreparation };
+  root.GarageFitGenerator = { BUDGETS, RESTS, PROTOCOL_SHAPES, MAIN_PROTOCOLS, GENERATED_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, EQUIPMENT_SETUP_SECONDS, EQUIPMENT_SETUP_NOTE, planSetupTransitions, mainSeconds, EMOM_POLICY, LADDER_POLICY, PYRAMID_POLICY, COMPLEX_POLICY, DENSITY_POLICY, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, WORKOUT_DIFFICULTIES, EXERCISE_DIFFICULTIES, DIFFICULTY_POLICY, workoutDifficulty, difficultyExcluded, difficultyCredit, WORKOUT_BODY_FOCUSES, EXERCISE_BODY_FOCUSES, EXERCISE_DIRECT_ELBOW_ACTIONS, BODY_FOCUS_POLICY, workoutBodyFocus, bodyFocusCredit, SHORTLIST_SIZE, SHORTLIST_MARGIN, WINDOW_MAX_RANKS, SUPPORTING_ROUTE, candidateWindowRanks, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, setupProfilesCompatible, blockSetupCompatible, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_SETUP_PROFILES, VALID_PATTERNS, VALID_WARMUP_AREAS, VALID_STRETCH_TARGETS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, OCCURRENCE_TARGET_LIMITS, resolveOccurrenceTarget, validateOccurrenceTargets, validateFamilyBlock, validateEmomBlock, validateLadderBlock, validatePyramidBlock, pyramidKind, validateComplexBlock, validateDensityBlock, complexSequenceIssues, buildEmomBlock, protocolCompatible, protocolWeights, recentProtocolsFromResults, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, protocolConditions, selectBlockExercises, selectWarmup, kneeMobilityQualified, upperTrunkTarget, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, SessionPrescriptionError, assessSessionPrescription, generate, swap, swapPreparation };
 
   if (typeof window!=='undefined' && typeof document!=='undefined' && typeof window.addEventListener==='function') window.addEventListener('load',()=>{
     if (document.querySelector('script[data-garagefit-rampup-ui]')) return;

@@ -933,6 +933,9 @@ function appendBlockTimeline(timeline,block,blockIndex,totalBlocks){
   const conditions=GarageFitGenerator.protocolConditions(block);
   if(['emom','complex','density'].includes(block.protocol)){conditions.targets.forEach(Object.freeze);Object.freeze(conditions.targets)}
   const meta={blockIndex,totalBlocks,protocol:block.protocol,protocolConditions:Object.freeze(conditions)};
+  if(block.familyContext!=null)meta.familyContext=Object.freeze({...block.familyContext,
+    ...(block.familyContext.excludedImpact?{excludedImpact:Object.freeze(block.familyContext.excludedImpact.slice())}:{}),
+    ...(block.familyContext.bodyPositions?{bodyPositions:Object.freeze(block.familyContext.bodyPositions.slice())}:{})});
   GarageFitGenerator.resolveBlockSteps(block).forEach(step=>{
     if(step.kind==='exercise'){
       const exercise=block.exercises[step.exerciseIndex],stepMeta=Object.assign({},meta,{set:step.set,cycle:step.cycle,...(step.ladderStep?{ladderStep:step.ladderStep}:{}),...(step.pyramidStep?{pyramidStep:step.pyramidStep}:{}),...(step.complexSequence?{complexSequence:step.complexSequence}:{}),...(step.densityRound?{densityRound:step.densityRound}:{})});
