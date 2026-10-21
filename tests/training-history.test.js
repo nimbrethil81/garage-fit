@@ -147,3 +147,56 @@ test('explicit approximate contextual evidence retains its confidence but contri
   assert.equal(history.bodyRegionExposure('upper').value, 0);
   assert.equal(history.exactExercisePerformances('goblet-squat').length, 0);
 });
+
+test('bounded sequences expose cross-source family/style/exercise/pattern/protocol recency without inventing dose', () => {
+  const identity={workoutFamilyId:'strength-control',workoutFamilyVersion:1,familyStyleId:'straight-sets'};
+  const sequence=Array.from({length:7},(_,i)=>performance({sessionResultId:'sequence-'+i,
+    startedAt:`2026-10-0${i+1}T08:00:00Z`,endedAt:`2026-10-0${i+1}T08:30:00Z`,
+    source:i===6?'fixed':i%2?'generator':'coach',programmeInstanceId:i%2?null:'previous-instance',
+    ...(i<6?{...identity,familyStyleId:i%2?'paired-sets':'straight-sets'}:{}),
+    feedback:i===5?{effort:'moderate'}:{},
+    ...(i===4?{plannedWork:[{occurrenceId:'main-1',exerciseId:'plank',section:'main',prescription:{type:'timed',timed:true,seconds:40,protocol:'timed_intervals'}}],
+      performedWork:[{occurrenceId:'main-1',exerciseId:'plank',status:'partial',sets:[{seconds:12}]}]}:{}),
+    ...(i===5?{performedWork:[{occurrenceId:'main-1',exerciseId:'goblet-squat',status:'completed'}]}:{})}));
+  const excluded=['abandoned','skipped-before-start','completed'].map((finalStatus,i)=>performance({sessionResultId:'excluded-'+i,
+    startedAt:'2026-10-09T08:00:00Z',endedAt:'2026-10-09T08:30:00Z',finalStatus,
+    ...(i===1?{performedWork:[],anchorResults:[]} : i===2?{performedWork:[{occurrenceId:'main-1',exerciseId:'goblet-squat',status:'skipped'}]}:{})}));
+  const summary=view([...sequence,...excluded]).recentTrainingSummary({limit:4});
+  assert.deepEqual(summary.sessions.map(item=>item.sessionResultId),['sequence-6','sequence-5','sequence-4','sequence-3']);
+  assert.equal(summary.sessions[0].workoutFamilyId,null,'fixed work is not relabelled');
+  assert.deepEqual(summary.families.map(item=>[item.key,item.sessionCount,item.recency]),[['strength-control@1',3,1]]);
+  assert.deepEqual(summary.styles.map(item=>[item.familyStyleId,item.sessionCount]),[['paired-sets',2],['straight-sets',1]]);
+  assert.equal(summary.exercises[0].sessionCount,3); assert.equal(summary.patterns.find(item=>item.key==='squat').exposure.value,3);
+  assert.equal(summary.exercises.find(item=>item.key==='plank').recency,2);
+  assert.equal(summary.patterns.find(item=>item.key==='core').exposure.value,.3);
+  assert.equal(summary.protocols[0].key,'rounds');assert.equal(summary.protocols[0].sessionCount,3);
+  assert.equal(summary.protocols.find(item=>item.key==='timed_intervals').recency,2);
+  assert.deepEqual(summary.sessions[1].intensity,{value:'moderate',confidence:'reported'});
+  assert.deepEqual(summary.sessions[0].intensity,{value:null,confidence:'unknown'});
+  assert.deepEqual(summary.sessions[1].performances[0].sets,[],'rep Done supplies no measured reps/load');
+  assert.ok(Object.isFrozen(summary.sessions[1].performances));
+  assert.equal(view(sequence).sessionsForProgramme('previous-instance').length,4);
+  assert.throws(()=>view(sequence).recentTrainingSummary({limit:65}),/limit/);
+  assert.throws(()=>view(sequence).recentTrainingSummary({limit:-1}),/limit/);
+});
+
+test('recent balance retains measured partial work, unknown amount and unlinked fixed patterns honestly', () => {
+  const partial=performance({sessionResultId:'partial-time',finalStatus:'partial',
+    plannedWork:[{occurrenceId:'main-1',exerciseId:'plank',section:'main',prescription:{type:'timed',timed:true,seconds:40,protocol:'timed_intervals'}}],
+    performedWork:[{occurrenceId:'main-1',exerciseId:'plank',status:'partial',sets:[{seconds:10}]}]});
+  const fixed=performance({sessionResultId:'old-fixed',source:'fixed',programmeInstanceId:null,plannedWork:[],
+    performedWork:[{occurrenceId:'old-1',exerciseId:'goblet-squat',status:'partial',note:'some work'}]});
+  const zero=performance({sessionResultId:'zero',performedWork:[{occurrenceId:'main-1',exerciseId:'push-up',status:'completed',sets:[{reps:0}]}]});
+  const interrupted=performance({sessionResultId:'unmeasured-interrupted',finalStatus:'abandoned',
+    performedWork:[{occurrenceId:'main-1',exerciseId:'goblet-squat',status:'partial',note:'Some work, amount unknown'}]});
+  const history=view([partial,fixed,zero,interrupted]),summary=history.recentTrainingSummary();
+  assert.equal(history.sessionEvidence('unmeasured-interrupted').performances[0].exposure.confidence,'unknown',
+    'existing progress retains factual unknown work from interrupted non-meaningful runs');
+  assert.equal(summary.sessions.length,2);assert.deepEqual(summary.families,[]);
+  const timed=summary.sessions.find(item=>item.sessionResultId==='partial-time').performances[0];
+  assert.deepEqual(timed.sets[0].seconds,{value:10,confidence:'confirmed'});assert.equal(timed.exposure.value,.25);
+  const squat=summary.patterns.find(item=>item.key==='squat');
+  assert.equal(squat.exposure.confidence,'unknown');assert.equal(squat.occurrenceCount,1);
+  assert.equal(summary.protocols.length,1,'missing fixed protocol stays unknown');
+  assert.equal(summary.sessions.find(item=>item.source==='fixed').performances[0].section,null);
+});

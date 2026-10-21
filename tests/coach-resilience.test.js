@@ -167,3 +167,46 @@ test('an unavailable pinned definition version is retained and blocks reinterpre
   assert.match(q.run('pilot.snapshot().errors[0].message'),/definition version/);
   assert.equal((await q.run("pilotStore.loadProgrammeState('programme:1')")).programmeDefinitionVersion,99);
 });
+
+test('Coach final actual identity survives begin, interrupted recovery, reload and restart without cross-instance credit', async () => {
+  const p=pilot();await p.start();
+  // Exercise the future family tracking seam without changing any released policy,
+  // prescription, role, planned anchors or generator composition behaviour.
+  p.run(`const prepared=pilot.prepare(pilotOptions);
+    Object.assign(prepared.workout,{workoutFamilyId:'strength-control',workoutFamilyVersion:1,familyStyleId:'paired-sets'});`);
+  await p.run('pilot.begin().then(value=>{pilotTracker=value;})');await p.log();
+  const draft=await p.run('pilotStore.loadSessionDraft()');assert.equal(draft.familyStyleId,'paired-sets');
+  const reopened=pilot(p.storage);await reopened.run('pilot.load()');
+  const result=reopened.json('pilot.snapshot().results[0]'),state=reopened.json('pilot.snapshot().state');
+  assert.equal(result.workoutFamilyId,'strength-control');assert.equal(result.workoutFamilyVersion,1);assert.equal(result.familyStyleId,'paired-sets');
+  assert.equal(result.sessionRole,draft.sessionRole);assert.deepEqual(result.plannedWork,JSON.parse(JSON.stringify(draft.plannedWork)));
+  assert.equal(result.finalStatus,'partial');assert.equal(state.meaningfulSessionsCompleted,1);
+  await reopened.run('pilot.load()');assert.deepEqual(reopened.json('pilot.snapshot().state'),state);
+  await reopened.run("pilot.manage('finish')");
+  reopened.run('pilotId=100');await reopened.start();
+  const fresh=reopened.json('pilot.snapshot().state');assert.equal(fresh.meaningfulSessionsCompleted,0);
+  const before=JSON.stringify(fresh);
+  const evidence=await reopened.run('pilot.trainingEvidence({limit:4})');
+  assert.equal(evidence.summary.sessions.length,1);assert.equal(evidence.summary.sessions[0].familyStyleId,'paired-sets');
+  assert.equal(evidence.summary.sessions[0].programmeInstanceId,state.programmeInstanceId);
+  assert.equal(JSON.stringify(reopened.json('pilot.snapshot().state')),before,'context grants no programme credit or anchor changes');
+});
+
+test('recovery retains the draft and saved evidence when actual family identity conflicts', async () => {
+  const p=pilot();await p.start();await p.begin();await p.log();
+  await p.run(`(async()=>{
+    const draft=pilotTracker.draft(),result=await pilotTracker.complete();
+    await pilotStore.saveSessionDraft(GarageFitCoachModel.createSessionDraft({...draft,
+      workoutFamilyId:'strength-control',workoutFamilyVersion:1,familyStyleId:'paired-sets',
+      finalisation:{state:'finalising',sessionResultId:result.sessionResultId}}));
+    await pilotStore.saveSessionResult(GarageFitCoachModel.createSessionResult({...result,
+      workoutFamilyId:'strength-control',workoutFamilyVersion:1,familyStyleId:'straight-sets'}));
+  })()`);
+  const beforeDraft=p.storage.get('gf_coach_session_draft');
+  const resultKey=[...p.storage.keys()].find(key=>key.startsWith('gf_coach_session_result:'));
+  const beforeResult=p.storage.get(resultKey);
+  const q=pilot(p.storage);await q.run('pilot.load()');
+  assert.equal(p.storage.get('gf_coach_session_draft'),beforeDraft);
+  assert.equal(p.storage.get(resultKey),beforeResult);
+  assert.ok(q.json('pilot.snapshot().errors').some(item=>item.code==='session-result-conflict'));
+});

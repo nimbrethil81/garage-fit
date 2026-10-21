@@ -453,6 +453,11 @@
     programmeInstanceId: nullable(id),
     prescriptionId: nullable(id),
     workoutId: nullable(id),
+    // Actual resolved identity, independent of Coach intent/role. Optional as a tuple:
+    // legacy/generic records stay unknown. IDs are durable, not current-registry lookups.
+    workoutFamilyId: nullable(id),
+    workoutFamilyVersion: nullable(positiveInteger),
+    familyStyleId: nullable(id),
     sessionRole: nullable(text), // stable role id from the prescription at start; absent on older records
     generatedAt: nullable(timestamp),
     startedAt: nullable(timestamp),
@@ -463,6 +468,10 @@
     anchorResults: nullable(arrayOf(anchorResult))
   };
   function sessionLinkChecks(value, path, errors, performedKey) {
+    const identity = ['workoutFamilyId','workoutFamilyVersion','familyStyleId'];
+    if (identity.some(key => !isMissing(value[key]))) identity.forEach(key => {
+      if (isMissing(value[key])) fail(errors, path+'.'+key, 'is required when actual family identity is known');
+    });
     if (value.source === 'coach') {
       if (isMissing(value.programmeInstanceId)) fail(errors, path+'.programmeInstanceId', 'is required for a coach session');
       if (isMissing(value.prescriptionId)) fail(errors, path+'.prescriptionId', 'is required for a coach session');
@@ -524,7 +533,8 @@
     'session-result-index': shape({schemaVersion: exactly(SCHEMA_VERSION),
       sessionResultIds: arrayOf(id),
       entries: nullable(arrayOf(shape({sessionResultId: id, source: oneOf(SESSION_SOURCES),
-        programmeInstanceId: nullable(id), occurredAt: nullable(timestamp), exerciseIds: arrayOf(id)})))
+        programmeInstanceId: nullable(id), occurredAt: nullable(timestamp), exerciseIds: arrayOf(id),
+        hasPerformedWork: nullable(boolean)})))
     }, (value, path, errors) => {
       if (!Array.isArray(value.sessionResultIds)) return;
       if (new Set(value.sessionResultIds).size !== value.sessionResultIds.length) fail(errors, path+'.sessionResultIds', 'must be unique');

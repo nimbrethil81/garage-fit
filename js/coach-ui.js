@@ -225,7 +225,8 @@
         }
         tracker = root.GarageFitSessionTracker.createTracker({store, clock, source: 'coach', draftId: id('draft'),
           programmeInstanceId: state.programmeInstanceId, prescriptionId: preview.plan.prescription.prescriptionId,
-          workoutId: preview.workout.id, sessionRole: preview.plan.prescription.sessionRole, generatedAt: preview.generatedAt, plannedWork, meaningful,
+          workoutId: preview.workout.id, ...root.GarageFitSessionTracker.identityFromWorkout(preview.workout),
+          sessionRole: preview.plan.prescription.sessionRole, generatedAt: preview.generatedAt, plannedWork, meaningful,
           overrides: preview.plan.prescription.programmeContext.overrides});
         await tracker.start();
       } else await store.saveSessionDraft(tracker.draft());
@@ -294,7 +295,10 @@
     });
     const confirmVariation = (recommendationId, equipment) => decideVariation('confirmVariationProgression', recommendationId, equipment);
     const declineVariation = (recommendationId, equipment) => decideVariation('declineVariationProgression', recommendationId, equipment);
-    return {load, snapshot, assess, start, plan, prepare, previewToday, alternatives, substitute, restore, begin, finish, manage, saveProgrammeSettings,
+    // Context across programme instances is queried explicitly; it never joins the
+    // credited results passed to the released programme planner or anchors.
+    const trainingEvidence = options => root.GarageFitTrainingHistory.loadRecentSummary(store, catalogue, options);
+    return {load, snapshot, assess, start, plan, prepare, previewToday, alternatives, substitute, restore, begin, finish, manage, saveProgrammeSettings, trainingEvidence,
       saveSportReview, variationRecommendations, confirmVariation, declineVariation, sportReview: () => engine.sportReview(definition(),state,clock()),
       review: () => engine.programmeReview(definition(), state, clock())};
   }

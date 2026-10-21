@@ -215,3 +215,17 @@ test('fallback is bounded: one attempt per style, no loops, and no unverified re
   // A family must register its own quality rules; the gate fails closed without them.
   assert.throws(()=>realm().GarageFitGenerator.registerFamilyComposer('core-stability',1,()=>({})),/quality validator/);
 });
+
+test('same-family fallback carries its resolved actual style into the tracker result', async () => {
+  const setup=fixture({reject:['straight-sets']}),workout=setup.run();
+  for(const file of ['js/coach-model.js','js/session-tracker.js'])
+    vm.runInContext(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),setup.app,{filename:file});
+  const tracker=setup.app.GarageFitSessionTracker.createTracker({
+    source:'generator',workoutId:workout.id,...setup.app.GarageFitSessionTracker.identityFromWorkout(workout),
+    clock:()=> '2026-10-01T08:00:00Z',store:{saveSessionDraft:async()=>{}},
+    plannedWork:[{occurrenceId:'main:b0:r1:e0',exerciseId:'push-up',section:'main'}]});
+  await tracker.start();await tracker.recordDone('main:b0:r1:e0');
+  const result=await tracker.complete();
+  assert.equal(result.workoutFamilyId,'strength-control');assert.equal(result.familyStyleId,'paired-sets');
+  assert.notEqual(result.familyStyleId,workout.familyDiagnostics[0].familyStyleId);
+});

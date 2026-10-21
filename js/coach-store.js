@@ -85,7 +85,13 @@
     const metadata = result => ({sessionResultId: result.sessionResultId, source: result.source,
       programmeInstanceId: result.programmeInstanceId || null,
       occurredAt: result.endedAt || result.startedAt || result.generatedAt || null,
-      exerciseIds: [...new Set((result.performedWork || []).map(work => work.exerciseId))]});
+      exerciseIds: [...new Set((result.performedWork || []).map(work => work.exerciseId).filter(Boolean))],
+      hasPerformedWork: result.source !== 'external' && ['completed','partial'].includes(result.finalStatus)
+        && (result.performedWork || []).some(work => {
+          if (!['completed','partial'].includes(work.status)) return false;
+          const actuals = (work.sets || []).flatMap(set => [set.reps,set.seconds]).filter(value => value != null);
+          return !actuals.length || actuals.some(value => value > 0);
+        })});
     function readIndex() {
       const raw = readRaw(SESSION_INDEX_KEY);
       if (raw === null || raw === undefined) return {ids: [], entries: []};
@@ -215,7 +221,8 @@
       async listSessionResults(filters = {}) {
         const index = readIndexOrRecover();
         let entries = index.entries;
-        if (!entries && Object.keys(filters).length) {
+        if ((!entries && Object.keys(filters).length)
+          || (filters.performedOnly === true && entries && entries.some(entry => entry.hasPerformedWork == null))) {
           const recovered = recoverIndex();
           entries = recovered.entries; index.errors.push(...recovered.errors);
           writeIndex(recovered);
@@ -223,6 +230,8 @@
         let candidates = entries || index.ids.map(sessionResultId => ({sessionResultId}));
         const matches = entry => (!filters.programmeInstanceId || entry.programmeInstanceId === filters.programmeInstanceId)
           && (!filters.source || entry.source === filters.source)
+          && (!filters.sources || filters.sources.includes(entry.source))
+          && (filters.performedOnly !== true || entry.hasPerformedWork === true)
           && (!filters.exerciseId || entry.exerciseIds.includes(filters.exerciseId))
           && (!filters.since || Date.parse(entry.occurredAt) >= Date.parse(filters.since))
           && (!filters.until || Date.parse(entry.occurredAt) <= Date.parse(filters.until));
@@ -231,6 +240,13 @@
           if (!Number.isInteger(filters.limit) || filters.limit < 0) throw new CoachError('invalid-record', 'History limit must be a non-negative integer.', {});
           candidates = candidates.slice().sort((a,b) => (Date.parse(b.occurredAt) || 0) - (Date.parse(a.occurredAt) || 0)
             || b.sessionResultId.localeCompare(a.sessionResultId));
+        }
+        // Optional hard read budget for contextual summaries: damaged evidence
+        // consumes a candidate too, rather than triggering an unbounded retry scan.
+        if (filters.candidateLimit !== undefined) {
+          if (!Number.isInteger(filters.candidateLimit) || filters.candidateLimit < 0)
+            throw new CoachError('invalid-record', 'History candidate limit must be a non-negative integer.', {});
+          candidates = candidates.slice(0, filters.candidateLimit);
         }
         const results = [], errors = index.errors.slice();
         for (const entry of candidates) {

@@ -407,3 +407,44 @@ test('known derived state cannot hide malformed dose or reconciliation data insi
     await rejectsWith(store.saveProgrammeState(programmeState({currentTargets})),'invalid-record');
   }
 });
+
+test('performed context filters metadata across sources/instances and rebuilds optional legacy metadata once', async () => {
+  require('../data/exercises.js');require('../js/training-history.js');
+  const storage=new MemoryStorage(),store=createStore(storage);
+  for(let i=0;i<9;i++) await store.saveSessionResult(sessionResult({sessionResultId:'context-'+i,
+    source:i===6?'external':i===7?'fixed':i%2?'generator':'coach',
+    programmeInstanceId:i%2?null:'older-instance',
+    startedAt:`2026-10-0${i+1}T08:00:00Z`,endedAt:`2026-10-0${i+1}T08:30:00Z`,
+    finalStatus:i===8?'abandoned':'completed'}));
+  const index=JSON.parse(storage.getItem('gf_coach_session_result_index'));
+  index.entries.forEach(entry=>delete entry.hasPerformedWork);
+  storage.setItem('gf_coach_session_result_index',JSON.stringify(index));
+  const loaded=await GarageFitTrainingHistory.loadRecentSummary(createStore(storage),GarageFitData.exercises,{limit:3});
+  assert.deepEqual(loaded.summary.sessions.map(item=>item.sessionResultId),['context-7','context-5','context-4']);
+  assert.deepEqual(loaded.errors,[]);
+  assert.ok(JSON.parse(storage.getItem('gf_coach_session_result_index')).entries.every(entry=>typeof entry.hasPerformedWork==='boolean'));
+  const reads=[],get=storage.getItem.bind(storage);
+  storage.getItem=key=>{reads.push(key);return get(key);};
+  await GarageFitTrainingHistory.loadRecentSummary(createStore(storage),GarageFitData.exercises,{limit:2});
+  assert.equal(reads.filter(key=>key.startsWith('gf_coach_session_result:')).length,2,'routine query reads only bounded matching evidence');
+  const damagedKey='gf_coach_session_result:context-7',saved=storage.getItem(damagedKey);
+  storage.setItem(damagedKey,'{bad');reads.length=0;
+  const damaged=await GarageFitTrainingHistory.loadRecentSummary(createStore(storage),GarageFitData.exercises,{limit:2});
+  assert.equal(damaged.summary.sessions.length,1);assert.equal(damaged.errors.length,1);
+  assert.equal(reads.filter(key=>key.startsWith('gf_coach_session_result:')).length,2,'damaged candidates consume the bound too');
+  storage.setItem(damagedKey,saved);
+  assert.equal(storage.coachKeys().length,10,'same result records and existing index only');
+  const since=await GarageFitTrainingHistory.loadRecentSummary(createStore(storage),GarageFitData.exercises,{limit:3,since:'2026-10-06T00:00:00Z',until:'2026-10-07T23:00:00Z'});
+  assert.deepEqual(since.summary.sessions.map(item=>item.sessionResultId),['context-5']);
+  await assert.rejects(GarageFitTrainingHistory.loadRecentSummary(store,GarageFitData.exercises,{limit:1000}),/limit/);
+});
+
+test('unknown actual exercise identity remains valid evidence without an invented index exercise id', async () => {
+  const storage=new MemoryStorage(),store=createStore(storage);
+  const result=sessionResult({performedWork:[{occurrenceId:'occ-1',exerciseId:null,status:'partial',note:'some work'}]});
+  await store.saveSessionResult(result);
+  const index=JSON.parse(storage.getItem('gf_coach_session_result_index'));
+  assert.deepEqual(index.entries[0].exerciseIds,[]);
+  const loaded=await store.listSessionResults({performedOnly:true,limit:1});
+  assert.equal(loaded.results[0].performedWork[0].exerciseId,null);
+});

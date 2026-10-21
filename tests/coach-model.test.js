@@ -270,3 +270,20 @@ test('identical records compare equal regardless of key order', () => {
   assert.equal(Model.sameRecord(a, b), true);
   assert.equal(Model.sameRecord(a, sessionResult({finalStatus: 'partial'})), false);
 });
+
+test('actual family identity is an optional complete versioned tuple independent of Coach role', () => {
+  const identity = {workoutFamilyId:'strength-control',workoutFamilyVersion:1,familyStyleId:'paired-sets'};
+  for (const [kind,fixture] of [['session-result',sessionResult],['session-draft',sessionDraft]]) {
+    assert.equal(validate(kind,fixture()).valid,true,'legacy stays unknown');
+    assert.equal(validate(kind,fixture({...identity,sessionRole:'unrelated-role'})).valid,true);
+    assert.equal(validate(kind,fixture({workoutFamilyId:null,workoutFamilyVersion:null,familyStyleId:null})).valid,true);
+    // Reading durable identity does not depend on today's registry/version support.
+    assert.equal(validate(kind,fixture({...identity,workoutFamilyVersion:99})).valid,true);
+    for (const key of Object.keys(identity)) {
+      const fields={...identity}; delete fields[key];
+      assertInvalidAt(kind,fixture(fields),kind+'.'+key);
+    }
+    assertInvalidAt(kind,fixture({...identity,workoutFamilyVersion:0}),kind+'.workoutFamilyVersion');
+    assertInvalidAt(kind,fixture({...identity,familyStyleId:' '}),kind+'.familyStyleId');
+  }
+});
