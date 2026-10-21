@@ -59,5 +59,6 @@ See [AGENTS.md](AGENTS.md) for contribution, validation and delivery instruction
 - [Exercise metadata and catalogue authoring](data/EXERCISE_METADATA.md)
 - [Coach API, Session Prescription, programme policies and recovery](docs/COACH_ENGINE.md)
 - [Workout protocols, occurrence targets, playback and tracking](docs/WORKOUT_PROTOCOLS.md)
+- [Shared workout-family definitions and resolution](docs/WORKOUT_FAMILIES.md)
 - [Tennis mapping constraints and catalogue gaps](docs/TENNIS_CAPABILITY_AUDIT.md)
 - [Shared player controls and mobile verification](docs/PLAYER_TIMERS.md)
