@@ -83,7 +83,14 @@ production membership entries in the shared foundation: each catalogue ticket ow
 complete approved table. The Mobility table (approved M1-M15, roles `prep`, `focused`,
 `flow` and `finish`) lives in `data/mobility-membership.js`, loaded after the Generator.
 Its eight new movements are family-only catalogue entries with no phase flags; the seven
-existing ones keep their canonical flags. Neither Coach nor Generator supplies a
+existing ones keep their canonical flags. The Athletic Movement table (approved A1-A8,
+A10-A12; roles `footwork`, `control` and `integrated`) lives in `data/athletic-membership.js`.
+Its six new drills are family-only catalogue entries with no phase flags; `bear-crawl`,
+`skater-jumps`, `reverse-lunge-knee-drive`, `alternating-lateral-lunge` and
+`knee-to-opposite-elbow` keep their canonical entries and flags. Travelling drills set
+`requiresMovementRoom`, so only in-place low-impact drills are assumed viable in ordinary
+space; high-impact skater jumps need an explicit Hard-difficulty opt-in that lifts the
+default high-impact exclusion. Deferred A9 and A13 are absent. Neither Coach nor Generator supplies a
 separate table, guessed exercise aliases or grants copied from saved data.
 
 Each entry identifies one exact canonical `exerciseId` and family-specific `role`,
