@@ -92,6 +92,45 @@ targets match: the surrounding variable dose does not establish comparable fatig
 Legacy rounds anchor comparisons are unchanged. Draft/Result schema version 1 stores the optional
 fields inside the existing JSON prescription; no migration is needed.
 
+### Shared occurrence recovery and whole-session allocation
+
+Characterisation in `tests/shared-sequence.test.js` demonstrates that one-round `rounds`
+plus occurrence targets already expresses sequential Mobility flows, including per-side work.
+Rounds and timed intervals already express 2–4 movement Athletic drills, but their ordinary
+recovery fields are uniform within each gap class. Splitting every movement into a separate
+block introduces fixed inter-block transitions. No new protocol is required.
+
+Explicit `rounds`, `paired_sets` and `timed_intervals` blocks may therefore add
+`occurrenceRecoverySeconds`: a dense array with **one entry per gap between resolved exercise
+steps**, before per-side expansion (exercise-step count minus one; at most 256 exercise steps).
+Each entry is `null` to retain the existing rest/changeover or a finite 0–300 seconds of recovery.
+Zero removes that gap; positive recovery replaces the existing gap rather than adding another.
+There is no leading/trailing recovery, and recovery follows both sides of unilateral work.
+Overrides use the existing rest/round-rest/set-rest phases, spoken cues, Pause, Previous and
+skip-rest controls. They never create work occurrences. Malformed plans fail validation,
+resolution, estimates and normalisation. Other protocols and Coach anchors reject the field;
+EMOM's minute recovery remains owned by its existing contract (#167).
+
+Normalisation copies the array and recomputes block/Main/session estimates. Setup planning
+reads the resolved gap: a rings change replaces that recovery with the greater of recovery
+and the existing setup allowance, once. Both timeline builders consume this same setup plan.
+Preview summarises the recovery range instead of advertising a uniform default. Frozen
+`protocolConditions.occurrenceRecoverySeconds` stores the plan inside the existing Draft/Result
+JSON prescription. Old records remain valid; differing or malformed recovery conditions cannot
+establish comparable evidence. Protocol vocabulary, occurrence IDs and schema versions stay
+unchanged. No automatic route currently produces the new field.
+
+A future specialist composer can allocate the **whole session** using existing sections and
+shared blocks. For example, reviewed family `prep`, `flow` and `finish` role blocks can own all
+Mobility work; `warmup`, `rampup` and `cooldown` then have empty exercise lists and zero estimates.
+No complete generic preparation/finish is appended. Empty sections have no phase-complete
+transition; Start announces the first actual exercise. Non-empty sections retain their existing
+timing, including the historical ready/phase-boundary overhead outside `estimatedSeconds`.
+For all-empty preparation/finish only the three-second ready countdown remains outside the
+estimate. Work estimates, gap recovery, inter-block transitions and setup increments remain
+separate and are counted once. The standalone five-minute routine engine is unchanged.
+These are explicit-plan primitives, not a family composer, selection policy or new user control.
+
 ### Repetition ladders
 
 A `ladder` block has one or two distinct rep-based exercises in execution order and

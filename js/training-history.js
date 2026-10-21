@@ -82,6 +82,15 @@
     // comparison conditions, even matching individual targets do not establish a series.
     if (previous.variableTarget || current.variableTarget) reasons.push('occurrence-target-conditions');
     if (previous.side === 'unknown' || current.side === 'unknown' || previous.side !== current.side) reasons.push('side');
+    // Recovery overrides are additive JSON conditions; malformed/unsupported saved values
+    // cannot establish comparable evidence. Older records have no such field.
+    const recoveryKnown=item=>{
+      const values=item.protocolConditions&&item.protocolConditions.occurrenceRecoverySeconds;
+      return values===undefined||['rounds','paired_sets','timed_intervals'].includes(item.protocol)
+        &&Array.isArray(values)&&values.length<256
+        &&Array.from(values).every(value=>value===null||Number.isFinite(value)&&value>=0&&value<=300);
+    };
+    if(![previous,current].every(recoveryKnown))reasons.push('unknown-recovery-conditions');
     const fields = Object.prototype.hasOwnProperty.call(protocolFields, current.protocol) ? protocolFields[current.protocol] : null;
     // Minute windows and changing rep steps do not establish comparable pacing or
     // fatigue/recovery for straight-set progression, even in old records without a flag.

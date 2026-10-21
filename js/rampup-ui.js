@@ -65,16 +65,16 @@
     workout=GarageFitGenerator.normaliseWorkout(workout);
     const timeline=[{kind:'ready',seconds:3}], warmup=workout.warmup.exercises, rampup=workout.rampup.exercises, blocks=workout.main.blocks, cooldown=workout.cooldown.exercises;
     warmup.forEach((exercise,index)=>{timeline.push(...makeGeneratedExercisePhases(exercise,'warmup',null,index));if(index<warmup.length-1)timeline.push({kind:'rest',section:'warmup',seconds:workout.warmup.restSeconds,nextExercise:warmup[index+1]})});
-    if(rampup.length)timeline.push({kind:'transition',section:'rampup',seconds:3,label:'Warm-up complete',nextExercise:rampup[0]});
+    if(warmup.length&&rampup.length)timeline.push({kind:'transition',section:'rampup',seconds:3,label:'Warm-up complete',nextExercise:rampup[0]});
     rampup.forEach((exercise,index)=>{timeline.push(...makeGeneratedExercisePhases(exercise,'rampup',null,index));if(index<rampup.length-1)timeline.push({kind:'rest',section:'rampup',seconds:workout.rampup.restSeconds,nextExercise:rampup[index+1]})});
-    timeline.push({kind:'transition',section:'main',seconds:3,label:rampup.length?'Ramp-up complete':'Warm-up complete',nextExercise:blocks[0].exercises[0]});
+    if(warmup.length||rampup.length)timeline.push({kind:'transition',section:'main',seconds:3,label:rampup.length?'Ramp-up complete':'Warm-up complete',nextExercise:blocks[0].exercises[0]});
     blocks.forEach((block,index)=>{
       appendBlockTimeline(timeline,block,index,blocks.length);
       if(index<blocks.length-1)timeline.push({kind:'block-transition',section:'main',blockIndex:index,totalBlocks:blocks.length,seconds:workout.main.transitionSeconds,label:'Block '+(index+1)+' complete',nextExercise:blocks[index+1].exercises[0]});
     });
-    timeline.push({kind:'transition',section:'cooldown',seconds:3,label:'Main workout complete',nextExercise:cooldown[0]});
+    if(cooldown.length)timeline.push({kind:'transition',section:'cooldown',seconds:3,label:'Main workout complete',nextExercise:cooldown[0]});
     cooldown.forEach((exercise,index)=>{timeline.push(...makeGeneratedExercisePhases(exercise,'cooldown',null,index));if(index<cooldown.length-1)timeline.push({kind:'rest',section:'cooldown',seconds:workout.cooldown.restSeconds,nextExercise:cooldown[index+1]})});
-    return timeline;
+    return applyGeneratedSetupTransitions(timeline,workout);
   };
 
   window.generatedPhaseLabel=function(phase){
