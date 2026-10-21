@@ -3071,8 +3071,13 @@
     for(const section of ['warmup','rampup','cooldown']){
       const part=workout[section];
       if(!part||!Array.isArray(part.exercises)){technicalIssues.push(section+':missing');continue;}
-      for(const exercise of part.exercises)if(!generatedPhaseEligible(catalogue[exercise&&exercise.id],section,owned,difficulty))
-        technicalIssues.push(section+':ineligible:'+(exercise&&exercise.id));
+      if(generic&&!part.exercises.length)technicalIssues.push(section+':missing-exercises');
+      for(const exercise of part.exercises){
+        const source=catalogue[exercise&&exercise.id];
+        if(!generatedPhaseEligible(source,section,owned,difficulty))technicalIssues.push(section+':ineligible:'+(exercise&&exercise.id));
+        if(source&&Array.isArray(constraints.excludedImpact)&&constraints.excludedImpact.includes(source.impact))technicalIssues.push(section+':excluded-impact:'+source.id);
+        if(source&&Array.isArray(constraints.bodyPositions)&&!constraints.bodyPositions.includes(source.bodyPosition))technicalIssues.push(section+':excluded-position:'+source.id);
+      }
     }
     if(!technicalIssues.length){
       // Stored estimates must describe the resolved timeline, not an edit's stale numbers.
@@ -3201,17 +3206,27 @@
       }
       else {
         // Opt-in composers keep the established generic preparation and cool-down around their Main.
+        // Explicit family safety constraints apply to the entire session, not just Main.
+        // Filter only this family route's preparation pool; legacy no-family selection is unchanged.
+        const preparationCatalogue=Object.fromEntries(Object.entries(options.catalogue).filter(([,exercise])=>
+          (!Array.isArray(constraints.excludedImpact)||!constraints.excludedImpact.includes(exercise.impact))
+          &&(!Array.isArray(constraints.bodyPositions)||constraints.bodyPositions.includes(exercise.bodyPosition))));
         // Their durations may run a few seconds over budget, so try bounded alternatives.
         const mainExercises=result.blocks.flatMap(block=>block.exercises);
         for(let attempt=0;attempt<6;attempt++){
-          const preparation=buildPreparation(options.catalogue,budget,owned,result.blocks[0].exercises,result.generalPreparation.focus,random,mainExercises,difficulty);
-          const cooldown=buildSection(options.catalogue,'cooldown',budget.cooldown,owned,random);
+          const preparation=buildPreparation(preparationCatalogue,budget,owned,result.blocks[0].exercises,result.generalPreparation.focus,random,mainExercises,difficulty);
+          const cooldown=buildSection(preparationCatalogue,'cooldown',budget.cooldown,owned,random);
           workout=assemble({warmup:{estimatedSeconds:preparation.warmup.estimatedSeconds,restSeconds:preparation.warmup.restSeconds,exercises:preparation.warmup.exercises.map(copyExercise)},
             rampup:{estimatedSeconds:preparation.rampup.estimatedSeconds,restSeconds:preparation.rampup.restSeconds,exercises:preparation.rampup.exercises.map(copyExercise)},
             cooldown:{estimatedSeconds:cooldown.estimatedSeconds,restSeconds:cooldown.restSeconds,exercises:cooldown.exercises.map(copyExercise)}});
           applySetupPlan(workout);
           if(workout.estimatedSeconds<=duration*60)break;
         }
+      }
+      if(result.generalPreparation!=null&&['warmup','rampup','cooldown'].some(section=>!workout[section].exercises.length)){
+        reasons.push({code:'preparation-not-feasible',familyStyleId:identity.familyStyleId,
+          detail:definition.name+' cannot build its preparation and finish within the selected constraints.'});
+        excluded.push(identity.familyStyleId);continue;
       }
       // Transient constraints let edits be revalidated; they are not persisted family history.
       if(Object.keys(constraints).length)workout.familyConstraints=constraints;

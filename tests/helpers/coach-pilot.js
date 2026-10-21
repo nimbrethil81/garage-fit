@@ -1,8 +1,8 @@
 const vm = require('node:vm');
 const {loadAppContext} = require('./app-context');
 
-function pilot(storage = new Map(), programmeId = 'general-strength-4w', version = 1) {
-  const app = loadAppContext(storage, {ownIntrinsics:true});
+function pilot(storage = new Map(), programmeId = 'general-strength-4w', version = 1, options = {}) {
+  const app = loadAppContext(storage, {...options,ownIntrinsics:true});
   const run = source => vm.runInContext(source, app);
   run(`
     const pilotDef=GarageFitData.programmes[${JSON.stringify(programmeId)}][${version}];
