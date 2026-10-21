@@ -329,3 +329,26 @@ test('Coach drafts and Session Results are unaffected by a completed standalone 
   assert.deepEqual(stored.map(item => item.sessionResultId).sort(), [result.sessionResultId, standalone.sessionResultId].sort());
   assert.deepEqual(stored.find(item => item.source === 'generator'), standalone);
 });
+
+test('completed family workout records actual edited identity despite a reset picker and survives reload', async () => {
+  const h=harness();
+  h.app.selectGeneratorFamily('strength-control');
+  h.run(`Math.random=${seeded(7)}`);h.app.generateWorkout();
+  h.app.swapGeneratedExercise(0,0);
+  const workout=plain(h.run('generatorState.workout'));
+  h.app.showLanding('home');assert.equal(h.run('generatorState.workoutFamilyId'),null);
+  h.app.startStandaloneGeneratedWorkout();
+  const draft=plain(h.run('generatorState.tracker.draft()'));
+  assert.equal(draft.workoutFamilyId,workout.workoutFamilyId);assert.equal(draft.familyStyleId,workout.familyStyleId);
+  assert.equal(draft.workoutFamilyVersion,1);
+  await h.playToEnd();
+  const result=plain(await h.run('generatorState.trackedResult'));
+  assert.equal(result.workoutFamilyId,workout.workoutFamilyId);assert.equal(result.familyStyleId,workout.familyStyleId);
+  assert.deepEqual(result.plannedWork,draft.plannedWork);
+  const reopened=harness({storage:h.storage});
+  const saved=(await reopened.results())[0];assert.deepEqual(saved,result);
+  const evidence=plain((await reopened.run('GarageFitTrainingHistory.loadRecentSummary(testStore,CATALOGUE)')).summary);
+  assert.equal(evidence.sessions[0].familyStyleId,workout.familyStyleId);
+  assert.equal(evidence.families[0].workoutFamilyId,'strength-control');
+  assert.ok(!h.storage.has('gf_coach_session_draft'));
+});

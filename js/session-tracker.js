@@ -19,6 +19,14 @@
   const PERFORMED = ['completed','partial'];
   const isMissing = value => value === null || value === undefined;
   const clone = value => value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+  // Snapshot the final workout after composition/fallback/edits, never a UI selection.
+  function identityFromWorkout(workout) {
+    const identity = {};
+    ['workoutFamilyId','workoutFamilyVersion','familyStyleId'].forEach(key => {
+      if (!isMissing(workout[key])) identity[key] = workout[key];
+    });
+    return identity;
+  }
 
   // ---- Occurrence identity ----
   // Derived only from timeline structure (section, block, round/set/cycle, position, side),
@@ -144,6 +152,7 @@
       sessionRole: origin.sessionRole,
       generatedAt: origin.generatedAt
     };
+    Object.assign(link, identityFromWorkout(origin));
     if (origin.overrides) link.overrides = clone(origin.overrides);
     Object.keys(link).forEach(key => { if (link[key] === undefined) delete link[key]; });
     const plannedWork = clone(resumed ? resumed.plannedWork || [] : options.plannedWork || []);
@@ -404,5 +413,5 @@
     return createTracker(Object.assign({}, options, {draft}));
   }
 
-  root.GarageFitSessionTracker = { occurrenceIdFor, plannedWorkFromTimeline, timedOutcome, createTracker, resumeTracker };
+  root.GarageFitSessionTracker = { identityFromWorkout, occurrenceIdFor, plannedWorkFromTimeline, timedOutcome, createTracker, resumeTracker };
 })(typeof window !== 'undefined' ? window : globalThis);

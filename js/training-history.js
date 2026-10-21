@@ -6,6 +6,12 @@
   const positive = value => Number.isFinite(value) && value > 0;
   const when = result => result.endedAt || result.startedAt || null;
   const measure = value => ({value: known(value) ? value : null, confidence: known(value) ? 'confirmed' : 'unknown'});
+  const RECENT_SESSION_LIMIT = 12, MAX_RECENT_SESSION_LIMIT = 64;
+  function recentLimit(limit = RECENT_SESSION_LIMIT) {
+    if (!Number.isInteger(limit) || limit < 1 || limit > MAX_RECENT_SESSION_LIMIT)
+      throw new Error('Recent training evidence limit must be an integer from 1 to '+MAX_RECENT_SESSION_LIMIT+'.');
+    return limit;
+  }
   // Protocol conditions that must match for two performances to be comparable. An unlisted
   // protocol is never comparable. Kept in step with GarageFitGenerator.PROTOCOL_SHAPES by tests.
   const protocolFields = Object.freeze({
@@ -46,6 +52,8 @@
       : ['timed','unilateral-timed'].includes(prescription.type) ? 'time' : null);
     return {
       sessionResultId: result.sessionResultId, source: result.source, programmeInstanceId: result.programmeInstanceId || null,
+      workoutFamilyId: result.workoutFamilyId || null, workoutFamilyVersion: result.workoutFamilyVersion || null,
+      familyStyleId: result.familyStyleId || null,
       occurredAt: when(result), occurrenceId: outcome.occurrenceId,
       exerciseId: exerciseId || null, requirementId: planned && planned.requirementId || null,
       section: planned && planned.section || null, status: outcome.status,
@@ -181,6 +189,54 @@
     };
     return Object.freeze({
       sessions, performances,
+      // Bounded context, newest first, across all sources/instances by default. Counts
+      // describe recency, not a recommendation to prohibit controlled repetition.
+      // Actual numeric measures remain on performances; exposure is only a labelled
+      // completion/fraction estimate and must never be read as measured reps or load.
+      recentTrainingSummary(options = {}) {
+        const limit = recentLimit(options.limit);
+        // Existing progress can still display factual unmeasured outcomes from an
+        // interrupted, non-meaningful run. Such runs never enter variety/balance dose.
+        const eligible = new Set(sessions.filter(item => ['completed','partial'].includes(item.finalStatus)).map(item => item.sessionResultId));
+        const work = filter(performances, {...options, sections: options.sections || ['main',null]})
+          .filter(item => eligible.has(item.sessionResultId) && (item.exposure.value > 0 || item.exposure.confidence === 'unknown'));
+        const ids = new Set(work.map(item => item.sessionResultId));
+        const selected = recent(filter(sessions, options, true).filter(item => when(item) && ids.has(item.sessionResultId)), {limit});
+        const evidence = selected.map((session, recency) => ({
+          sessionResultId: session.sessionResultId, source: session.source,
+          programmeInstanceId: session.programmeInstanceId || null, occurredAt: when(session), recency,
+          workoutFamilyId: session.workoutFamilyId || null, workoutFamilyVersion: session.workoutFamilyVersion || null,
+          familyStyleId: session.familyStyleId || null,
+          // Self-reported effort is not inferred from family, difficulty, pacing or load.
+          intensity: typeof session.feedback?.effort === 'string'
+            ? {value: session.feedback.effort, confidence: 'reported'} : {value: null, confidence: 'unknown'},
+          performances: work.filter(item => item.sessionResultId === session.sessionResultId)
+        }));
+        const dimensions = {families: [], styles: [], exercises: [], patterns: [], protocols: []};
+        const add = (dimension, key, session, matching, identity = {}) => {
+          if (!key) return;
+          let entry = dimension.find(item => item.key === key);
+          if (!entry) { entry = {key, ...identity, sessionCount: 0, lastOccurredAt: session.occurredAt,
+            recency: session.recency, sessionResultIds: [], ...(matching ? {performances: []} : {})}; dimension.push(entry); }
+          entry.sessionCount++; entry.sessionResultIds.push(session.sessionResultId);
+          if (matching) entry.performances.push(...matching);
+        };
+        evidence.forEach(session => {
+          const familyKey = session.workoutFamilyId && session.workoutFamilyId+'@'+session.workoutFamilyVersion;
+          const identity = {workoutFamilyId: session.workoutFamilyId, workoutFamilyVersion: session.workoutFamilyVersion};
+          add(dimensions.families, familyKey, session, null, identity);
+          add(dimensions.styles, familyKey && familyKey+'/'+session.familyStyleId, session, null, {...identity, familyStyleId: session.familyStyleId});
+          for (const [dimension, values, matches] of [
+            [dimensions.exercises, session.performances.map(item => item.exerciseId), (item,key) => item.exerciseId === key],
+            [dimensions.patterns, session.performances.flatMap(item => item.patterns), (item,key) => item.patterns.includes(key)],
+            [dimensions.protocols, session.performances.map(item => item.protocol), (item,key) => item.protocol === key]
+          ]) new Set(values.filter(Boolean)).forEach(key => add(dimension,key,session,session.performances.filter(item => matches(item,key))));
+        });
+        for (const dimension of [dimensions.exercises,dimensions.patterns,dimensions.protocols]) dimension.forEach(entry => {
+          entry.exposure = sumExposure(entry.performances); entry.occurrenceCount = entry.performances.length; delete entry.performances;
+        });
+        return Model.deepFreeze({limit, sessions: evidence, ...dimensions});
+      },
       sessionsForProgramme(programmeInstanceId, options = {}) { return filter(sessions, {...options, programmeInstanceId, includeStandalone: false}, true); },
       recentPerformedSessions(options = {}) {
         const ids = new Set(filter(performances, options).filter(item => item.exposure.value > 0 || item.exposure.confidence === 'unknown').map(item => item.sessionResultId));
@@ -220,5 +276,14 @@
     });
   }
 
-  root.GarageFitTrainingHistory = {PROTOCOL_CONDITION_FIELDS: protocolFields, createHistory, comparePerformances, comparePerformanceEvidence, sumExposure};
+  // Read at most N matching immutable results after metadata filtering. Old index
+  // metadata is rebuildable in the existing store; this creates no history cache.
+  async function loadRecentSummary(store, catalogue, options = {}) {
+    const limit = recentLimit(options.limit);
+    const query = await store.listSessionResults({sources: ['coach','generator','fixed'], performedOnly: true,
+      limit, candidateLimit: limit, ...(options.since ? {since: options.since} : {}), ...(options.until ? {until: options.until} : {})});
+    return {summary: createHistory(query.results,catalogue).recentTrainingSummary({...options,limit}), errors: query.errors};
+  }
+  root.GarageFitTrainingHistory = {PROTOCOL_CONDITION_FIELDS: protocolFields, RECENT_SESSION_LIMIT, MAX_RECENT_SESSION_LIMIT,
+    createHistory, loadRecentSummary, comparePerformances, comparePerformanceEvidence, sumExposure};
 })(typeof window !== 'undefined' ? window : globalThis);

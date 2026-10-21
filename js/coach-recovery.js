@@ -70,7 +70,8 @@
             result = await tracker.exitEarly({sessionResultId: resultId});
           }
           if (result.source !== 'coach' || result.programmeInstanceId !== draft.programmeInstanceId
-            || result.workoutId !== draft.workoutId || result.prescriptionId !== draft.prescriptionId) {
+            || result.workoutId !== draft.workoutId || result.prescriptionId !== draft.prescriptionId
+            || !Model.sameRecord(root.GarageFitSessionTracker.identityFromWorkout(result), root.GarageFitSessionTracker.identityFromWorkout(draft))) {
             throw new Model.CoachError('session-result-conflict', 'Interrupted session conflicts with saved evidence. Both records have been retained.', {sessionResultId: resultId});
           }
           await persist(result);

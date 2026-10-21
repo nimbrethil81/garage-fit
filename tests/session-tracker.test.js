@@ -525,3 +525,24 @@ test('controlled early exit from the tracked player finalises partial or abandon
     assert.equal((await store.listSessionResults()).results.length, 0, 'history stays dormant without recordResults');
   }
 });
+
+test('actual family identity survives durable checkpoints, resume and immutable idempotent result save', async () => {
+  const identity={workoutFamilyId:'strength-control',workoutFamilyVersion:1,familyStyleId:'paired-sets'};
+  const options={...identity,source:'generator',store:{saveSessionDraft:async()=>{}},clock:clock()};
+  const snapshot=Tracker.createTracker(options); options.familyStyleId='changed-after-construction';
+  await snapshot.start();assert.equal(snapshot.draft().familyStyleId,identity.familyStyleId);
+  const h=await started({...identity,sessionRole:'rotation-a',recordResults:true});
+  await h.tracker.recordDone(MAIN_IDS[0]);
+  const saved=await h.store.loadSessionDraft();
+  assert.deepEqual(Tracker.identityFromWorkout(saved),identity);
+  const resumed=await Tracker.resumeTracker({store:GarageFitCoachStore.createStore(h.storage),clock:clock(),recordResults:true});
+  const result=await resumed.complete();
+  assert.deepEqual(Tracker.identityFromWorkout(result),identity);
+  assert.equal(result.sessionRole,'rotation-a');
+  assert.deepEqual(result.plannedWork,saved.plannedWork);
+  assert.deepEqual(result.performedWork,saved.occurrenceOutcomes);
+  const reloaded=await GarageFitCoachStore.createStore(h.storage).getSessionResult(result.sessionResultId);
+  assert.deepEqual(reloaded,result);
+  assert.equal((await h.store.saveSessionResult(reloaded)).status,'unchanged');
+  assert.ok(Object.isFrozen(result));
+});

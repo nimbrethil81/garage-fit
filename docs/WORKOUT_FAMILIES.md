@@ -70,8 +70,64 @@ shared validation gate (see the final section).
   owns final programming quality, safe fallback and edit/swap integrity. A manual
   family choice must not silently cross families.
 - Existing published Coach definitions, saved preferences and historical records
-  remain unchanged. Persistent family identity/history is a later contract; this
-  module neither stores identities nor relabels legacy sessions.
+  remain unchanged. This module neither stores identities nor relabels legacy
+  sessions; execution records carry the resolved identity described below.
+
+## Completed-session identity and performed history
+
+Session Drafts and Results accept an optional complete tuple of `workoutFamilyId`,
+`workoutFamilyVersion` (positive integer) and `familyStyleId`, independent of
+`sessionRole`. The player and Coach controller snapshot the **actual workout** at
+tracker construction, after edits and same-family fallback. Picker state,
+requested styles, roles and legacy focus never supply historical identity. The
+tuple survives checkpoints, resume, immutable result writes and interrupted Coach
+recovery. A conflicting recovery identity retains both records and reports the
+conflict. Stored IDs/versions do not require today's registry to load them.
+
+These are optional fields in schema v1: existing records need no migration and
+remain unknown. Standalone generated drafts remain ephemeral: completed results
+retain identity across reload; an abandoned/reloaded unfinished standalone run
+does not create history or displace the durable Coach draft.
+
+`GarageFitTrainingHistory.loadRecentSummary(store, catalogue, {limit, since,
+until})` queries the existing Session Results store across Coach programme
+instances, standalone Generator and fixed records. Default limit is 12, maximum
+64 (minimum 1); date bounds are optional inclusive ISO timestamps. Metadata
+filters completed/partial sessions with recorded performed work before reading at
+most `limit` results. The existing index can rebuild optional `hasPerformedWork`
+metadata once for old indexes; no extra storage key or history cache is created.
+The read returns `{summary, errors}` so damaged evidence stays visible to callers.
+Damaged candidates consume the read budget and may shorten the summary.
+
+`createHistory(results, catalogue).recentTrainingSummary(options)` is the pure
+equivalent. Its frozen `sessions` are newest first, with source, instance, time,
+versioned family/style, zero-based recency, reported effort (otherwise unknown)
+and occurrence performances. `families`, `styles`, `exercises`, `patterns` and
+`protocols` contain session counts, latest time/recency and supporting result IDs;
+the latter three also contain occurrence counts and confidence-labelled exposure.
+These are inputs for future similarity/rolling-balance policy, not repetition
+bans or a fitness score. No scheduling or new published Coach family policy is
+enabled here.
+
+The default view includes Main work and reliable older performed occurrences
+whose section is unknown; preparation alone never establishes family exposure.
+At most the bounded candidate results are considered, so records containing only
+preparation may yield fewer summary sessions. Measured seconds/reps/load remain
+on each occurrence's `sets`; completion exposure is not measured reps or load.
+Timed partials retain actual seconds and their known fraction; note-only partials
+retain unknown amount. Skipped/planned-only, abandoned and external records create
+no summary dose. The existing progress view can still display factual unmeasured
+outcomes from an interrupted non-meaningful run without crediting a session.
+Missing family/style/protocol/intensity remains unknown. Fixed Session
+Results can supply catalogue patterns without acquiring a family; legacy fixed
+AMRAP totals are not imported as guessed exercise doses. Undated results do not
+establish recent-session recency.
+
+Coach exposes the same query through `controller.trainingEvidence(options)`.
+This contextual API does not join the programme-owned results passed to released
+planning, completion-credit or anchor progression. Programme progress and rebuild
+remain scoped to the owning instance. No raw results are copied into Programme
+State, and the Generator's existing `gf_generator_history` behaviour is unchanged.
 
 ## Family-scoped exercise membership and prescriptions
 
