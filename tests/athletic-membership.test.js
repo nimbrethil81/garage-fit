@@ -9,7 +9,8 @@ const F=GarageFitWorkoutFamilies,G=GarageFitGenerator,C=GarageFitData.exercises;
 const copy=value=>JSON.parse(JSON.stringify(value));
 const FAMILY='athletic-movement',ROLES=['footwork','control','integrated'];
 const context=(role,extra={})=>({workoutFamilyId:FAMILY,workoutFamilyVersion:1,role,...extra});
-// Approved A1-A13 treatment; A9 and A13 are deferred and must stay absent.
+// Approved A1-A13 treatment (v1): A9 and A13 were deferred and v1 membership never authorises them;
+// membership v2 (#255) authorises them for composition v4.
 const NEW=['lateral-shuffle','single-leg-balance-reach','forward-back-line-steps','quarter-turn-pivot-steps','lateral-step-and-stick','grapevine-cross-steps'];
 const ADAPTED=['bear-crawl'];
 const REUSED=['skater-jumps','reverse-lunge-knee-drive','alternating-lateral-lunge','knee-to-opposite-elbow'];
@@ -19,7 +20,8 @@ const ROLE_TABLE={'lateral-shuffle':['footwork','integrated'],'skater-jumps':['i
   'quarter-turn-pivot-steps':['footwork','control'],'lateral-step-and-stick':['footwork','control'],
   'alternating-lateral-lunge':['integrated'],'grapevine-cross-steps':['footwork','integrated'],'knee-to-opposite-elbow':['control']};
 const NEEDS_ROOM=['lateral-shuffle','skater-jumps','bear-crawl','grapevine-cross-steps'];
-const DEFERRED=['forward-backward-acceleration-and-stop','forward-hop-and-stick','forward-backward-acceleration-stop','forward-hop-stick'];
+const DEFERRED=['forward-back-acceleration-and-stop','forward-hop-and-stick'];
+const V1ROLE=context('integrated');
 const ROOM={movementRoom:true},HARD={excludedImpact:[],movementRoom:true};
 const eligible=(role,difficulty='normal',extra={},owned=[])=>Object.values(C)
   .filter(exercise=>G.generatedPhaseEligible(exercise,'main',owned,difficulty,context(role,extra))).map(exercise=>exercise.id);
@@ -45,8 +47,8 @@ test('exactly six new unique Athletic entries are family-only, bodyweight, low-l
   assert.equal(Object.keys(C).filter(id=>NEW.includes(id)).length,6);
   assert.equal(C['single-leg-balance-reach'].sidedness,'per-side');
   assert.deepEqual(C['grapevine-cross-steps'].timedCues.map(cue=>cue.text),['Change direction']);
-  for(const id of DEFERRED)assert.equal(C[id],undefined,id+' is deferred');
-  assert.equal(Object.keys(C).filter(id=>/acceleration|forward-hop/.test(id)).length,0);
+  // The catalogue now defines A9/A13 (#255) but published v1 membership still never authorises them.
+  for(const id of DEFERRED){assert.ok(C[id],id);for(const role of ROLES)assert.equal(F.getMembership(context(role),id),null,id+' is not in v1');}
 });
 
 test('the five adapted or reused identities remain single canonical entries with unchanged flags',()=>{
@@ -164,7 +166,7 @@ test('ordinary Generator, warm-up and Main eligibility and no-family output are 
   const w=G.generate({duration:10,focus:'strength',bodyFocus:'upper',difficulty:'easy',equipment:[],catalogue:C,
     random:()=>{draws++;seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}});delete w.id;
   assert.equal(draws,68);
-  assert.equal(createHash('sha256').update(JSON.stringify(w)).digest('hex'),'931adac57e2aebebcce46059fd27536c0620fc2edfbec2f1ac00cc2c5b3fceb7');
+  assert.equal(createHash('sha256').update(JSON.stringify(w)).digest('hex'),'f6b2266805a3e7bd97e2e733105240fcdb9ccdaa5ee43c611a04a79d7d183c5f');
   const ids=new Set();
   for(let i=0;i<60;i++){
     let s=i+1;const workout=G.generate({duration:[10,20,30,45][i%4],equipment:['trx','dumbbells'],catalogue:C,random:()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296;}});
@@ -172,4 +174,76 @@ test('ordinary Generator, warm-up and Main eligibility and no-family output are 
       for(const exercise of section.exercises||[])ids.add(exercise.id);
   }
   assert.deepEqual(NEW.filter(id=>ids.has(id)),[]);
+});
+
+// ---- #255: eleven further identities and three shared existing ones --------------------------------
+const ADDED=['in-in-out-out-steps','lateral-line-steps','split-stance-step-switches','clock-step-balance','single-leg-hip-hinge-reach',
+  'lateral-lunge-to-balance','180-degree-step-turns','lateral-shuffle-and-stop','forward-back-acceleration-and-stop','forward-hop-and-stick','lateral-bound-and-stick'];
+const SHARED_FLAGGED=['in-in-out-out-steps','single-leg-hip-hinge-reach','lateral-lunge-to-balance'];
+const V4=(role,extra={})=>({workoutFamilyId:FAMILY,workoutFamilyVersion:4,role,...extra});
+test('#255 catalogue: eleven distinct canonical definitions, three shared Main flags, unchanged reused identities',()=>{
+  assert.deepEqual(G.validateCatalogue(C),[]);
+  assert.equal(new Set(ADDED).size,11);
+  const names=Object.values(C).map(ex=>ex.name.toLowerCase());assert.equal(new Set(names).size,names.length,'no duplicate display names');
+  for(const id of ADDED){
+    const ex=C[id];assert.ok(ex,id);assert.deepEqual(ex.equipment,[],id);assert.equal(ex.load,null,id);
+    assert.ok(ex.instruction.length<=180&&ex.instruction.split(/(?<=\.)\s+/).length===1,id);
+    assert.equal(ex.prescription.type.startsWith('unilateral'),ex.sidedness==='per-side',id);
+    assert.equal(ex.warmup||ex.rampup||ex.cooldown,false,id);
+    // Only the three shared drills carry Main flags; the rest are authorised solely by Athletic membership v2.
+    assert.equal(!!(ex.generator&&ex.main),SHARED_FLAGGED.includes(id),id);
+    assert.ok(F.getMembership(V4('footwork'),id)||F.getMembership(V4('control'),id)||F.getMembership(V4('integrated'),id),id+' has a role');
+  }
+  // Landings are high impact and brief by default; every other addition is low or medium impact.
+  assert.deepEqual(ADDED.filter(id=>C[id].impact==='high').sort(),['forward-hop-and-stick','lateral-bound-and-stick']);
+  assert.equal(C['forward-hop-and-stick'].sidedness,'per-side');assert.equal(C['lateral-bound-and-stick'].sidedness,'alternating');
+  assert.ok(C['forward-hop-and-stick'].prescription.value<=15&&C['lateral-bound-and-stick'].prescription.value<=15);
+  // Distinctions the issue asks to preserve: stepping switch vs plyometric switch kick; clock-step vs reach; bound vs skater jump.
+  assert.equal(C['split-stance-step-switches'].impact,'low');assert.equal(C['switch-kicks'].impact,'high');
+  assert.deepEqual(C['clock-step-balance'].movementPlanes.slice().sort(),['frontal','sagittal','transverse']);
+  assert.deepEqual(C['single-leg-balance-reach'].movementPlanes.slice().sort(),['sagittal','transverse']);
+  assert.deepEqual(C['single-leg-hip-hinge-reach'].patterns,['hinge']);assert.deepEqual(C['single-leg-balance-reach'].patterns,[]);
+  // The three reused identities keep their single canonical entries and flags.
+  const flags=id=>['generator','main','warmup','rampup','cooldown'].filter(key=>C[id][key]);
+  assert.deepEqual(flags('fast-feet'),['generator','main']);
+  assert.deepEqual(flags('side-step-touches'),['warmup']);
+  assert.deepEqual(flags('cossack-squat'),['generator','main','rampup']);
+  // Shared with the global flags, the new Strength/Conditioning-suitable drills have the intrinsic descriptors their roles need.
+  assert.deepEqual([C['single-leg-hip-hinge-reach'].difficulty,C['lateral-lunge-to-balance'].difficulty,C['in-in-out-out-steps'].difficulty],['moderate','moderate','easy']);
+});
+
+test('#255 membership v2 table: roles, room, impact, minimum difficulty; v1 untouched',()=>{
+  const table={'in-in-out-out-steps':[['footwork'],false,undefined],'lateral-line-steps':[['footwork'],false,undefined],
+    'split-stance-step-switches':[['footwork','control'],false,undefined],'clock-step-balance':[['control'],false,undefined],
+    'single-leg-hip-hinge-reach':[['control'],false,'normal'],'lateral-lunge-to-balance':[['control','integrated'],false,'normal'],
+    '180-degree-step-turns':[['footwork'],false,'normal'],'lateral-shuffle-and-stop':[['footwork','integrated'],true,'normal'],
+    'forward-back-acceleration-and-stop':[['footwork','integrated'],true,'normal'],'forward-hop-and-stick':[['integrated'],true,'hard'],
+    'lateral-bound-and-stick':[['integrated'],true,'hard'],'fast-feet':[['footwork'],false,undefined],'side-step-touches':[['control'],false,undefined],
+    'cossack-squat':[['integrated'],false,undefined]};
+  for(const [id,[roles,room,minimum]] of Object.entries(table)) {
+    assert.deepEqual(ROLES.filter(role=>F.getMembership(V4(role),id)),roles,id);
+    for(const role of roles){const entry=F.getMembership(V4(role),id);assert.equal(entry.requiresMovementRoom,room||undefined,id);assert.equal(entry.minimumDifficulty,minimum,id);
+      assert.deepEqual(entry.protocols,['rounds','timed_intervals'],id);}
+  }
+  // v2 contains every v1 entry unchanged, and v1 knows none of the additions.
+  for(const id of ALL)for(const role of ROLES){const one=F.getMembership(context(role),id);if(one)assert.deepEqual(F.getMembership(V4(role),id),one,id+' '+role);}
+  for(const id of Object.keys(table))for(const role of ROLES)assert.equal(F.getMembership(context(role),id),null,id);
+  // Landing prescriptions are short and quality-led (unilateral where single-leg).
+  assert.deepEqual(copy(F.getMembership(V4('integrated'),'forward-hop-and-stick').prescriptions),[{type:'unilateral-timed',minValue:10,maxValue:15}]);
+  assert.deepEqual(copy(F.getMembership(V4('integrated'),'lateral-bound-and-stick').prescriptions),[{type:'timed',minValue:10,maxValue:15}]);
+  assert.deepEqual(copy(F.getMembership(V1ROLE,'skater-jumps').prescriptions),[{type:'timed',minValue:10,maxValue:30}],'v1 jump bounds are as released');
+});
+
+test('#255 shared Main drills are reachable in the Generator by bounded deterministic seeds',()=>{
+  const rng=seed=>()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
+  const reaches=(id,focus,duration,seed)=>G.generate({duration,focus,equipment:[],catalogue:C,random:rng(seed)}).main.blocks.some(b=>b.exercises.some(ex=>ex.id===id));
+  assert.ok(reaches('single-leg-hip-hinge-reach','strength',10,14));
+  assert.ok(reaches('lateral-lunge-to-balance','strength',20,13));
+  assert.ok(reaches('in-in-out-out-steps','cardio',30,13));
+  // Family-only identities are never offered by the ordinary Generator, even for generous kits.
+  const kit=['dumbbells','kettlebell','pullup-bar','trx','barbell','bench','box','bands'];
+  for(let seed=1;seed<=12;seed++)for(const focus of ['strength','balanced','cardio']) {
+    const w=G.generate({duration:30,focus,equipment:kit,catalogue:C,random:rng(seed)});
+    for(const ex of w.main.blocks.flatMap(b=>b.exercises))assert.ok(!ADDED.filter(id=>!SHARED_FLAGGED.includes(id)).includes(ex.id),ex.id);
+  }
 });

@@ -5,8 +5,9 @@
   // (balance and controlled single-leg or coordination work) and `integrated` (whole-body
   // movement that joins footwork and control). Membership grants family Main eligibility only;
   // equipment, impact, difficulty, position and protocol safety are still enforced by the
-  // Generator, and no catalogue entry or phase flag is changed. A9 (forward-backward
-  // acceleration and stop) and A13 (forward hop and stick) are deferred and deliberately absent.
+  // Generator, and no catalogue entry or phase flag is changed. A9 (forward-back
+  // acceleration and stop) and A13 (forward hop and stick) were deferred in v1 and are absent there;
+  // membership v2 (#255) authorises them explicitly for composition v4.
   // Drills that travel are marked `requiresMovementRoom` and are never assumed safe in a small
   // space; the rest are in-place and ordinarily viable. High-impact skater jumps stay excluded
   // unless a Hard-difficulty request explicitly lifts the default high-impact exclusion.
@@ -36,19 +37,49 @@
   ];
   const catalogue = root.GarageFitData && root.GarageFitData.exercises;
   if (!catalogue) throw new Error('Load data/exercises.js before data/athletic-membership.js.');
-  const entries = [];
-  for (const [exerciseId, roles, requiresMovementRoom] of MEMBERS) {
-    const exercise = catalogue[exerciseId];
-    if (!exercise) throw new Error('Unknown Athletic exercise: ' + exerciseId);
-    const side = exercise.sidedness === 'per-side' ? 'per-side' : 'bilateral';
-    const timed = exercise.impact === 'high' ? JUMP_TIMED : TIMED[side];
-    // Canonical rep-based drills keep reps as their default; reps are offered nowhere else.
-    const prescriptions = exercise.prescription.type.includes('reps') ? [REPS[side], timed] : [timed];
-    for (const role of roles) {
-      const entry = {exerciseId, role, protocols: PROTOCOLS.slice(), prescriptions: JSON.parse(JSON.stringify(prescriptions))};
-      if (requiresMovementRoom) entry.requiresMovementRoom = true;
-      entries.push(entry);
+  // Membership v2 (#255) extends v1 without altering it: eleven further movements and three existing
+  // identities shared from elsewhere in the catalogue. Fourth item: lowest workout difficulty the
+  // entry suits (`normal` excludes Easy; `hard` is Hard only, and high impact still needs the existing
+  // Hard opt-in). Roles are only those the v4 composer actually draws on: hops and bounds are
+  // integrated-only (control blocks are gentle balance circuits), and high impact is never a block edge.
+  // [exerciseId, roles, requiresMovementRoom, minimumDifficulty]
+  const ADDITIONS = [
+    ['in-in-out-out-steps', ['footwork'], false],
+    ['lateral-line-steps', ['footwork'], false],
+    ['split-stance-step-switches', ['footwork', 'control'], false],
+    ['clock-step-balance', ['control'], false],
+    ['single-leg-hip-hinge-reach', ['control'], false, 'normal'],
+    ['lateral-lunge-to-balance', ['control', 'integrated'], false, 'normal'],
+    ['180-degree-step-turns', ['footwork'], false, 'normal'],
+    ['lateral-shuffle-and-stop', ['footwork', 'integrated'], true, 'normal'],
+    ['forward-back-acceleration-and-stop', ['footwork', 'integrated'], true, 'normal'],
+    ['forward-hop-and-stick', ['integrated'], true, 'hard'],
+    ['lateral-bound-and-stick', ['integrated'], true, 'hard'],
+    ['fast-feet', ['footwork'], false],                 // reused: light, in-place conditioning footwork
+    ['side-step-touches', ['control'], false],          // reused: light stepping and controlled recovery (finish, partner)
+    ['cossack-squat', ['integrated'], false]            // reused: selective in-place lateral control
+  ];
+  function build(members, version) {
+    const entries = [];
+    for (const [exerciseId, roles, requiresMovementRoom, minimumDifficulty] of members) {
+      const exercise = catalogue[exerciseId];
+      if (!exercise) throw new Error('Unknown Athletic exercise: ' + exerciseId);
+      const side = exercise.sidedness === 'per-side' ? 'per-side' : 'bilateral';
+      // New landings (v2 additions) are short, quality-led efforts (at most fifteen seconds); every v1 entry,
+      // including skater jumps, keeps its released bounds in both tables.
+      const jump = version > 1 && ADDITIONS.some(item => item[0] === exerciseId) && exercise.impact === 'high' ? {type: side === 'per-side' ? 'unilateral-timed' : 'timed', minValue: 10, maxValue: 15} : JUMP_TIMED;
+      const timed = exercise.impact === 'high' ? jump : TIMED[side];
+      // Canonical rep-based drills keep reps as their default; reps are offered nowhere else.
+      const prescriptions = exercise.prescription.type.includes('reps') ? [REPS[side], timed] : [timed];
+      for (const role of roles) {
+        const entry = {exerciseId, role, protocols: PROTOCOLS.slice(), prescriptions: JSON.parse(JSON.stringify(prescriptions))};
+        if (requiresMovementRoom) entry.requiresMovementRoom = true;
+        if (minimumDifficulty) entry.minimumDifficulty = minimumDifficulty;
+        entries.push(entry);
+      }
     }
+    return entries;
   }
-  families.registerMembershipPolicy({workoutFamilyId: 'athletic-movement', workoutFamilyVersion: 1, entries});
+  families.registerMembershipPolicy({workoutFamilyId: 'athletic-movement', workoutFamilyVersion: 1, entries: build(MEMBERS, 1)});
+  families.registerMembershipPolicy({workoutFamilyId: 'athletic-movement', workoutFamilyVersion: 4, entries: build(MEMBERS.concat(ADDITIONS), 2)});
 })(typeof window !== 'undefined' ? window : globalThis);

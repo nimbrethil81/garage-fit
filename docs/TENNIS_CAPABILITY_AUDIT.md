@@ -7,7 +7,10 @@ performance. This document owns the conservative editorial limits and catalogue
 gaps. [The Coach contract](COACH_ENGINE.md#sport-capability-coverage) owns the
 coverage API and programme policy.
 
-New Tennis v7 programmes use mapping v3; saved v6 programmes retain mapping v2 and
+New Tennis v8 programmes (#255) use mapping v4, which equals v3 plus single-leg hip hinge reach (`lower-body`
+`strength-stability`) and lateral lunge to balance (`lateral-control`, `strength-stability`). Controlled single-step
+loading proves neither braking nor power; travelling shuffle/stop, acceleration/stop and landing drills remain
+unmapped. Saved v7 programmes retain mapping v3; saved v6 programmes retain mapping v2 and
 saved v1–v5 programmes retain mapping v1. Mapping v3 equals v2 plus reviewed ring
 entries: ring rows and ring press-ups as general `push-pull`, and ring face pulls as
 `shoulder-support`. Other ring entries stay unmapped (see

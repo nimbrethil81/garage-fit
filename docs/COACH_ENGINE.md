@@ -583,7 +583,7 @@ a plan no family can build fails visibly with each family's reasons.
 **Family versions (#244).** Both released definitions name every family at version 1 and are not
 edited. The plan composes each family at its current published version
 (`GarageFitData.workoutFamilyCurrentVersions`, never older than the definition's), so existing v1
-and v2 instances plan Athletic Movement v3 automatically with no new choice; other families are
+and v2 instances plan Athletic Movement v4 automatically with no new choice; other families are
 still version 1. Balance, variety and recency compare families by id, so any Athletic version's
 session earn the same effect and recency; results keep their recorded version. `tests/general-fitness.test.js`
 covers lifecycle, sequences at 2/3/5 sessions per week, cross-source context, recovery,
@@ -973,6 +973,7 @@ finishing the current programme and explicitly starting a new one.
 | --- | --- | --- | --- |
 | General Strength v2 | push: ring press-up; pull: ring row, ring pull-up, ring chin-up | Generic Main filler (any eligible ring entry) | v1 anchors and alternatives unchanged; no ring alternatives |
 | Build Arms v1 | flexion: ring biceps curl; extension: ring triceps extension (via `directElbowAction`) | Generic maintenance/filler | Ring curl/extension available immediately as temporary substitutes |
+| Tennis v8 (#255) | as v7 | Mapping v4 adds the shared single-leg hip hinge reach (lower body) and lateral lunge to balance (lateral control, lower body); travelling and landing Athletic drills stay unmapped and family-only | v1–v7 programmes and mappings unchanged |
 | Tennis v7 | push: ring press-up; pull: ring row | Ring face pull as `upper-body` shoulder support (mapping v3); other ring entries are unmapped generic filler | v1–v6 anchors, alternatives and mappings unchanged |
 
 Ring IDs are appended after the released choices, so owners of other suitable kit

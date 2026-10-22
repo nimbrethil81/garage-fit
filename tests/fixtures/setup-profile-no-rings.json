@@ -1,5 +1,5 @@
 {
-  "baseline": "d454da9 (Balanced/Cardio entries re-pinned for #221 AMRAP selection; dumbbells+bench 20 Cardio re-pinned for #212)",
+  "baseline": "d454da9 (Balanced/Cardio entries re-pinned for #221 AMRAP selection; dumbbells+bench 20 Cardio re-pinned for #212; re-pinned for #255 shared catalogue additions; re-pinned for #255 shared catalogue additions)",
   "fixtures": [
     {
       "equipment": [],
@@ -15,7 +15,7 @@
       "focus": "strength",
       "seed": 1121,
       "draws": 63,
-      "hash": "97da635c1eb4f18154db65e26dba492923e2260c41d79f05441b4cf27bdeddb2"
+      "hash": "3aee59b8208ae20ca185b0222c156a932e226fd40f5c0ccda863d6a374d7b56b"
     },
     {
       "equipment": [],
@@ -31,7 +31,7 @@
       "focus": "balanced",
       "seed": 1621,
       "draws": 90,
-      "hash": "f7a2fdb96eab589da4ab264eea359e827cc229c5e5580c9c57ba70923f4a3271"
+      "hash": "51e8b4a8dac58c7ed2a45a8ccd01c1530028e96116a555b5b18630994230c8e2"
     },
     {
       "equipment": [],
@@ -39,7 +39,7 @@
       "focus": "strength",
       "seed": 1621,
       "draws": 85,
-      "hash": "e1588976d1c535544d90bc1b842e60ceae7003a4ad8aa0f0202a7201d0a6c6e0"
+      "hash": "143fd203a8f9c0894a55f0cf0290836a9a7c92f425da63a46d840411ff3c4311"
     },
     {
       "equipment": [],
@@ -47,7 +47,7 @@
       "focus": "cardio",
       "seed": 1619,
       "draws": 86,
-      "hash": "0c75d5c52afb6daaa0017064829f6b36c52984e1385c8dd4aa5c5983ebda5a1c"
+      "hash": "ded49a7afe645bae51d7a1b93e8516604ece1cc99a15fdc07f37ef38479145ff"
     },
     {
       "equipment": [],
@@ -55,7 +55,7 @@
       "focus": "balanced",
       "seed": 2121,
       "draws": 110,
-      "hash": "34f5859556ba5fbfb78787e879e17d99f8d821b4bda9da3983fe86321d351007"
+      "hash": "ae0f227b07272a225f39379fe8944e42a536c9361fe8de570b50e3bd09fee802"
     },
     {
       "equipment": [],
@@ -63,7 +63,7 @@
       "focus": "strength",
       "seed": 2121,
       "draws": 102,
-      "hash": "62639c874a4da89ccb43d6e841e7b6126e079e3541d04b07b22f9d79f9896f8a"
+      "hash": "ac28c619684fa1a68cc0b81f53ff5a67c8f8fd0f81d2d97271f8e1461176dee3"
     },
     {
       "equipment": [],
@@ -71,7 +71,7 @@
       "focus": "cardio",
       "seed": 2119,
       "draws": 100,
-      "hash": "9aeb10734e79c4e05787327b295f8596a4ac780c39f7a8f7fdb6748f0091a3b7"
+      "hash": "df769ac2a00de1f3ba1a2b0a4b240a98bf6eae8b980785cab831020de978e372"
     },
     {
       "equipment": [],
@@ -79,7 +79,7 @@
       "focus": "balanced",
       "seed": 3121,
       "draws": 133,
-      "hash": "aec755b0e3adf090a8dc8f04304fbcf142d4632031701740a5b4387c5452f7d9"
+      "hash": "5f865e64200f104783b1d11781d3c0ae35b63ab10cf505924110d1534ec43b2c"
     },
     {
       "equipment": [],
@@ -87,7 +87,7 @@
       "focus": "strength",
       "seed": 3121,
       "draws": 138,
-      "hash": "78391abc1f51c31fa3d1693ba7d229c325dfe8abb5422009247fb3d57bc345e7"
+      "hash": "01a928e143473315eb941d482e7b3fb64fd58f7cee1665f08df0ed8587fc0074"
     },
     {
       "equipment": [],
@@ -95,7 +95,7 @@
       "focus": "cardio",
       "seed": 3119,
       "draws": 158,
-      "hash": "7cbf0bff46daaf9d224051177c43ca08c08384c71cb9407266e2b035959c3a27"
+      "hash": "4beaa506e78125b51846ad1b18caa933b216825b07e14cf20c66297e39cb6382"
     },
     {
       "equipment": [],
@@ -103,7 +103,7 @@
       "focus": "balanced",
       "seed": 4621,
       "draws": 161,
-      "hash": "bde86b0437839037b599c86b45f7b1874ef133063b370ed623ac480c22f7c550"
+      "hash": "609e0b53221837504a9e6e586a10e68c434d457ccf22e7131361526084681496"
     },
     {
       "equipment": [],
@@ -111,7 +111,7 @@
       "focus": "strength",
       "seed": 4621,
       "draws": 163,
-      "hash": "ca8541891cf6ad2f45ea166eb2b875e985ab3decfce40c7b13214523d7addf9c"
+      "hash": "f094e247f6d2e71431fbbbf1d6544e0a07c0027de3f84f9150fb59bb6a22015a"
     },
     {
       "equipment": [],
@@ -119,7 +119,7 @@
       "focus": "cardio",
       "seed": 4619,
       "draws": 185,
-      "hash": "1ea169fb98945b1080a21dc8342d871b47950f070d7642a4ca5d613fc50c3ba3"
+      "hash": "fbbdcc4f8ac56c08475dfc2e686bde90cbb8b145f60126ecabc02fae5a80bd11"
     },
     {
       "equipment": [
@@ -185,7 +185,7 @@
       "focus": "cardio",
       "seed": 1619,
       "draws": 86,
-      "hash": "dae56b56ed166d93cd6be045d35f5a890bf3076240c1cbb456a01919efdac107"
+      "hash": "e3bece4d3c2e7b377815dd47792f47f558ef3b0655d60e119de5e4452d620f7e"
     },
     {
       "equipment": [
@@ -229,7 +229,7 @@
       "focus": "balanced",
       "seed": 3121,
       "draws": 133,
-      "hash": "dd5097fb0d1a70409a14088fd24f05d6283d0ba1c37463f7910c496674ce66f7"
+      "hash": "08b4c8873a2da9bd894e22bd53a30c71aa4f050b771b164357a8f5b7c81d0d04"
     },
     {
       "equipment": [
@@ -284,7 +284,7 @@
       "focus": "cardio",
       "seed": 4619,
       "draws": 185,
-      "hash": "fc7431bb92ab591acabb85b828d2585249c8038c250874c7fccdb6dadad96610"
+      "hash": "f68e1c684a177813a7053b0fe4073ff153931c4206f4b8c00c0911cf3e975d0e"
     },
     {
       "equipment": [
@@ -392,7 +392,7 @@
       "focus": "cardio",
       "seed": 2119,
       "draws": 100,
-      "hash": "eb8a4c4f81afafbee8aa24e34b260801a0b63b673f540444687f9ea451690de7"
+      "hash": "04faa1a6b0e364d82a64e5366325124a271070f341c36acbff9882b969a65ea2"
     },
     {
       "equipment": [
@@ -416,7 +416,7 @@
       "focus": "strength",
       "seed": 3121,
       "draws": 141,
-      "hash": "764a320914e894067325e2bca3ddb4eccfa25769566d632c9017033accd49fc0"
+      "hash": "48cbc00c24c938f566acc884a52b27ae0af695f438c9e1b36b28b2b9650383e4"
     },
     {
       "equipment": [
@@ -440,7 +440,7 @@
       "focus": "balanced",
       "seed": 4621,
       "draws": 153,
-      "hash": "a2c29c24be8cbf45c2d0720c116cd0a5d99b64daf31ee59bf67f905167c95aa9"
+      "hash": "7575eb1994abdba9cbbba040da495ba0309d2cd33fa10ab73b192398a97221e2"
     },
     {
       "equipment": [
@@ -464,7 +464,7 @@
       "focus": "cardio",
       "seed": 4619,
       "draws": 184,
-      "hash": "eb37395b39e2e4c06bac4bd814b7c33b9c7071866658570b45283065f75ab606"
+      "hash": "097377d1d2b6625cc690d33bf8baddd1c9eb8598fe930bcb334f966d6683f10a"
     }
   ]
 }

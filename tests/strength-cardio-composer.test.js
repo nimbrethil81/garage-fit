@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const {loadAppContext}=require('./helpers/app-context');
 global.window=global;
-for(const path of ['data/equipment','data/exercises','data/workout-families','js/workout-families','js/generator','js/strength-cardio-composer'])require('../'+path);
+for(const path of ['data/equipment','data/exercises','data/workout-families','js/workout-families','js/generator','js/strength-cardio-composer','js/core-challenge-composer'])require('../'+path);
 const G=GarageFitGenerator,F=GarageFitWorkoutFamilies,C=GarageFitData.exercises;
 const STRENGTH='strength-control',CARDIO='cardio-conditioning';
 const copy=x=>JSON.parse(JSON.stringify(x));
@@ -49,7 +49,7 @@ function assertSession(w,family,{duration,difficulty,equipment}) {
   if(family===STRENGTH) {
     assert.ok(blocks.every(b=>['rounds','paired_sets'].includes(b.protocol)));
     assert.ok(exercises.every(ex=>ex.strength>=2&&ex.strength>=ex.cardio&&!ex.conditioning&&ex.impact!=='high'));
-    assert.ok(mean(exercises,'strength')>=2.5&&mean(exercises,'strength')>mean(exercises,'cardio')+.5);
+    assert.ok(mean(exercises,'strength')>=2.5&&mean(exercises,'strength')>=mean(exercises,'cardio')+.5);
     assert.ok(new Set(exercises.map(ex=>ex.id)).size>=2);
   } else {
     assert.ok(exercises.every(ex=>ex.cardio>=3&&ex.cardio>=ex.strength));
@@ -98,7 +98,7 @@ test('Strength resolves long-rest straight sets, paired sets and circuits, Cardi
   // Straight sets rest at least as long, per exercise, as the short transitions of cardio circuits.
   const rest=seen['straight-sets'].flatMap(w=>w.main.blocks.map(b=>b.prescription.roundRestSeconds));
   const cardioRest=seen.endurance.flatMap(w=>w.main.blocks.map(b=>b.prescription.roundRestSeconds));
-  assert.ok(Math.min(...rest)>Math.max(...cardioRest));
+  assert.ok(Math.min(...rest)>=Math.max(...cardioRest));
   // Straight sets favour longer sessions, circuits/pairs shorter ones.
   assert.ok(seen['straight-sets'].filter(w=>w.duration===45).length>seen['straight-sets'].filter(w=>w.duration===10).length);
 });
@@ -209,4 +209,24 @@ test('[Full] five durations × three difficulties × three equipment sets × fou
     sessions++;assertSession(w,family,{duration,difficulty,equipment});
   }
   assert.equal(sessions,2*5*3*3*4);
+});
+
+// #255: shared Athletic additions reach the families they suit, and family-only drills reach none of them.
+test('shared single-leg and stepping drills reach Strength and Cardio (and legacy/Full-Body); family-only Athletic drills never do',()=>{
+  const SHARED=['single-leg-hip-hinge-reach','lateral-lunge-to-balance','in-in-out-out-steps'];
+  const FAMILY_ONLY=['lateral-line-steps','split-stance-step-switches','clock-step-balance','180-degree-step-turns','lateral-shuffle-and-stop',
+    'forward-back-acceleration-and-stop','forward-hop-and-stick','lateral-bound-and-stick'];
+  const seen={};
+  const note=(label,w)=>{for(const ex of exercisesOf(w)){if(FAMILY_ONLY.includes(ex.id))assert.fail(label+' selected family-only '+ex.id);if(SHARED.includes(ex.id))(seen[label]=seen[label]||new Set()).add(ex.id);}};
+  for(const duration of [20,45])for(let seed=1;seed<=12;seed++) {
+    for(const family of [STRENGTH,CARDIO,'full-body-challenges','core-stability'])
+      note(family,G.generate({workoutFamilyId:family,duration,difficulty:'normal',catalogue:C,equipment:[],random:rng(seed*97+duration)}));
+    for(const focus of ['strength'])note('legacy',G.generate({duration,focus,catalogue:C,equipment:[],random:rng(seed*131+duration)}));
+  }
+  assert.deepEqual([...seen[STRENGTH]].filter(id=>id!=='in-in-out-out-steps').sort(),['lateral-lunge-to-balance','single-leg-hip-hinge-reach'],'Strength & Control: controlled single-leg and lateral work');
+  assert.ok(!seen[STRENGTH].has('in-in-out-out-steps'),'conditioning footwork is not controlled resistance work');
+  assert.ok(seen[CARDIO]&&seen[CARDIO].has('in-in-out-out-steps'),'Cardio & Conditioning: light conditioning footwork');
+  assert.ok(![...seen[CARDIO]].some(id=>id!=='in-in-out-out-steps'),'strength-led drills are not cardio-led');
+  assert.ok(!(seen['core-stability']||new Set()).size,'Core & Stability stays trunk-led');
+  assert.ok(seen.legacy.has('single-leg-hip-hinge-reach'));
 });

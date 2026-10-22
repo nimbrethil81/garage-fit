@@ -72,7 +72,7 @@ test('General Fitness v1 is an immutable, open-ended, anchor-free definition on 
       && registry.get('tennis-conditioning').buildPrescription===GarageFitCoachTennisPolicy.buildPrescription;})()`));
 });
 
-test('Athletic v1 and v3 are one family for balance and variety; released definitions stay pinned but plan the current Athletic composition', () => {
+test('Athletic v1 and v4 are one family for balance and variety; released definitions stay pinned but plan the current Athletic composition', () => {
   for (const version of [1, 2]) {
     const p = context(undefined, version);
     const out = p.json(`(()=>{
@@ -81,14 +81,14 @@ test('Athletic v1 and v3 are one family for balance and variety; released defini
         families:priorities.families.map(({workoutFamilyId,balanceScore,varietyPenalty,score})=>({workoutFamilyId,balanceScore,varietyPenalty,score})),
         basis:priorities.history.sessions.map(item=>item.basis)};};
       const one=gfPlan(state,[gfResult('a',${JSON.stringify(at(1))},'athletic-movement',{version:1})],now);
-      const two=gfPlan(state,[gfResult('a',${JSON.stringify(at(1))},'athletic-movement',{version:3})],now);
+      const two=gfPlan(state,[gfResult('a',${JSON.stringify(at(1))},'athletic-movement',{version:4})],now);
       return {one:view(one),two:view(two),candidates:two.prescription.workoutFamilyPlan.candidates.map(({workoutFamilyId,workoutFamilyVersion})=>[workoutFamilyId,workoutFamilyVersion]),
         pinned:GF.familyBalancePolicy.families.map(item=>item.workoutFamilyVersion),unchanged:JSON.stringify(GF)===before};
     })()`);
-    assert.deepEqual(out.two, out.one, 'GF v'+version+': a v3 Athletic session earns exactly what a v1 session earns');
+    assert.deepEqual(out.two, out.one, 'GF v'+version+': a v4 Athletic session earns exactly what a v1 session earns');
     assert.deepEqual(out.one.basis, ['family-identity']);
     assert.ok(out.one.families.find(item => item.workoutFamilyId === 'athletic-movement').varietyPenalty > 0, 'recency counts the family, not its version');
-    assert.deepEqual(Object.fromEntries(out.candidates), {'strength-control':1,'cardio-conditioning':1,'full-body-challenges':1,'athletic-movement':3,'core-stability':1,'mobility-movement-quality':1});
+    assert.deepEqual(Object.fromEntries(out.candidates), {'strength-control':1,'cardio-conditioning':1,'full-body-challenges':1,'athletic-movement':4,'core-stability':1,'mobility-movement-quality':1});
     assert.deepEqual(out.pinned, [1,1,1,1,1,1], 'the released definition is not edited');
     assert.equal(out.unchanged, true);
   }

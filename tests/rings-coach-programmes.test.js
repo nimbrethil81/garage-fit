@@ -30,11 +30,11 @@ const mainIds = workout => workout.main.blocks.flatMap(block => block.exercises.
 test('released definitions stay unchanged; General Strength v2 and Tennis v7 only append reviewed ring anchors', () => {
   assert.equal(RING_IDS.length, 14);
   assert.deepEqual(Object.keys(P[GS]), ['1', '2']);
-  assert.deepEqual(Object.keys(P[TENNIS]), ['1', '2', '3', '4', '5', '6', '7']);
+  assert.deepEqual(Object.keys(P[TENNIS]), ['1', '2', '3', '4', '5', '6', '7', '8']);
   assert.deepEqual(Object.keys(P[ARMS]), ['1'], 'Build Arms already selects ring curls/extensions by intrinsic direct action');
   for (const [id, versions] of Object.entries(P)) for (const [version, definition] of Object.entries(versions)) {
     vm.runInContext(`R7.registry.get(R7.P[${JSON.stringify(id)}][${version}].type).validateDefinition(R7.P[${JSON.stringify(id)}][${version}])`, app);
-    const released = !(id === GS && version === '2' || id === TENNIS && version === '7');
+    const released = !(id === GS && version === '2' || id === TENNIS && ['7', '8'].includes(version));
     // Anchor-free General Fitness (#190) has no anchor candidates to check.
     if (released) for (const requirement of definition.anchorSelectionPolicy ? definition.anchorSelectionPolicy.requirements : [])
       assert.ok(!(requirement.exerciseIds || []).some(item => RING_IDS.includes(item)), id + ' v' + version + ' is released and ring-free');
@@ -43,6 +43,9 @@ test('released definitions stay unchanged; General Strength v2 and Tennis v7 onl
   assert.deepEqual(withoutRings(P[GS][2], 1), P[GS][1]);
   assert.deepEqual(withoutRings(P[TENNIS][7], 6, {sportPolicy: {sportId: 'tennis', version: 2}}), P[TENNIS][6]);
   assert.deepEqual(P[TENNIS][7].sportPolicy, {sportId: 'tennis', version: 3});
+  // #255: v8 only pins Tennis capability mapping v4 (shared single-leg and lateral-lunge-to-balance drills).
+  assert.deepEqual({...P[TENNIS][8], version: 7, sportPolicy: P[TENNIS][7].sportPolicy}, P[TENNIS][7]);
+  assert.deepEqual(P[TENNIS][8].sportPolicy, {sportId: 'tennis', version: 4});
   // Ring choices are appended, so released choices keep their priority.
   for (const [definition, rings] of [[P[GS][2], GS_RING], [P[TENNIS][7], TENNIS_RING]])
     for (const requirement of definition.anchorSelectionPolicy.requirements)

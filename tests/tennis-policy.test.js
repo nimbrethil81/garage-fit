@@ -390,3 +390,25 @@ test('v6 earned rotation uses performed work, with retries and tiny partials ret
     }
   }
 });
+
+test('#255: Tennis mapping v4 and programme v8 add only the shared single-leg and lateral-lunge-to-balance drills',()=>{
+  const {roles}=require('./helpers/tennis-movement');
+  const maps=GarageFitData.sportCapabilityPolicies.tennis,programmes=GarageFitData.programmes['tennis-conditioning'];
+  const classify=(version,id)=>GarageFitSportCoverage.createPolicy(maps[version],catalogue).classifyExercise(id).contributions.map(c=>c.capabilityId+'/'+c.facet);
+  assert.deepEqual(classify(4,'lateral-lunge-to-balance').sort(),['lateral-movement/lateral-control','lower-body/strength-stability']);
+  assert.deepEqual(classify(4,'single-leg-hip-hinge-reach'),['lower-body/strength-stability']);
+  // Released mappings and programmes are untouched; the travelling and landing drills stay unmapped (family-only).
+  for(const version of [1,2,3])for(const id of ['lateral-lunge-to-balance','single-leg-hip-hinge-reach'])assert.deepEqual(classify(version,id),[],'v'+version+' '+id);
+  for(const id of ['lateral-shuffle-and-stop','forward-back-acceleration-and-stop','forward-hop-and-stick','lateral-bound-and-stick','clock-step-balance'])assert.deepEqual(classify(4,id),[],id);
+  assert.deepEqual(Object.keys(programmes).map(Number).slice(-2),[7,8]);
+  assert.deepEqual(programmes[8].sportPolicy,{sportId:'tennis',version:4});
+  // New starts use v8, and its home movement roles actually select the mapped lateral drill (mixed kit, three seeds).
+  const chosen=new Set();
+  for(const seed of [1,29,95])for(const row of roles({version:8,equipment:['dumbbells','kettlebell','trx','pullup-bar'],duration:30,frequency:3,seed}).rows||[])
+    for(const block of row.blocks||[])for(const e of block.exercises)if(e.id==='lateral-lunge-to-balance')chosen.add(row.role+'/'+e.facets.join('+'));
+  assert.ok([...chosen].some(item=>item.includes('lateral-movement/lateral-control')),'movement roles reach lateral lunge to balance: '+[...chosen]);
+  // Travelling/landing family-only drills can never enter a Coach Tennis session.
+  for(const seed of [1,29,95])for(const row of roles({version:8,equipment:['dumbbells','kettlebell','trx','pullup-bar'],duration:45,frequency:3,seed}).rows||[])
+    for(const block of row.blocks||[])for(const e of block.exercises)
+      assert.ok(!['lateral-shuffle-and-stop','forward-back-acceleration-and-stop','forward-hop-and-stick','lateral-bound-and-stick','clock-step-balance','lateral-line-steps'].includes(e.id),e.id);
+});

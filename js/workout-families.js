@@ -73,12 +73,13 @@
     if (!Array.isArray(entries)) fail('invalid-family-membership', 'Membership entries must be an array.');
     const seen = new Set();
     for (const entry of entries) {
-      if (!entry || Object.keys(entry).some(field => !['exerciseId', 'role', 'protocols', 'prescriptions', 'requiresMovementRoom'].includes(field))
+      if (!entry || Object.keys(entry).some(field => !['exerciseId', 'role', 'protocols', 'prescriptions', 'requiresMovementRoom', 'minimumDifficulty'].includes(field))
         || !identifier(entry.exerciseId) || !identifier(entry.role) || seen.has(entry.exerciseId + ':' + entry.role)
         || !Array.isArray(entry.protocols) || !entry.protocols.length
         || entry.protocols.some(protocol => !root.GarageFitGenerator || !root.GarageFitGenerator.MAIN_PROTOCOLS.has(protocol))
         || new Set(entry.protocols).size !== entry.protocols.length
         || entry.requiresMovementRoom !== undefined && typeof entry.requiresMovementRoom !== 'boolean'
+        || entry.minimumDifficulty !== undefined && !['normal', 'hard'].includes(entry.minimumDifficulty)
         || !Array.isArray(entry.prescriptions) || !entry.prescriptions.length)
         fail('invalid-family-membership', 'Invalid or duplicate family membership entry.');
       seen.add(entry.exerciseId + ':' + entry.role);
