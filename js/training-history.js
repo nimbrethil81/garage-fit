@@ -22,7 +22,8 @@
     ladder: Object.freeze(['exerciseRestSeconds','stepRestSeconds']),
     pyramid: Object.freeze(['stepRestSeconds']),
     complex: Object.freeze(['targets','changeoverSeconds','sequenceRestSeconds']),
-    density: Object.freeze(['targets','timeCapSeconds','exerciseRestSeconds','roundRestSeconds'])
+    density: Object.freeze(['targets','timeCapSeconds','exerciseRestSeconds','roundRestSeconds']),
+    amrap: Object.freeze(['targets'])
   });
 
   function exposureFor(outcome, prescription) {
@@ -100,9 +101,9 @@
     };
     if(![previous,current].every(recoveryKnown))reasons.push('unknown-recovery-conditions');
     const fields = Object.prototype.hasOwnProperty.call(protocolFields, current.protocol) ? protocolFields[current.protocol] : null;
-    // Minute windows and changing rep steps do not establish comparable pacing or
-    // fatigue/recovery for straight-set progression, even in old records without a flag.
-    if (['emom','ladder','pyramid','complex','density'].includes(current.protocol) || !fields || !previous.protocolConditions || !current.protocolConditions
+    // Minute windows, changing rep steps and self-paced AMRAP rounds do not establish comparable
+    // pacing or fatigue/recovery for straight-set progression, even in old records without a flag.
+    if (['emom','ladder','pyramid','complex','density','amrap'].includes(current.protocol) || !fields || !previous.protocolConditions || !current.protocolConditions
       || [previous, current].some(item => fields.some(field => !Number.isFinite(item.protocolConditions[field]) || item.protocolConditions[field] < 0))) reasons.push('unknown-protocol-conditions');
     else if (!Model.sameRecord(previous.protocolConditions, current.protocolConditions)) reasons.push('protocol-conditions');
     return {comparable: reasons.length === 0, reasons};

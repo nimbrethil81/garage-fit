@@ -102,6 +102,12 @@ inside the gap above navigation and introduces no scrollable player area.
 | 320×568 | 65 | 0px | 0px | 134.8px |
 | 667×375 | 65 | 0px | 0px | 182px |
 
+Generated AMRAP (#221) adds one status line and reuses the ring, target, Next, Previous and Skip
+work. The verifier now also covers the AMRAP fixture: a long name, open instructions, round 2,
+pause, the timer at zero, the ended block, Coach Retry save and rotation. In Chromium all 270
+AMRAP-inclusive states (every fixture phase plus those AMRAP states) passed at the six viewports
+with no page overflow, at most 1px stage rounding at 667×375 and a smallest ring of 137px (375×540).
+
 The retained [measurement summary](images/player-viewport/measurements.json) and
 screenshots show the viewport evidence; running the script emits the full report
 and additional captures.

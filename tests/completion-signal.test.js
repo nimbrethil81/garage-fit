@@ -59,8 +59,9 @@ function loadApp() {
   const intervals = new Map(); let nextInterval = 1;
   let timerNow=Date.now();class TimerDate extends Date { static now(){return timerNow;} }
   // A seeded sequential-protocol fixture keeps these synchronous boundary tests stable.
-  // EMOM work/rest cues are covered by emom-player.test.js.
-  let selectionSeed=1;const selectionMath=Object.create(Math);
+  // EMOM work/rest cues are covered by emom-player.test.js; AMRAP's repeating Next by
+  // amrap-blocks.test.js (adding AMRAP selection moved seed 1 onto an AMRAP final block).
+  let selectionSeed=2;const selectionMath=Object.create(Math);
   selectionMath.random=()=>{selectionSeed=(selectionSeed*1664525+1013904223)>>>0;return selectionSeed/4294967296;};
   const context = {
     console, Date:TimerDate, Math:selectionMath, JSON, Set,

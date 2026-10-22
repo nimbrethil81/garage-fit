@@ -1178,7 +1178,7 @@
       if (busy) return false; return run(async () => {
         if (!phase || phase.kind!=='exercise') return true;
         if (phase.timed) await tracker.recordTimed(phase.occurrenceId,{plannedSeconds:phase.seconds,elapsedSeconds:elapsed});
-        else if (action==='skip' || ['emom','ladder','pyramid','complex','density'].includes(phase.protocol) && action!=='done') await tracker.recordSkip(phase.occurrenceId);
+        else if (action==='skip' || ['emom','ladder','pyramid','complex','density','amrap'].includes(phase.protocol) && action!=='done') await tracker.recordSkip(phase.occurrenceId);
         else if (isBenchmarkPhase(phase) && sessionActive) {
           // Done records exactly what was entered: blank reps or an unconfirmed setup stay unknown.
           const set=actualSet(); await tracker.recordAnchor(phase.occurrenceId,{status:'completed',sets:[set],targetAchieved:null});

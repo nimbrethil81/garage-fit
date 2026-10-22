@@ -1,6 +1,6 @@
 # Main block protocol contracts
 
-Playable and automatically selected protocols: `rounds`, `paired_sets`, `timed_intervals`, `emom`, `ladder`, `pyramid`, `complex`, `density`.
+Playable and automatically selected protocols: `rounds`, `paired_sets`, `timed_intervals`, `emom`, `ladder`, `pyramid`, `complex`, `density`, `amrap`.
 These contracts are the extension seams for later block patterns (#75). `tests/protocol-contracts.test.js` and
 `tests/main-blocks.test.js` enforce them; shared fixtures and the step-trace check live in
 `tests/helpers/protocol-fixtures.js`.
@@ -21,9 +21,9 @@ characterisation fixture only with before/after evidence, and run the reachabili
 
 ## 2. Block prescription describes structure
 
-`block.prescription` holds one repeat structure (`repeatKey`: `rounds` / `sets` / `cycles` / `minutes` / `repSteps` / `steps` / `sequences` / `repeats`) plus the
+`block.prescription` holds one repeat structure (`repeatKey`: `rounds` / `sets` / `cycles` / `minutes` / `repSteps` / `steps` / `sequences` / `repeats` / `capSeconds`) plus the
 protocol's condition fields, and nothing else. `blockRepeatCount(block)` reads the repeat key
-(the array length for a ladder or pyramid).
+(the array length for a ladder or pyramid; one planned pass for an AMRAP, whose repeat structure is its cap).
 `protocolConditions(block)` is the prescription without the repeat count. It is shared by every
 occurrence of the block and is frozen on player phases.
 
@@ -32,13 +32,13 @@ occurrence of the block and is frozen on player phases.
 `resolveBlockSteps(block)` is the only executable plan of a block:
 
 - Exercise steps carry `exerciseIndex` and their position in `stepKey` (`round` / `set` / `cycle` / `minute`).
-  Ladders use `ladderStep`, pyramids `pyramidStep`, complexes `complexSequence`, density `densityRound`. Timed interval steps also carry `timed: true` and `seconds`.
+  Ladders use `ladderStep`, pyramids `pyramidStep`, complexes `complexSequence`, density `densityRound`, AMRAP `amrapSequence`. Timed interval steps also carry `timed: true` and `seconds`.
 - Rest steps have positive `seconds` and sit only between exercise steps, with
   `nextExerciseIndex` naming the next step's exercise. There is no leading, trailing or
   zero-second rest.
 - `estimateBlockDuration(block)` equals the steps' time. For sequential protocols, an exercise
   step lasts its `seconds` when timed, otherwise the exercise's `estimatedSeconds`; rest steps
-  add their `seconds`. EMOM reserves entire minute windows; density reserves its complete time cap.
+  add their `seconds`. EMOM reserves entire minute windows; density and AMRAP reserve their complete time cap.
 
 The player (`appendBlockTimeline` in `index.html`) builds every Main phase from these steps, with
 one phase per side for per-side exercises. The Session Tracker reads planned occurrences only
@@ -379,6 +379,45 @@ retain the fixed plan and actual completed/partial work. Density remains incompa
 Training History even when individual reps are confirmed, including against rounds anchors.
 Fixed Cindy/AMRAP and timed intervals keep their separate termination and evidence rules.
 
+### Generated AMRAP
+
+An `amrap` block repeats two or three distinct rep-based movements in order until a whole-minute
+cap: `{capSeconds:300, targets:[{type:'reps',value:8}, …]}`. Caps are 180–480 seconds in 60-second
+steps; targets align with `exercises`, are 4–8 reps and never exceed the catalogue dose. One round is
+at most 90 estimated work seconds, so the sequence genuinely repeats within the cap. There are no
+rest steps: the user recovers as needed. Eligibility reuses density's rep/clock rules plus the complex
+continuity rules (one setup, body position and load, distinct patterns, bounded fatigue); per-side,
+timed, hard, high-impact, hanging, barbell, Heavy, anchor and occurrence-override work is excluded.
+No catalogue fields are added. `validateAmrapBlock` is shared by validation, normalisation,
+resolution, estimation and swaps; invalid blocks resolve to no steps, estimate zero and fail
+normalisation. The estimate is exactly `capSeconds`, never a hypothetical round count.
+
+Resolution plans **one prescribed pass**: one frozen explicit occurrence per movement with
+`amrapSequence: 1`, its `plannedPrescription`, scaled `estimatedSeconds` and `variableTarget: true`
+(ID `main:bN:a1:eN`). Repeating the sequence is playback only, so timelines and
+`plannedWorkFromTimeline` stay finite: there are no planned rounds, phantom occurrences or duplicate
+IDs. The shared player keeps one monotonic block deadline on active workout time (pause excluded) for
+every round and shows the cap ring (`AMRAP`, then `TIME UP`), the current exercise, target and
+round. **Next** confirms the current movement and moves to the next one, looping to the first after
+the last; **Skip work** records a skip. A movement's outcome is written once: a later round may turn
+a skip into a confirmed completion, but never downgrades or duplicates confirmed work, and no reps or
+load are inferred. At zero the player announces time up, starts no further exercise or round, and
+lets the active exercise be finished or skipped; the block then ends with exactly one transition.
+Unstarted movements stay unrecorded. Previous is limited to the current round before expiry and
+records nothing; ended blocks cannot be reopened. Saves freeze the action and offer **Retry save**
+after a failed Coach checkpoint; a shared 350 ms guard stops double taps acting on the next movement;
+pagehide pauses for an explicit Resume. Coach early exit and reload keep only durable outcomes;
+standalone exits stay ephemeral. No score, round count or rep result is captured or stored.
+
+Automatic routing gives AMRAP a small weight (1, plus the shared variety credit) only for Balanced
+or Cardio conditioning/finisher shares of 180–480 seconds, once per Main, and only when a compatible
+pair exists; fitting floors the share to whole minutes, otherwise established formats are used.
+Coach reserves required/preferred anchors first and may use AMRAP only as optional conditioning
+within protocol/avoid/time constraints; anchors never become AMRAP and Strength prescriptions never
+fall back to it. Swaps keep the cap and give the replacement its own default target. Training History
+keeps AMRAP evidence incomparable. `tests/amrap-blocks.test.js` covers the domain, routing, Coach,
+player and tracker.
+
 ## 4. Unknown protocols
 
 An unknown protocol has no steps and an estimate of 0. `validateMain` reports
@@ -388,7 +427,7 @@ never treats it as comparable. A block with no protocol is still a legacy `round
 ## 5. Coach
 
 Required anchors in production programmes allow only `rounds`. Do not broaden those
-definitions. Anchors never use EMOM, ladder, pyramid, complex or density blocks. Coach anchor and
+definitions. Anchors never use EMOM, ladder, pyramid, complex, density or AMRAP blocks. Coach anchor and
 minimum blocks (`anchorBlock`, `minimumOptionalBlock`) build prescriptions for the current
 protocols only. Extend them when a protocol becomes Coach-eligible.
 
@@ -402,6 +441,8 @@ IDs apply only to new EMOM work; existing IDs and both schema versions stay unch
 Complexes likewise add only `complexSequence` and their planned target there.
 Density adds `densityRound`, fixed targets and cap/recovery conditions inside that JSON;
 completion/expiry context uses existing outcome notes and explicitly confirmed partial sets.
+AMRAP adds only `amrapSequence` and its planned targets there; one planned occurrence per movement
+keeps the existing finite plan, so no schema version or migration changes.
 Changing the meaning of an existing field or an existing occurrence ID needs an explicit
 schema/migration decision in `js/coach-model.js`.
 

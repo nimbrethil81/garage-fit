@@ -1,5 +1,5 @@
 {
-  "baseline": "d454da9",
+  "baseline": "d454da9 (Balanced/Cardio entries re-pinned for #221 AMRAP selection)",
   "fixtures": [
     {
       "equipment": [],
@@ -22,8 +22,8 @@
       "duration": 10,
       "focus": "cardio",
       "seed": 1119,
-      "draws": 68,
-      "hash": "7839067816a67a60494a3366cd743ff34fafa6549f2c4223d13056fc3e3dea78"
+      "draws": 64,
+      "hash": "2558a51a0725b9c63945304a449755388bf98ecfa1877146cf1c90a8b4a88753"
     },
     {
       "equipment": [],
@@ -95,7 +95,7 @@
       "focus": "cardio",
       "seed": 3119,
       "draws": 158,
-      "hash": "91016a400ed1a72eca2de61aa0781441d34d36986be75ffc338d6fc0e693ce1a"
+      "hash": "7cbf0bff46daaf9d224051177c43ca08c08384c71cb9407266e2b035959c3a27"
     },
     {
       "equipment": [],
@@ -151,8 +151,8 @@
       "duration": 10,
       "focus": "cardio",
       "seed": 1119,
-      "draws": 68,
-      "hash": "e0f37c43459d01878fa1e15b97a03c42f43889dde455150d2819b01b9f29ea54"
+      "draws": 64,
+      "hash": "0942342633411e1783464451acd8bb643746360ca2a219d3cd0248d1e7186a0d"
     },
     {
       "equipment": [
@@ -163,7 +163,7 @@
       "focus": "balanced",
       "seed": 1621,
       "draws": 90,
-      "hash": "d7a7705dfaca1adef50d0e1d37b72db4bf5802e0287616088aa783e9a48ddd1e"
+      "hash": "94eecf8ee855b3447e28853145c9769df510f3c0c65034a8f139e6896b100c56"
     },
     {
       "equipment": [
@@ -319,8 +319,8 @@
       "duration": 10,
       "focus": "cardio",
       "seed": 1119,
-      "draws": 69,
-      "hash": "9d58d6433aa25d5501c7c12cd77e3d4964a403c5ca3fe71532a195168c895fde"
+      "draws": 64,
+      "hash": "a62a38349e16f0e51d1cfc2218c4fa3ec732b8d5732a2b809d720e7f2f7b95d4"
     },
     {
       "equipment": [
@@ -403,8 +403,8 @@
       "duration": 30,
       "focus": "balanced",
       "seed": 3121,
-      "draws": 133,
-      "hash": "15ee2cec1a4dfdcaa81894afe2c169530a28289ac46886684f5b5c054e3dd06a"
+      "draws": 135,
+      "hash": "0ff7d73c78ee634969407f51baad886b9685b964a02f79d38b40f161abf34117"
     },
     {
       "equipment": [

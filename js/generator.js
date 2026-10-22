@@ -68,7 +68,8 @@
   // count (`repeatKey`) plus the protocol conditions (`conditionFields`) that make two
   // performances comparable. Each resolved exercise step records its repetition in `stepKey`,
   // one of the positions Session Tracker occurrence ids encode (round, set, cycle, minute, ladderStep,
-  // pyramidStep or complexSequence).
+  // pyramidStep, complexSequence, densityRound or amrapSequence). An AMRAP's repeat structure is
+  // its time cap: it resolves one prescribed sequence that the player repeats until the cap.
   // Training History (js/training-history.js) and the Coach model (js/coach-model.js) keep
   // their own copies of this vocabulary; tests/protocol-contracts.test.js fails if they drift.
   // See docs/WORKOUT_PROTOCOLS.md before adding a protocol.
@@ -80,14 +81,15 @@
     ladder:Object.freeze({repeatKey:'repSteps',stepKey:'ladderStep',conditionFields:Object.freeze(['exerciseRestSeconds','stepRestSeconds'])}),
     pyramid:Object.freeze({repeatKey:'steps',stepKey:'pyramidStep',conditionFields:Object.freeze(['stepRestSeconds'])}),
     complex:Object.freeze({repeatKey:'sequences',stepKey:'complexSequence',conditionFields:Object.freeze(['targets','changeoverSeconds','sequenceRestSeconds'])}),
-    density:Object.freeze({repeatKey:'repeats',stepKey:'densityRound',conditionFields:Object.freeze(['targets','timeCapSeconds','exerciseRestSeconds','roundRestSeconds'])})
+    density:Object.freeze({repeatKey:'repeats',stepKey:'densityRound',conditionFields:Object.freeze(['targets','timeCapSeconds','exerciseRestSeconds','roundRestSeconds'])}),
+    amrap:Object.freeze({repeatKey:'capSeconds',stepKey:'amrapSequence',conditionFields:Object.freeze(['targets'])})
   });
   const MAIN_PROTOCOLS = new Set(Object.keys(PROTOCOL_SHAPES));
   const PROTOCOL_REPEAT_KEYS = Object.values(PROTOCOL_SHAPES).map(shape=>shape.repeatKey);
   // Generator policy: the protocols generation may choose by itself (standalone blocks and Coach
   // optional blocks), in weighted-pick order. A protocol can be accepted in the domain above
   // before it is auto-selected; adding it here is a deliberate selection change.
-  const GENERATED_PROTOCOLS = Object.freeze(['rounds','paired_sets','timed_intervals','emom','ladder','pyramid','complex','density']);
+  const GENERATED_PROTOCOLS = Object.freeze(['rounds','paired_sets','timed_intervals','emom','ladder','pyramid','complex','density','amrap']);
   const MAIN_INTENTS = new Set(['strength','conditioning','accessory','finisher']);
   const MAIN_ROLES = new Set(['primary','supporting']);
   const BLOCK_TRANSITION_SECONDS = 3;
@@ -112,6 +114,10 @@
     minTimedSeconds:15,maxTimedSeconds:30,maxChangeoverSeconds:15,minSequenceRestSeconds:60,maxSequenceRestSeconds:120,maxSequenceWorkSeconds:90,maxTotalWorkSeconds:240});
   const DENSITY_POLICY = Object.freeze({minCapSeconds:180,maxCapSeconds:420,maxRepeats:3,minReps:4,maxReps:8,
     minExerciseRestSeconds:15,minRoundRestSeconds:45,maxRestSeconds:60,maxTotalWorkSeconds:180});
+  // A simple AMRAP repeats two or three manageable rep targets at a comfortable pace until a
+  // whole-minute cap. One round stays short, so the sequence genuinely repeats within the cap.
+  const AMRAP_POLICY = Object.freeze({minExercises:2,maxExercises:3,minCapSeconds:180,maxCapSeconds:480,capStepSeconds:60,
+    minReps:4,maxReps:8,maxRoundWorkSeconds:90});
   const VALID_IMPACT_LEVELS = new Set(['low','medium','high']);
   const PRESCRIPTION_MODE_BY_TYPE = { 'timed':'time', 'unilateral-timed':'time', 'reps':'reps', 'unilateral-reps':'reps' };
   // Equipment diversity targets apply only to the Main phase, and only when enough of the
@@ -295,7 +301,8 @@
   }
 
   function blockSetupCompatible(block, catalogue, owned) {
-    if(block.protocol!=='paired_sets'&&blockRepeatCount(block)<=1)return true;
+    // An AMRAP repeats its single planned pass, so its setups must stay compatible too.
+    if(!['paired_sets','amrap'].includes(block.protocol)&&blockRepeatCount(block)<=1)return true;
     const exercises=block.exercises||[];
     return setupProfilesCompatible(exercises,owned)
       &&(!catalogue||setupProfilesCompatible(exercises.map(exercise=>catalogue[exercise.id]),owned));
@@ -673,6 +680,11 @@
         if(issues.length)throw new Error('Invalid density block '+block.id+': '+issues.join(', '));
         block.prescription.targets=block.prescription.targets.map(target=>({...target}));
       }
+      if(block.protocol==='amrap'){
+        const issues=validateAmrapBlock(block);
+        if(issues.length)throw new Error('Invalid AMRAP block '+block.id+': '+issues.join(', '));
+        block.prescription.targets=block.prescription.targets.map(target=>({...target}));
+      }
       block.exercises=(block.exercises||[]).map(copyExercise);
       if(block.protocol==='rounds'){
         block.prescription.rounds=block.prescription.rounds||block.rounds||1;
@@ -692,7 +704,7 @@
       if(targetIssues.length)throw new Error('Invalid occurrence targets in '+block.id+': '+targetIssues.join(', '));
       if(block.occurrenceTargets)block.occurrenceTargets=JSON.parse(JSON.stringify(block.occurrenceTargets));
       const estimate=estimateBlockDuration(block,workout.setupEquipment);
-      block.estimatedDurationSeconds=block.occurrenceRecoverySeconds||block.familyContext||block.exercises.some(ex=>ex.setupProfile)||['emom','ladder','pyramid','complex','density'].includes(block.protocol)||block.occurrenceTargets?estimate:Number.isFinite(block.estimatedDurationSeconds)?block.estimatedDurationSeconds:Number.isFinite(block.estimatedSeconds)?block.estimatedSeconds:estimate;
+      block.estimatedDurationSeconds=block.occurrenceRecoverySeconds||block.familyContext||block.exercises.some(ex=>ex.setupProfile)||['emom','ladder','pyramid','complex','density','amrap'].includes(block.protocol)||block.occurrenceTargets?estimate:Number.isFinite(block.estimatedDurationSeconds)?block.estimatedDurationSeconds:Number.isFinite(block.estimatedSeconds)?block.estimatedSeconds:estimate;
       block.estimatedSeconds=block.estimatedDurationSeconds;
       return block;
     });
@@ -700,7 +712,7 @@
     workout.schemaVersion=Math.max(2,Number(workout.schemaVersion)||0);
     workout.main={blocks,transitionSeconds:BLOCK_TRANSITION_SECONDS,estimatedDurationSeconds:blockSeconds+BLOCK_TRANSITION_SECONDS*Math.max(0,blocks.length-1)};
     workout.blocks=workout.main.blocks;
-    if(blocks.some(block=>block.occurrenceRecoverySeconds||block.familyContext||block.occurrenceTargets||['ladder','pyramid','complex','density'].includes(block.protocol))){
+    if(blocks.some(block=>block.occurrenceRecoverySeconds||block.familyContext||block.occurrenceTargets||['ladder','pyramid','complex','density','amrap'].includes(block.protocol))){
       const preparation=['warmup','rampup','cooldown'].map(section=>workout[section]&&workout[section].estimatedSeconds);
       if(preparation.every(Number.isFinite))workout.estimatedSeconds=preparation.reduce((sum,seconds)=>sum+seconds,0)+workout.main.estimatedDurationSeconds;
     }
@@ -720,6 +732,7 @@
     if (protocol==='pyramid') return pyramidExerciseEligible(exercise);
     if (protocol==='complex') return complexExerciseEligible(exercise);
     if (protocol==='density') return densityExerciseEligible(exercise);
+    if (protocol==='amrap') return amrapExerciseEligible(exercise);
     if (Array.isArray(exercise.mainProtocols)) return exercise.mainProtocols.includes(protocol);
     if (protocol==='timed_intervals') return exercise.sidedness!=='per-side' && !!(exercise.prescription&&exercise.prescription.type&&exercise.prescription.type.includes('timed'));
     return protocol==='rounds'||protocol==='paired_sets';
@@ -999,6 +1012,41 @@
     return [...new Set(issues)];
   }
 
+  // AMRAP reuses density's conservative rep/clock eligibility (no per-side, timed, hard,
+  // high-impact, hanging or Heavy work) and the complex continuity rules: one setup, body
+  // position and load, distinct patterns and bounded fatigue, so repeating it stays simple.
+  function amrapExerciseEligible(exercise) {
+    return densityExerciseEligible(exercise)&&exercise.prescription.value>=AMRAP_POLICY.minReps;
+  }
+  // AMRAP is conditioning work, even when a hard Coach constraint makes it the only format.
+  const amrapIntent=intent=>['conditioning','finisher'].includes(intent)?intent:'conditioning';
+  const amrapDefaultTarget=exercise=>({type:'reps',value:Math.min(AMRAP_POLICY.maxReps,exercise.prescription.value)});
+  // The one AMRAP validator for normalisation, estimation, resolution, swaps and Main validation.
+  // Targets align with the ordered sequence; the canonical catalogue, when supplied, prevents
+  // copied metadata from weakening eligibility. The cap, not a round count, is the plan.
+  function validateAmrapBlock(block,catalogue) {
+    const issues=[],p=block&&block.prescription||{},exercises=block&&block.exercises,policy=AMRAP_POLICY;
+    if(!block||block.protocol!=='amrap')issues.push('invalid-protocol');
+    if(Object.keys(p).some(key=>!['capSeconds','targets'].includes(key)))issues.push('invalid-prescription-fields');
+    if(!Number.isInteger(p.capSeconds)||p.capSeconds<policy.minCapSeconds||p.capSeconds>policy.maxCapSeconds
+      ||p.capSeconds%policy.capStepSeconds)issues.push('invalid-cap');
+    if(block&&block.occurrenceTargets!==undefined)issues.push('amrap-occurrence-overrides');
+    if(!Array.isArray(exercises)||exercises.length<policy.minExercises||exercises.length>policy.maxExercises
+      ||new Set(exercises.map(ex=>ex&&ex.id)).size!==exercises.length)return issues.concat('invalid-exercises');
+    if(!Array.isArray(p.targets)||p.targets.length!==exercises.length)return issues.concat('invalid-targets');
+    const sources=exercises.map(ex=>catalogue?catalogue[ex&&ex.id]:ex);
+    for(const list of [exercises,sources]){
+      if(list.some(ex=>!amrapExerciseEligible(ex))){issues.push('ineligible-exercise');continue;}
+      issues.push(...complexSequenceIssues(list));
+      const valid=list.every((ex,index)=>{const target=p.targets[index];return plainTarget(target)&&Object.keys(target).every(key=>['type','value'].includes(key))
+        &&target.type==='reps'&&Number.isInteger(target.value)&&target.value>=policy.minReps
+        &&target.value<=Math.min(policy.maxReps,list[index].prescription.value)});
+      if(!valid){issues.push('invalid-target');continue;}
+      if(list.reduce((sum,ex,index)=>sum+complexTargetSeconds(ex,p.targets[index]),0)>policy.maxRoundWorkSeconds)issues.push('unsafe-round-work');
+    }
+    return [...new Set(issues)];
+  }
+
   function weightedPick(items, random) {
     const viable=items.filter(item=>item.weight>0);
     if(!viable.length)return null;
@@ -1048,6 +1096,7 @@
         ? {rounds:8,paired_sets:2,timed_intervals:10,emom:4,ladder:1,complex:1}
         : {rounds:7,paired_sets:7,timed_intervals:7,emom:3,ladder:2,pyramid:1,complex:1};
     base.density=focus==='strength'?0:1;
+    base.amrap=focus==='strength'?0:1;
     if(intent==='strength') { base.paired_sets+=4;base.timed_intervals-=1; }
     if(intent==='conditioning'||intent==='finisher') { base.timed_intervals+=5;base.rounds+=2;base.paired_sets-=1; }
     if(intent==='accessory') { base.paired_sets+=3;base.rounds+=1; }
@@ -1070,6 +1119,10 @@
       if(protocol==='density'&&(state.duration<15||focus==='strength'||state.difficulty==='easy'||intent==='strength'||!state.blocks.length
         ||remainingSeconds<DENSITY_POLICY.minCapSeconds||remainingSeconds>DENSITY_POLICY.maxCapSeconds
         ||state.blocks.some(block=>block.protocol==='density')||!densityPairAvailable(eligible)))return {value:protocol,weight:0};
+      // AMRAP is occasional Balanced/Cardio conditioning, once per session, within its cap bounds.
+      if(protocol==='amrap'&&(focus==='strength'||!['conditioning','finisher'].includes(intent)
+        ||remainingSeconds<AMRAP_POLICY.minCapSeconds||remainingSeconds>AMRAP_POLICY.maxCapSeconds
+        ||state.blocks.some(block=>block.protocol==='amrap')||!amrapPairAvailable(eligible)))return {value:protocol,weight:0};
       // Variety is deliberately a modest tie-breaker, below focus and viability.
       if(previous&&previous.protocol!==protocol)weight+=1;
       if((state.recentProtocols||[]).includes(protocol))weight-=.5;
@@ -1079,6 +1132,14 @@
 
   const complexPairs=new WeakMap();
   const densityPairs=new WeakMap();
+  const amrapPairs=new WeakMap();
+  function amrapPairAvailable(eligible) {
+    if(!amrapPairs.has(eligible)){
+      const pool=eligible.filter(amrapExerciseEligible);
+      amrapPairs.set(eligible,pool.some((first,index)=>pool.slice(index+1).some(second=>!complexSequenceIssues([first,second]).length)));
+    }
+    return amrapPairs.get(eligible);
+  }
   function densityPairAvailable(eligible) {
     if(!densityPairs.has(eligible)){
       const pool=eligible.filter(densityExerciseEligible);
@@ -1131,7 +1192,7 @@
       // A complex grows only by fresh movements that keep one setup and safe transitions.
       // Its narrow pool cannot outweigh Main's reuse and adjacent-pattern safeguards, so they
       // are hard here; the first movement must also have at least one such partner.
-      if(protocol==='complex'||protocol==='density'){
+      if(['complex','density','amrap'].includes(protocol)){
         const fresh=candidates.filter(ex=>!state.usedIds.has(ex.id));
         const lastMain=state.exercises[state.exercises.length-1];
         candidates=narrow(stages,'complex-continuity',candidates,fresh.filter(ex=>selected.length
@@ -1243,6 +1304,7 @@
     if(block.protocol==='ladder')return ['ladder-occurrence-overrides'];
     if(block.protocol==='pyramid')return ['pyramid-occurrence-overrides'];
     if(block.protocol==='density')return ['density-occurrence-overrides'];
+    if(block.protocol==='amrap')return ['amrap-occurrence-overrides'];
     const targets=block.occurrenceTargets,exercises=block.exercises||[],p=block.prescription||{},shape=PROTOCOL_SHAPES[block.protocol];
     if(!Array.isArray(exercises)||!exercises.length)return ['invalid-occurrence-targets'];
     const count=shape&&(block.protocol==='emom'?p.minutes:p[shape.repeatKey]*exercises.length);
@@ -1311,6 +1373,8 @@
     if(block.familyContext!=null&&validateFamilyBlock(block).length)return 0;
     if(validateOccurrenceTargets(block).length||validateOccurrenceRecovery(block).length)return 0;
     if(block.protocol==='density')return validateDensityBlock(block).length?0:block.prescription.timeCapSeconds;
+    // An AMRAP reserves exactly its cap; finishing rounds faster never adds work time.
+    if(block.protocol==='amrap')return validateAmrapBlock(block).length?0:block.prescription.capSeconds;
     if(['ladder','pyramid','complex','density'].includes(block.protocol))return resolveBlockSteps(block).reduce((sum,step)=>sum+(step.kind==='exercise'?step.estimatedSeconds:step.seconds),0);
     if((block.occurrenceTargets||block.occurrenceRecoverySeconds)&&block.protocol!=='emom')return resolveBlockSteps(block).reduce((sum,step)=>sum+(step.kind==='exercise'?(step.estimatedSeconds??(step.timed?step.seconds:block.exercises[step.exerciseIndex].estimatedSeconds)):step.seconds),0);
     const p=block.prescription||{};
@@ -1338,7 +1402,15 @@
     let steps=[];const p=block.prescription||{},exercises=block.exercises||[];
     if(block.familyContext!=null&&validateFamilyBlock(block).length)return steps;
     if(validateOccurrenceTargets(block).length||validateOccurrenceRecovery(block).length)return steps;
-    if(block.protocol==='density'){
+    if(block.protocol==='amrap'){
+      // One prescribed sequence, one planned occurrence per movement. Repeating it until the
+      // cap is playback, never extra planned rounds, occurrence ids or credit.
+      if(validateAmrapBlock(block).length)return steps;
+      exercises.forEach((exercise,exerciseIndex)=>{
+        const target=resolveOccurrenceTarget(exercise,{plannedPrescription:{...p.targets[exerciseIndex]}});
+        steps.push(Object.freeze({kind:'exercise',exerciseIndex,amrapSequence:1,...target,variableTarget:true,timed:false,completion:'explicit'}));
+      });
+    }else if(block.protocol==='density'){
       if(validateDensityBlock(block).length)return steps;
       for(let densityRound=1;densityRound<=p.repeats;densityRound++)exercises.forEach((exercise,exerciseIndex)=>{
         const target=resolveOccurrenceTarget(exercise,{plannedPrescription:{...p.targets[exerciseIndex]}});
@@ -1440,6 +1512,12 @@
   }
 
   function chooseClosestPrescription(protocol, exercises, targetSeconds, rest, focus, options) {
+    if(protocol==='amrap'){
+      // The whole-minute cap within the share; an unsuitable sequence falls back to other formats.
+      const capSeconds=Math.min(AMRAP_POLICY.maxCapSeconds,Math.floor(targetSeconds/AMRAP_POLICY.capStepSeconds)*AMRAP_POLICY.capStepSeconds);
+      const prescription={capSeconds,targets:exercises.map(amrapDefaultTarget)};
+      return validateAmrapBlock({protocol,exercises,prescription}).length?null:{prescription,estimate:capSeconds,fitness:targetSeconds-capSeconds};
+    }
     if(protocol==='density'){
       if(exercises.length!==2)return null;
       const timeCapSeconds=Math.min(DENSITY_POLICY.maxCapSeconds,Math.floor(targetSeconds/30)*30);
@@ -1518,8 +1596,9 @@
   }
 
   function buildMainBlock(eligible, index, protocol, intent, targetSeconds, focus, rest, state, history, random, catalogue) {
+    if(protocol==='amrap')intent=amrapIntent(intent);
     const compatible=eligible.filter(ex=>protocolCompatible(ex,protocol));
-    const desiredCount=protocol==='pyramid'?1:protocol==='complex'?(targetSeconds<360?2:3):protocol==='paired_sets'||protocol==='ladder'||protocol==='density'?2:protocol==='rounds'?(targetSeconds<420?3:4):(targetSeconds<300?2:3);
+    const desiredCount=protocol==='pyramid'?1:protocol==='complex'?(targetSeconds<360?2:3):protocol==='amrap'?(targetSeconds<300?2:3):protocol==='paired_sets'||protocol==='ladder'||protocol==='density'?2:protocol==='rounds'?(targetSeconds<420?3:4):(targetSeconds<300?2:3);
     const count=Math.min(desiredCount,compatible.length);
     const exercises=selectBlockExercises(eligible,count,focus,intent,protocol,state,history,random,catalogue);
     if(exercises.length<(protocol==='pyramid'?1:protocol==='rounds'?Math.min(3,compatible.length):2))return null;
@@ -1548,6 +1627,8 @@
     const p=block.prescription||{},shape=PROTOCOL_SHAPES[block.protocol];
     if(block.protocol==='pyramid')return Array.isArray(p.steps)?p.steps.length:0;
     if(block.protocol==='ladder')return Array.isArray(p.repSteps)?p.repSteps.length:0;
+    // One planned pass of the sequence; extra rounds within the cap are unplanned repetition.
+    if(block.protocol==='amrap')return 1;
     return shape?Number(p[shape.repeatKey])||1:1;
   }
 
@@ -1555,7 +1636,7 @@
   // repeat count. The player attaches them to each Main exercise phase; the Session Tracker
   // records them in the planned occurrence for Training History comparability.
   function protocolConditions(block) {
-    const conditions=block&&['emom','complex','density'].includes(block.protocol)?jsonCopy(block.prescription):Object.assign({},block&&block.prescription);
+    const conditions=block&&['emom','complex','density','amrap'].includes(block.protocol)?jsonCopy(block.prescription):Object.assign({},block&&block.prescription);
     PROTOCOL_REPEAT_KEYS.forEach(key=>delete conditions[key]);
     if(block&&block.occurrenceRecoverySeconds)conditions.occurrenceRecoverySeconds=Object.freeze(block.occurrenceRecoverySeconds.slice());
     return conditions;
@@ -1612,6 +1693,12 @@
         if(['ladder','pyramid','complex','density'].includes(block.protocol)){
           const seconds=resolveBlockSteps(block).filter(step=>step.kind==='exercise'&&step.exerciseIndex===index).reduce((sum,step)=>sum+step.estimatedSeconds,0);
           usage.set(type,(usage.get(type)||0)+seconds);continue;
+        }
+        if(block.protocol==='amrap'){
+          // The cap is shared in proportion to each movement's share of one round.
+          const steps=resolveBlockSteps(block),round=steps.reduce((sum,step)=>sum+step.estimatedSeconds,0);
+          const own=steps.filter(step=>step.exerciseIndex===index).reduce((sum,step)=>sum+step.estimatedSeconds,0);
+          usage.set(type,(usage.get(type)||0)+(round?Math.round(block.prescription.capSeconds*own/round):0));continue;
         }
         usage.set(type,(usage.get(type)||0)+(block.protocol==='emom'?Math.ceil(exercise.estimatedSeconds*block.prescription.targets[index].value/exercise.prescription.value):exercise.estimatedSeconds)*exerciseExposureCount(block,index));
       }
@@ -1687,7 +1774,7 @@
         if(source&&block.occurrenceTargets===undefined){
           const p=block.prescription||{},targets=block.protocol==='ladder'?(p.repSteps||[]).map(value=>({type:'reps',value}))
             :block.protocol==='pyramid'?(p.steps||[]).map(step=>({type:'reps',value:step.reps}))
-            :['emom','complex','density'].includes(block.protocol)?[p.targets&&p.targets[index]]
+            :['emom','complex','density','amrap'].includes(block.protocol)?[p.targets&&p.targets[index]]
             :[block.protocol==='timed_intervals'?{type:'timed',value:p.workSeconds}:source.prescription];
           for(const plannedPrescription of targets)resolveOccurrenceTarget(source,{plannedPrescription},
             {familyContext:block.familyContext,...(block.protocol==='timed_intervals'?{timedIntervalSeconds:p.workSeconds}:{})});
@@ -1722,6 +1809,10 @@
         const invalid=validateDensityBlock(block,catalogue);
         if(invalid.length){issues.push(...invalid.map(issue=>block.id+':'+issue));continue;}
       }
+      if(block.protocol==='amrap'){
+        const invalid=validateAmrapBlock(block,catalogue);
+        if(invalid.length){issues.push(...invalid.map(issue=>block.id+':'+issue));continue;}
+      }
       if(!blockSetupCompatible(block,catalogue,owned))issues.push(block.id+':setup-profile-conflict');
       if(!MAIN_INTENTS.has(block.intent))issues.push(block.id+':invalid-intent');
       if(!Array.isArray(block.exercises)||!block.exercises.length)issues.push(block.id+':no-exercises');
@@ -1741,7 +1832,7 @@
       if(!resolveBlockSteps(block).some(step=>step.kind==='exercise'))issues.push(block.id+':unplayable');
     }
     const estimate=mainSeconds(main.blocks,owned);
-    if(main.blocks.some(block=>['emom','ladder','pyramid','complex','density'].includes(block.protocol)||block.occurrenceTargets||block.occurrenceRecoverySeconds)&&Number.isFinite(targetSeconds)&&estimate>targetSeconds)issues.push('main:duration-over-budget');
+    if(main.blocks.some(block=>['emom','ladder','pyramid','complex','density','amrap'].includes(block.protocol)||block.occurrenceTargets||block.occurrenceRecoverySeconds)&&Number.isFinite(targetSeconds)&&estimate>targetSeconds)issues.push('main:duration-over-budget');
     if(Number.isFinite(targetSeconds)&&Math.abs(estimate-targetSeconds)>Math.max(240,targetSeconds*.38))issues.push('main:duration-out-of-tolerance');
     return issues;
   }
@@ -2426,16 +2517,18 @@
   function minimumOptionalBlock(eligible, protocols, rest, focus, index=0) {
     const choices=[];
     for(const protocol of protocols){
+      // AMRAP is Balanced/Cardio conditioning only; a Strength session never falls back to it.
+      if(protocol==='amrap'&&focus==='strength')continue;
       const compatible=eligible.filter(exercise=>protocolCompatible(exercise,protocol)).sort((a,b)=>a.estimatedSeconds-b.estimatedSeconds||a.id.localeCompare(b.id));
-      const count=['emom','paired_sets','complex','density'].includes(protocol)?2:1;
+      const count=['emom','paired_sets','complex','density','amrap'].includes(protocol)?2:1;
       const picked=[];
-      if(protocol==='complex'||protocol==='density'){
+      if(['complex','density','amrap'].includes(protocol)){
         const first=compatible.find(exercise=>compatible.some(other=>other!==exercise&&!complexSequenceIssues([exercise,other]).length));
         if(first)picked.push(first,compatible.find(other=>other!==first&&!complexSequenceIssues([first,other]).length));
       }else for(const exercise of compatible)if(picked.length<count&&!mainFamilyCapReached(exercise,picked)&&setupProfilesCompatible(picked.concat(exercise)))picked.push(exercise);
       // The shortest exercise may have no compatible partner even though a later
       // pair is feasible. Retry only that constrained path; ordinary plans stay exact.
-      if(picked.length<count&&count===2&&protocol!=='complex'&&protocol!=='density'&&compatible.some(exercise=>exercise.setupProfile)){
+      if(picked.length<count&&count===2&&!['complex','density','amrap'].includes(protocol)&&compatible.some(exercise=>exercise.setupProfile)){
         for(const first of compatible){
           const second=compatible.find(other=>other!==first&&!mainFamilyCapReached(other,[first])&&setupProfilesCompatible([first,other]));
           if(second){picked.splice(0,picked.length,first,second);break;}
@@ -2443,7 +2536,8 @@
       }
       if(picked.length<count)continue;
       const exercises=picked.map(copyExercise);
-      const prescription=protocol==='density'?{repeats:2,targets:exercises.map(densityDefaultTarget),timeCapSeconds:Math.max(180,Math.ceil(densityMinimumSeconds(exercises,{repeats:2,targets:exercises.map(densityDefaultTarget),exerciseRestSeconds:15,roundRestSeconds:45})/30)*30),exerciseRestSeconds:15,roundRestSeconds:45}:
+      const prescription=protocol==='amrap'?{capSeconds:AMRAP_POLICY.minCapSeconds,targets:exercises.map(amrapDefaultTarget)}:
+        protocol==='density'?{repeats:2,targets:exercises.map(densityDefaultTarget),timeCapSeconds:Math.max(180,Math.ceil(densityMinimumSeconds(exercises,{repeats:2,targets:exercises.map(densityDefaultTarget),exerciseRestSeconds:15,roundRestSeconds:45})/30)*30),exerciseRestSeconds:15,roundRestSeconds:45}:
         protocol==='complex'?{sequences:COMPLEX_POLICY.minSequences,targets:exercises.map(complexDefaultTarget),
         changeoverSeconds:Math.min(10,rest.exercise),sequenceRestSeconds:Math.max(COMPLEX_POLICY.minSequenceRestSeconds,rest.round)}:
         protocol==='pyramid'?{steps:[{reps:4},{reps:8},{reps:4}],stepRestSeconds:Math.max(60,rest.round)}:
@@ -2455,7 +2549,8 @@
       if(protocol==='pyramid'&&validatePyramidBlock({protocol,exercises,prescription}).length)continue;
       if(protocol==='complex'&&validateComplexBlock({protocol,exercises,prescription}).length)continue;
       if(protocol==='density'&&validateDensityBlock({protocol,exercises,prescription}).length)continue;
-      choices.push(finishMainBlock({id:'main-'+(index+1),protocol,intent:focus==='cardio'?'conditioning':'strength',exercises,prescription}));
+      if(protocol==='amrap'&&validateAmrapBlock({protocol,exercises,prescription}).length)continue;
+      choices.push(finishMainBlock({id:'main-'+(index+1),protocol,intent:protocol==='amrap'?'conditioning':focus==='cardio'?'conditioning':'strength',exercises,prescription}));
     }
     return choices.sort((a,b)=>a.estimatedDurationSeconds-b.estimatedDurationSeconds)[0]||null;
   }
@@ -2525,7 +2620,7 @@
         exercise=anchorExercise(source,anchor,rx.prescriptionId);
         repeats=anchorRepeats(anchor,exercise);
         if(repeats==null)add('target-exposure-mismatch');
-        protocols=permittedProtocols(rx,anchor).filter(protocol=>!['emom','ladder','pyramid','complex','density'].includes(protocol)&&GENERATED_PROTOCOLS.includes(protocol)&&protocolCompatible(source,protocol)&&(protocol!=='timed_intervals'||sideCount(exercise)===1&&anchor.prescriptionMode!=='reps'));
+        protocols=permittedProtocols(rx,anchor).filter(protocol=>!['emom','ladder','pyramid','complex','density','amrap'].includes(protocol)&&GENERATED_PROTOCOLS.includes(protocol)&&protocolCompatible(source,protocol)&&(protocol!=='timed_intervals'||sideCount(exercise)===1&&anchor.prescriptionMode!=='reps'));
         if(!protocols.length)add('protocol-incompatible',{requirementIds:[anchor.requirementId,...prescriptionList(rx,'protocolConstraints').filter(item=>item.importance==='hard'&&constraintApplies(item,anchor)).map(item=>item.requirementId)]});
         // Main's family cap holds for Coach work too: a required anchor cannot be joined by
         // another member of a capped family (required anchors precede preferred ones).
@@ -2730,8 +2825,9 @@
             &&(protocol!=='ladder'||!state.blocks.some(block=>block.protocol==='ladder'))
             &&(protocol!=='pyramid'||!state.blocks.some(block=>block.protocol==='pyramid'))
             &&(protocol!=='density'||!state.blocks.some(block=>block.protocol==='density')&&densityPairAvailable(optional))
+            &&(protocol!=='amrap'||context.focus!=='strength'&&!state.blocks.some(block=>block.protocol==='amrap')&&amrapPairAvailable(optional))
             &&(protocol!=='complex'||!state.blocks.some(block=>block.protocol==='complex')&&complexPairAvailable(optional))
-            &&optional.filter(exercise=>protocolCompatible(exercise,protocol)).length>=(['paired_sets','complex','density'].includes(protocol)?2:1);
+            &&optional.filter(exercise=>protocolCompatible(exercise,protocol)).length>=(['paired_sets','complex','density','amrap'].includes(protocol)?2:1);
           let protocols=softProtocols.filter(viable);if(!protocols.length)protocols=hardProtocols.filter(viable);
           if(!protocols.length)break;
           const weights=protocolWeights(context.focus,intents[index],target,optional,state).filter(item=>protocols.includes(item.value));
@@ -2745,17 +2841,17 @@
           // fallback selects only unconstrained work; reserved anchors remain in state.
           if(!block){
             const fallbackProtocol=protocols.find(item=>item!=='paired_sets')||protocols[0];
-            const pairs=['paired_sets','complex','density'].includes(fallbackProtocol);
+            const pairs=['paired_sets','complex','density','amrap'].includes(fallbackProtocol);
             const exercises=selectBlockExercises(optional,pairs?2:1,context.focus,intents[index],fallbackProtocol,state,history,random,catalogue);
             if(exercises.length&&(!pairs||exercises.length===2)&&fallbackProtocol!=='emom'){
               const fitted=chooseClosestPrescription(fallbackProtocol,exercises,target,rest,context.focus,{allowExtendedRepetition:true});
-              if(fitted)block=finishMainBlock({id:'main-'+(state.blocks.length+1),protocol:fallbackProtocol,intent:intents[index],exercises:exercises.map(copyExercise),prescription:fitted.prescription});
+              if(fitted)block=finishMainBlock({id:'main-'+(state.blocks.length+1),protocol:fallbackProtocol,intent:fallbackProtocol==='amrap'?amrapIntent(intents[index]):intents[index],exercises:exercises.map(copyExercise),prescription:fitted.prescription});
             }
           }
           if(!block)break;
           // Optional dose may shrink; required/preferred target blocks are never refitted.
           const key=PROTOCOL_SHAPES[block.protocol].repeatKey;
-          while(!['ladder','pyramid','complex','density'].includes(block.protocol)&&mainSeconds(state.blocks.concat(block),context.equipment)>budget.main&&block.prescription[key]>(block.protocol==='emom'?Math.max(3,block.exercises.length):1)){block.prescription[key]--;finishMainBlock(block);}
+          while(!['ladder','pyramid','complex','density','amrap'].includes(block.protocol)&&mainSeconds(state.blocks.concat(block),context.equipment)>budget.main&&block.prescription[key]>(block.protocol==='emom'?Math.max(3,block.exercises.length):1)){block.prescription[key]--;finishMainBlock(block);}
           if(mainSeconds(state.blocks.concat(block),context.equipment)>budget.main)break;
           state.blocks.push(block);state.exercises.push(...block.exercises);
           block.exercises.forEach(exercise=>state.usedIds.add(exercise.id));state.equipmentUsage=equipmentUsageSeconds(state.blocks);
@@ -2913,9 +3009,11 @@
         else if(block.protocol==='emom'&&candidate.prescription.minutes>Math.max(3,block.exercises.length))candidate.prescription.minutes--;
         else if(block.protocol==='complex'&&candidate.prescription.sequences>COMPLEX_POLICY.minSequences)candidate.prescription.sequences--;
         else if(block.protocol==='density')candidate.prescription.timeCapSeconds-=30;
+        else if(block.protocol==='amrap')candidate.prescription.capSeconds-=AMRAP_POLICY.capStepSeconds;
         else return;
         if(!blockSetupCompatible(candidate, null, owned))return;
         if(block.protocol==='density'&&validateDensityBlock(candidate).length)return;
+        if(block.protocol==='amrap'&&validateAmrapBlock(candidate).length)return;
         finishMainBlock(candidate);
         const saving=estimateBlockDuration(block,owned)-estimateBlockDuration(candidate,owned);
         if(saving>0)choices.push({index,candidate,saving});
@@ -3371,18 +3469,19 @@
     const difficulty=workoutDifficulty(workout.difficulty);
     const bodyFocus=workoutBodyFocus(workout.bodyFocus);
     let eligible=Object.values(catalogue).filter(exercise=>generatedPhaseEligible(exercise,'main',owned,difficulty,block.familyContext)&&protocolCompatible(exercise,block.protocol,block.familyContext)&&exercise.id!==current.id&&!mainFamilyCapReached(exercise,otherExercises));
-    // The whole block after the swap. A complex movement takes its own default target;
-    // the sequence count, changeover and recovery stay as planned.
+    // The whole block after the swap. A complex or AMRAP movement takes its own default target;
+    // the sequence count, changeover, recovery and AMRAP cap stay as planned.
+    const ownTarget=block.protocol==='complex'?complexDefaultTarget:block.protocol==='amrap'?amrapDefaultTarget:null;
     const replaced=exercise=>({...block,exercises:block.exercises.map((item,index)=>index===exerciseIndex?exercise:item),
-      ...(block.protocol==='complex'?{prescription:{...block.prescription,targets:block.prescription.targets.map((target,index)=>index===exerciseIndex?complexDefaultTarget(exercise):target)}}:{})});
+      ...(ownTarget?{prescription:{...block.prescription,targets:block.prescription.targets.map((target,index)=>index===exerciseIndex?ownTarget(exercise):target)}}:{})});
     if(block.familyContext!=null)eligible=eligible.filter(exercise=>!validateFamilyBlock(replaced(exercise),catalogue,owned).length);
     eligible=eligible.filter(exercise=>blockSetupCompatible(replaced(exercise),catalogue,owned));
     const prospective=exercise=>setupBudgetCandidate({...workout,setupEquipment:owned},blocks.map(item=>item===block?replaced(exercise):item));
     eligible=eligible.filter(exercise=>!(hasConfiguredEquipment(workout)||exercise.setupProfile)||withinSetupBudget(prospective(exercise),workout.sessionPrescription));
     if(block.protocol==='emom')eligible=eligible.filter(exercise=>!validateEmomBlock(replaced(exercise),catalogue).length);
-    if(['ladder','pyramid','complex','density'].includes(block.protocol))eligible=eligible.filter(exercise=>{
+    if(['ladder','pyramid','complex','density','amrap'].includes(block.protocol))eligible=eligible.filter(exercise=>{
       const replacement=replaced(exercise);
-      return !({ladder:validateLadderBlock,pyramid:validatePyramidBlock,complex:validateComplexBlock,density:validateDensityBlock}[block.protocol])(replacement,catalogue).length
+      return !({ladder:validateLadderBlock,pyramid:validatePyramidBlock,complex:validateComplexBlock,density:validateDensityBlock,amrap:validateAmrapBlock}[block.protocol])(replacement,catalogue).length
         &&prospective(exercise).main.estimatedDurationSeconds<=(BUDGETS[workout.duration]||BUDGETS[20]).main;
     });
     if(block.occurrenceTargets)eligible=eligible.filter(exercise=>!validateOccurrenceTargets(replaced(exercise),catalogue).length);
@@ -3399,6 +3498,7 @@
       const candidate=JSON.parse(JSON.stringify(workout)),target=mainBlocks(candidate)[blockIndex||0];
       target.exercises[exerciseIndex]=copyExercise(exercise);
       if(target.protocol==='complex')target.prescription.targets[exerciseIndex]=complexDefaultTarget(exercise);
+      if(target.protocol==='amrap')target.prescription.targets[exerciseIndex]=amrapDefaultTarget(exercise);
       if(hasConfiguredEquipment(candidate))candidate.setupEquipment=owned.slice();else delete candidate.setupEquipment;
       try{recalcWorkoutEstimate(candidate);return validateFamilyWorkout(candidate,{catalogue,equipment:owned}).valid;}catch(error){return false;}
     });
@@ -3425,6 +3525,7 @@
     if(hasConfiguredEquipment(workout))workout.setupEquipment=owned.slice();
     else delete workout.setupEquipment;
     if(block.protocol==='complex')block.prescription.targets[exerciseIndex]=complexDefaultTarget(replacement);
+    if(block.protocol==='amrap')block.prescription.targets[exerciseIndex]=amrapDefaultTarget(replacement);
     block.estimatedDurationSeconds=estimateBlockDuration(block,owned);block.estimatedSeconds=block.estimatedDurationSeconds;
     recalcWorkoutEstimate(workout);
     refreshPrescriptionOutcome(workout);return workout;
@@ -3504,7 +3605,7 @@
     applySetupPlan(workout);
   }
 
-  root.GarageFitGenerator = { registerFamilyComposer, validateFamilyWorkout, generateFamilyReplan, resolvedOccurrences, BUDGETS, RESTS, PROTOCOL_SHAPES, MAIN_PROTOCOLS, GENERATED_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, EQUIPMENT_SETUP_SECONDS, EQUIPMENT_SETUP_NOTE, planSetupTransitions, mainSeconds, EMOM_POLICY, LADDER_POLICY, PYRAMID_POLICY, COMPLEX_POLICY, DENSITY_POLICY, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, WORKOUT_DIFFICULTIES, EXERCISE_DIFFICULTIES, DIFFICULTY_POLICY, workoutDifficulty, difficultyExcluded, difficultyCredit, WORKOUT_BODY_FOCUSES, EXERCISE_BODY_FOCUSES, EXERCISE_DIRECT_ELBOW_ACTIONS, BODY_FOCUS_POLICY, workoutBodyFocus, bodyFocusCredit, SHORTLIST_SIZE, SHORTLIST_MARGIN, WINDOW_MAX_RANKS, SUPPORTING_ROUTE, candidateWindowRanks, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, setupProfilesCompatible, blockSetupCompatible, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_SETUP_PROFILES, VALID_PATTERNS, VALID_WARMUP_AREAS, VALID_STRETCH_TARGETS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, OCCURRENCE_TARGET_LIMITS, resolveOccurrenceTarget, validateOccurrenceTargets, validateOccurrenceRecovery, validateFamilyBlock, validateEmomBlock, validateLadderBlock, validatePyramidBlock, pyramidKind, validateComplexBlock, validateDensityBlock, complexSequenceIssues, buildEmomBlock, protocolCompatible, protocolWeights, recentProtocolsFromResults, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, protocolConditions, selectBlockExercises, selectWarmup, kneeMobilityQualified, upperTrunkTarget, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, SessionPrescriptionError, assessSessionPrescription, generate, swap, swapPreparation };
+  root.GarageFitGenerator = { registerFamilyComposer, validateFamilyWorkout, generateFamilyReplan, resolvedOccurrences, BUDGETS, RESTS, PROTOCOL_SHAPES, MAIN_PROTOCOLS, GENERATED_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, EQUIPMENT_SETUP_SECONDS, EQUIPMENT_SETUP_NOTE, planSetupTransitions, mainSeconds, EMOM_POLICY, LADDER_POLICY, PYRAMID_POLICY, COMPLEX_POLICY, DENSITY_POLICY, AMRAP_POLICY, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, WORKOUT_DIFFICULTIES, EXERCISE_DIFFICULTIES, DIFFICULTY_POLICY, workoutDifficulty, difficultyExcluded, difficultyCredit, WORKOUT_BODY_FOCUSES, EXERCISE_BODY_FOCUSES, EXERCISE_DIRECT_ELBOW_ACTIONS, BODY_FOCUS_POLICY, workoutBodyFocus, bodyFocusCredit, SHORTLIST_SIZE, SHORTLIST_MARGIN, WINDOW_MAX_RANKS, SUPPORTING_ROUTE, candidateWindowRanks, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, setupProfilesCompatible, blockSetupCompatible, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_SETUP_PROFILES, VALID_PATTERNS, VALID_WARMUP_AREAS, VALID_STRETCH_TARGETS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, OCCURRENCE_TARGET_LIMITS, resolveOccurrenceTarget, validateOccurrenceTargets, validateOccurrenceRecovery, validateFamilyBlock, validateEmomBlock, validateLadderBlock, validatePyramidBlock, pyramidKind, validateComplexBlock, validateDensityBlock, validateAmrapBlock, complexSequenceIssues, buildEmomBlock, protocolCompatible, protocolWeights, recentProtocolsFromResults, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, protocolConditions, selectBlockExercises, selectWarmup, kneeMobilityQualified, upperTrunkTarget, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, SessionPrescriptionError, assessSessionPrescription, generate, swap, swapPreparation };
 
   if (typeof window!=='undefined' && typeof document!=='undefined' && typeof window.addEventListener==='function') window.addEventListener('load',()=>{
     if (document.querySelector('script[data-garagefit-rampup-ui]')) return;

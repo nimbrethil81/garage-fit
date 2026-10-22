@@ -26,18 +26,18 @@
     "cooldown full-body-stretch,kneeling-hamstring,pigeon-stretch,hip-flexor-arm-stretch"
   ],
   "20 balanced normal full-body dumbbells": [
-    "warmup standing-knee-curls,arm-circles-backwards,shallow-knee-bends,side-step-touches,leg-swings-forward-back",
-    "rampup bum-kicks,jumping-jacks,squat-jumps",
-    "timed_intervals | strength | {\"workSeconds\":30,\"transitionSeconds\":15,\"cycles\":3} :: dumbbell-thruster@timed:35,dumbbell-farmer-carry@timed:30,dumbbell-snatch@reps:12",
-    "rounds | conditioning | {\"rounds\":2,\"exerciseRestSeconds\":15,\"roundRestSeconds\":45} :: reverse-lunge-knee-drive@unilateral-reps:10,mountain-climbers@timed:30,fast-feet@timed:30,walking-lunge@reps:20",
+    "warmup standing-knee-curls,heel-toe-rocks,arm-circles-backwards,shallow-knee-bends,bum-kicks",
+    "rampup air-squat,jumping-jacks,squat-jumps",
+    "rounds | strength | {\"rounds\":2,\"exerciseRestSeconds\":15,\"roundRestSeconds\":45} :: dumbbell-sumo-squat@reps:10,dumbbell-clean-and-press@reps:10,single-arm-dumbbell-row@unilateral-reps:10,dumbbell-farmer-carry@timed:30",
+    "complex | conditioning | {\"sequences\":3,\"targets\":[{\"type\":\"timed\",\"value\":30},{\"type\":\"reps\",\"value\":8},{\"type\":\"reps\",\"value\":8}],\"changeoverSeconds\":10,\"sequenceRestSeconds\":75} :: mountain-climbers@timed:30,push-up@reps:10,glute-bridge@reps:12",
     "cooldown kneeling-hamstring,plank-calf-stretch,toe-touch,inside-thigh-stretch,full-body-stretch"
   ],
   "20 cardio easy full-body bodyweight": [
-    "warmup standing-knee-curls,body-hoops,heel-toe-rocks,shallow-knee-bends,hamstring-sweeps",
-    "rampup bum-kicks,star-jumps,mountain-climbers",
-    "rounds | conditioning | {\"rounds\":3,\"exerciseRestSeconds\":10,\"roundRestSeconds\":30} :: bicycle-crunch@reps:20,air-squat@reps:10,jumping-jacks@timed:30,abdominal-crunch@timed:30",
-    "emom | conditioning | {\"minutes\":6,\"slotSeconds\":60,\"targets\":[{\"type\":\"timed\",\"value\":30},{\"type\":\"reps\",\"value\":10},{\"type\":\"timed\",\"value\":30}]} :: bear-crawl@timed:30,push-up@reps:10,mountain-climbers@timed:30",
-    "cooldown runners-stretch,chest-opener,toe-touch,glute-stretch,plank-calf-stretch"
+    "warmup standing-knee-curls,heel-toe-rocks,body-hoops,knee-to-opposite-elbow,side-step-touches",
+    "rampup bum-kicks,jumping-jacks,switch-kicks",
+    "rounds | conditioning | {\"rounds\":3,\"exerciseRestSeconds\":10,\"roundRestSeconds\":30} :: switch-kicks@timed:30,air-squat@reps:10,mountain-climbers@timed:30,alternating-lateral-lunge@reps:12",
+    "complex | finisher | {\"sequences\":3,\"targets\":[{\"type\":\"reps\",\"value\":8},{\"type\":\"reps\",\"value\":8}],\"changeoverSeconds\":10,\"sequenceRestSeconds\":105} :: bicycle-crunch@reps:20,push-up@reps:10",
+    "cooldown frog-stretch,downward-upward-dog,runners-stretch,inside-thigh-stretch,side-stretch"
   ],
   "20 balanced hard upper pullup+trx": [
     "warmup standing-knee-curls,body-twists,arm-side-circles,body-hoops,shallow-knee-bends",

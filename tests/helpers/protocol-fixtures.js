@@ -3,7 +3,7 @@
 const copy = value => JSON.parse(JSON.stringify(value));
 
 // One canonical block per protocol, including per-side work where the protocol allows it.
-function blockFixtures(catalogue,{emom=false,ladder=false,pyramid=false,complex=false,density=false}={}) {
+function blockFixtures(catalogue,{emom=false,ladder=false,pyramid=false,complex=false,density=false,amrap=false}={}) {
   const ex = id => copy(catalogue[id]);
   const blocks={
     rounds: {id: 'main-1', protocol: 'rounds', intent: 'strength',
@@ -29,6 +29,9 @@ function blockFixtures(catalogue,{emom=false,ladder=false,pyramid=false,complex=
     prescription:{sequences:3,targets:[{type:'reps',value:8},{type:'reps',value:8},{type:'timed',value:30}],changeoverSeconds:10,sequenceRestSeconds:75}};
   if(density)blocks.density={id:'main-8',protocol:'density',intent:'conditioning',exercises:[ex('push-up'),ex('bicycle-crunch')],
     prescription:{repeats:3,targets:[{type:'reps',value:8},{type:'reps',value:8}],timeCapSeconds:300,exerciseRestSeconds:15,roundRestSeconds:45}};
+  // One standing TRX setup with three distinct patterns, repeated until a five-minute cap.
+  if(amrap)blocks.amrap={id:'main-9',protocol:'amrap',intent:'conditioning',exercises:[ex('trx-squat'),ex('trx-row'),ex('trx-chest-press')],
+    prescription:{capSeconds:300,targets:[{type:'reps',value:8},{type:'reps',value:8},{type:'reps',value:8}]}};
   return blocks;
 }
 
@@ -80,6 +83,8 @@ function traceBlock(Generator, block) {
   });
   // Density reserves its cap, including pacing/recovery slack, rather than estimated work.
   if(block.protocol==='density'&&steps.length)seconds=block.prescription.timeCapSeconds;
+  // AMRAP reserves exactly its cap; its single planned pass repeats until then.
+  if(block.protocol==='amrap'&&steps.length)seconds=block.prescription.capSeconds;
   return {steps, seconds, problems};
 }
 

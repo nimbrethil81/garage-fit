@@ -193,7 +193,8 @@ test('shared preview/player/tracker use contextual targets and per-side occurren
 test('no-family seeded output and random draws match the pre-178 main baseline',()=>{
   const fixtures=[
     [{duration:10,focus:'strength',bodyFocus:'upper',difficulty:'easy',equipment:[]},68,'931adac57e2aebebcce46059fd27536c0620fc2edfbec2f1ac00cc2c5b3fceb7'],
-    [{duration:20,focus:'balanced',bodyFocus:'lower',difficulty:'normal',equipment:['dumbbells']},111,'655da72fa8413f1331be410100453f7fa86b00592cec03fe959c133a99832a79'],
+    // Re-pinned for #221: AMRAP's Balanced conditioning weight changes this draw (same RNG count).
+    [{duration:20,focus:'balanced',bodyFocus:'lower',difficulty:'normal',equipment:['dumbbells']},111,'51f5ce8b0754b9215c4a9517a75b2d892af9dec0907f72ee5eef29058aa4f68f'],
     [{duration:45,focus:'cardio',bodyFocus:'core',difficulty:'hard',equipment:['trx','bands']},189,'039cd7ab244719e91fa87432d1591f30182388c975292711e7375259866e4a03']
   ];
   for(const [options,expectedDraws,expectedHash] of fixtures){

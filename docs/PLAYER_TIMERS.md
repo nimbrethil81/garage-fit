@@ -18,7 +18,7 @@ Instructions, Coach inputs and the rest of the panel have no pause handler.
 Untimed work shows its reps and a separate accessible pause control.
 
 The routine clock remains `state.timer`; the generated player reads its existing
-phase, EMOM-minute or density-cap clock. No clock, target, tracker record or
+phase, EMOM-minute, density-cap or AMRAP-cap clock. No clock, target, tracker record or
 programme policy was added. Density continues to show the cap and explicit
 recovery status; EMOM continues to show its minute window and work/rest status.
 
@@ -38,7 +38,8 @@ recovery status; EMOM continues to show its minute window and work/rest status.
 Routine playback has no occurrence replay/history-reconciliation contract. Adding
 Previous would require new rules for already completed/skipped routine evidence,
 so its supported navigation remains forward-only. EMOM minutes cannot be replayed;
-density retains its recovery minimums and restrictions on revisiting ended blocks.
+density retains its recovery minimums and restrictions on revisiting ended blocks;
+AMRAP allows Previous only within the current round and never reopens an ended block.
 
 Every primary button previews only the immediate activity name. Side annotations,
 timing, reps, resistance, set counts and after-rest explanations are excluded.

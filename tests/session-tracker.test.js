@@ -120,8 +120,12 @@ function appWithWorkout(options = {}) {
 test('generated timeline occurrences have stable unique ids across rounds, sets, cycles and sides', () => {
   const protocols = new Set();
   let sided = 0, repeatedAnchorSets = 0;
-  for (const [index, focus] of ['strength','balanced','cardio'].entries()) for (const duration of [20, 30, 45]) for (const rampupUi of [true, false]) {
-    const {run} = appWithWorkout({focus, duration, seed: 100 + index * 10 + duration, rampupUi});
+  const cases = [];
+  for (const [index, focus] of ['strength','balanced','cardio'].entries()) for (const duration of [20, 30, 45]) cases.push({focus, duration, seed: 100 + index * 10 + duration});
+  // Bounded Balanced seeds reaching density and AMRAP.
+  cases.push({focus: 'balanced', duration: 20, seed: 31}, {focus: 'balanced', duration: 20, seed: 28});
+  for (const {focus, duration, seed} of cases) for (const rampupUi of [true, false]) {
+    const {run} = appWithWorkout({focus, duration, seed, rampupUi});
     const timeline = run('buildGeneratedTimeline(generatorState.workout)');
     const exercises = timeline.filter(phase => phase.kind === 'exercise');
     assert.ok(exercises.every(phase => typeof phase.occurrenceId === 'string' && phase.occurrenceId));
@@ -143,7 +147,7 @@ test('generated timeline occurrences have stable unique ids across rounds, sets,
       repeatedAnchorSets++;
     });
   }
-  assert.deepEqual([...protocols].sort(), ['complex','density','emom','paired_sets','rounds','timed_intervals']);
+  assert.deepEqual([...protocols].sort(), ['amrap','complex','density','emom','paired_sets','rounds','timed_intervals']);
   assert.ok(sided > 0, 'per-side occurrences are covered');
   assert.ok(repeatedAnchorSets > 0, 'repeated work sets of one exercise are covered');
 });

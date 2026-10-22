@@ -30,7 +30,7 @@ function plannedTimelineSeconds(value,phases=timeline(value)){
   // setup replacements preserve that legacy offset and add only their planned delta.
   const fixedBlocks=new Set();
   return phases.reduce((sum,phase)=>{
-    if(phase.kind==='exercise'&&['emom','density'].includes(phase.protocol)){
+    if(phase.kind==='exercise'&&['emom','density','amrap'].includes(phase.protocol)){
       if(fixedBlocks.has(phase.blockIndex))return sum;
       fixedBlocks.add(phase.blockIndex);return sum+G.estimateBlockDuration(value.main.blocks[phase.blockIndex]);
     }

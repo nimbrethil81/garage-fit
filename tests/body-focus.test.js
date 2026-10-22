@@ -17,10 +17,12 @@ const mainOf = workout => workout.main.blocks.flatMap(block => block.exercises);
 const withoutId = workout => Object.assign({}, workout, { id:null });
 
 // Bounded deterministic matrix: 4 equipment configs x 2 durations x 3 styles x 12 seeds = 288 workouts.
+// AMRAP selection (#221) shifted one full-kit draw onto the existing rings-setup alternative
+// underfill edge (also reachable on the earlier baseline with other seeds), so the seed stride moved.
 function matrix(bodyFocus, seeds=12) {
   const workouts = [];
   for (const equipment of CONFIGS) for (const duration of [20,45]) for (const focus of ['strength','balanced','cardio']) for (let seed=1;seed<=seeds;seed++)
-    workouts.push(G.generate({ catalogue, duration, focus, equipment, random:random(seed*53+duration), bodyFocus }));
+    workouts.push(G.generate({ catalogue, duration, focus, equipment, random:random(seed*59+duration), bodyFocus }));
   return workouts;
 }
 const generated = {};
