@@ -10,6 +10,8 @@ capabilities:
     enabled: true
   documentation_integrity:
     enabled: true
+  testing_effectiveness:
+    enabled: true
 
 canonical_sources:
   - concern: Agent/development delivery rules
