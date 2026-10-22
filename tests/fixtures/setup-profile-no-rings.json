@@ -1,5 +1,5 @@
 {
-  "baseline": "d454da9 (Balanced/Cardio entries re-pinned for #221 AMRAP selection)",
+  "baseline": "d454da9 (Balanced/Cardio entries re-pinned for #221 AMRAP selection; dumbbells+bench 20 Cardio re-pinned for #212)",
   "fixtures": [
     {
       "equipment": [],
@@ -217,8 +217,8 @@
       "duration": 20,
       "focus": "cardio",
       "seed": 2119,
-      "draws": 198,
-      "hash": "f00d2aa829a21cfdf7ba4e345c9b711af8f08e16d8e0459587fe64c9682fd01c"
+      "draws": 194,
+      "hash": "f6b9f6ed1b979ed5308808d2d3bfda5dfe06e595195697282644a40d4dbffd52"
     },
     {
       "equipment": [
