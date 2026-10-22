@@ -287,7 +287,7 @@
   </main>
 
   <main id="equipment" class="screen hidden">
-    <header class="page-header"><button class="back-btn" type="button" aria-label="Back" onclick="closeEquipment()">←</button><h1>My Equipment</h1><span class="header-spacer"></span></header>
+    <header class="page-header"><button class="back-btn" type="button" aria-label="Back" onclick="appBack()">←</button><h1>My Equipment</h1><span class="header-spacer"></span></header>
     <p class="page-header-copy">Select what you own. Bodyweight exercises are always available.</p>
     <div class="equipment-list" id="equipmentList"></div>
     <p class="equipment-note hidden" id="ringsSetupGuidance"><strong>Gymnastic rings setup:</strong> Use secure, load-rated overhead mounting and straps suitable for the chosen exercise; not all mounts are suitable for dynamic loading. Allow enough clearance, adjust and check the setup before loading, and enter and exit under control.</p>
@@ -297,7 +297,7 @@
   </main>
 
   <main id="generatedPreview" class="screen hidden">
-    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Generator" onclick="showLanding('generator')">←</button><h1>Workout</h1><span class="header-spacer"></span></header>
+    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Generator" onclick="appBack()">←</button><h1>Workout</h1><span class="header-spacer"></span></header>
     <div class="preview-kicker" id="previewKicker">20 min · Mixed</div>
     <p class="equipment-note hidden" id="previewFamilyPurpose"></p>
     <p class="equipment-note hidden" id="previewFamilyAlternative"></p>
@@ -436,19 +436,19 @@
     <div id="coachContent"></div>
   </main>
   <main id="coachPreview" class="screen hidden">
-    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Coach" onclick="coachUI.back()">←</button><h1>Coach workout</h1><span class="header-spacer"></span></header>
+    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Coach" onclick="appBack()">←</button><h1>Coach workout</h1><span class="header-spacer"></span></header>
     <p id="coachPreviewError" class="coach-error" role="alert"></p><div id="coachPreviewContent"></div>
   </main>
   <main id="coachProgress" class="screen hidden">
-    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Coach" onclick="coachUI.back()">←</button><h1>Your progress</h1><span class="header-spacer"></span></header>
+    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Coach" onclick="appBack()">←</button><h1>Your progress</h1><span class="header-spacer"></span></header>
     <p id="coachProgressError" class="coach-error" role="alert"></p><div id="coachProgressContent"></div>
   </main>
   <main id="coachSettings" class="screen hidden">
-    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Coach" onclick="coachUI.back()">←</button><h1>Programme settings</h1><span class="header-spacer"></span></header>
+    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Coach" onclick="appBack()">←</button><h1>Programme settings</h1><span class="header-spacer"></span></header>
     <p id="coachSettingsError" class="coach-error" role="alert"></p><div id="coachSettingsContent"></div>
   </main>
   <main id="coachSubstitute" class="screen hidden">
-    <header class="page-header"><button class="back-btn" type="button" aria-label="Back from anchor substitutes" onclick="coachUI.backFromSubstitute()">←</button><h1>Anchor substitute</h1><span class="header-spacer"></span></header>
+    <header class="page-header"><button class="back-btn" type="button" aria-label="Back from anchor substitutes" onclick="appBack()">←</button><h1>Anchor substitute</h1><span class="header-spacer"></span></header>
     <div id="coachSubstituteContent"></div>
   </main>
   <main id="coachResult" class="screen hidden">
@@ -471,18 +471,18 @@
     <button class="library-entry settings-entry" type="button" onclick="showScreen('settings')">Settings →</button>
   </main>
   <main id="settings" class="screen hidden">
-    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to More" onclick="showScreen('more')">←</button><h1>Settings</h1><span class="header-spacer"></span></header>
+    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to More" onclick="appBack()">←</button><h1>Settings</h1><span class="header-spacer"></span></header>
     <button class="library-entry" type="button" onclick="showScreen('spokenCues')">Spoken Cues →</button>
   </main>
   <main id="spokenCues" class="screen hidden">
-    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Settings" onclick="showScreen('settings')">←</button><h1>Spoken Cues</h1><span class="header-spacer"></span></header>
+    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Settings" onclick="appBack()">←</button><h1>Spoken Cues</h1><span class="header-spacer"></span></header>
     <p class="page-header-copy" id="spokenVoiceHelp">Voices depend on this browser and device. British English voices appear first. Instructions stay in English with any voice. Your choice is saved on this device.</p>
     <div class="library-controls"><label for="spokenVoice">Voice<select id="spokenVoice" aria-describedby="spokenVoiceHelp spokenVoiceStatus" onchange="chooseSpokenVoice(this.value)"></select></label></div>
     <p class="page-header-copy" id="spokenVoiceStatus" role="status"></p>
     <button class="ctrl-btn ctrl-primary" id="previewVoiceBtn" type="button" onclick="previewSpokenVoice()">Preview voice</button>
   </main>
   <main id="workoutPatterns" class="screen hidden">
-    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to More" onclick="showScreen('more')">←</button><h1>Workout Patterns</h1><span class="header-spacer"></span></header>
+    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to More" onclick="appBack()">←</button><h1>Workout Patterns</h1><span class="header-spacer"></span></header>
     <p class="page-header-copy">GarageFit chooses the pattern for you. Not every pattern appears in every workout or difficulty. Tap a pattern to learn how it works.</p>
     <ul class="pattern-list" id="patternList">
       <li class="pattern-item"><details id="pattern-mini-circuit"><summary><span class="pattern-name">Mini-circuit</span></summary><div class="pattern-body"><h3>What is it?</h3><p>A short circuit: you move through a handful of exercises in order, then go round again.</p><h3>How does it work?</h3><p>Do each exercise once in the order shown, take the short recovery GarageFit plans between movements, then rest between rounds. The workout preview shows the number of rounds and the recovery.</p><h3>Why does GarageFit use it?</h3><p>It is a flexible, time-efficient way to cover several movements and keep the effort steady without long waits.</p><h3>Example</h3><p>Three rounds of air squats, push-ups and glute bridges, with a short recovery between each.</p></div></details></li>
@@ -498,12 +498,12 @@
     </ul>
   </main>
   <main id="exerciseLibrary" class="screen hidden">
-    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to More" onclick="showScreen('more')">←</button><h1>Exercise Library</h1><span class="header-spacer"></span></header>
+    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to More" onclick="appBack()">←</button><h1>Exercise Library</h1><span class="header-spacer"></span></header>
     <div class="library-controls"><label for="librarySearch">Search exercises<input id="librarySearch" type="search" oninput="renderExerciseLibrary()" autocomplete="off"></label><label for="libraryEquipment">Equipment<select id="libraryEquipment" onchange="renderExerciseLibrary()"></select></label></div>
     <ul class="library-list" id="libraryList"></ul><p class="library-empty hidden" id="libraryEmpty">No exercises match your search.</p>
   </main>
   <main id="exerciseDetail" class="screen hidden">
-    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Exercise Library" onclick="showScreen('exerciseLibrary')">←</button><h1 id="libraryDetailName"></h1><span class="header-spacer"></span></header>
+    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Exercise Library" onclick="appBack()">←</button><h1 id="libraryDetailName"></h1><span class="header-spacer"></span></header>
     <section class="library-detail-section hidden" id="libraryInstructionSection"><h2>Instruction</h2><p id="libraryDetailInstruction"></p></section>
     <section class="library-detail-section"><h2>Equipment</h2><p id="libraryDetailEquipment"></p></section>
     <section class="library-detail-section"><h2>Where it may appear</h2><p id="libraryDetailContexts"></p></section>
@@ -568,6 +568,7 @@
 <script src="js/coach-progress-ui.js"></script>
 <script src="js/coach-ui.js"></script>
 <script src="js/masthead.js"></script>
+<script src="js/back-navigation.js"></script>
 <script>
 const REST_S=5;
 const CATALOGUE=GarageFitData.exercises,EQUIPMENT=GarageFitData.equipment;
@@ -586,6 +587,7 @@ const SEVEN_NAMES=['Jumping jacks','Wall sit','Push-ups','Abdominal crunches','S
 const SEVEN_MINUTE_WORKOUT=GarageFitData.fixedWorkouts.sevenMinute.map((id,index)=>({id,name:SEVEN_NAMES[index],work:30,rest:10}));
 SEVEN_MINUTE_WORKOUT[SEVEN_MINUTE_WORKOUT.length-1].rest=0;
 const PB_KEY='gf_300_pb_seconds';
+let backNav=null;
 let state={key:null,list:[],idx:0,phase:'ready',remaining:0,timer:null,paused:false,ownedEquipment:[],equipmentConfigured:false,wakeLock:null,running:false,doneDestination:'home',cueTracker:null,routine:null,routineRun:null};
 let workoutState={mode:'fixed',workout:null,idx:0,round:1,completedRounds:0,additionalReps:0,history:[],completed:[],elapsedMs:0,startedAt:0,timer:null,paused:false,running:false,expired:false,result:null};
 // Display labels; the generator's focus key for Mixed remains 'balanced'.
@@ -719,6 +721,7 @@ function showScreen(id){
   ['home','workouts','generator','equipment','generatedPreview','snackpick','player','workoutPlayer','done','more','settings','spokenCues','workoutPatterns','exerciseLibrary','exerciseDetail','coach','coachPreview','coachProgress','coachSettings','coachSubstitute','coachResult'].forEach(s=>document.getElementById(s).classList.toggle('hidden',s!==id));
   const landing=['home','workouts','generator','more','coach'].includes(id),nav=document.getElementById('bottomNav');nav.classList.toggle('hidden',!landing);
   [['home','routinesNav'],['workouts','workoutsNav'],['coach','coachNav'],['generator','generatorNav'],['more','moreNav']].forEach(pair=>{const active=id===pair[0],button=document.getElementById(pair[1]);button.classList.toggle('active',active);active?button.setAttribute('aria-current','page'):button.removeAttribute('aria-current')});
+  if(typeof backNav!=='undefined'&&backNav)backNav.sync();
 }
 function showLanding(id){if(id==='coach'&&coachUI)return coachUI.open();if(id==='workouts')renderPersonalBest();if(id==='generator')renderGenerator();showScreen(id)}
 function goHome(){stopTimer();stopGeneratedPhaseTimer();stopWorkoutClock();state.running=false;workoutState.running=false;state.paused=false;releaseWake();cancelSpeech();showScreen('home')}
@@ -1520,10 +1523,26 @@ async function coachExit(){
 }
 loadEquipment();
 if(typeof GarageFitCoachUI!=='undefined'){
-  coachUI=GarageFitCoachUI.mount({catalogue:CATALOGUE,equipment:EQUIPMENT,getEquipment:()=>state.ownedEquipment,setEquipment:setOwnedEquipment,buildTimeline:workout=>buildGeneratedTimeline(workout),showScreen,stopPlayer:stopCoachPlayer,
+  coachUI=GarageFitCoachUI.mount({catalogue:CATALOGUE,equipment:EQUIPMENT,getEquipment:()=>state.ownedEquipment,setEquipment:setOwnedEquipment,buildTimeline:workout=>buildGeneratedTimeline(workout),showScreen,stopPlayer:stopCoachPlayer,onViewChange:()=>backNav&&backNav.sync(),
     play:(workout,tracker)=>{generatorState.workout=workout;startGeneratedWorkout({tracker});state.doneDestination='coach';document.getElementById('workoutPlayerTitle').textContent='Coach · '+workout.duration+' min'}});
   coachUI.init();
 }
+// Shared back navigation (#241): explicit eligible view -> existing back callback. Player, workoutPlayer,
+// done, coachResult and the landings are deliberately absent, so no back control or swipe ever applies there.
+backNav=GarageFitBackNav.create({
+  win:window,
+  getView:()=>currentScreen==='coach'?(coachUI&&coachUI.inOverview()?'coachOverview':null):currentScreen,
+  routes:{
+    equipment:()=>closeEquipment(),generatedPreview:()=>showLanding('generator'),
+    settings:()=>showScreen('more'),spokenCues:()=>showScreen('settings'),workoutPatterns:()=>showScreen('more'),
+    exerciseLibrary:()=>showScreen('more'),exerciseDetail:()=>showScreen('exerciseLibrary'),
+    coachOverview:()=>coachUI.backFromOverview(),coachPreview:()=>coachUI.back(),coachProgress:()=>coachUI.back(),
+    coachSettings:()=>coachUI.back(),coachSubstitute:()=>coachUI.backFromSubstitute()
+  }
+});
+function appBack(){return backNav.back()}
+GarageFitBackNav.createSwipe({canStart:()=>backNav.canGoBack()&&!state.running&&!workoutState.running,onBack:appBack}).attach(document);
+backNav.sync();
 </script>
 <script src="js/player-layout.js"></script>
 </body>

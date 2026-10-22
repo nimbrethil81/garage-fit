@@ -392,7 +392,7 @@
       review: () => engine.programmeReview(definition(), state, clock())};
   }
 
-  function mount({catalogue, equipment, getEquipment, setEquipment, buildTimeline, play, showScreen, stopPlayer}) {
+  function mount({catalogue, equipment, getEquipment, setEquipment, buildTimeline, play, showScreen, stopPlayer, onViewChange}) {
     let storage;
     try { storage=root.localStorage; } catch (error) { storage=null; }
     const store = root.GarageFitCoachStore.createStore(storage);
@@ -401,7 +401,7 @@
     const programmes = Object.values(root.GarageFitData.programmes).map(versions => versions[Math.max(...Object.keys(versions).map(Number))]);
     let def = programmes[0], activeResistance = null, sessionSetups = {};
     const el = id => document.getElementById(id);
-    let options = null, busy = false, sessionActive = false, endKind = null, endSeconds = null, lastSaved = '', initialisation = Promise.resolve(), adjustmentOpen = false, previewEditing = false, disclosureOpen = {};
+    let options = null, busy = false, sessionActive = false, endKind = null, endSeconds = null, lastSaved = '', initialisation = Promise.resolve(), adjustmentOpen = false, previewEditing = false, disclosureOpen = {}, overviewOpen = false;
     function button(text, action, primary = false) {
       const node = document.createElement('button'); node.type = 'button'; node.textContent = text;
       node.className = primary ? 'generator-primary' : 'ctrl-btn ctrl-secondary'; node.onclick = () => run(action); return node;
@@ -472,7 +472,7 @@
       return plan.prescription && plan.prescription.duration < def.sessionTemplate.duration ? 'Shorter session today: keeping required anchors and reducing supporting work.'
         : patterns.length ? 'Prioritising '+patterns.slice(0,3).join(', ')+' from your recent performed work.' : 'Keep your anchors steady and maintain whole-body coverage.';
     }
-    async function open() { showScreen('coach'); await initialisation; await run(async () => {
+    async function open() { overviewOpen = false; showScreen('coach'); await initialisation; await run(async () => {
       await controller.load(); lastSaved='';
       resetOptions(); render();
     }); }
@@ -543,7 +543,10 @@
       info.className='coach-help'; control.textContent='ⓘ '+label; control.setAttribute('aria-label',label);
       info.append(control,paragraph(copy)); retainDisclosure(info,label); return info;
     }
-    function render() {
+    // The programme list/home and programme overviews share the coach screen; overviewOpen is the one
+    // internal view flag the shared back navigation needs. render() always returns to the list/home.
+    function render() { overviewOpen = false; renderView(); if (onViewChange) onViewChange(); }
+    function renderView() {
       // Ownership is shared. Only future planning reads the latest selection;
       // prepared prescriptions and live trackers retain their original context.
       if (options) options.equipment=getEquipment().slice();
@@ -699,7 +702,7 @@
       const wrap=el('coachSettingsContent'); wrap.innerHTML='';
       const current=controller.snapshot(), state=current.state;
       if (!state || state.status==='completed' || current.blocked) {
-        wrap.append(paragraph('No active programme. Your saved history is retained.'),button('Back to Coach',()=>{showScreen('coach');render();}));
+        wrap.append(paragraph('No active programme. Your saved history is retained.'));
         return;
       }
       def=root.GarageFitData.programmes[state.programmeDefinitionId][state.programmeDefinitionVersion];
@@ -826,7 +829,7 @@
       const wrap=el('coachProgressContent'); wrap.innerHTML='';
       const current=controller.snapshot(), state=current.state;
       if (!state || state.status==='completed' || current.blocked) {
-        wrap.append(paragraph('No active programme. Your saved history is retained.'),button('Back to Coach',()=>{showScreen('coach');render();}));
+        wrap.append(paragraph('No active programme. Your saved history is retained.'));
         return;
       }
       def=root.GarageFitData.programmes[state.programmeDefinitionId][state.programmeDefinitionVersion];
@@ -932,14 +935,22 @@
       details.append(button('Save tennis check-in',()=>save(answers)),button('Skip check-in',()=>save(null)));
       wrap.append(details);
     }
-    function overview() {
+    function overview() { overviewOpen = true; overviewView(); if (onViewChange) onViewChange(); }
+    // Top-left back to the programme list; selection and programme state are untouched.
+    function overviewHeader(title) {
+      const header = document.createElement('header'), back = document.createElement('button'), name = document.createElement('h1'), spacer = document.createElement('span');
+      header.className = 'page-header'; back.type = 'button'; back.className = 'back-btn'; back.textContent = '←'; back.setAttribute('aria-label', 'Back to Coach programmes');
+      back.onclick = () => run(backFromOverview); name.textContent = title; spacer.className = 'header-spacer'; header.append(back, name, spacer); return header;
+    }
+    function backFromOverview() { render(); }
+    function overviewView() {
       if (isTennis()) { tennisOverview(); return; }
       const assessment=controller.assess(def,getEquipment()), wrap=el('coachContent'); wrap.innerHTML='';
       if (!def.anchorSelectionPolicy) {
         // An anchor-free programme: no stable targets, each session is built for the day.
         const list=values=>values.length>1 ? values.slice(0,-1).join(', ')+' or '+values.at(-1) : values.join('');
         const frequency=def.recommendedFrequency, families=def.familyBalancePolicy.families.map(item=>familyDefinition(item.workoutFamilyId,item.workoutFamilyVersion).name);
-        wrap.append(heading(def.name),
+        wrap.append(overviewHeader(def.name),
           paragraph(def.objective+'. Open-ended: '+frequency.minSessionsPerWeek+'–'+frequency.maxSessionsPerWeek+' sessions per week. Pause or finish whenever you choose.'),
           paragraph(def.sessionTemplate.duration+' minutes by default; '+list(def.supportedDurations.filter(duration=>duration!==def.sessionTemplate.duration))+' minutes when needed. Each session chooses one workout type ('
             +list(families)+') from the training you have actually done. No fixed targets or catch-up debt.'),
@@ -952,10 +963,10 @@
           if (!started.state) { wrap.append(paragraph(conflictText(started.assessment.conflicts))); return; }
           resetOptions(); render();
         },true));
-        wrap.append(button('Back',render)); return;
+        return;
       }
       const anchor=def.anchorSelectionPolicy.requirements[0];
-      wrap.append(heading(def.name),paragraph(def.type==='tennis-conditioning' ? def.objective+'. Balanced by default, with 2 Coach sessions per week; 1–3 sessions are supported. Pause or finish whenever you choose.' : def.openEnded ? def.objective+'. An open-ended objective: aim for '+def.recommendedFrequency.aimSessionsPerWeek+' sessions per week; two is acceptable. Pause or finish whenever you choose.' : def.objective+' over a nominal four-week block. Aim for '+def.completionCriteria.blockMeaningfulSessionTarget+' meaningful sessions, at '+def.recommendedFrequency.minSessionsPerWeek+'–'+def.recommendedFrequency.maxSessionsPerWeek+' per week.'),
+      wrap.append(overviewHeader(def.name),paragraph(def.type==='tennis-conditioning' ? def.objective+'. Balanced by default, with 2 Coach sessions per week; 1–3 sessions are supported. Pause or finish whenever you choose.' : def.openEnded ? def.objective+'. An open-ended objective: aim for '+def.recommendedFrequency.aimSessionsPerWeek+' sessions per week; two is acceptable. Pause or finish whenever you choose.' : def.objective+' over a nominal four-week block. Aim for '+def.completionCriteria.blockMeaningfulSessionTarget+' meaningful sessions, at '+def.recommendedFrequency.minSessionsPerWeek+'–'+def.recommendedFrequency.maxSessionsPerWeek+' per week.'),
         paragraph(def.type==='tennis-conditioning' ? 'Usually 20–30 minutes. Four stable knee, hinge, push and pull anchors build from 2 × 6 to 2 × 10 reps, about 2 reps in reserve. Each session selects the targets that fit your available 10/15/20/30/45 minutes; both sides are required where applicable. Supporting work rotates from performed history, with no catch-up debt.' : def.sessionTemplate.duration+' minutes by default; '+def.supportedDurations.filter(duration=>duration!==def.sessionTemplate.duration).join(' or ')+' minutes when needed. '+def.anchorSelectionPolicy.requirements.length+' stable '+(def.doseTargets.directElbowActions?'direct curl and extension':'squat, push and pull')+' anchors start at '+anchor.targetSets+' × '+anchor.target.maxReps+' reps.'),
         paragraph(assessment.status==='infeasible'?'Blocked · '+conflictText(assessment.conflicts):assessment.status==='partially-feasible'?'Partially feasible · required anchors fit; supporting choices may be adjusted.':'Feasible · your equipment supports this programme.'),
         button('Set up usual equipment',() => root.openEquipment('coach')));
@@ -965,13 +976,12 @@
         if (!started.state) { wrap.append(paragraph(conflictText(started.assessment.conflicts))); return; }
         resetOptions(); render();
       },true));
-      wrap.append(button('Back',render));
     }
     function tennisOverview() {
       const wrap=el('coachContent'); wrap.innerHTML='';
       const defaults=Model().createProgrammeSettings(def.defaultProgrammeSettings);
       const form=tennisViews.settingsForm(defaults,{includeEvent:!!def.eventPolicy,localDate:localDay(new Date().toISOString())});
-      wrap.append(heading(def.name),paragraph('Usually 20–30 minutes. Four stable knee, hinge, push and pull anchors build from 2 × 6 to 2 × 10 reps, about 2 reps in reserve. Each session selects only the targets that fit your time.'),form.wrap);
+      wrap.append(overviewHeader(def.name),paragraph('Usually 20–30 minutes. Four stable knee, hinge, push and pull anchors build from 2 × 6 to 2 × 10 reps, about 2 reps in reserve. Each session selects only the targets that fit your time.'),form.wrap);
       const assessment=controller.assess(def,getEquipment(),defaults), feasibility=paragraph('');
       const showAssessment=value=>{feasibility.textContent=value.status==='infeasible'?'Equipment needs attention · '+conflictText(value.conflicts)
         : 'Your equipment supports all four anchor roles. Short-session feasibility is checked for each session.';};
@@ -986,7 +996,7 @@
         }
         lastSaved=''; resetOptions(); render();
       },true));
-      wrap.append(paragraph('History is local to this browser and device. Only actual performed work earns progress.'),button('Back',render));
+      wrap.append(paragraph('History is local to this browser and device. Only actual performed work earns progress.'));
     }
     function prepare() {
       previewEditing = false; delete disclosureOpen['preview-why'];
@@ -1091,7 +1101,7 @@
       const start=button('Start workout',async () => { const tracker=await controller.begin(); sessionSetups={}; sessionActive=true; await play(workout,tracker); },true);
       start.className='preview-start';
       actions.append(edit,start);
-      wrap.append(actions,button('Back to Coach',() => { previewEditing=false; showScreen('coach'); render(); })); showScreen('coachPreview');
+      wrap.append(actions); showScreen('coachPreview');
     }
     function showSubstitutes(requirementId, context) {
       const wrap=el('coachSubstituteContent'); wrap.innerHTML='';
@@ -1206,7 +1216,7 @@
         resetOptions(); showScreen('coach'); render(); });
     }
     return {open, overview, controller, renderAnchor, record, showEnd, saveFeedback, updateActualSummary,
-      isActive: () => sessionActive, run, backFromSubstitute, openProgress, openSettings, back: () => {previewEditing=false;showScreen('coach');render();},
+      isActive: () => sessionActive, run, backFromSubstitute, backFromOverview, inOverview: () => overviewOpen, openProgress, openSettings, back: () => {previewEditing=false;showScreen('coach');render();},
       init: () => { initialisation=run(() => controller.load()); return initialisation; }};
   }
   root.GarageFitCoachUI = {createController, mount, tennisWeeklyProgress, programmeWeeklyProgress, weeklyConsistency, previewMessages};

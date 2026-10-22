@@ -34,7 +34,7 @@ test('Settings discovers device names, sorts British English first and keeps oth
   assert.match(html,/onclick="showScreen\('settings'\)">Settings/);
   assert.match(html,/onclick="showScreen\('spokenCues'\)">Spoken Cues/);
   assert.match(html,/<label for="spokenVoice">Voice<select id="spokenVoice" aria-describedby="spokenVoiceHelp spokenVoiceStatus"/);
-  assert.match(html,/aria-label="Back to Settings" onclick="showScreen\('settings'\)"/);
+  assert.match(html,/aria-label="Back to Settings" onclick="appBack\(\)"/);
   assert.match(html,/Instructions stay in English/);
 });
 
