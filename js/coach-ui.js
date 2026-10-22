@@ -1054,21 +1054,14 @@
         const node=document.createElement('section'); node.className='coach-preview-section';
         node.append(ui.sectionHeading(title),list); wrap.append(node);
       }
-      function phase(title, part) {
-        if (!part || !part.exercises.length) return;
-        const list=text('ol','preview-list','');
-        part.exercises.forEach((exercise,index) => {
-          ui.appendSetupTransitions(list,workout,{section:title==='Warm-up'?'warmup':title==='Cool-down'?'cooldown':'rampup',exerciseIndex:index});
-          list.append(ui.exerciseRow({index,name:exercise.name,prescription:ui.formatPrescription(exercise)}));
-        });
-        section(title+' · '+Math.round(part.estimatedSeconds/60)+' min',list);
-      }
-      phase('Warm-up',workout.warmup); phase('Ramp-up',workout.rampup);
-      const blocks=workout.main.blocks, main=text('ol','preview-list','');
-      blocks.forEach((block,index) => {
-        main.append(ui.blockHeading({index,total:blocks.length,prescription:(block.benchmark ? 'Optional benchmark · ' : '')+blockLabel(block)}));
+      // One shared training-section reading (#242): a specialist family's preparation/finish blocks
+      // are listed and timed as Warm-up/Cool-down; sections without work are not shown.
+      const sectionPlan=root.GarageFitGenerator.trainingSectionPlan(workout), blocks=workout.main.blocks;
+      function blockRows(list, block, index) {
+        const where=sectionPlan.blocks[index];
+        list.append(ui.blockHeading({index:where.position,total:where.count,section:where.section,prescription:(block.benchmark ? 'Optional benchmark · ' : '')+blockLabel(block)}));
         block.exercises.forEach((exercise,exerciseIndex) => {
-          ui.appendSetupTransitions(main,workout,{section:'main',blockIndex:index,exerciseIndex});
+          ui.appendSetupTransitions(list,workout,{section:'main',blockIndex:index,exerciseIndex});
           const anchor=exercise.coachAnchor, target=!!anchor && stable.has(anchor.requirementId), controls=[];
           if (previewEditing && target) {
             controls.push(rowControl('Substitute','Substitute '+exercise.name,() => showSubstitutes(anchor.requirementId,preview.today)));
@@ -1080,14 +1073,28 @@
           } else if (previewEditing && !block.benchmark && (!anchor || anchor.importance!=='required')) {
             controls.push(rowControl('Swap','Swap '+exercise.name,() => { root.GarageFitGenerator.swap(workout,index,exerciseIndex,{catalogue,equipment:preview.today.equipment}); renderPreview(preview); }));
           }
-          main.append(ui.exerciseRow({index:exerciseIndex,marker:ui.supersetMarker(block,exerciseIndex),name:exercise.name,
+          list.append(ui.exerciseRow({index:exerciseIndex,marker:ui.supersetMarker(block,exerciseIndex),name:exercise.name,
             prescription:block.benchmark ? 'As many controlled reps as you can' : ui.occurrenceTargetLabel(block,exerciseIndex)||(target ? targetPrescription(exercise,block) : block.protocol==='emom' ? ui.emomTargetLabel(block,exerciseIndex) : block.protocol==='timed_intervals' ? block.prescription.workSeconds+' sec' : ui.formatPrescription(exercise)),
             targetLabel:target ? 'Strength target' : block.benchmark ? 'Optional benchmark' : null, instruction:catalogue[exercise.id]?.instruction,
             cue:[target ? effortCue(anchor,context) : block.benchmark ? 'Record your reps in the player, or skip' : null,...(exercise.timedCues || []).map(cue=>cue.text)].filter(Boolean).join(' · '),controls}));
         });
-      });
-      section('Main workout · '+blocks.length+' block'+(blocks.length===1?'':'s'),main);
-      phase('Cool-down',workout.cooldown);
+      }
+      function phase(title, key) {
+        const part=workout[key], owned=sectionPlan.blocks.filter(item=>item.section===key);
+        if ((!part || !part.exercises.length) && !owned.length) return;
+        const list=text('ol','preview-list','');
+        (part ? part.exercises : []).forEach((exercise,index) => {
+          ui.appendSetupTransitions(list,workout,{section:key,exerciseIndex:index});
+          list.append(ui.exerciseRow({index,name:exercise.name,prescription:ui.formatPrescription(exercise)}));
+        });
+        owned.forEach(item => blockRows(list,blocks[item.blockIndex],item.blockIndex));
+        section(title+' · '+ui.sectionDurationLabel(sectionPlan.seconds[key]),list);
+      }
+      phase('Warm-up','warmup'); phase('Ramp-up','rampup');
+      const main=text('ol','preview-list',''), mainBlocks=sectionPlan.blocks.filter(item=>item.section==='main');
+      mainBlocks.forEach(item => blockRows(main,blocks[item.blockIndex],item.blockIndex));
+      section('Main workout · '+mainBlocks.length+' block'+(mainBlocks.length===1?'':'s'),main);
+      phase('Cool-down','cooldown');
       wrap.append(text('div','preview-estimate','≈'+Math.round(workout.estimatedSeconds/60)+' min total'));
       if (previewEditing && stable.size) wrap.append(paragraph('Strength target substitutions are just for today. Replanning may change supporting exercises; review the revised workout before starting.'));
       const why=document.createElement('details'), summary=text('summary','','Why this workout?'); why.className='generator-options coach-why';

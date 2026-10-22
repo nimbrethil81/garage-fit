@@ -788,25 +788,32 @@ function generatedWorkoutIdentity(workout){
 function formatPrescription(exercise){return GarageFitWorkoutPreview.formatPrescription(exercise)}
 function protocolLabel(block){return GarageFitWorkoutPreview.protocolLabel(block)}
 function renderGeneratedPreview(){
-  const workout=GarageFitGenerator.normaliseWorkout(generatorState.workout),blocks=workout.main.blocks,options=generatorOptionsSummary(workout);
+  const workout=GarageFitGenerator.normaliseWorkout(generatorState.workout),options=generatorOptionsSummary(workout);
   document.getElementById('previewKicker').textContent=workout.duration+' min · '+generatedWorkoutIdentity(workout)+(workout.workoutFamilyId?(workout.bodyFocus!=='full-body'?' · '+BODY_FOCUS_LABELS[workout.bodyFocus]:'')+(workout.difficulty!=='normal'?' · '+DIFFICULTY_LABELS[workout.difficulty]:''):(options?' '+options:''));
   const purpose=document.getElementById('previewFamilyPurpose'),alternative=document.getElementById('previewFamilyAlternative');purpose.textContent=workout.workoutFamilyId?GarageFitWorkoutFamilies.getDefinition(workout.workoutFamilyId,workout.workoutFamilyVersion).purpose:'';purpose.classList.toggle('hidden',!workout.workoutFamilyId);alternative.textContent=workout.familyDiagnostics&&workout.familyDiagnostics.length?'An alternative style within this family was selected to suit your settings.':'';alternative.classList.toggle('hidden',!alternative.textContent);
-  document.getElementById('previewRounds').textContent=blocks.length+' main block'+(blocks.length===1?'':'s');
+  const plan=GarageFitGenerator.trainingSectionPlan(workout),mainCount=plan.blocks.filter(item=>item.section==='main').length;
+  document.getElementById('previewRounds').textContent=mainCount+' main block'+(mainCount===1?'':'s');
   const list=document.getElementById('previewList');list.innerHTML='';
   (workout.setupTransitions||[]).filter(change=>change.section==='warmup').forEach(change=>list.appendChild(GarageFitWorkoutPreview.setupTransitionRow(change,'Warm-up')));
-  blocks.forEach((block,blockIndex)=>{
-    list.appendChild(GarageFitWorkoutPreview.blockHeading({index:blockIndex,total:blocks.length,prescription:protocolLabel(block)}));
-    block.exercises.forEach((exercise,exerciseIndex)=>{
-      GarageFitWorkoutPreview.appendSetupTransitions(list,workout,{section:'main',blockIndex,exerciseIndex});
-      const button=document.createElement('button');
-      button.type='button';button.className='swap-btn';button.textContent='Swap';button.setAttribute('aria-label','Swap '+exercise.name);button.onclick=()=>swapGeneratedExercise(blockIndex,exerciseIndex);
-      list.appendChild(GarageFitWorkoutPreview.exerciseRow({index:exerciseIndex,marker:GarageFitWorkoutPreview.supersetMarker(block,exerciseIndex),name:exercise.name,
-        prescription:GarageFitWorkoutPreview.occurrenceTargetLabel(block,exerciseIndex)||(block.protocol==='emom'?GarageFitWorkoutPreview.emomTargetLabel(block,exerciseIndex):block.protocol==='timed_intervals'?block.prescription.workSeconds+' sec':formatPrescription(exercise)),
-        instruction:instructionFor(exercise),cue:(exercise.timedCues||[]).map(cue=>cue.text).join(' · '),controls:[button]}));
-    });
-  });
+  // A specialist family's preparation/finish blocks are listed under Warm-up/Cool-down (#242).
+  plan.blocks.filter(item=>item.section==='main').forEach(item=>appendGeneratedBlockRows(list,workout,item.blockIndex,plan));
   (workout.setupTransitions||[]).filter(change=>change.section==='cooldown').forEach(change=>list.appendChild(GarageFitWorkoutPreview.setupTransitionRow(change,'Cool-down')));
-  document.getElementById('previewWarmup').textContent=Math.round(workout.warmup.estimatedSeconds/60)+' min';document.getElementById('previewCooldown').textContent=Math.round(workout.cooldown.estimatedSeconds/60)+' min';document.getElementById('previewEstimate').textContent='≈'+Math.round(workout.estimatedSeconds/60)+' min total';
+  for(const [id,section] of [['previewWarmup','warmup'],['previewCooldown','cooldown']]){const value=document.getElementById(id);value.textContent=GarageFitWorkoutPreview.sectionDurationLabel(plan.seconds[section]);value.parentNode&&value.parentNode.classList&&value.parentNode.classList.toggle('hidden',!plan.seconds[section])}
+  document.getElementById('previewEstimate').textContent='≈'+Math.round(workout.estimatedSeconds/60)+' min total';
+}
+// One block's preview rows, shared by Main and by specialist Warm-up/Cool-down blocks. Swaps always
+// use the Main swap (and so the family gate), whichever section the block is presented in.
+function appendGeneratedBlockRows(list,workout,blockIndex,plan){
+  const block=workout.main.blocks[blockIndex],where=plan.blocks[blockIndex];
+  list.appendChild(GarageFitWorkoutPreview.blockHeading({index:where.position,total:where.count,prescription:protocolLabel(block),section:where.section}));
+  block.exercises.forEach((exercise,exerciseIndex)=>{
+    GarageFitWorkoutPreview.appendSetupTransitions(list,workout,{section:'main',blockIndex,exerciseIndex});
+    const button=document.createElement('button');
+    button.type='button';button.className='swap-btn';button.textContent='Swap';button.setAttribute('aria-label','Swap '+exercise.name);button.onclick=()=>swapGeneratedExercise(blockIndex,exerciseIndex);
+    list.appendChild(GarageFitWorkoutPreview.exerciseRow({index:exerciseIndex,marker:GarageFitWorkoutPreview.supersetMarker(block,exerciseIndex),name:exercise.name,
+      prescription:GarageFitWorkoutPreview.occurrenceTargetLabel(block,exerciseIndex)||(block.protocol==='emom'?GarageFitWorkoutPreview.emomTargetLabel(block,exerciseIndex):block.protocol==='timed_intervals'?block.prescription.workSeconds+' sec':formatPrescription(exercise)),
+      instruction:instructionFor(exercise),cue:(exercise.timedCues||[]).map(cue=>cue.text).join(' · '),controls:[button]}));
+  });
 }
 function swapGeneratedExercise(blockIndex,exerciseIndex){GarageFitGenerator.swap(generatorState.workout,blockIndex,exerciseIndex,{catalogue:CATALOGUE,equipment:state.ownedEquipment});renderGeneratedPreview()}
 let audioCtx=null;function beep(freq=880,dur=.12){try{audioCtx=audioCtx||new(window.AudioContext||window.webkitAudioContext)();const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.frequency.value=freq;o.type='sine';o.connect(g);g.connect(audioCtx.destination);g.gain.setValueAtTime(.15,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+dur);o.start();o.stop(audioCtx.currentTime+dur)}catch(e){}}
@@ -913,8 +920,8 @@ function generatedActivityName(phase){
   if(phase.kind==='exercise')return activityName(phase.exercise);
   if(['interval-rest','set-change','complex-change'].includes(phase.kind))return 'Change over';
   if(phase.kind==='setup-transition')return phase.label;
-  if(phase.kind==='block-transition')return 'Next block';
-  if(phase.kind==='transition'){const after=generatorState.timeline.slice(generatorState.timeline.indexOf(phase)+1).find(item=>item.kind==='exercise');return after?{warmup:'Warm-up',rampup:'Ramp-up',main:'Main workout',cooldown:'Cool-down'}[after.section]:'Next section'}
+  if(phase.kind==='block-transition')return phase.nextTrainingSection&&phase.nextTrainingSection!==(phase.trainingSection||'main')?GarageFitGenerator.TRAINING_SECTION_LABELS[phase.nextTrainingSection]:'Next block';
+  if(phase.kind==='transition'){const after=generatorState.timeline.slice(generatorState.timeline.indexOf(phase)+1).find(item=>item.kind==='exercise');return after?GarageFitGenerator.TRAINING_SECTION_LABELS[after.trainingSection||after.section]:'Next section'}
   if(phase.kind==='ready')return 'Get ready';
   return 'Rest';
 }
@@ -999,6 +1006,8 @@ function appendBlockTimeline(timeline,block,blockIndex,totalBlocks){
   const conditions=GarageFitGenerator.protocolConditions(block);
   if(['emom','complex','density','amrap'].includes(block.protocol)){conditions.targets.forEach(Object.freeze);Object.freeze(conditions.targets)}
   const meta={blockIndex,totalBlocks,protocol:block.protocol,protocolConditions:Object.freeze(conditions)};
+  // Derived training purpose (#242); the structural section stays 'main' for ids, setup plans and anchors.
+  const trainingSection=GarageFitGenerator.blockTrainingSection(block);if(trainingSection!=='main')meta.trainingSection=trainingSection;
   if(block.familyContext!=null)meta.familyContext=Object.freeze({...block.familyContext,
     ...(block.familyContext.excludedImpact?{excludedImpact:Object.freeze(block.familyContext.excludedImpact.slice())}:{}),
     ...(block.familyContext.bodyPositions?{bodyPositions:Object.freeze(block.familyContext.bodyPositions.slice())}:{})});
@@ -1027,6 +1036,14 @@ function applyGeneratedSetupTransitions(timeline,workout){
   }
   return timeline;
 }
+// The transition between two Main blocks keeps its kind and timing. Where a specialist family's
+// training section changes (#242) it is announced as the end of that section instead of a block.
+function generatedBlockTransition(workout,index){
+  const blocks=workout.main.blocks,from=GarageFitGenerator.blockTrainingSection(blocks[index]),to=GarageFitGenerator.blockTrainingSection(blocks[index+1]);
+  const position=blocks.slice(0,index).filter(block=>GarageFitGenerator.blockTrainingSection(block)===from).length+1;
+  const label=from!==to?GarageFitGenerator.TRAINING_SECTION_LABELS[from]+' complete':(from==='main'?'Block ':GarageFitGenerator.TRAINING_SECTION_LABELS[from]+' part ')+position+' complete';
+  return {kind:'block-transition',section:'main',blockIndex:index,totalBlocks:blocks.length,...(from!=='main'||to!=='main'?{trainingSection:from,nextTrainingSection:to}:{}),seconds:workout.main.transitionSeconds,label,nextExercise:blocks[index+1].exercises[0]};
+}
 function buildGeneratedTimeline(workout){
   workout=GarageFitGenerator.normaliseWorkout(workout);
   const timeline=[{kind:'ready',seconds:3}],warmup=workout.warmup.exercises,blocks=workout.main.blocks,cooldown=workout.cooldown.exercises;
@@ -1034,7 +1051,7 @@ function buildGeneratedTimeline(workout){
   if(warmup.length)timeline.push({kind:'transition',section:'warmup',seconds:3,label:'Warm-up complete',nextExercise:blocks[0].exercises[0]});
   blocks.forEach((block,index)=>{
     appendBlockTimeline(timeline,block,index,blocks.length);
-    if(index<blocks.length-1)timeline.push({kind:'block-transition',section:'main',blockIndex:index,totalBlocks:blocks.length,seconds:workout.main.transitionSeconds,label:'Block '+(index+1)+' complete',nextExercise:blocks[index+1].exercises[0]});
+    if(index<blocks.length-1)timeline.push(generatedBlockTransition(workout,index));
   });
   if(cooldown.length)timeline.push({kind:'transition',section:'main',seconds:3,label:'Main workout complete',nextExercise:cooldown[0]});
   cooldown.forEach((exercise,index)=>{timeline.push(...makeGeneratedExercisePhases(exercise,'cooldown',null,index));if(index<cooldown.length-1)timeline.push({kind:'rest',section:'cooldown',seconds:workout.cooldown.restSeconds,nextExercise:cooldown[index+1]})});return applyGeneratedSetupTransitions(timeline,workout);
@@ -1422,8 +1439,11 @@ function generatedPhaseLabel(phase){
   if(phase.kind==='setup-transition')return 'Equipment setup';
   if(phase.section==='main'){
     if(phase.kind==='transition')return 'Main complete';
-    if(phase.kind==='block-transition')return 'Main · Block '+(phase.blockIndex+1)+' of '+workout.main.blocks.length+' complete';
-    const block=workout.main.blocks[phase.blockIndex||0],prefix='Block '+((phase.blockIndex||0)+1)+' of '+workout.main.blocks.length+' · ';
+    // Specialist preparation/finish blocks read as Warm-up/Cool-down; Main numbers only its own blocks (#242).
+    const where=GarageFitGenerator.trainingSectionPlan(workout).blocks[phase.blockIndex||0],labels=GarageFitGenerator.TRAINING_SECTION_LABELS;
+    const place=where.section==='main'?'Block '+(where.position+1)+' of '+where.count:labels[where.section]+(where.count>1?' · Part '+(where.position+1)+' of '+where.count:'');
+    if(phase.kind==='block-transition')return phase.nextTrainingSection&&phase.nextTrainingSection!==where.section?labels[phase.nextTrainingSection]:where.section==='main'?'Main · '+place+' complete':place+' complete';
+    const block=workout.main.blocks[phase.blockIndex||0],prefix=place+' · ';
     if(phase.protocol==='amrap')return prefix+'AMRAP · Round '+(amrapBlockRun(phase)?.round||1)+' · Exercise '+(phase.exerciseIndex+1)+' of '+block.exercises.length;
     if(phase.protocol==='density')return prefix+'Density · Round '+phase.densityRound+' of '+block.prescription.repeats+(phase.kind==='exercise'?' · Exercise '+(phase.exerciseIndex+1)+' of '+block.exercises.length:' · Recover');
     if(phase.protocol==='pyramid')return prefix+(GarageFitGenerator.pyramidKind(block.prescription.steps)==='reverse'?'Reverse pyramid':'Pyramid')+' · Step '+phase.pyramidStep+' of '+block.prescription.steps.length;
@@ -1487,7 +1507,7 @@ function advanceGeneratedPhase(){const phase=currentGeneratedPhase();if(phase&&p
 function previousGeneratedPhase(){if(!workoutState.running||workoutState.paused||coachAdvancing||isEmomPhase())return;const index=previousGeneratedExerciseIndex();if(index<0)return;if(isAmrapBlockPhase()){if(emomActionLocked())return;guardEmomAction();enterGeneratedPhase(index);return}if(isDensityPhase()){if(index<densityRun().firstIndex)return;return updateDensityBlock('previous')}if(isCoachPlayer())return coachPrevious(index);enterGeneratedPhase(index)}
 function finishGeneratedWorkout(){
   if(isCoachPlayer()){coachUI.showEnd('complete',Math.floor(currentWorkoutElapsedMs()/1000));return}
-  stopGeneratedPhaseTimer();workoutState.elapsedMs=currentWorkoutElapsedMs();workoutState.running=false;clearInterval(workoutState.timer);workoutState.timer=null;releaseWake();finishGeneratedTracking('complete');const workout=GarageFitGenerator.normaliseWorkout(generatorState.workout),blocks=workout.main.blocks,elapsedSeconds=Math.max(1,Math.floor(workoutState.elapsedMs/1000));try{const history=getGeneratedHistory();history.unshift([...new Set(blocks.flatMap(block=>block.exercises.map(exercise=>exercise.id)))]);localStorage.setItem('gf_generator_history',JSON.stringify(history.slice(0,4)))}catch(e){}state.doneDestination='generator';document.getElementById('doneTitle').textContent='Done';document.getElementById('doneSub').textContent='Workout and cool-down complete.';document.getElementById('doneStats').classList.add('hidden');document.getElementById('generatedDoneTime').textContent=formatTime(elapsedSeconds);document.getElementById('generatedDoneRounds').textContent=blocks.length;document.getElementById('generatedDoneExercises').textContent=blocks.reduce((sum,block)=>sum+block.exercises.length,0);document.getElementById('generatedDoneStats').classList.remove('hidden');document.getElementById('amrapDoneStats').classList.add('hidden');document.getElementById('doneBest').classList.add('hidden');document.getElementById('doneBtn').textContent='Back to Generator';showScreen('done');speak('Workout complete. Nice work.');
+  stopGeneratedPhaseTimer();workoutState.elapsedMs=currentWorkoutElapsedMs();workoutState.running=false;clearInterval(workoutState.timer);workoutState.timer=null;releaseWake();finishGeneratedTracking('complete');const workout=GarageFitGenerator.normaliseWorkout(generatorState.workout),blocks=workout.main.blocks,elapsedSeconds=Math.max(1,Math.floor(workoutState.elapsedMs/1000));try{const history=getGeneratedHistory();history.unshift([...new Set(blocks.flatMap(block=>block.exercises.map(exercise=>exercise.id)))]);localStorage.setItem('gf_generator_history',JSON.stringify(history.slice(0,4)))}catch(e){}state.doneDestination='generator';document.getElementById('doneTitle').textContent='Done';document.getElementById('doneSub').textContent='Workout and cool-down complete.';document.getElementById('doneStats').classList.add('hidden');document.getElementById('generatedDoneTime').textContent=formatTime(elapsedSeconds);const mainBlocks=blocks.filter(block=>GarageFitGenerator.blockTrainingSection(block)==='main');document.getElementById('generatedDoneRounds').textContent=mainBlocks.length;document.getElementById('generatedDoneExercises').textContent=mainBlocks.reduce((sum,block)=>sum+block.exercises.length,0);document.getElementById('generatedDoneStats').classList.remove('hidden');document.getElementById('amrapDoneStats').classList.add('hidden');document.getElementById('doneBest').classList.add('hidden');document.getElementById('doneBtn').textContent='Back to Generator';showScreen('done');speak('Workout complete. Nice work.');
 }
 
 function openExitDialog(type){

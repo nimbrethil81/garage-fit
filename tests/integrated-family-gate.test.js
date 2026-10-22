@@ -72,6 +72,12 @@ test('six representative families use the shipped Ramp-up player and truthful wo
     const coach=p.app.GarageFitGenerator.generate({catalogue:p.app.GarageFitData.exercises,sessionPrescription:rx,random:rng(31)});
     assert.deepEqual(plain(coach.main),plain(workout.main),'representative route parity');
     verifyTimeline(p,coach,[]);
+    // #242: every family, on both routes, shows truthful Warm-up and Cool-down time (never 0/0).
+    for(const built of [workout,coach]) {
+      const sections=p.app.GarageFitGenerator.trainingSectionPlan(built).seconds;
+      assert.ok(sections.warmup>0&&sections.cooldown>0,workoutFamilyId+': warm-up and cool-down coverage');
+      assert.equal(sections.warmup+sections.rampup+sections.main+sections.cooldown,built.estimatedSeconds);
+    }
   }
 });
 

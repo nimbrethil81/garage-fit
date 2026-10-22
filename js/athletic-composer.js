@@ -168,5 +168,11 @@
     if(played.some((ex,index)=>index&&ex.impact==='high'&&played[index-1].impact==='high'))issues.push('consecutive-high-impact');
     return [...new Set(issues)];
   }
-  G.registerFamilyComposer(FAMILY,1,compose,quality);
+  // Training-purpose sections (#242) follow explicit stage identity, never the reused `control`
+  // role: the gentle preparation reads as Warm-up and the stepping finish as Cool-down; footwork,
+  // control, integrated practice and its active-recovery resets stay Main. No generic Ramp-up is
+  // added: the progression itself ramps from preparation into technical practice.
+  const stageSection=block=>block.familyContext&&block.familyContext.role==='control'
+    ?/^athletic-preparation-\d+$/.test(block.id)?'warmup':/^athletic-finish-\d+$/.test(block.id)?'cooldown':'main':'main';
+  G.registerFamilyComposer(FAMILY,1,compose,quality,stageSection);
 })(typeof window==='undefined'?globalThis:window);

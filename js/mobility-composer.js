@@ -159,5 +159,9 @@
     ESSENTIAL_FOCUSED.filter(id=>!focused.includes(id)).forEach(id=>issues.push('missing-region-coverage:'+id));
     return [...new Set(issues)];
   }
-  G.registerFamilyComposer(FAMILY,1,compose,quality);
+  // Training-purpose sections (#242): standing preparation reads as Warm-up and the gentle finish
+  // as Cool-down; focused practice and the connected flow (which ramps naturally) stay Main.
+  const stageSection=block=>block.familyContext&&block.familyContext.role==='prep'&&block.id==='mobility-prep'?'warmup'
+    :block.familyContext&&block.familyContext.role==='finish'&&block.id==='mobility-finish'?'cooldown':'main';
+  G.registerFamilyComposer(FAMILY,1,compose,quality,stageSection);
 })(typeof window==='undefined'?globalThis:window);

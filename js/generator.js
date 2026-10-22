@@ -3106,15 +3106,54 @@
   // this wrapper owns shared identity, executable contracts and whole-session accounting.
   // Requests without a family never enter this path or consume an additional random draw.
   const familyComposers=new Map();
-  function registerFamilyComposer(workoutFamilyId, workoutFamilyVersion, compose, validateQuality) {
+  // `stageSection(block)` is optional. A composer that owns the whole session (no generic
+  // preparation) uses it to name which of its canonical stages are preparation or finish.
+  function registerFamilyComposer(workoutFamilyId, workoutFamilyVersion, compose, validateQuality, stageSection) {
     const definition=root.GarageFitWorkoutFamilies.getDefinition(workoutFamilyId,workoutFamilyVersion);
     const key=definition.compositionPolicy.id+':'+definition.compositionPolicy.version;
     // Every family owns its programming-identity rules; the shared gate fails closed without them.
-    if(familyComposers.has(key)||typeof compose!=='function'||typeof validateQuality!=='function')
+    if(familyComposers.has(key)||typeof compose!=='function'||typeof validateQuality!=='function'||stageSection!==undefined&&typeof stageSection!=='function')
       throw new Error('A family composer must be a function registered once per published policy, with its family quality validator.');
-    familyComposers.set(key,Object.freeze({compose,validateQuality}));
+    familyComposers.set(key,Object.freeze({compose,validateQuality,...(stageSection?{stageSection}:{})}));
   }
   const familyEntry=definition=>familyComposers.get(definition.compositionPolicy.id+':'+definition.compositionPolicy.version);
+
+  // ---- Training-purpose sections (#242) ----
+  // One derived reading of where a resolved Main block sits in the session: 'warmup', 'main' or
+  // 'cooldown'. Only a registered specialist stage classifier can name a family block as
+  // preparation or finish, from the block's own canonical stage identity. Structural data never
+  // changes: blocks stay in Main with their ids, order, estimates, phase `section` and occurrence ids.
+  const TRAINING_SECTION_LABELS=Object.freeze({warmup:'Warm-up',rampup:'Ramp-up',main:'Main workout',cooldown:'Cool-down'});
+  function blockTrainingSection(block) {
+    const context=block&&block.familyContext,families=root.GarageFitWorkoutFamilies;
+    if(!context||block.benchmark!=null||!families)return 'main';
+    let entry;
+    try{entry=familyEntry(families.getDefinition(context.workoutFamilyId,context.workoutFamilyVersion));}catch(error){return 'main';}
+    const section=entry&&entry.stageSection?entry.stageSection(block):'main';
+    return section==='warmup'||section==='cooldown'?section:'main';
+  }
+  // Per-block section, its position among that section's blocks, and whole-session section seconds.
+  // Every second of `estimatedSeconds` is counted once: a block-to-block transition belongs to the
+  // block it follows, a setup allowance to the exercise it precedes, so the four sections sum to
+  // the whole-session estimate (only the player's three-second Ready countdown sits outside).
+  function trainingSectionPlan(workout) {
+    const blocks=mainBlocks(workout),sections=blocks.map(blockTrainingSection);
+    const counts={},positions=sections.map(section=>(counts[section]=(counts[section]||0)+1)-1);
+    const seconds={warmup:0,rampup:0,main:0,cooldown:0};
+    for(const section of ['warmup','rampup','cooldown'])seconds[section]=Number(workout[section]&&workout[section].estimatedSeconds)||0;
+    const transitions=workout.setupTransitions||[];
+    transitions.filter(item=>item.section!=='main'&&seconds[item.section]!==undefined).forEach(item=>{seconds[item.section]+=item.additionalSeconds||0;});
+    const mainSeconds=Number(workout.main&&workout.main.estimatedDurationSeconds)||0;
+    let classified=0;
+    blocks.forEach((block,index)=>{
+      if(sections[index]==='main')return;
+      const own=estimateBlockWorkDuration(block)+(index<blocks.length-1?BLOCK_TRANSITION_SECONDS:0)
+        +transitions.filter(item=>item.section==='main'&&item.blockIndex===index).reduce((sum,item)=>sum+(item.additionalSeconds||0),0);
+      seconds[sections[index]]+=own;classified+=own;
+    });
+    seconds.main=mainSeconds-classified;
+    return {blocks:blocks.map((block,index)=>({blockIndex:index,section:sections[index],position:positions[index],count:counts[sections[index]]})),seconds};
+  }
   const FAMILY_CONSTRAINT_FIELDS=['excludedImpact','bodyPositions','movementRoom'];
 
   // Resolved Main timeline for family quality rules: each exercise occurrence in played order,
@@ -3605,7 +3644,7 @@
     applySetupPlan(workout);
   }
 
-  root.GarageFitGenerator = { registerFamilyComposer, validateFamilyWorkout, generateFamilyReplan, resolvedOccurrences, BUDGETS, RESTS, PROTOCOL_SHAPES, MAIN_PROTOCOLS, GENERATED_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, EQUIPMENT_SETUP_SECONDS, EQUIPMENT_SETUP_NOTE, planSetupTransitions, mainSeconds, EMOM_POLICY, LADDER_POLICY, PYRAMID_POLICY, COMPLEX_POLICY, DENSITY_POLICY, AMRAP_POLICY, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, WORKOUT_DIFFICULTIES, EXERCISE_DIFFICULTIES, DIFFICULTY_POLICY, workoutDifficulty, difficultyExcluded, difficultyCredit, WORKOUT_BODY_FOCUSES, EXERCISE_BODY_FOCUSES, EXERCISE_DIRECT_ELBOW_ACTIONS, BODY_FOCUS_POLICY, workoutBodyFocus, bodyFocusCredit, SHORTLIST_SIZE, SHORTLIST_MARGIN, WINDOW_MAX_RANKS, SUPPORTING_ROUTE, candidateWindowRanks, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, setupProfilesCompatible, blockSetupCompatible, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_SETUP_PROFILES, VALID_PATTERNS, VALID_WARMUP_AREAS, VALID_STRETCH_TARGETS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, OCCURRENCE_TARGET_LIMITS, resolveOccurrenceTarget, validateOccurrenceTargets, validateOccurrenceRecovery, validateFamilyBlock, validateEmomBlock, validateLadderBlock, validatePyramidBlock, pyramidKind, validateComplexBlock, validateDensityBlock, validateAmrapBlock, complexSequenceIssues, buildEmomBlock, protocolCompatible, protocolWeights, recentProtocolsFromResults, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, protocolConditions, selectBlockExercises, selectWarmup, kneeMobilityQualified, upperTrunkTarget, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, SessionPrescriptionError, assessSessionPrescription, generate, swap, swapPreparation };
+  root.GarageFitGenerator = { registerFamilyComposer, validateFamilyWorkout, blockTrainingSection, trainingSectionPlan, TRAINING_SECTION_LABELS, generateFamilyReplan, resolvedOccurrences, BUDGETS, RESTS, PROTOCOL_SHAPES, MAIN_PROTOCOLS, GENERATED_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, EQUIPMENT_SETUP_SECONDS, EQUIPMENT_SETUP_NOTE, planSetupTransitions, mainSeconds, EMOM_POLICY, LADDER_POLICY, PYRAMID_POLICY, COMPLEX_POLICY, DENSITY_POLICY, AMRAP_POLICY, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, WORKOUT_DIFFICULTIES, EXERCISE_DIFFICULTIES, DIFFICULTY_POLICY, workoutDifficulty, difficultyExcluded, difficultyCredit, WORKOUT_BODY_FOCUSES, EXERCISE_BODY_FOCUSES, EXERCISE_DIRECT_ELBOW_ACTIONS, BODY_FOCUS_POLICY, workoutBodyFocus, bodyFocusCredit, SHORTLIST_SIZE, SHORTLIST_MARGIN, WINDOW_MAX_RANKS, SUPPORTING_ROUTE, candidateWindowRanks, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, setupProfilesCompatible, blockSetupCompatible, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_SETUP_PROFILES, VALID_PATTERNS, VALID_WARMUP_AREAS, VALID_STRETCH_TARGETS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, OCCURRENCE_TARGET_LIMITS, resolveOccurrenceTarget, validateOccurrenceTargets, validateOccurrenceRecovery, validateFamilyBlock, validateEmomBlock, validateLadderBlock, validatePyramidBlock, pyramidKind, validateComplexBlock, validateDensityBlock, validateAmrapBlock, complexSequenceIssues, buildEmomBlock, protocolCompatible, protocolWeights, recentProtocolsFromResults, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, protocolConditions, selectBlockExercises, selectWarmup, kneeMobilityQualified, upperTrunkTarget, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, SessionPrescriptionError, assessSessionPrescription, generate, swap, swapPreparation };
 
   if (typeof window!=='undefined' && typeof document!=='undefined' && typeof window.addEventListener==='function') window.addEventListener('load',()=>{
     if (document.querySelector('script[data-garagefit-rampup-ui]')) return;

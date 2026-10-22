@@ -7,7 +7,7 @@
   function injectStyles() {
     if (document.getElementById('rampupUiStyles')) return;
     const style=document.createElement('style'); style.id='rampupUiStyles';
-    style.textContent='#generatedPreview{overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y}#generatedPreview>*{flex-shrink:0}.preview-timing{grid-template-columns:repeat(3,1fr)}@media(max-width:380px){.preview-timing{grid-template-columns:1fr 1fr}.preview-time-card:last-child{grid-column:1/-1}}';
+    style.textContent='#generatedPreview{overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y}#generatedPreview>*{flex-shrink:0}.preview-timing{grid-template-columns:repeat(3,1fr)}.preview-timing.preview-timing-pair{grid-template-columns:1fr 1fr}@media(max-width:380px){.preview-timing{grid-template-columns:1fr 1fr}.preview-timing:not(.preview-timing-pair) .preview-time-card:last-child{grid-column:1/-1}}';
     document.head.appendChild(style);
   }
 
@@ -42,9 +42,13 @@
 
     const warmupList=makeSectionList('previewWarmupList','Warm-up',mainList);
     const rampupList=makeSectionList('previewRampupList','Ramp-up',mainList);
+    // The shared training-section reading (#242): specialist preparation/finish blocks appear
+    // under Warm-up/Cool-down with their own timing; Main counts only its own blocks.
+    const plan=GarageFitGenerator.trainingSectionPlan(workout),inSection=section=>plan.blocks.filter(item=>item.section===section);
     let mainTitle=document.getElementById('previewMainTitle');
     if(!mainTitle){mainTitle=GarageFitWorkoutPreview.sectionHeading('');mainTitle.id='previewMainTitle';mainList.parentNode.insertBefore(mainTitle,mainList);}
-    mainTitle.textContent='Main workout · '+blocks.length+' block'+(blocks.length===1?'':'s');
+    const mainCount=inSection('main').length;
+    mainTitle.textContent='Main workout · '+mainCount+' block'+(mainCount===1?'':'s');
     let cooldownTitle=document.getElementById('previewCooldownListTitle'), cooldownList=document.getElementById('previewCooldownList');
     if(!cooldownTitle){cooldownTitle=GarageFitWorkoutPreview.sectionHeading('Cool-down');cooldownTitle.id='previewCooldownListTitle';mainList.parentNode.insertBefore(cooldownTitle,timing);}
     if(!cooldownList){cooldownList=document.createElement('ol');cooldownList.id='previewCooldownList';cooldownList.className='preview-list preview-prep-list';mainList.parentNode.insertBefore(cooldownList,timing);}
@@ -52,12 +56,21 @@
     renderExerciseList(warmupList,workout.warmup.exercises,'warmup',true);
     renderExerciseList(rampupList,workout.rampup.exercises,'rampup',true);
     renderExerciseList(cooldownList,workout.cooldown.exercises,'cooldown',false);
+    inSection('warmup').forEach(item=>window.appendGeneratedBlockRows(warmupList,workout,item.blockIndex,plan));
+    inSection('cooldown').forEach(item=>window.appendGeneratedBlockRows(cooldownList,workout,item.blockIndex,plan));
 
-    document.getElementById('previewWarmup').textContent=Math.round(workout.warmup.estimatedSeconds/60)+' min';
     let rampCard=document.getElementById('previewRampupCard');
     if(!rampCard){rampCard=document.createElement('div');rampCard.id='previewRampupCard';rampCard.className='preview-time-card';rampCard.innerHTML='<strong id="previewRampup"></strong>Ramp-up';timing.insertBefore(rampCard,timing.children[1]);}
-    document.getElementById('previewRampup').textContent=Math.round(workout.rampup.estimatedSeconds/60)+' min';
-    document.getElementById('previewCooldown').textContent=Math.round(workout.cooldown.estimatedSeconds/60)+' min';
+    // A section with no work is not shown: no misleading 0 min heading or timing card.
+    for(const [section,list,title,card] of [['warmup',warmupList,'previewWarmupListTitle',document.getElementById('previewWarmup').parentNode],
+      ['rampup',rampupList,'previewRampupListTitle',rampCard],['cooldown',cooldownList,'previewCooldownListTitle',document.getElementById('previewCooldown').parentNode]]){
+      const empty=!plan.seconds[section]&&!list.children.length;
+      [list,document.getElementById(title),card].forEach(node=>node&&node.classList&&node.classList.toggle('hidden',empty));
+    }
+    timing.classList.toggle('preview-timing-pair',rampCard.classList.contains('hidden'));
+    document.getElementById('previewWarmup').textContent=GarageFitWorkoutPreview.sectionDurationLabel(plan.seconds.warmup);
+    document.getElementById('previewRampup').textContent=GarageFitWorkoutPreview.sectionDurationLabel(plan.seconds.rampup);
+    document.getElementById('previewCooldown').textContent=GarageFitWorkoutPreview.sectionDurationLabel(plan.seconds.cooldown);
     document.getElementById('previewEstimate').textContent='≈'+Math.round(workout.estimatedSeconds/60)+' min total';
   };
 
@@ -70,7 +83,7 @@
     if(warmup.length||rampup.length)timeline.push({kind:'transition',section:'main',seconds:3,label:rampup.length?'Ramp-up complete':'Warm-up complete',nextExercise:blocks[0].exercises[0]});
     blocks.forEach((block,index)=>{
       appendBlockTimeline(timeline,block,index,blocks.length);
-      if(index<blocks.length-1)timeline.push({kind:'block-transition',section:'main',blockIndex:index,totalBlocks:blocks.length,seconds:workout.main.transitionSeconds,label:'Block '+(index+1)+' complete',nextExercise:blocks[index+1].exercises[0]});
+      if(index<blocks.length-1)timeline.push(generatedBlockTransition(workout,index));
     });
     if(cooldown.length)timeline.push({kind:'transition',section:'cooldown',seconds:3,label:'Main workout complete',nextExercise:cooldown[0]});
     cooldown.forEach((exercise,index)=>{timeline.push(...makeGeneratedExercisePhases(exercise,'cooldown',null,index));if(index<cooldown.length-1)timeline.push({kind:'rest',section:'cooldown',seconds:workout.cooldown.restSeconds,nextExercise:cooldown[index+1]})});
