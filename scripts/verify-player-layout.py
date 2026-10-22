@@ -41,6 +41,14 @@ METRICS = """({optional=false,allowReflow=false}={})=>{
    const hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);
    if(!e.contains(hit))failures.push(e.id+': covered');
  }
+ // #235: one muted preview directly above a centred primary action, never inside it.
+ const primary=controls.querySelector('#skipPhaseBtn,#completeMovementBtn'),preview=controls.querySelector('.next-preview'),pb=box(primary);
+ if(primary.querySelector('.next-preview,#routineNextName,#completeMovementNext')||!preview)failures.push('preview inside primary');
+ else if(getComputedStyle(preview).visibility==='visible'&&(box(preview).bottom>pb.y+1||preview.textContent.trim()==='Next:'))failures.push('preview misplaced or empty');
+ if(preview&&new Set([preview,...preview.querySelectorAll('*')].map(e=>getComputedStyle(e).color)).size>1)failures.push('preview colour not uniform');
+ const previous=controls.querySelector('#previousWorkoutBtn'),sameRow=previous&&visible(previous)&&Math.abs(box(previous).y-pb.y)<1;
+ if(!sameRow&&Math.abs(pb.x+pb.width/2-nav.x-nav.width/2)>1)failures.push('primary off centre');
+ if(!sameRow&&v.width<540&&Math.abs(pb.width/nav.width-.7)>.02)failures.push('primary not ~70% wide');
  let ring;
  if(!optional&&!allowReflow){
   const items=[...stage.querySelectorAll(':scope > *, .routine-main-column > *, .workout-main-column > *, .workout-timer-column > *')].filter(e=>visible(e)&&e.textContent.trim()&&box(e).height>0);
@@ -50,6 +58,8 @@ METRICS = """({optional=false,allowReflow=false}={})=>{
    ring=box(r);if(Math.abs(ring.width-ring.height)>0.1||ring.width<100)failures.push('ring geometry/legibility');
    const centre=box(r.querySelector('.ring-center'));
    if(Math.abs(centre.x+centre.width/2-ring.x-ring.width/2)>0.1||Math.abs(centre.y+centre.height/2-ring.y-ring.height/2)>0.1)failures.push('countdown off centre');
+   const divider=getComputedStyle(r,'::after'),dividerBottom=ring.bottom-parseFloat(divider.bottom);
+   if(divider.display==='none'||parseFloat(divider.width)<20||dividerBottom>box(r.parentElement).bottom+0.5)failures.push('timer divider missing or outside timer space');
    const fg=r.querySelector('.ring-fg');if(fg.getAttribute('r')!=='90'||getComputedStyle(fg).strokeWidth!=='12px')failures.push('canonical stroke changed');
    for(const text of r.querySelectorAll('.phase-label,.timer-num,.reps-num'))if(visible(text)){
     const t=box(text);if(t.x<ring.x||t.right>ring.right||t.y<ring.y||t.bottom>ring.bottom)failures.push('ring text clipped');

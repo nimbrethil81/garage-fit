@@ -108,8 +108,41 @@ pause, the timer at zero, the ended block, Coach Retry save and rotation. In Chr
 AMRAP-inclusive states (every fixture phase plus those AMRAP states) passed at the six viewports
 with no page overflow, at most 1px stage rounding at 667×375 and a smallest ring of 137px (375×540).
 
+### Shared action footer and timer divider (#235)
+
+Timed layouts restore the short teal divider below the ring. It is drawn in space
+the timer host reserves under the ring (18px, 10px on short viewports), so the ring
+keeps its proportional sizing, and it is not a pause target. Once the ring reaches
+its 330px maximum the host stops growing, so the stage centres the timer, divider,
+name and details as one group. A 2px stage bottom inset absorbs the display
+line-height's sub-pixel text overflow, which otherwise pushed one rest state into
+`player-reflow` in current Chromium.
+
+The immediate-next preview (`updateRoutineControls()` / `renderUpNext()`, unchanged)
+is a muted `Next: …` line above the primary button and is invisible, with its line
+reserved, when no next activity applies. On normal portrait phones the primary
+button is centred at 70% of the content width (capped at 340px). In the workout
+player, Previous (and Coach Skip work) follows at the same width, while DOM and
+focus order stay Previous, primary, Skip work. When the usable height is 580px or
+less, the workout player keeps one reserved row with Previous, the primary action
+and Skip work, the preview above the primary action. Wide landscape rows centre
+the primary action.
+
+The verifier now also checks that the preview is above and outside the primary
+action in one colour, the primary action is centred at ~70% wherever Previous is
+not in its row, and the divider is present inside the timer space. The Python
+script needs a developer-installed Playwright. For this change the same matrix,
+native entry checks and assertions were run through a Node Playwright port with
+Chromium 141. All 444 measured states passed with no page or normal-stage overflow.
+The smallest rings were 165px (375×667), 321px (393×852), 330px (430×932), 101px
+(375×540), 115px (320×568) and 163px (667×375). In every viewport the smallest was
+the deliberately long three-line density fixture with Skip work. Representative fixed,
+routine, Generator, Coach, AMRAP, EMOM, interval, Mobility and Athletic states were
+also inspected at 393×852, 375×540 and 667×375. These cover first, intermediate, final,
+paused and instruction-open states.
+
 The retained [measurement summary](images/player-viewport/measurements.json) and
-screenshots show the viewport evidence; running the script emits the full report
+screenshots (refreshed for #235) show the viewport evidence; running the script emits the full report
 and additional captures.
 
 | Example | Screenshot |
