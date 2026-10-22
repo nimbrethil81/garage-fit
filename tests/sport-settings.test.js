@@ -230,7 +230,7 @@ test('invalid saved settings are retained and block writes; released programmes 
   assert.ok(q.run('pilot.snapshot().blocked')); assert.match(q.run('pilot.snapshot().errors[0].message'),/programmeSettings.schemaVersion/);
   await assert.rejects(q.run("pilot.saveProgrammeSettings({focus:'power'})"), /valid programme/);
   await assert.rejects(q.start(), /Resolve/); assert.equal(q.storage.get(key),raw);
-  assert.deepEqual(q.json('Object.keys(GarageFitData.programmes)'),['general-strength-4w','build-arms','tennis-conditioning','general-fitness']);
+  assert.deepEqual(q.json('Object.keys(GarageFitData.programmes)'),['general-fitness','general-strength-4w','build-arms','tennis-conditioning']);
   const r = pilot(); await r.start(); await configure(r);
   await assert.rejects(r.start(), /Finish the current programme/);
   await r.run("pilot.manage('pause')"); await assert.rejects(r.start(), /Finish the current programme/);

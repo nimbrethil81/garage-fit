@@ -150,7 +150,7 @@ test('weekly progress uses Monday local midnight, completion dates, DST calendar
 
 test('Coach selection groups existing programmes and Tennis; minimal setup saves every approved preference',async()=>{
   const p=await ui();
-  assert.match(p.run('copyText()'),/Strength & fitness.*4-Week General Strength.*Build Arms.*Cross-training.*Tennis/);
+  assert.match(p.run('copyText()'),/Fitness programmes.*General Fitness.*4-Week General Strength.*Build Arms.*Sport cross-training.*Tennis/);
   assert.doesNotMatch(p.run('copyText()'),/Cycling|Running/);
   await p.click('Tennis');
   assert.equal(p.run("field('Training focus').value"),'balanced');
