@@ -105,3 +105,45 @@ test('Coach and Workouts bottom-navigation items use distinct icons',()=>{
   assert.equal(icon('coachNav'),'icon-user-round');
   assert.match(html,/<symbol id="icon-user-round"[^>]*><circle cx="12" cy="8" r="5"\/><path d="M20 21a8 8 0 0 0-16 0"\/><\/symbol>/);
 });
+
+test('bottom tabs retain their icons and labels in the approved order',()=>{
+  const nav=html.match(/<nav class="bottom-nav"[\s\S]*?<\/nav>/)[0];
+  assert.deepEqual([...nav.matchAll(/<button[^>]*id="(\w+Nav)"/g)].map(m=>m[1]),['routinesNav','workoutsNav','generatorNav','coachNav','moreNav']);
+  for(const [id,icon,label] of [['routinesNav','routines','Prep &amp; Recover'],['workoutsNav','workouts','Workouts'],['generatorNav','shuffle','Generator'],['coachNav','user-round','Coach']]){
+    const button=nav.match(new RegExp(`<button[^>]*id="${id}"[^>]*>([\\s\\S]*?)</button>`))[1];
+    assert.ok(button.includes(`href="#icon-${icon}"`));
+    assert.ok(button.includes(`<span>${label}</span>`));
+  }
+  assert.match(nav,/>⋯<\/span><span>More<\/span>/);
+});
+
+test('fresh startup selects Generator and page returns preserve the current tab or workout',async()=>{
+  const vm=require('node:vm'),listeners={window:{},document:{}};
+  const app=loadAppContext(new Map(),{ownIntrinsics:true,configure(context){
+    context.addEventListener=(name,callback)=>(listeners.window[name]||=[]).push(callback);
+    context.document.addEventListener=(name,callback)=>(listeners.document[name]||=[]).push(callback);
+    context.document.visibilityState='visible';
+  }});
+  const run=source=>vm.runInContext(source,app),el=id=>app.document.getElementById(id);
+  const returnToApp=()=>{for(const callback of listeners.window.pageshow||[])callback({persisted:true});for(const callback of listeners.document.visibilitychange||[])callback();};
+  await new Promise(resolve=>setImmediate(resolve)); // Coach startup must not override the landing.
+  assert.equal(run('currentScreen'),'generator');
+  assert.equal(el('generatorNav').attributes['aria-current'],'page');
+  assert.equal(el('generatorNav').classList.contains('active'),true);
+  assert.match(html,/<main id="generator" class="screen">/);
+  assert.match(html,/class="nav-btn active" id="generatorNav"[^>]*aria-current="page"/);
+  for(const screen of ['home','workouts','generator','coach','more']){
+    await app.showLanding(screen);returnToApp();
+    assert.equal(run('currentScreen'),screen);
+  }
+  app.showScreen('settings');app.appBack();assert.equal(run('currentScreen'),'more');
+  app.startFixedWorkout('cindy');app.completeWorkoutMovement();
+  const before=run('JSON.stringify([workoutState.idx,workoutState.history,workoutState.running,workoutState.paused])');
+  assert.equal(app.appBack(),false);returnToApp();
+  assert.equal(run('currentScreen'),'workoutPlayer');
+  assert.equal(run('JSON.stringify([workoutState.idx,workoutState.history,workoutState.running,workoutState.paused])'),before);
+  app.openExitDialog('workout');app.cancelExit();
+  assert.equal(run('currentScreen'),'workoutPlayer');
+  assert.equal(run('workoutState.running&&!workoutState.paused'),true);
+  assert.equal(el('bottomNav').classList.contains('hidden'),true);
+});

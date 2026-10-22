@@ -193,7 +193,7 @@
   </defs>
 </svg>
 <div id="app">
-  <main id="home" class="screen">
+  <main id="home" class="screen hidden">
     <div class="home-header">
       <div class="brand" data-masthead></div>
     </div>
@@ -251,7 +251,7 @@
     <ol class="workout-review hidden" id="workoutReview"></ol>
   </main>
 
-  <main id="generator" class="screen hidden">
+  <main id="generator" class="screen">
     <header class="page-header">
       <div class="brand" data-masthead></div>
     </header>
@@ -510,10 +510,10 @@
   </main>
 
   <nav class="bottom-nav" id="bottomNav" aria-label="Main navigation">
-    <button class="nav-btn active" id="routinesNav" type="button" aria-current="page" onclick="showLanding('home')"><svg class="icon" aria-hidden="true"><use href="#icon-routines"></use></svg><span>Prep &amp; Recover</span></button>
+    <button class="nav-btn" id="routinesNav" type="button" onclick="showLanding('home')"><svg class="icon" aria-hidden="true"><use href="#icon-routines"></use></svg><span>Prep &amp; Recover</span></button>
     <button class="nav-btn" id="workoutsNav" type="button" onclick="showLanding('workouts')"><svg class="icon" aria-hidden="true"><use href="#icon-workouts"></use></svg><span>Workouts</span></button>
+    <button class="nav-btn active" id="generatorNav" type="button" aria-current="page" onclick="showLanding('generator')"><svg class="icon" aria-hidden="true"><use href="#icon-shuffle"></use></svg><span>Generator</span></button>
     <button class="nav-btn" id="coachNav" type="button" onclick="showLanding('coach')"><svg class="icon" aria-hidden="true"><use href="#icon-user-round"></use></svg><span>Coach</span></button>
-    <button class="nav-btn" id="generatorNav" type="button" onclick="showLanding('generator')"><svg class="icon" aria-hidden="true"><use href="#icon-shuffle"></use></svg><span>Generator</span></button>
     <button class="nav-btn" id="moreNav" type="button" onclick="openMore()"><span aria-hidden="true" style="font-size:21px;line-height:21px">⋯</span><span>More</span></button>
   </nav>
 
@@ -618,7 +618,7 @@ function loadEquipment(){
   // The legacy all-equipment toggle predates rings; keep that inventory unchanged.
   else{const legacy=readPreference('gf_equipment');if(legacy!==null){state.ownedEquipment=legacy==='true'?EQUIPMENT.filter(item=>item.id!=='rings').map(item=>item.id):[];state.equipmentConfigured=true;saveEquipment()}else{state.ownedEquipment=[];state.equipmentConfigured=false}}
   const savedDuration=Number(readPreference('gf_generator_duration')),savedFocus=readPreference('gf_generator_focus');if([10,15,20,30,45].includes(savedDuration))generatorState.duration=savedDuration;if(['strength','balanced','cardio'].includes(savedFocus))generatorState.focus=savedFocus;const savedDifficulty=readPreference('gf_generator_difficulty');if(Object.keys(DIFFICULTY_LABELS).includes(savedDifficulty))generatorState.difficulty=savedDifficulty;const savedBodyFocus=readPreference('gf_generator_body_focus');if(Object.keys(BODY_FOCUS_LABELS).includes(savedBodyFocus))generatorState.bodyFocus=savedBodyFocus;
-  GarageFitMasthead.mount(document);loadRoutineVariant();renderHome();renderWorkoutReview();renderCindyDetail();renderPersonalBest();renderGenerator();showScreen('home')
+  GarageFitMasthead.mount(document);loadRoutineVariant();renderHome();renderWorkoutReview();renderCindyDetail();renderPersonalBest();renderGenerator();showScreen('generator')
 }
 function saveEquipment(){try{localStorage.setItem('gf_equipment_inventory',JSON.stringify(state.ownedEquipment));localStorage.setItem('gf_equipment_configured',String(state.equipmentConfigured))}catch(e){}}
 // Prep & Recover Warm Up / Cool Down: each Start builds a fresh five-minute plan (js/routine-generator.js).
