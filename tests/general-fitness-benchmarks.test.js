@@ -91,6 +91,7 @@ test('a benchmark is offered rarely, only where it fits, and declining or missin
     const sc=gfPlan(st,other,${JSON.stringify(at(5))});
     out.intended=sc.prescription.workoutFamilyPlan.candidates[0].workoutFamilyId;
     out.offered=sc.rationale.priorities.benchmark; out.rx=sc.prescription.workoutFamilyPlan.benchmark; out.context=sc.prescription.programmeContext.benchmark;
+    out.firstVersion=sc.prescription.workoutFamilyPlan.candidates[0].workoutFamilyVersion; out.pinned=GF.benchmarkPolicy.workoutFamilyVersion;
     out.easy=gfPlan(st,other,${JSON.stringify(at(5))},{easyToday:true}).rationale.priorities.benchmark.reason;
     out.short=gfPlan(st,other,${JSON.stringify(at(5))},{duration:15}).rationale.priorities.benchmark.reason;
     out.fiveteen=gfPlan(st,other,${JSON.stringify(at(5))},{duration:20}).rationale.priorities.benchmark.reason;
@@ -101,6 +102,8 @@ test('a benchmark is offered rarely, only where it fits, and declining or missin
   assert.deepEqual([offer.offered.status, offer.offered.reason, offer.offered.occasions], ['offered', 'offered', 0]);
   assert.deepEqual(offer.rx.items.map(item => item.exerciseId), IDS);
   assert.deepEqual([offer.rx.workoutFamilyId, offer.rx.exerciseRestSeconds], ['strength-control', 30]);
+  // The released policy names Strength & Control v1; the plan composes the current v2 and the benchmark follows that one identity (#261).
+  assert.deepEqual([offer.pinned, offer.firstVersion, offer.rx.workoutFamilyVersion], [1, 2, 2]);
   assert.deepEqual(offer.context, {status: 'offered', optional: true, benchmarkIds: IDS});
   assert.equal(offer.easy, 'easy-today'); assert.equal(offer.short, 'short-session'); assert.equal(offer.fiveteen, 'offered');
 

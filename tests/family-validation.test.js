@@ -138,6 +138,23 @@ test('Preview swaps revalidate the whole workout and keep each family label hone
     const ex=w.main.blocks[0].exercises[0];
     assert.ok(ex.strength>=2&&ex.strength>=ex.cardio&&!ex.conditioning&&ex.impact!=='high',ex.id);
   }
+  // Strength & Control v2 (#261): a session whose supporting route closes a later block swaps and edits through the same gate.
+  let routed=null;
+  for(let seed=1;seed<=60&&!routed;seed++) {
+    const candidate=generate('strength-control',{duration:45,equipment:EQUIPMENT.limited,random:rng(seed)});
+    if(candidate.main.blocks.slice(1).some(b=>b.exercises.at(-1).mainRole==='supporting'))routed=candidate;
+  }
+  assert.ok(routed&&routed.workoutFamilyVersion===2&&validate(routed,EQUIPMENT.limited).valid,'a v2 supporting-route session passes the gate');
+  const blockIndex=routed.main.blocks.findIndex((b,i)=>i&&b.exercises.at(-1).mainRole==='supporting'),slot=routed.main.blocks[blockIndex].exercises.length-1;
+  for(let seed=1;seed<=6;seed++) {
+    G.swap(routed,blockIndex,slot,{catalogue:C,equipment:EQUIPMENT.limited,random:rng(seed)});
+    const ex=routed.main.blocks[blockIndex].exercises[slot];
+    assert.ok(ex.strength>=2&&ex.strength>=ex.cardio&&!ex.conditioning&&ex.impact!=='high',ex.id);
+    assert.ok(validate(routed,EQUIPMENT.limited).valid,'swap '+seed);
+  }
+  const conditioning=Object.values(C).find(ex=>ex.conditioning&&G.generatedPhaseEligible(ex,'main',EQUIPMENT.limited,'normal')&&G.protocolCompatible(ex,routed.main.blocks[blockIndex].protocol));
+  const edited=copy(routed);edited.main.blocks[blockIndex].exercises[slot]=copy(conditioning);
+  assert.ok(validate(edited,EQUIPMENT.limited).qualityIssues.some(issue=>issue.includes('unsuitable-exercise:'+conditioning.id)),'an edit cannot bypass family suitability');
 });
 
 test('explicit family safety constraints cover preparation and cooldown, including preparation swaps',()=>{

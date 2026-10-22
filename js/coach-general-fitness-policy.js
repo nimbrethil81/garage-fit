@@ -180,12 +180,16 @@
     else if (duration < policy.minimumDurationMinutes) reason = 'short-session';
     else if (difficulty === 'easy') reason = 'easy-today';
     else if (recovery.preferLowerDemand) reason = 'recovery-preferred';
-    else if (!intendedFamily || intendedFamily.workoutFamilyId !== policy.workoutFamilyId || intendedFamily.workoutFamilyVersion !== policy.workoutFamilyVersion) reason = 'other-family';
+    // The policy names the published family version it was released with; the plan composes that family at its
+    // current version (never older), which is still the same family for the benchmark.
+    else if (!intendedFamily || intendedFamily.workoutFamilyId !== policy.workoutFamilyId || intendedFamily.workoutFamilyVersion < policy.workoutFamilyVersion) reason = 'other-family';
     return {status: reason === 'offered' ? 'offered' : 'not-offered', reason, lastOccasionAt: last, nextEligibleAt, occasions: occasions.length};
   }
-  function benchmarkSpec(definition) {
+  // The spec names the composed family version (`intendedFamily`, the plan's first candidate), so the Generator and the
+  // Session Prescription keep one family identity when the plan composes a later version than the policy was released with.
+  function benchmarkSpec(definition, intendedFamily) {
     const policy = definition.benchmarkPolicy;
-    return {workoutFamilyId: policy.workoutFamilyId, workoutFamilyVersion: policy.workoutFamilyVersion, exerciseRestSeconds: policy.exerciseRestSeconds,
+    return {workoutFamilyId: policy.workoutFamilyId, workoutFamilyVersion: intendedFamily ? intendedFamily.workoutFamilyVersion : policy.workoutFamilyVersion, exerciseRestSeconds: policy.exerciseRestSeconds,
       items: policy.benchmarks.map(item => ({benchmarkId: item.benchmarkId, exerciseId: item.exerciseId, setupId: item.setupId}))};
   }
 
@@ -276,7 +280,7 @@
       workoutFamilyVersion: family.workoutFamilyVersion, rationale: rationaleFor(family, index, priorities, first)}))};
     // An optional comparable benchmark rides in the intended family's session; it never changes the family.
     const offered = priorities.benchmark && priorities.benchmark.status === 'offered';
-    if (offered) plan.benchmark = benchmarkSpec(definition);
+    if (offered) plan.benchmark = benchmarkSpec(definition, first);
     for (const field of ['excludedImpact','bodyPositions','movementRoom']) if (today[field] !== undefined && today[field] !== null) plan[field] = clone(today[field]);
     return Model.createSessionPrescription({prescriptionId: today.prescriptionId, programmeInstanceId: state.programmeInstanceId,
       // The role is the programme, never the planned family: identity comes from the delivered workout.

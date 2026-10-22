@@ -1,5 +1,5 @@
 (function (root) {
-  // Strength & Control and Cardio & Conditioning composition v1 (docs/WORKOUT_FAMILIES.md).
+  // Strength & Control composition v1 and v2 and Cardio & Conditioning composition v1 (docs/WORKOUT_FAMILIES.md).
   // Exercises come from the canonical catalogue's reviewed strength/cardio/impact/protocol
   // metadata through the Generator's own recipes and selection, never a family table.
   const G=root.GarageFitGenerator,F=root.GarageFitWorkoutFamilies;
@@ -46,8 +46,11 @@
   }
 
   // Selection state for the Generator's recipe-driven picker (js/generator.js selectBlockExercises).
+  // `ctx.supportingRoute` is set only by a composition that drew the Generator's bounded supporting
+  // route (Strength & Control v2); every other composition leaves the state exactly as before.
   const freshState=ctx=>({exercises:[],usedIds:new Set(),equipmentUsage:new Map(),owned:ctx.owned,difficulty:ctx.difficulty,
-    bodyFocus:ctx.bodyFocus,diversityTarget:G.EQUIPMENT_DIVERSITY[ctx.duration],duration:ctx.duration,recentProtocols:ctx.recent});
+    bodyFocus:ctx.bodyFocus,diversityTarget:G.EQUIPMENT_DIVERSITY[ctx.duration],duration:ctx.duration,recentProtocols:ctx.recent,
+    ...(ctx.supportingRoute?{supportingRoute:true}:{})});
   const pick=(ctx,state,pool,count,focus,intent,protocol)=>
     G.selectBlockExercises(pool,count,focus,intent,protocol,state,ctx.history,ctx.random,ctx.catalogue);
 
@@ -77,6 +80,8 @@
       block.exercises.forEach(ex=>state.usedIds.add(ex.id));
       state.equipmentUsage=G.equipmentUsageSeconds(blocks);
     }
+    // Whether the drawn supporting route filled its slot in this attempt (see bestOf).
+    Object.defineProperty(blocks,'routeFilled',{value:!!state.supportingRouteFilled,enumerable:false});
     return blocks;
   }
 
@@ -95,12 +100,16 @@
     // The session as a whole must read as the family: resistance-led or cardio-led work.
     const list=blocks.flatMap(block=>block.exercises),mean=key=>sum(list.map(ex=>ex[key]))/list.length;
     if(ctx.focus==='strength'?mean('strength')-mean('cardio')<.5:mean('cardio')-mean('strength')<.5)return null;
-    return {blocks,fitness:ctx.target-total+G.mainQualityPenalty(blocks,ctx.target,ctx.pool.length)};
+    return {blocks,routeFilled:!!blocks.routeFilled,fitness:ctx.target-total+G.mainQualityPenalty(blocks,ctx.target,ctx.pool.length)};
   }
   // Each plan is tried a few times: the seeded picks differ, so one poor draw is not final.
-  const bestOf=(attempts,build)=>{
+  // A composition that drew the supporting route keeps its accessory as the Generator's Main does:
+  // the fittest valid attempt that filled the route slot is chosen over fitter ones that never
+  // reached it; without such an attempt the fittest attempt is chosen as before.
+  const bestOf=(attempts,build,preferRouteFilled=false)=>{
     let best=null;
-    for(let repeat=0;repeat<3;repeat++)for(const attempt of attempts){const made=build(attempt);if(made&&(!best||made.fitness<best.fitness))best=made;}
+    const better=(made,other)=>preferRouteFilled&&made.routeFilled!==other.routeFilled?made.routeFilled:made.fitness<other.fitness;
+    for(let repeat=0;repeat<3;repeat++)for(const attempt of attempts){const made=build(attempt);if(made&&(!best||better(made,best)))best=made;}
     return best;
   };
 
@@ -132,7 +141,7 @@
           candidates.push({prescription:{sets,betweenExercisesSeconds:10,betweenSetsSeconds:rest},cost:Math.abs(rest-base)*.5+(sets===3?0:8)});
         const fit=fitted(ctx,'paired_sets',index?'accessory':'strength',pair,candidates,share);
         return fit&&{estimate:fit.estimate,block:{protocol:'paired_sets',intent:index?'accessory':'strength',exercises:pair,prescription:fit.prescription}};
-      }),1));
+      }),1),ctx.supportingRoute);
     },
     // A short circuit of varied movements with deliberate rests between exercises and rounds.
     'controlled-circuits':ctx=>{
@@ -149,9 +158,15 @@
         const fit=fitted(ctx,'rounds',index?'accessory':'strength',exercises,candidates,share);
         return fit&&{estimate:fit.estimate,block:{protocol:'rounds',intent:index?'accessory':'strength',exercises,prescription:fit.prescription,
           rounds:fit.prescription.rounds,rest:{exercise:fit.prescription.exerciseRestSeconds,round:fit.prescription.roundRestSeconds}}};
-      }),1));
+      }),1),ctx.supportingRoute);
     }
   };
+  // Styles where composition v2 may draw the bounded supporting route (#261). Each of them builds blocks
+  // of several exercises, so the route's last-slot rule has a genuine closing accessory slot among
+  // other movements. Straight sets is intentionally inapplicable: every block is one exercise with
+  // full rests, so "the last slot of an accessory block" would be an entire block of supporting work.
+  // Its sessions keep v1's selection exactly (supporting drills remain eligible there, scored down).
+  const SUPPORTING_ROUTE_STYLES=['paired-sets','controlled-circuits'];
   const STRENGTH_WEIGHTS={'straight-sets':{10:.5,15:1,20:2,30:3,45:4},'paired-sets':{10:4,15:4,20:4,30:3,45:3},'controlled-circuits':{10:3,15:3,20:3,30:2,45:2}};
 
   // ---- Cardio & Conditioning ----
@@ -224,13 +239,16 @@
       'mixed-conditioning':ctx.duration>=20?3:2};
   }
 
-  function build(label,styles,weights,suitable,focus) {
+  // `routeStyles` (Strength & Control v2) names the styles that take the Generator's single seeded
+  // supporting-route draw (G.drawSupportingRoute: duration, candidate supply and probability) over this
+  // composition's own suitable pool. Without it nothing is drawn, so v1 and Cardio keep their draw stream.
+  function build(label,styles,weights,suitable,focus,routeStyles=[]) {
     return (options,request,attempt)=>{
       const ctx=context(options,request,label,suitable,focus),excluded=attempt&&attempt.excludedStyleIds||[];
       const ranked=ordered(Object.keys(styles).map(id=>({id,weight:weights(ctx)[id]})),ctx.random);
       // Same-family fallback: styles the shared gate rejected are skipped; the draw stream is unchanged.
       for(const {id} of ranked.filter(entry=>!excluded.includes(entry.id))) {
-        const made=styles[id](ctx);
+        const made=styles[id](routeStyles.includes(id)&&G.drawSupportingRoute(ctx.pool,ctx.duration,focus,ctx.random)?{...ctx,supportingRoute:true}:ctx);
         if(made)return {familyStyleId:id,blocks:made.blocks,generalPreparation:{focus}};
       }
       return fail(label+' cannot build a suitable '+ctx.duration+'-minute session from the selected equipment and constraints.');
@@ -287,10 +305,14 @@
   // Shared construction helpers for later catalogue-owned composers (js/core-challenge-composer.js).
   root.GarageFitFamilyComposerKit=Object.freeze({MARGIN,copy,sum,fail,between,repeated,meanOf,ordered,constraints,context,freshState,pick,fitted,sequence,counts,bestOf});
 
-  G.registerFamilyComposer('strength-control',1,build('Strength & Control',STRENGTH_STYLES,ctx=>{
+  const strengthWeights=ctx=>{
     const recent=ctx.recent,rounds=recent.includes('rounds')?.8:1;
     return Object.fromEntries(Object.entries(STRENGTH_WEIGHTS).map(([id,table])=>[id,table[ctx.duration]
       *(id==='paired-sets'?(recent.includes('paired_sets')?.6:1):rounds)]));
-  },controlled,'strength'),strengthQuality);
+  };
+  G.registerFamilyComposer('strength-control',1,build('Strength & Control',STRENGTH_STYLES,strengthWeights,controlled,'strength'),strengthQuality);
+  // v2 (#261): identical styles, weights, structure and quality gate; paired sets and controlled circuits of
+  // 30+ minutes may also draw the Generator's supporting route. v1 stays composable exactly as released.
+  G.registerFamilyComposer('strength-control',2,build('Strength & Control',STRENGTH_STYLES,strengthWeights,controlled,'strength',SUPPORTING_ROUTE_STYLES),strengthQuality);
   G.registerFamilyComposer('cardio-conditioning',1,build('Cardio & Conditioning',CARDIO_STYLES,cardioWeights,cardioLed,'cardio'),cardioQuality);
 })(typeof window==='undefined'?globalThis:window);

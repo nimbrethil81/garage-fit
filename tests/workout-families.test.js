@@ -118,7 +118,7 @@ test('internal styles resolve automatically from composer-proven candidates and 
 test('unknown IDs, versions and family/style pairs fail explicitly without inference or legacy fallback', () => {
   for (const id of ['unknown', '', 'Strength & Control', 'toString', '__proto__', {}, 1])
     fails(() => F.resolveRequest({workoutFamilyId: id}), 'unknown-workout-family');
-  for (const version of [0, 2, '1', null, 1.5, NaN])
+  for (const version of [0, 3, '1', null, 1.5, NaN])
     fails(() => F.resolveRequest({workoutFamilyId: 'strength-control', workoutFamilyVersion: version}), 'unsupported-workout-family-version');
   fails(() => F.getStyle('strength-control', 'integrated-flow'), 'unsupported-family-style');
   fails(() => F.resolveStyle({workoutFamilyId: 'mobility-movement-quality'}, ['straight-sets']), 'unsupported-family-style');
