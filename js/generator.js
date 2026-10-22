@@ -1783,6 +1783,11 @@
     }
     return [...new Set(issues)];
   }
+  // Generated Main estimates may differ from the Main budget by this much (seconds) before
+  // validateMain reports `main:duration-out-of-tolerance`.
+  function mainDurationTolerance(targetSeconds) {
+    return Math.max(240,targetSeconds*.38);
+  }
   function validateMain(main, catalogue, owned, targetSeconds) {
     const issues=[];
     if(!main||!Array.isArray(main.blocks)||!main.blocks.length)return ['main:no-blocks'];
@@ -1833,12 +1838,12 @@
     }
     const estimate=mainSeconds(main.blocks,owned);
     if(main.blocks.some(block=>['emom','ladder','pyramid','complex','density','amrap'].includes(block.protocol)||block.occurrenceTargets||block.occurrenceRecoverySeconds)&&Number.isFinite(targetSeconds)&&estimate>targetSeconds)issues.push('main:duration-over-budget');
-    if(Number.isFinite(targetSeconds)&&Math.abs(estimate-targetSeconds)>Math.max(240,targetSeconds*.38))issues.push('main:duration-out-of-tolerance');
+    if(Number.isFinite(targetSeconds)&&Math.abs(estimate-targetSeconds)>mainDurationTolerance(targetSeconds))issues.push('main:duration-out-of-tolerance');
     return issues;
   }
 
   function composeMain(catalogue, eligible, budget, duration, focus, owned, history, rest, random, difficulty, bodyFocus, recentProtocols, captureAlternatives) {
-    const attempts=[];
+    const attempts=[],reserve=[];
     const diversityTarget=EQUIPMENT_DIVERSITY[duration]||EQUIPMENT_DIVERSITY[20];
     const viableCount=viableEquipmentTypes(eligible).size;
     // One roll for the whole Main, taken only where the route could apply, so short Main phases,
@@ -1878,9 +1883,12 @@
       const issues=validateMain({blocks:state.blocks},catalogue,owned,budget.main);
       const varietyIssues=mainVarietyIssues(state.blocks,duration,eligible);
       const malformed=issues.filter(issue=>issue!=='main:duration-out-of-tolerance').concat(varietyIssues);
+      // The equipment-diversity minimum is a preference. An attempt that misses only it is kept
+      // in reserve (see below) instead of being discarded outright.
+      const diversityOnly=malformed.length>0&&malformed.every(issue=>issue==='main:equipment-diversity-below-minimum');
       if(malformed.length){
         if(activeTrace)activeTrace({type:'main-attempt',attempt,issues:malformed});
-        continue;
+        if(!diversityOnly)continue;
       }
       const usedTypesCount=[...state.equipmentUsage.keys()].filter(type=>state.equipmentUsage.get(type)>0).length;
       const equipmentCredit=(viableCount>=diversityTarget.preferredTypes&&usedTypesCount>=diversityTarget.preferredTypes)?15:0;
@@ -1895,17 +1903,27 @@
         const dominantBlockShare=Math.max(...state.blocks.map(block=>block.estimatedDurationSeconds))/estimated;
         if(dominantBlockShare>BLOCK_DOMINANCE_CAP)blockDominancePenalty=(dominantBlockShare-BLOCK_DOMINANCE_CAP)*300;
       }
-      attempts.push({attempt,blocks:state.blocks,estimated,routeFilled:!!state.supportingRouteFilled,fitness:Math.abs(estimated-budget.main)+mainQualityPenalty(state.blocks,budget.main,eligible.length)+dominancePenalty+blockDominancePenalty-varietyCredit-equipmentCredit});
-      if(activeTrace)activeTrace({type:'main-attempt',attempt,issues:[],fitness:attempts[attempts.length-1].fitness});
+      const record={attempt,blocks:state.blocks,estimated,routeFilled:!!state.supportingRouteFilled,fitness:Math.abs(estimated-budget.main)+mainQualityPenalty(state.blocks,budget.main,eligible.length)+dominancePenalty+blockDominancePenalty-varietyCredit-equipmentCredit};
+      if(diversityOnly){reserve.push(record);continue;}
+      attempts.push(record);
+      if(activeTrace)activeTrace({type:'main-attempt',attempt,issues:[],fitness:record.fitness});
     }
     attempts.sort((a,b)=>a.fitness-b.fitness);
+    reserve.sort((a,b)=>a.fitness-b.fitness);
+    // Owned kit with a narrow role (e.g. a pull-up bar beside rings) can make every attempt miss
+    // the diversity minimum, or leave only attempts outside the Main duration tolerance. Rather
+    // than an under-filled Main or the short fallback, a reserve attempt that is otherwise valid
+    // and fits the tolerance is used then. Whenever a fully valid attempt fits, nothing changes.
+    const fits=item=>Math.abs(item.estimated-budget.main)<=mainDurationTolerance(budget.main);
+    let pool=attempts;
+    if(reserve.length&&!attempts.some(fits))pool=reserve.some(fits)?reserve.filter(fits):attempts.length?attempts:reserve;
     // A drawn route keeps its accessory: the fittest valid attempt that filled the route slot is
     // chosen over fitter attempts that never reached it (no accessory block, or too few roles
     // before its last slot). Without such an attempt the fittest attempt is chosen as before.
-    const chosen=attempts.find(item=>item.routeFilled)||attempts[0];
+    const chosen=pool.find(item=>item.routeFilled)||pool[0];
     if(activeTrace)activeTrace({type:'main-result',attempt:chosen?chosen.attempt:null,supportingRoute});
     if(chosen){
-      if(captureAlternatives)captureAlternatives(attempts.filter(attempt=>attempt!==chosen).map(attempt=>({blocks:attempt.blocks,attempt:attempt.attempt,supportingRoute})));
+      if(captureAlternatives)captureAlternatives(pool.filter(attempt=>attempt!==chosen).map(attempt=>({blocks:attempt.blocks,attempt:attempt.attempt,supportingRoute})));
       return {blocks:chosen.blocks,transitionSeconds:BLOCK_TRANSITION_SECONDS,estimatedDurationSeconds:chosen.estimated};
     }
     const fallbackSelected=selectExercises(eligible,Math.min(3,eligible.length),focus,history,random,catalogue);

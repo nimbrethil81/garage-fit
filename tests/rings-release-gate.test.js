@@ -29,10 +29,8 @@ test('[Full] equipment configurations only select ring entries when rings are ow
             const seed=1000+(n++);
             const w=G.generate({catalogue:C,equipment,duration,focus,difficulty,bodyFocus,random:random(seed)});
             const label=[name,duration,focus,difficulty,bodyFocus].join('/');
-            // Known limitation (follow-up, not a ring defect): the equipment-diversity preference can
-            // reject every well-filled attempt for some kits/focuses, leaving an under-filled Main.
-            // That tolerance miss is non-fatal in the generator; every other Main rule must hold.
-            assert.deepEqual(G.validateMain(w.main,C,equipment,G.BUDGETS[duration].main).filter(i=>i!=='main:duration-out-of-tolerance'),[],label);
+            // Every Main rule holds, including the Main duration tolerance (#212).
+            assert.deepEqual(G.validateMain(w.main,C,equipment,G.BUDGETS[duration].main),[],label);
             assert.ok(w.estimatedSeconds<=duration*60+Math.max(180,duration*60*.18),label+' '+w.estimatedSeconds);
             assert.deepEqual(G.normaliseWorkout(JSON.parse(JSON.stringify(w))),w,label);
             for(const b of w.main.blocks)assert.ok(G.blockSetupCompatible(b,C,equipment),label);
@@ -46,6 +44,26 @@ test('[Full] equipment configurations only select ring entries when rings are ow
           }
   for(const name of ['bodyweight','bar','trx'])assert.equal(ringsSeen[name]||0,0,name);
   for(const name of ['rings','rings+bar','rings+trx','all'])assert.ok(ringsSeen[name]>0,name+' should reach ring entries');
+});
+
+// #212: with rings + pull-up bar (or kettlebell + bar), the bar offers only pull/hanging work, so
+// cardio, lower or Easy sessions could miss the two-type equipment minimum on every attempt and
+// fall back to a short three-exercise Main (34-61% of budget on these seeds). The fittest
+// otherwise-valid attempt is used instead; the family cap, round variety and setup rules still hold.
+test('kits whose equipment cannot meet the diversity minimum still fill Main within tolerance',()=>{
+  const cases=[[['rings','pullup-bar'],45,'cardio','easy','full-body',1889],[['rings','pullup-bar'],30,'balanced','normal','lower',1846],
+    [['rings','pullup-bar'],20,'balanced','hard','full-body',1813],[['kettlebell','pullup-bar'],45,'strength','easy','lower',2586]];
+  for(const [equipment,duration,focus,difficulty,bodyFocus,seed] of cases){
+    const events=[],label=[equipment.join('+'),duration,focus,difficulty,bodyFocus,seed].join('/');
+    const w=G.generate({catalogue:C,equipment,duration,focus,difficulty,bodyFocus,random:random(seed),trace:event=>events.push(event)});
+    const eligible=Object.values(C).filter(ex=>G.generatedPhaseEligible(ex,'main',equipment,difficulty));
+    assert.notEqual(events.find(event=>event.type==='main-result').attempt,null,label+' used the short fallback');
+    assert.deepEqual(G.validateMain(w.main,C,equipment,G.BUDGETS[duration].main),[],label+' '+w.main.estimatedDurationSeconds);
+    assert.deepEqual(G.mainVarietyIssues(w.main.blocks,duration,eligible).filter(i=>i!=='main:equipment-diversity-below-minimum'),[],label);
+    assert.ok(w.main.estimatedDurationSeconds>=G.BUDGETS[duration].main*.85,label+' '+w.main.estimatedDurationSeconds);
+    assert.ok(w.estimatedSeconds<=duration*60+Math.max(180,duration*60*.18),label);
+    assert.ok(new Set(mainOf(w).map(ex=>ex.id)).size>=4,label);
+  }
 });
 
 test('rings do not falsely satisfy unrelated bar-specific or TRX-specific exercises',()=>{

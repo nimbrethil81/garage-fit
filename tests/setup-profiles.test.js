@@ -201,7 +201,8 @@ test('swaps reject incompatible-only replacements, can keep other kit, and prote
 });
 
 // Baseline main d454da9; #221 deliberately re-pinned only the Balanced/Cardio entries whose AMRAP
-// weight changed selection (Strength entries and the fixture shape are unchanged).
+// weight changed selection (Strength entries and the fixture shape are unchanged). #212 re-pinned
+// dumbbells+bench 20 Cardio only: it was the short last-resort fallback Main, now a reserve attempt.
 test('no-ring plans, estimates and random consumption match the pinned no-ring baseline',()=>{
   for(const {equipment,duration,focus,seed,draws,hash} of baseline.fixtures){
     const rng=random(seed);let actualDraws=0;
