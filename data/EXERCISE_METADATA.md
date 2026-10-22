@@ -434,7 +434,9 @@ variants of substantially the same exercise:
   on a pull-up bar);
 - direction variants of the same movement (arm circles forwards, backwards and with a
   direction change);
-- a stretch and its TRX version.
+- a stretch and its TRX version;
+- assistance variants that retain the same movement (ring dip and foot-assisted ring
+  dip, ring support hold and foot-assisted ring support hold).
 
 These do not qualify:
 
@@ -451,7 +453,7 @@ Use it sparingly. It is optional.
 different but make a workout feel monotonous when programmed close together. For
 example, `basic-conditioning` covers jumping jacks and star jumps. It is independent
 of `family`: direct variants do not automatically share a repetition class, and
-members of a class are not variants of each other.
+members of a class need not be variants of each other.
 
 ### `frequency`
 
@@ -459,8 +461,11 @@ members of a class are not variants of each other.
 family per workout (farmer carries). It requires a `family`.
 
 A few families have the same Main cap as generator policy rather than metadata, because
-their equipment variants are interchangeable enough that two in one workout would be a
-repeat, not variety: `sumo-squat` (dumbbell and kettlebell sumo squat). The list is
+their equipment or assistance variants are interchangeable enough that two in one workout
+would be a repeat, not variety: `sumo-squat` (dumbbell and kettlebell sumo squat),
+`ring-dip` and `ring-support` (unassisted and foot-assisted variants). The support
+holds retain the same straight-arm hold with assistance changing the load, so the
+same rule applies; it does not exclude other pressing or pulling movements. The list is
 `MAIN_SINGLE_VARIANT_FAMILIES` in `js/generator.js`; it says nothing about how often the
 family should appear, so do not use `frequency` to obtain this.
 
