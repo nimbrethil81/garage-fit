@@ -42,7 +42,13 @@ test('[Full] five durations × three difficulties × eight seeds × bodyweight/T
     assert.deepEqual(w.main.blocks.map(b=>b.familyContext.role),ROLES);
     assert.deepEqual(G.validateMain(w.main,C,equipment,duration*60),[]);
     assert.equal(w.estimatedSeconds,duration*60);
+    // #242: structural generic sections stay empty, but prep/finish read as Warm-up/Cool-down with
+    // their published profile time; focused practice and flow are Main; no separate Ramp-up.
     assert.ok(['warmup','rampup','cooldown'].every(key=>w[key].exercises.length===0&&w[key].estimatedSeconds===0));
+    const sections=G.trainingSectionPlan(w);
+    assert.deepEqual(sections.blocks.map(b=>b.section),['warmup','main','main','cooldown']);
+    assert.deepEqual([sections.seconds.warmup,sections.seconds.rampup,sections.seconds.main,sections.seconds.cooldown],
+      [PROFILES[duration][0],0,PROFILES[duration][1]+PROFILES[duration][2],PROFILES[duration][3]]);
     assert.equal(w.estimatedSeconds,G.mainSeconds(w.main.blocks,equipment));
     for(const [phase,b] of w.main.blocks.entries()) {
       assert.equal(b.protocol,'rounds');assert.equal(b.prescription.rounds,1,'ordered visits, no generic repeated circuit');

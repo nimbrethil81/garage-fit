@@ -239,6 +239,31 @@ established generic warm-up, ramp-up and cool-down around the family's Main (the
 chosen after Main) instead of empty sections, retrying that bounded preparation if it
 would push the whole session past the selected duration. Mobility and Athletic do not opt in.
 
+### Training-purpose sections of specialist families (#242)
+
+Mobility and Athletic keep their whole progression in Main blocks; the generic arrays stay empty
+and never receive specialist blocks. A composer may register an optional fifth argument,
+`stageSection(block)`, naming which canonical stages are preparation (`'warmup'`) or finish
+(`'cooldown'`); anything else is Main. `blockTrainingSection(block)` and
+`trainingSectionPlan(workout)` (per-block section/position/count plus warm-up, ramp-up, Main and
+cool-down seconds) are the one shared reading used by the standalone and Coach previews, the shared
+player and the Session Tracker. Mobility classifies `prep` as Warm-up and `finish` as Cool-down.
+Athletic uses explicit stage identity (`athletic-preparation-*`, `athletic-finish-*`), never the
+reused `control` role, so control drills and reset blocks remain Main. Neither adds a Ramp-up: the
+progression ramps internally. Section seconds sum exactly to `estimatedSeconds`; a block transition
+belongs to the block it ends and a setup allowance to the exercise it precedes.
+
+Nothing structural changes: blocks, ids, order, estimates, phase `section: 'main'` and occurrence
+ids are unchanged. Player phases carry a derived `trainingSection`; a section boundary keeps its
+three-second block transition but is announced as “Warm-up complete”/“Main workout complete”, and
+Main numbers only its own blocks. New planned occurrences record the training section, so specialist
+preparation/finish never counts as Main dose, family exposure or meaningful Coach work (completion,
+early exit or interrupted-draft recovery), while their `blockIndex` keeps the block association.
+Existing Session Results and Drafts keep what they recorded; nothing migrates. Other families,
+no-family generation and benchmark blocks are always Main. The classification does not change any
+published composition: Athletic v1's short finish (30/32/54/76/119 s at 10/15/20/30/45 minutes)
+is unchanged, because lengthening it would alter the released v1 contract and needs a new version.
+
 Missing composers fail with `family-composer-unavailable`; unsupported duration or
 difficulty fails with `family-configuration-unsupported`. An explicit family plus
 Coach `sessionPrescription` fails with `family-prescription-unsupported`: Coach asks
@@ -263,7 +288,8 @@ It implements the reference prep/focused/flow/finish minute profiles:
 Each phase is one `rounds:1` block with ordered occurrences, contextual timed
 prescriptions and explicit per-gap recovery; all phase boundaries, changeovers and
 both sides of unilateral work count in the selected total. Generic preparation and
-cooldown remain empty because the family owns the entire progression. The common
+cooldown stay empty because the family owns the entire progression; its prep and finish are
+presented and recorded as Warm-up/Cool-down (see training-purpose sections above). The common
 player's three-second Ready countdown remains outside the exercise-session budget.
 
 The automatically resolved styles have different practice pacing, within the
@@ -345,7 +371,8 @@ transition never joins consecutive demanding integrated blocks. Optional high-im
 drills never begin/end a block or occur consecutively across rounds/blocks. The
 finish receives at least thirty seconds; all work, both sides, recovery and block
 transitions count exactly once in the selected whole-session duration. Generic
-warm-up/ramp-up/cooldown sections remain empty; only Ready's three seconds sit outside.
+warm-up/ramp-up/cooldown sections remain empty (preparation and finish read as Warm-up/Cool-down,
+see training-purpose sections above); only Ready's three seconds sit outside.
 
 All durations/difficulties have an ordinary in-place bodyweight route, including
 Hard without high impact. Travelling drills require explicit `movementRoom:true`.

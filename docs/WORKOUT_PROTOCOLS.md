@@ -130,6 +130,9 @@ For all-empty preparation/finish only the three-second ready countdown remains o
 estimate. Work estimates, gap recovery, inter-block transitions and setup increments remain
 separate and are counted once. The standalone five-minute routine engine is unchanged.
 These are explicit-plan primitives, not a family composer, selection policy or new user control.
+A composer can still present its own preparation/finish blocks as Warm-up/Cool-down through the
+derived training-purpose sections in [Workout families](WORKOUT_FAMILIES.md#training-purpose-sections-of-specialist-families-242);
+occurrence ids keep the structural `main` section.
 
 ### Repetition ladders
 

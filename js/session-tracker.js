@@ -31,6 +31,7 @@
   // ---- Occurrence identity ----
   // Derived only from timeline structure (section, block, round/set/cycle, position, side),
   // never from display text, so it is deterministic and survives Previous/forward navigation.
+  // The structural section is used, never the derived training section (#242).
   function occurrenceIdFor(phase) {
     const parts = [phase.section];
     if (phase.section === 'main') parts.push('b'+(phase.blockIndex || 0));
@@ -81,7 +82,10 @@
       return {
         occurrenceId: phase.occurrenceId,
         exerciseId: exercise.id,
-        section: phase.section,
+        // Training purpose (#242): a specialist family's preparation/finish block stays structurally
+        // in Main (same occurrence id and block index) but is recorded as warm-up/cool-down work, so
+        // it never counts as Main dose or meaningful work. Older records keep what they recorded.
+        section: phase.trainingSection || phase.section,
         blockIndex: phase.section === 'main' ? (phase.blockIndex || 0) : null,
         requirementId: (phase.variableTarget || ['pyramid','density'].includes(phase.protocol)) ? null : requirementIdFor(phase) || null,
         prescription: {

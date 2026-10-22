@@ -43,7 +43,13 @@ test('[Full] five durations × three difficulties × eight seeds × five constra
     assert.equal(w.workoutFamilyId,FAMILY);assert.equal(w.workoutFamilyVersion,1);assert.equal(w.bodyFocus,'full-body');
     assert.equal(w.estimatedSeconds,duration*60);assert.equal(G.mainSeconds(w.main.blocks,w.setupEquipment),duration*60);
     assert.deepEqual(G.validateMain(w.main,C,w.setupEquipment,duration*60),[]);
+    // #242: no generic sequence is appended (structural sections stay empty), but the family's own
+    // preparation and finish read as Warm-up/Cool-down; control resets stay Main; no Ramp-up.
     assert.ok(['warmup','rampup','cooldown'].every(key=>w[key].exercises.length===0&&w[key].estimatedSeconds===0));
+    const sections=G.trainingSectionPlan(w);
+    assert.deepEqual(sections.blocks.map(b=>b.section),w.main.blocks.map(b=>stage(b)==='preparation'?'warmup':stage(b)==='finish'?'cooldown':'main'));
+    assert.ok(sections.seconds.warmup>0&&sections.seconds.cooldown>0&&sections.seconds.rampup===0);
+    assert.equal(sections.seconds.warmup+sections.seconds.main+sections.seconds.cooldown,duration*60);
     const stages=w.main.blocks.map(stage);
     assert.equal(stages[0],'preparation');assert.equal(stages.at(-1),'finish');
     assert.ok(stages.indexOf('footwork')<stages.indexOf('control'));assert.ok(stages.indexOf('control')<stages.indexOf('integrated'));

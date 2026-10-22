@@ -13,12 +13,19 @@
     return text('h2','preview-section-title',title);
   }
 
-  function blockHeading({index, total, prescription}) {
+  // `section` names a specialist family's Warm-up/Cool-down block (#242): its parts are numbered
+  // within that section, and Main blocks keep their own Block numbering.
+  function blockHeading({index, total, prescription, section}) {
     const row=root.document.createElement('li'); row.className='preview-block-heading';
-    const heading=text('h3','preview-exercise','Block '+(index+1)+' of '+total);
+    const own=section==='warmup'||section==='cooldown';
+    const heading=text('h3','preview-exercise',own?(total>1?'Part '+(index+1)+' of '+total:'Guided sequence'):'Block '+(index+1)+' of '+total);
     heading.appendChild(text('span','preview-prescription',prescription));
-    row.append(text('span','preview-index','B'+(index+1)),heading);
+    row.append(text('span','preview-index',(own?section==='warmup'?'W':'C':'B')+(index+1)),heading);
     return row;
+  }
+  // A section's whole-minute estimate; a non-empty section never reads as 0 min.
+  function sectionDurationLabel(seconds) {
+    return (seconds>0?Math.max(1,Math.round(seconds/60)):0)+' min';
   }
 
   function setupTransitionRow(change,phaseLabel) {
@@ -123,5 +130,5 @@
     }).join(' → ');
   }
 
-  root.GarageFitWorkoutPreview={sectionHeading,blockHeading,setupTransitionRow,appendSetupTransitions,exerciseRow,instructionDisclosure,formatPrescription,protocolLabel,supersetMarker,emomTargetLabel,occurrenceTargetLabel};
+  root.GarageFitWorkoutPreview={sectionHeading,blockHeading,sectionDurationLabel,setupTransitionRow,appendSetupTransitions,exerciseRow,instructionDisclosure,formatPrescription,protocolLabel,supersetMarker,emomTargetLabel,occurrenceTargetLabel};
 })(typeof window==='undefined' ? globalThis : window);
