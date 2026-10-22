@@ -41,8 +41,11 @@ so its supported navigation remains forward-only. EMOM minutes cannot be replaye
 density retains its recovery minimums and restrictions on revisiting ended blocks;
 AMRAP allows Previous only within the current round and never reopens an ended block.
 
-Every primary button previews only the immediate activity name. Side annotations,
-timing, reps, resistance, set counts and after-rest explanations are excluded.
+Each player previews only the immediate activity name, as one muted `Next: …` line
+directly above its primary button (#235); the button itself carries only its action
+and references the name with `aria-describedby`. The line is hidden when there is
+no valid next activity. Side annotations, timing, reps, resistance, set counts and
+after-rest explanations are excluded.
 The primary advance action uses **Next** consistently (#172); existing explicit
 work-completion, finish and Coach feedback paths retain their distinct semantics.
 
