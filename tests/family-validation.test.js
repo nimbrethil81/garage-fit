@@ -10,7 +10,8 @@ const G=GarageFitGenerator,F=GarageFitWorkoutFamilies,C=GarageFitData.exercises;
 const copy=value=>JSON.parse(JSON.stringify(value));
 function rng(seed){return ()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 const EQUIPMENT={bodyweight:[],limited:['dumbbells'],broad:['dumbbells','kettlebell','pullup-bar','trx','rings','barbell','bench','box','bands']};
-const generate=(workoutFamilyId,extra={})=>G.generate({workoutFamilyId,duration:20,difficulty:'normal',catalogue:C,equipment:[],random:rng(7),...extra});
+// The gate protects what new workouts use: each family's current published version (Athletic v2, #244).
+const generate=(workoutFamilyId,extra={})=>G.generate({workoutFamilyId,workoutFamilyVersion:F.currentVersion(workoutFamilyId),duration:20,difficulty:'normal',catalogue:C,equipment:[],random:rng(7),...extra});
 const validate=(workout,equipment=[])=>G.validateFamilyWorkout(workout,{catalogue:C,equipment});
 const infeasible=(fn)=>{
   let caught;
@@ -51,6 +52,36 @@ test('the gate rejects edits that keep a label but lose the family: Mobility wei
     exercises:[copy(C[id])],prescription:{rounds:3,exerciseRestSeconds:0,roundRestSeconds:90}}));
   G.normaliseWorkout(lifts);
   assert.ok(validate(lifts,EQUIPMENT.limited).qualityIssues.includes('quality:phase-structure'));
+});
+
+test('the Athletic gate rejects near-duplicate blocks session-wide while allowing deliberate repetition within a drill',()=>{
+  const athletic=generate('athletic-movement',{duration:30}),blocks=athletic.main.blocks;
+  assert.deepEqual(validate(athletic),{valid:true,technicalIssues:[],qualityIssues:[]});
+  assert.ok(blocks.some(block=>block.prescription.rounds>1),'repetition within a drill is normal practice');
+  // A misleading regression: the second balance/control block quietly replays the first one's drills
+  // (same sidedness, so every target, recovery and the timeline still reconcile exactly).
+  const [first,second]=blocks.filter(block=>/^athletic-control-/.test(block.id));
+  const replay=copy(athletic),target=replay.main.blocks.find(block=>block.id===second.id);
+  target.exercises=copy(first.exercises);G.normaliseWorkout(replay);
+  const result=validate(replay);
+  assert.deepEqual(result.technicalIssues,[],'technically playable');
+  assert.deepEqual(result.qualityIssues,['quality:redundant-block:'+second.id],'each block was valid alone; the session is not');
+  // A reordered subset is still nothing new; so is a renamed or out-of-order stage.
+  target.exercises=copy(first.exercises).reverse();G.normaliseWorkout(replay);
+  assert.ok(validate(replay).qualityIssues.includes('quality:redundant-block:'+second.id));
+  const renamed=copy(athletic);renamed.main.blocks[1].id='athletic-control-2';
+  assert.ok(validate(renamed).qualityIssues.some(issue=>issue.startsWith('quality:stage-identity')));
+  const reordered=copy(athletic),[a,b]=[1,2];[reordered.main.blocks[a],reordered.main.blocks[b]]=[reordered.main.blocks[b],reordered.main.blocks[a]];
+  assert.ok(validate(reordered).qualityIssues.includes('quality:stage-order'));
+  // A control block without single-leg balance is footwork wearing a control label.
+  const unbalanced=copy(athletic),control=unbalanced.main.blocks.find(block=>block.id===first.id);
+  control.exercises=control.exercises.map(ex=>ex.id==='single-leg-balance-reach'?copy(C['lateral-step-and-stick']):ex);
+  assert.ok(validate(unbalanced).qualityIssues.includes('quality:control-without-single-leg:'+first.id));
+  // Preview swaps go through the same gate and so can never create a redundant block.
+  const swapped=copy(athletic);
+  for(let index=0;index<swapped.main.blocks.length;index++)for(let exercise=0;exercise<swapped.main.blocks[index].exercises.length;exercise++)
+    G.swap(swapped,index,exercise,{catalogue:C,equipment:[],random:rng(index*7+exercise)});
+  assert.deepEqual(validate(swapped),{valid:true,technicalIssues:[],qualityIssues:[]});
 });
 
 test('the gate checks family identity, constraints and the recomputed timeline of every family',()=>{

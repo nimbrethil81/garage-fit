@@ -15,6 +15,12 @@
       fail('unsupported-workout-family-version', 'Unsupported workout family version.');
     return definitions[workoutFamilyId][version];
   }
+  // The published version new workouts use (standalone Generator and Coach family plans).
+  const currentVersions = root.GarageFitData.workoutFamilyCurrentVersions || {};
+  function currentVersion(workoutFamilyId) {
+    getDefinition(workoutFamilyId);
+    return getDefinition(workoutFamilyId, own(currentVersions, workoutFamilyId) ? currentVersions[workoutFamilyId] : 1).version;
+  }
   function getStyle(workoutFamilyId, familyStyleId, version = 1) {
     const definition = getDefinition(workoutFamilyId, version);
     const style = definition.styles.find(item => item.id === familyStyleId);
@@ -109,6 +115,6 @@
     return policy.entries.find(entry => entry.exerciseId === exerciseId && entry.role === context.role) || null;
   }
   root.GarageFitWorkoutFamilies = Object.freeze({FamilyContractError,
-    FAMILY_IDS: Object.freeze(Object.keys(definitions)), getDefinition, getStyle, resolveRequest, resolveStyle,
+    FAMILY_IDS: Object.freeze(Object.keys(definitions)), getDefinition, currentVersion, getStyle, resolveRequest, resolveStyle,
     registerMembershipPolicy, getMembership});
 })(typeof window !== 'undefined' ? window : globalThis);

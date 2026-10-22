@@ -49,12 +49,12 @@ def main():
                             const original=GarageFitGenerator.generate;
                             GarageFitGenerator.generate=opts=>{
                               const rx=JSON.parse(JSON.stringify(opts.sessionPrescription));
-                              rx.workoutFamilyPlan={candidates:[{workoutFamilyId:family,workoutFamilyVersion:1,rationale:'Release gate explicit family.'}]};
+                              rx.workoutFamilyPlan={candidates:[{workoutFamilyId:family,workoutFamilyVersion:GarageFitWorkoutFamilies.currentVersion(family),rationale:'Release gate explicit family.'}]};
                               return original({...opts,sessionPrescription:rx});
                             };
                             await coachUI.open();
                           } else {
-                            generatorState.workout=GarageFitGenerator.generate({...options,catalogue:CATALOGUE,workoutFamilyId:family});
+                            generatorState.workout=GarageFitGenerator.generate({...options,catalogue:CATALOGUE,workoutFamilyId:family,workoutFamilyVersion:GarageFitWorkoutFamilies.currentVersion(family)});
                             startStandaloneGeneratedWorkout();
                           }
                         }""", dict(family=family, duration=duration, route=route))
@@ -67,7 +67,7 @@ def main():
                         summary = page.evaluate("""async()=>{
                           await generatorState.tracker.flush();
                           const w=generatorState.workout;
-                          return {family:w.workoutFamilyId,style:w.familyStyleId,duration:w.duration,estimate:w.estimatedSeconds,
+                          return {family:w.workoutFamilyId,version:w.workoutFamilyVersion,style:w.familyStyleId,duration:w.duration,estimate:w.estimatedSeconds,
                             blocks:w.main.blocks.map(b=>({id:b.id,role:b.familyContext?.role,protocol:b.protocol,
                               seconds:b.estimatedSeconds,recovery:b.occurrenceRecoverySeconds,
                               work:GarageFitGenerator.resolveBlockSteps(b).filter(s=>s.kind==='exercise').map(s=>({

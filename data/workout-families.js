@@ -47,10 +47,23 @@
       ['whole-body-balance', 'recognisable-challenge-structure', 'bounded-effort', 'appropriate-rest'],
       ['compatible-playable-protocol', 'balanced-work', 'adequate-recovery'])
   ];
+  // Later published versions of the same family: identity, purpose, styles and feasibility are
+  // unchanged, so v1 and v2 are one family for training balance and recency; only the versioned
+  // composition differs. Athletic Movement v2 (#244) corrects block construction and lengthens the
+  // finish, reusing the reviewed v1 membership. v1 remains registered for history and saved records.
+  const revision = (base, version, compositionVersion) => ({...JSON.parse(JSON.stringify(base)), version,
+    compositionPolicy: {id: base.id, version: compositionVersion}});
+  const versions = Object.fromEntries(definitions.map(item => [item.id, {1: item}]));
+  versions['athletic-movement'][2] = revision(versions['athletic-movement'][1], 2, 2);
+  // The version every new workout is composed with, standalone or Coach. Explicit requests and
+  // stored records keep the version they name; `getDefinition`'s default remains version 1.
+  const current = Object.fromEntries(definitions.map(item => [item.id, 1]));
+  current['athletic-movement'] = 2;
   function freeze(value) {
     Object.values(value).forEach(item => { if (item && typeof item === 'object') freeze(item); });
     return Object.freeze(value);
   }
   root.GarageFitData = root.GarageFitData || {};
-  root.GarageFitData.workoutFamilies = freeze(Object.fromEntries(definitions.map(item => [item.id, {1: item}])));
+  root.GarageFitData.workoutFamilies = freeze(versions);
+  root.GarageFitData.workoutFamilyCurrentVersions = freeze(current);
 })(typeof window !== 'undefined' ? window : globalThis);

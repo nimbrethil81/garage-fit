@@ -578,7 +578,14 @@ attendance, recovery, external context and the history sessions used (`credit: '
 Generator builds the first feasible family and reports any transparent replan (see
 [Workout families](WORKOUT_FAMILIES.md#shared-validation-same-family-fallback-and-edit-integrity));
 the tracker records the delivered family/style. Unsupported durations are planning conflicts;
-a plan no family can build fails visibly with each family's reasons. `tests/general-fitness.test.js`
+a plan no family can build fails visibly with each family's reasons.
+
+**Family versions (#244).** Both released definitions name every family at version 1 and are not
+edited. The plan composes each family at its current published version
+(`GarageFitData.workoutFamilyCurrentVersions`, never older than the definition's), so existing v1
+and v2 instances plan Athletic Movement v2 automatically with no new choice; other families are
+still version 1. Balance, variety and recency compare families by id, so a v1 and a v2 Athletic
+session earn the same effect and recency; results keep their recorded version. `tests/general-fitness.test.js`
 covers lifecycle, sequences at 2/3/5 sessions per week, cross-source context, recovery,
 external preferences and the family-plan seam.
 

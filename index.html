@@ -773,7 +773,8 @@ function familyFailureMessage(error){
 function generateWorkout(){
   clearGeneratorFamilyError();
   const options={catalogue:CATALOGUE,duration:generatorState.duration,focus:generatorState.focus,bodyFocus:generatorState.bodyFocus,difficulty:generatorState.difficulty,equipment:state.ownedEquipment,history:getGeneratedHistory(),recentProtocols:generatorRecentProtocols};
-  if(generatorState.workoutFamilyId)options.workoutFamilyId=generatorState.workoutFamilyId;
+  // New standalone workouts use the family's current published composition (Athletic Movement v2, #244).
+  if(generatorState.workoutFamilyId){options.workoutFamilyId=generatorState.workoutFamilyId;options.workoutFamilyVersion=GarageFitWorkoutFamilies.currentVersion(generatorState.workoutFamilyId)}
   try{generatorState.workout=GarageFitGenerator.generate(options)}catch(error){
     if(!generatorState.workoutFamilyId||error.code!=='family-not-feasible')throw error;
     const message=document.getElementById('generatorFamilyError');message.textContent=familyFailureMessage(error);message.classList.remove('hidden');showScreen('generator');message.focus();return;

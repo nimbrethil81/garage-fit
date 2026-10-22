@@ -12,8 +12,8 @@ const plain = value => JSON.parse(JSON.stringify(value));
 const same = (actual, expected, message) => assert.deepStrictEqual(plain(actual), plain(expected), message);
 function rng(seed) { return () => { seed=(seed*1664525+1013904223)>>>0; return seed/4294967296; }; }
 const ATHLETIC = 'athletic-movement', MOBILITY = 'mobility-movement-quality';
-// Current published v1 finish lengths (unchanged here; see the PR's version-pinning note).
-const ATHLETIC_FINISH = {10:30, 15:32, 20:54, 30:76, 45:119};
+// Published finish lengths: v1 is unchanged; v2 (#244, current) lengthens it within the same total.
+const ATHLETIC_FINISH = {1:{10:30, 15:32, 20:54, 30:76, 45:119}, 2:{10:60, 15:60, 20:60, 30:120, 45:120}};
 const ATHLETIC_PREP = {10:120, 15:180, 20:180, 30:240, 45:300};
 const MOBILITY_PROFILE = {10:[60,60], 15:[120,120], 20:[180,120], 30:[180,180], 45:[240,240]};
 const app = loadAppContext(new Map(), {ownIntrinsics:true, rampupUi:true});
@@ -33,23 +33,24 @@ function timelineSections(timeline) {
 }
 
 test('specialist stages classify by explicit stage identity across durations; the reused control role stays Main', () => {
-  for (const duration of [10,15,20,30,45]) {
-    const athletic = generate(ATHLETIC, duration, {movementRoom:true}), plan = G.trainingSectionPlan(athletic);
+  for (const duration of [10,15,20,30,45]) for (const workoutFamilyVersion of [1,2]) {
+    const athletic = generate(ATHLETIC, duration, {movementRoom:true, workoutFamilyVersion}), plan = G.trainingSectionPlan(athletic);
     same(plan.blocks.map(item => item.section), athletic.main.blocks.map(block => ({preparation:'warmup', finish:'cooldown'})[stage(block)] || 'main'));
     assert.equal(plan.seconds.warmup, ATHLETIC_PREP[duration]);
-    assert.equal(plan.seconds.cooldown, ATHLETIC_FINISH[duration]);
+    assert.equal(plan.seconds.cooldown, ATHLETIC_FINISH[workoutFamilyVersion][duration]);
     assert.equal(plan.seconds.rampup, 0, 'no invented generic Ramp-up');
     assert.equal(total(plan.seconds), athletic.estimatedSeconds); assert.equal(athletic.estimatedSeconds, duration*60);
     assert.ok(athletic.main.blocks.some((block, index) => block.familyContext.role === 'control' && plan.blocks[index].section === 'main'),
       'control drills and resets are Main practice, not preparation');
     assert.ok(['warmup','rampup','cooldown'].every(key => !athletic[key].exercises.length), 'no second sequence in the generic arrays');
+    if (workoutFamilyVersion === 2) continue;
     const mobility = generate(MOBILITY, duration), mobilityPlan = G.trainingSectionPlan(mobility);
     same(mobilityPlan.blocks.map(item => item.section), ['warmup','main','main','cooldown']);
     same([mobilityPlan.seconds.warmup, mobilityPlan.seconds.cooldown, mobilityPlan.seconds.rampup], [...MOBILITY_PROFILE[duration], 0]);
     assert.equal(total(mobilityPlan.seconds), duration*60);
   }
   // Classification survives JSON round trips and family-gated swaps, and a modified id never qualifies.
-  const workout = generate(ATHLETIC, 20), before = plain(G.trainingSectionPlan(workout));
+  const workout = generate(ATHLETIC, 20, {workoutFamilyVersion:2}), before = plain(G.trainingSectionPlan(workout));
   same(plain(G.trainingSectionPlan(plain(workout))), before);
   G.swap(workout, 2, 0, {catalogue:C, equipment:[], random:rng(5)});
   assert.equal(G.validateFamilyWorkout(workout, {catalogue:C, equipment:[]}).valid, true);
@@ -138,7 +139,7 @@ async function coachSession(family, storage = new Map()) {
     GarageFitGenerator.generate=options=>{
       if(!options.sessionPrescription||!options.sessionPrescription.workoutFamilyPlan)return baseGenerate(options);
       const rx=JSON.parse(JSON.stringify(options.sessionPrescription));
-      rx.workoutFamilyPlan.candidates=[{workoutFamilyId:${JSON.stringify(family)},workoutFamilyVersion:1,rationale:'Specialist phase route.'}];
+      rx.workoutFamilyPlan.candidates=[{workoutFamilyId:${JSON.stringify(family)},workoutFamilyVersion:GarageFitWorkoutFamilies.currentVersion(${JSON.stringify(family)}),rationale:'Specialist phase route.'}];
       return baseGenerate({...options,sessionPrescription:GarageFitCoachModel.createSessionPrescription(rx)});
     };`);
   await p.start(); await p.begin('{duration:20,equipment:[]}');
@@ -173,7 +174,7 @@ test('General Fitness Coach: preparation/finish only is never meaningful on comp
     assert.equal(partial.finalStatus, 'partial');
     assert.equal(practised.json('pilot.snapshot().state').meaningfulSessionsCompleted, 1, family+': actual Main practice counts');
     const summary = practised.app.GarageFitTrainingHistory.createHistory([partial], C).recentTrainingSummary();
-    same(plain(summary.families).map(item => item.key), [family+'@1']);
+    same(plain(summary.families).map(item => item.key), [family+'@'+p.app.GarageFitWorkoutFamilies.currentVersion(family)], 'history keeps the version');
     assert.ok(summary.sessions[0].performances.every(item => item.section === 'main'));
   }
 });
