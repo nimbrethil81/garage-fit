@@ -9,7 +9,8 @@ const F=GarageFitWorkoutFamilies,G=GarageFitGenerator,C=GarageFitData.exercises;
 const copy=value=>JSON.parse(JSON.stringify(value));
 const FAMILY='athletic-movement',ROLES=['footwork','control','integrated'];
 const context=(role,extra={})=>({workoutFamilyId:FAMILY,workoutFamilyVersion:1,role,...extra});
-// Approved A1-A13 treatment; A9 and A13 are deferred and must stay absent.
+// Approved A1-A13 treatment (v1): A9 and A13 were deferred and v1 membership never authorises them;
+// membership v2 (#255) authorises them for composition v4.
 const NEW=['lateral-shuffle','single-leg-balance-reach','forward-back-line-steps','quarter-turn-pivot-steps','lateral-step-and-stick','grapevine-cross-steps'];
 const ADAPTED=['bear-crawl'];
 const REUSED=['skater-jumps','reverse-lunge-knee-drive','alternating-lateral-lunge','knee-to-opposite-elbow'];
@@ -19,7 +20,7 @@ const ROLE_TABLE={'lateral-shuffle':['footwork','integrated'],'skater-jumps':['i
   'quarter-turn-pivot-steps':['footwork','control'],'lateral-step-and-stick':['footwork','control'],
   'alternating-lateral-lunge':['integrated'],'grapevine-cross-steps':['footwork','integrated'],'knee-to-opposite-elbow':['control']};
 const NEEDS_ROOM=['lateral-shuffle','skater-jumps','bear-crawl','grapevine-cross-steps'];
-const DEFERRED=['forward-backward-acceleration-and-stop','forward-hop-and-stick','forward-backward-acceleration-stop','forward-hop-stick'];
+const DEFERRED=['forward-back-acceleration-and-stop','forward-hop-and-stick'];
 const ROOM={movementRoom:true},HARD={excludedImpact:[],movementRoom:true};
 const eligible=(role,difficulty='normal',extra={},owned=[])=>Object.values(C)
   .filter(exercise=>G.generatedPhaseEligible(exercise,'main',owned,difficulty,context(role,extra))).map(exercise=>exercise.id);
@@ -45,8 +46,8 @@ test('exactly six new unique Athletic entries are family-only, bodyweight, low-l
   assert.equal(Object.keys(C).filter(id=>NEW.includes(id)).length,6);
   assert.equal(C['single-leg-balance-reach'].sidedness,'per-side');
   assert.deepEqual(C['grapevine-cross-steps'].timedCues.map(cue=>cue.text),['Change direction']);
-  for(const id of DEFERRED)assert.equal(C[id],undefined,id+' is deferred');
-  assert.equal(Object.keys(C).filter(id=>/acceleration|forward-hop/.test(id)).length,0);
+  // The catalogue now defines A9/A13 (#255) but published v1 membership still never authorises them.
+  for(const id of DEFERRED){assert.ok(C[id],id);for(const role of ROLES)assert.equal(F.getMembership(context(role),id),null,id+' is not in v1');}
 });
 
 test('the five adapted or reused identities remain single canonical entries with unchanged flags',()=>{
@@ -164,7 +165,7 @@ test('ordinary Generator, warm-up and Main eligibility and no-family output are 
   const w=G.generate({duration:10,focus:'strength',bodyFocus:'upper',difficulty:'easy',equipment:[],catalogue:C,
     random:()=>{draws++;seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}});delete w.id;
   assert.equal(draws,68);
-  assert.equal(createHash('sha256').update(JSON.stringify(w)).digest('hex'),'931adac57e2aebebcce46059fd27536c0620fc2edfbec2f1ac00cc2c5b3fceb7');
+  assert.equal(createHash('sha256').update(JSON.stringify(w)).digest('hex'),'f6b2266805a3e7bd97e2e733105240fcdb9ccdaa5ee43c611a04a79d7d183c5f');
   const ids=new Set();
   for(let i=0;i<60;i++){
     let s=i+1;const workout=G.generate({duration:[10,20,30,45][i%4],equipment:['trx','dumbbells'],catalogue:C,random:()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296;}});

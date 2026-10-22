@@ -15,6 +15,7 @@ const copy=x=>JSON.parse(JSON.stringify(x));
 function rng(seed){return ()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};}
 const generate=(extra={})=>G.generate({workoutFamilyId:FAMILY,workoutFamilyVersion:VERSION,duration:20,difficulty:'normal',catalogue:C,equipment:[],random:rng(31),...extra});
 const v1=(extra={})=>generate({workoutFamilyVersion:1,...extra});
+const v3=(extra={})=>generate({workoutFamilyVersion:3,...extra});
 // Structural identity of a composition: blocks, drills, rounds, resolved targets and recoveries.
 const shape=w=>[w.familyStyleId,w.main.blocks.map(b=>[b.id,b.exercises.map(e=>e.id),b.prescription.rounds,b.occurrenceTargets.map(t=>t.plannedPrescription.value),b.occurrenceRecoverySeconds])];
 const scripts=w=>w.main.blocks.map(b=>b.id+': '+b.exercises.map(e=>e.id).join(', '));
@@ -46,9 +47,11 @@ test('[Full] five durations × three difficulties × eight seeds × five constra
   vm.runInContext(fs.readFileSync('js/rampup-ui.js','utf8'),app);
   const styles=new Set();let sessions=0;
   // Published v1 stays exactly as released: one structural digest of the same 600 compositions.
-  const digest=crypto.createHash('sha256');
+  const digest=crypto.createHash('sha256'),digestV2=crypto.createHash('sha256'),digestV3=crypto.createHash('sha256');
   for(const duration of Object.keys(PROFILES).map(Number))for(const difficulty of ['easy','normal','hard'])for(const seed of SEEDS)for(const constraint of SCENARIOS) {
     digest.update(JSON.stringify(shape(v1({duration,difficulty,...constraint,random:rng(seed)}))));
+    digestV2.update(JSON.stringify(shape(generate({workoutFamilyVersion:2,duration,difficulty,...constraint,random:rng(seed)}))));
+    digestV3.update(JSON.stringify(shape(v3({duration,difficulty,...constraint,random:rng(seed)}))));
     const w=generate({duration,difficulty,...constraint,random:rng(seed)});sessions++;styles.add(w.familyStyleId);
     assert.equal(w.workoutFamilyId,FAMILY);assert.equal(w.workoutFamilyVersion,VERSION);assert.equal(w.bodyFocus,'full-body');
     assert.equal(w.familyDiagnostics,undefined,'the seeded style builds first time');
@@ -101,7 +104,10 @@ test('[Full] five durations × three difficulties × eight seeds × five constra
     }
     for(let phase=0;phase<4;phase++)assert.ok(Math.abs(allocation[phase]-PROFILES[duration][phase])<=Math.max(...PROFILES[duration])*.081);
     const work=resolved(w),ids=new Set(work.map(item=>item.ex.id));
-    for(const id of ['forward-back-line-steps','lateral-step-and-stick','quarter-turn-pivot-steps','single-leg-balance-reach','knee-to-opposite-elbow'])assert.ok(ids.has(id),id);
+    // Essential practice is by role, not by identity: all three planes of footwork and single-leg balance.
+    assert.deepEqual(['sagittal','frontal','transverse'].filter(plane=>!work.some(item=>item.b.familyContext.role==='footwork'&&item.ex.movementPlanes.includes(plane))),[]);
+    assert.ok(work.some(item=>item.b.familyContext.role==='control'&&item.ex.sidedness==='per-side'&&item.ex.bodyPosition==='standing'));
+    assert.ok(ids.has('knee-to-opposite-elbow'));
     assert.ok(work.filter(item=>item.b.familyContext.role==='integrated').length>=2);
     for(let i=1;i<work.length;i++)assert.ok(work[i-1].ex.impact!=='high'||work[i].ex.impact!=='high','including rounds and block boundaries');
     const strengthSeconds=work.filter(item=>item.ex.strength>=3).reduce((sum,item)=>sum+item.s.estimatedSeconds,0);
@@ -114,9 +120,11 @@ test('[Full] five durations × three difficulties × eight seeds × five constra
       assert.ok(ids.filter(id=>!seen.has(id)).length>=Math.min(2,ids.length),'redundant '+b.id);
       ids.forEach(id=>seen.add(id));
     }
-    assert.ok(w.main.blocks.filter(b=>stage(b)==='control').every(b=>b.exercises.some(e=>e.id==='single-leg-balance-reach')),'every control drill keeps single-leg balance');
+    assert.ok(w.main.blocks.filter(b=>stage(b)==='control').every(b=>b.exercises.some(e=>e.sidedness==='per-side'&&e.bodyPosition==='standing')),'every control drill keeps standing single-leg work');
     if(duration<=20)assert.equal(w.main.blocks.length,5,'short sessions are not fragmented');
-    assert.equal(w.main.blocks.filter(b=>stage(b)==='control').length,1,'the balance/control stage is one circuit: its approved partners are spent after one block');
+    // A control block per further four minutes only while it brings fresh balance work (never a copy).
+    const controls=w.main.blocks.filter(b=>stage(b)==='control').length;
+    assert.ok(controls>=1&&controls<=Math.max(1,Math.floor(PROFILES[duration][2]/240)),'control blocks '+controls);
     app.input=copy(w);const timeline=app.buildGeneratedTimeline(app.input),phases=timeline.filter(p=>p.kind==='exercise');
     assert.equal(seconds(timeline)-3,w.estimatedSeconds);
     const plan=app.GarageFitSessionTracker.plannedWorkFromTimeline(timeline);
@@ -134,6 +142,8 @@ test('[Full] five durations × three difficulties × eight seeds × five constra
   }
   assert.equal(sessions,600);assert.deepEqual([...styles].sort(),['dynamic-balance','footwork-coordination','integrated-movement']);
   assert.equal(digest.digest('hex'),'e8ac4393c44c34659ed325ff2cb5c1ebc5627b31c6eaa0c4dbc6b37e15e1eab4','published Athletic v1 compositions are unchanged');
+  assert.equal(digestV2.digest('hex'),'1a5a6bd0421b8457853c062ac761dc70a621e9bb63b12e929f81210f5a604efa','published Athletic v2 compositions are unchanged');
+  assert.equal(digestV3.digest('hex'),'d128234ca653a0bb06473fe46f054d71ef14bbb46c5d3b8463d28a0110316c02','published Athletic v3 compositions are unchanged');
 });
 
 test('three automatic styles change phase emphasis, drill choices and technical pacing',()=>{
@@ -175,15 +185,16 @@ test('constraints fail honestly when approved integrated movement cannot be comp
   assert.ok(resolved(low).filter(x=>x.b.familyContext.role==='integrated').every(x=>['bear-crawl','grapevine-cross-steps'].includes(x.ex.id)));
 });
 
-test('production and test harness register the same version-pinned composers; new workouts use v3',()=>{
-  for(const version of [1,2,3])assert.throws(()=>G.registerFamilyComposer(FAMILY,version,()=>{},()=>[]),/registered once/);
-  assert.throws(()=>G.registerFamilyComposer(FAMILY,4,()=>{}),e=>e.code==='unsupported-workout-family-version');
+test('production and test harness register the same version-pinned composers; new workouts use v4',()=>{
+  for(const version of [1,2,3,4])assert.throws(()=>G.registerFamilyComposer(FAMILY,version,()=>{},()=>[]),/registered once/);
+  assert.throws(()=>G.registerFamilyComposer(FAMILY,5,()=>{}),e=>e.code==='unsupported-workout-family-version');
   // Every later version is the same family (identity, styles, membership) with a new composition policy; the default lookup stays v1.
-  const [one,two,three]=[1,2,3].map(version=>F.getDefinition(FAMILY,version));
-  assert.equal(F.getDefinition(FAMILY),one);assert.equal(VERSION,3);
-  for(const [definition,version] of [[two,2],[three,3]]) {
-    assert.deepEqual({...copy(definition),version:1,compositionPolicy:one.compositionPolicy},copy(one));
-    assert.deepEqual(copy(definition.compositionPolicy),{id:FAMILY,version});assert.deepEqual(copy(definition.membershipPolicy),{id:FAMILY,version:1});
+  const [one,two,three,four]=[1,2,3,4].map(version=>F.getDefinition(FAMILY,version));
+  assert.equal(F.getDefinition(FAMILY),one);assert.equal(VERSION,4);
+  // v2 and v3 reuse membership v1; v4 (#255) resolves the extended membership v2.
+  for(const [definition,version,membership] of [[two,2,1],[three,3,1],[four,4,2]]) {
+    assert.deepEqual({...copy(definition),version:1,compositionPolicy:one.compositionPolicy,membershipPolicy:one.membershipPolicy},copy(one));
+    assert.deepEqual(copy(definition.compositionPolicy),{id:FAMILY,version});assert.deepEqual(copy(definition.membershipPolicy),{id:FAMILY,version:membership});
   }
   for(const id of F.FAMILY_IDS.filter(id=>id!==FAMILY))assert.equal(F.currentVersion(id),1);
   assert.match(fs.readFileSync('index.html','utf8'),/data\/athletic-membership.js[\s\S]*js\/athletic-composer.js/);
@@ -192,7 +203,7 @@ test('production and test harness register the same version-pinned composers; ne
   // The standalone Generator screen asks for the current version, with no extra user choice.
   app.input=FAMILY;vm.runInContext('selectGeneratorFamily(input);generateWorkout()',app);
   const delivered=vm.runInContext('generatorState.workout',app);
-  assert.equal(delivered.workoutFamilyVersion,3);
+  assert.equal(delivered.workoutFamilyVersion,4);
   assert.equal(app.GarageFitGenerator.validateFamilyWorkout(delivered,{catalogue:app.GarageFitData.exercises,equipment:vm.runInContext('state.ownedEquipment',app)}).valid,true);
 });
 
@@ -227,7 +238,7 @@ const mainOverlap=w=>{const seen=new Set();return w.main.blocks.filter(b=>MAIN_S
   const ids=[...new Set(b.exercises.map(e=>e.id))],shared=ids.filter(id=>seen.has(id)).length;ids.forEach(id=>seen.add(id));return b.id+':'+shared+'/'+ids.length;});};
 
 test('30-minute ordinary-space Athletic: v1 slices repeat drills, v2 relabels them across stages, v3 gives each Main block a distinct purpose',()=>{
-  const before=v1({duration:30}),middle=generate({workoutFamilyVersion:2,duration:30}),after=generate({duration:30});
+  const before=v1({duration:30}),middle=generate({workoutFamilyVersion:2,duration:30}),after=v3({duration:30});
   assert.deepEqual(scripts(before),V1_30_MINUTE,'the reported 11-block v1 pattern is reproduced exactly');
   assert.deepEqual(scripts(middle),V2_30_MINUTE,'published v2 composes exactly as released');
   // v1 subsets and reorders: the near-duplicate blocks the v2 gate rejects within a stage.
@@ -258,7 +269,7 @@ test('30-minute ordinary-space Athletic: v1 slices repeat drills, v2 relabels th
 });
 
 test('v3 rejects a constructed cross-stage near-duplicate block, including through preview swaps',()=>{
-  const w=generate({duration:30}),index=w.main.blocks.findIndex(b=>stage(b)==='control'),at=id=>w.main.blocks.findIndex(b=>b.id===id);
+  const w=v3({duration:30}),index=w.main.blocks.findIndex(b=>stage(b)==='control'),at=id=>w.main.blocks.findIndex(b=>b.id===id);
   const check=workout=>G.validateFamilyWorkout(workout,{catalogue:C,equipment:[]});
   assert.equal(check(w).valid,true);
   // The control circuit swapped to footwork's own stepping drills adds nothing but the balance anchor.
@@ -285,13 +296,13 @@ test('v3 rejects a constructed cross-stage near-duplicate block, including throu
 
 test('v3 depth grows with time and pool: short sessions stay concise, room adds new drills not copies',()=>{
   for(const [duration,extra,count] of [[10,{},5],[15,{movementRoom:true},5],[20,{},5],[30,{},5],[45,{},5],[45,{movementRoom:true},6]]) {
-    const w=generate({duration,...extra}),stages=w.main.blocks.map(stage);
+    const w=v3({duration,...extra}),stages=w.main.blocks.map(stage);
     assert.equal(w.main.blocks.length,count,duration+' '+JSON.stringify(extra)+': '+stages.join(','));
     assert.equal(G.validateFamilyWorkout(w,{catalogue:C,equipment:[]}).valid,true);
   }
   // With room at 45 minutes the travelling drills form a second footwork block that brings drills the
   // first block did not; control and integrated work each stay one long, distinct circuit.
-  const rich=generate({duration:45,movementRoom:true}),by=name=>rich.main.blocks.filter(b=>stage(b)===name);
+  const rich=v3({duration:45,movementRoom:true}),by=name=>rich.main.blocks.filter(b=>stage(b)===name);
   assert.deepEqual(rich.main.blocks.map(stage),['preparation','footwork','footwork','control','integrated','finish']);
   const [a,b]=by('footwork');assert.ok(b.exercises.filter(e=>!a.exercises.some(x=>x.id===e.id)).length>=2);
   assert.ok(by('footwork')[1].exercises.some(e=>['grapevine-cross-steps','lateral-shuffle'].includes(e.id)));
@@ -302,7 +313,7 @@ test('v3 keeps the integrated pool honest: low-impact practice with room reserve
   // Low impact with room leaves only grapevine steps and the crawl for integrated work, so footwork
   // leaves the grapevine alone and uses its three core drills instead of spending it first.
   for(const duration of [10,30,45])for(const seed of SEEDS.slice(0,4)) {
-    const w=generate({duration,movementRoom:true,excludedImpact:['medium','high'],random:rng(seed)});
+    const w=v3({duration,movementRoom:true,excludedImpact:['medium','high'],random:rng(seed)});
     assert.equal(w.familyDiagnostics,undefined);
     assert.deepEqual(mainOverlap(w).map(item=>item.split(':')[1].split('/')[0]).slice(-1),['0'],'integrated practice is new to the session');
     assert.ok(w.main.blocks.filter(b=>stage(b)==='integrated').every(b=>b.exercises.some(e=>e.id==='bear-crawl')));

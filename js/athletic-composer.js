@@ -7,30 +7,39 @@
     control:['single-leg-balance-reach','quarter-turn-pivot-steps','lateral-step-and-stick','knee-to-opposite-elbow','forward-back-line-steps'],
     integrated:['grapevine-cross-steps','lateral-shuffle','reverse-lunge-knee-drive','bear-crawl','alternating-lateral-lunge','skater-jumps']
   };
+  // Composition v4 (#255) preferences: the same lists plus membership v2's additions. Order is a seeded
+  // tie-break only; eligibility still comes from the reviewed membership and the request's constraints.
+  const ORDER_V4={
+    footwork:[...ORDER.footwork,'in-in-out-out-steps','lateral-line-steps','split-stance-step-switches','180-degree-step-turns',
+      'lateral-shuffle-and-stop','forward-back-acceleration-and-stop','fast-feet'],
+    control:[...ORDER.control,'clock-step-balance','single-leg-hip-hinge-reach','lateral-lunge-to-balance','split-stance-step-switches','side-step-touches'],
+    integrated:[...ORDER.integrated,'lateral-lunge-to-balance','cossack-squat','lateral-shuffle-and-stop','forward-back-acceleration-and-stop',
+      'forward-hop-and-stick','lateral-bound-and-stick']
+  };
   const STYLES=['footwork-coordination','dynamic-balance','integrated-movement'];
   const PREPARATION=['knee-to-opposite-elbow','forward-back-line-steps','quarter-turn-pivot-steps'];
   const RESET=['knee-to-opposite-elbow','quarter-turn-pivot-steps'];
 
   // Shared by both published compositions: contexts, eligible pools, essential practice, the seeded
   // internal style and its 8% emphasis transfer. Random draws happen exactly as in v1.
-  function prepare(options,request,attempt) {
+  function prepare(options,request,attempt,preferred=ORDER) {
     const {duration,difficulty,catalogue}=options,owned=options.equipment||[],random=options.random||Math.random;
     const excluded=attempt&&attempt.excludedStyleIds||[];
     // Diagnostic reason codes (and a style, when only that style failed) travel with the error.
     const fail=(message,reason,details)=>{const error=new F.FamilyContractError('family-not-feasible',message);
       Object.assign(error,{reason},details);throw error;};
     const contexts={};
-    for(const role of Object.keys(ORDER)) {
+    for(const role of Object.keys(preferred)) {
       const context={workoutFamilyId:FAMILY,workoutFamilyVersion:request.workoutFamilyVersion,role,difficulty};
       for(const field of ['excludedImpact','bodyPositions','movementRoom'])if(options[field]!==undefined)context[field]=options[field];
-      F.getMembership(context,ORDER[role][0]); // Validate raw constraints before filtering.
+      F.getMembership(context,preferred[role][0]); // Validate raw constraints before filtering.
       // High impact is an optional Hard route, never an automatic difficulty requirement.
       if(difficulty!=='hard')context.excludedImpact=[...new Set([...(context.excludedImpact||['high']),'high'])];
       contexts[role]=context;
     }
-    const pools=Object.fromEntries(Object.keys(ORDER).map(role=>[role,ORDER[role].map(id=>catalogue[id]).filter(ex=>ex
+    const pools=Object.fromEntries(Object.keys(preferred).map(role=>[role,preferred[role].map(id=>catalogue[id]).filter(ex=>ex
       &&G.generatedPhaseEligible(ex,'main',owned,difficulty,contexts[role])&&G.protocolCompatible(ex,'rounds',contexts[role]))]));
-    for(const role of Object.keys(ORDER))if(pools[role].length<2)
+    for(const role of Object.keys(preferred))if(pools[role].length<2)
       fail('Athletic Movement needs at least two eligible '+role+' drills; low-impact-only integrated practice needs confirmed movement room.','insufficient-eligible-movements',{role});
     const has=(role,id)=>pools[role].some(ex=>ex.id===id);
     if(!['forward-back-line-steps','lateral-step-and-stick','quarter-turn-pivot-steps'].every(id=>has('footwork',id))
@@ -175,13 +184,17 @@
   const finishTarget=duration=>duration>=30?120:60;
   const composeV2=(options,request,attempt)=>composeStaged(options,request,attempt,false);
   const composeV3=(options,request,attempt)=>composeStaged(options,request,attempt,true);
-  function composeStaged(options,request,attempt,sessionWide) {
-    const setup=prepare(options,request,attempt),{duration,catalogue,random,pools,style,targets,light,fail}=setup;
+  const composeV4=(options,request,attempt)=>composeStaged(options,request,attempt,true,true);
+  function composeStaged(options,request,attempt,sessionWide,rich) {
+    const setup=prepare(options,request,attempt,rich?ORDER_V4:ORDER),{duration,catalogue,random,pools,style,targets,light,fail}=setup;
     const {blocks,drill,minimum,fits}=builder(setup);
     const wanted=budget=>Math.max(1,Math.floor(budget/BLOCK_SECONDS));
     const rank=pool=>pool.map(ex=>({ex,rank:random()})).sort((a,b)=>a.rank-b.rank).map(x=>x.ex);
     const practised=new Set(); // drills already used by an earlier Main stage
-    const finishIds=duration>=30?['forward-back-line-steps',...RESET.slice().reverse()]:RESET.slice().reverse();
+    // v4 swaps the finish's pivot steps for the reviewed light side-step touches when eligible, so the
+    // gentle finish does not repeat the warm-up's drills.
+    const gentle=rich&&pools.control.some(ex=>ex.id==='side-step-touches')?['side-step-touches','knee-to-opposite-elbow']:RESET.slice().reverse();
+    const finishIds=duration>=30?['forward-back-line-steps',...gentle]:gentle;
     // Fresh drills first (new to this stage, then new to the session), then the seeded order.
     const order=(pool,used)=>[...pool.filter(ex=>!used.has(ex.id)&&!practised.has(ex.id)),
       ...pool.filter(ex=>!used.has(ex.id)&&practised.has(ex.id)),...pool.filter(ex=>used.has(ex.id))];
@@ -213,16 +226,22 @@
       for(const ex of options)if(list.length<3&&!list.includes(ex))list.push(ex);
       return list.every(Boolean)?seeded(list,feet):null;
     });
-    // Every control drill centres on standing single-leg balance, combined with different stepping,
-    // sticking or cross-body partners in each block.
-    // v3 offers partners the session has used least (warm-up, footwork and finish included), so the
+    // Every control block centres on a standing single-leg drill, combined with different stepping,
+    // sticking or cross-body partners in each block. v1-v3 always use single-leg balance and reach; v4
+    // gives each further block the next unused standing single-leg drill (starting with single-leg balance
+    // and reach), so a larger approved pool yields a new balance challenge rather than a copy.
+    // v3+ offers partners the session has used least (warm-up, footwork and finish included), so the
     // gentle bookends do not decide which drills the Main control block repeats; ties stay seeded.
-    const anchor=catalogue['single-leg-balance-reach'],partners=rank(pools.control.filter(ex=>ex.id!==anchor.id));
+    const anchor=catalogue['single-leg-balance-reach'];
+    const anchors=rich?[anchor,...rank(pools.control.filter(ex=>ex!==anchor&&ex.sidedness==='per-side'&&ex.bodyPosition==='standing'))]:[anchor];
+    const partners=rank(pools.control.filter(ex=>rich||!anchors.includes(ex)));
     const load=ex=>[...PREPARATION,...finishIds,...footwork.flat().map(e=>e.id)].filter(id=>id===ex.id).length;
     if(sessionWide)partners.sort((a,b)=>load(a)-load(b));
     const control=plan(wanted(targets[2]),(index,used)=>{
-      const [before,after]=seeded(order(partners,used).slice(0,2),partners);
-      return [before,anchor,after].filter(Boolean);
+      const here=rich?anchors.find(ex=>!used.has(ex.id)):anchor;
+      if(!here)return null;
+      const [before,after]=seeded(order(partners.filter(ex=>ex!==here),used).slice(0,2),partners);
+      return [before,here,after].filter(Boolean);
     });
     // Integrated drills begin and end with standing non-jumping movement; floor changes and optional
     // jumps stay inside. Opt-in high impact is permitted, never compulsory.
@@ -317,6 +336,9 @@
   // v3 (#244 follow-up): a Main block is redundant unless at least two of its drills (all of them, for a
   // two-drill block) are new to the whole Main session so far, whichever stage practised them before.
   const qualityV3=workout=>stagedQuality(workout,true);
+  // v4 applies the v3 rules unchanged to the larger reviewed membership; its dose, recovery, impact and
+  // eligibility checks come from the shared family gate and membership policy v2.
+  const qualityV4=qualityV3;
   function stagedQuality(workout,sessionWide) {
     const issues=quality(workout),blocks=workout.main.blocks;
     if(!blocks.length||blocks.some(block=>!block.familyContext||block.familyContext.workoutFamilyId!==FAMILY))return issues;
@@ -348,4 +370,5 @@
   G.registerFamilyComposer(FAMILY,1,composeV1,quality,stageSection);
   G.registerFamilyComposer(FAMILY,2,composeV2,qualityV2,stageSection);
   G.registerFamilyComposer(FAMILY,3,composeV3,qualityV3,stageSection);
+  G.registerFamilyComposer(FAMILY,4,composeV4,qualityV4,stageSection);
 })(typeof window==='undefined'?globalThis:window);

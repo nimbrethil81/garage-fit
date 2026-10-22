@@ -1756,7 +1756,15 @@
       && !difficultyExcluded(exercise,workoutDifficulty(context.difficulty))
       && !(context.excludedImpact||['high']).includes(exercise.impact)
       && (!context.bodyPositions||context.bodyPositions.includes(exercise.bodyPosition))
-      && (!membership.requiresMovementRoom||context.movementRoom===true);
+      && (!membership.requiresMovementRoom||context.movementRoom===true)
+      && familyDifficultyMet(membership,difficulty===undefined?context.difficulty:difficulty)
+      && familyDifficultyMet(membership,context.difficulty);
+  }
+  // An entry may name the lowest workout difficulty it suits (`normal` excludes Easy, `hard` allows only
+  // Hard). The family context's difficulty (default Normal) and any explicit argument both must meet it.
+  const DIFFICULTY_RANK={easy:0,normal:1,hard:2};
+  function familyDifficultyMet(membership,level) {
+    return !membership.minimumDifficulty||DIFFICULTY_RANK[workoutDifficulty(level)]>=DIFFICULTY_RANK[membership.minimumDifficulty];
   }
   // Family blocks are authorised against the central policy and canonical catalogue,
   // never against edited metadata in the block. No-family validation stays unchanged.
