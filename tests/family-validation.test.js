@@ -58,17 +58,19 @@ test('the Athletic gate rejects near-duplicate blocks session-wide while allowin
   const athletic=generate('athletic-movement',{duration:30}),blocks=athletic.main.blocks;
   assert.deepEqual(validate(athletic),{valid:true,technicalIssues:[],qualityIssues:[]});
   assert.ok(blocks.some(block=>block.prescription.rounds>1),'repetition within a drill is normal practice');
-  // A misleading regression: the second balance/control block quietly replays the first one's drills
-  // (same sidedness, so every target, recovery and the timeline still reconcile exactly).
-  const [first,second]=blocks.filter(block=>/^athletic-control-/.test(block.id));
-  const replay=copy(athletic),target=replay.main.blocks.find(block=>block.id===second.id);
-  target.exercises=copy(first.exercises);G.normaliseWorkout(replay);
+  // A misleading regression: the balance/control block quietly replays the footwork circuit's stepping drills
+  // around the balance anchor (same sidedness, so every target, recovery and the timeline still reconcile).
+  const footwork=blocks.find(block=>/^athletic-footwork-/.test(block.id)),[first]=blocks.filter(block=>/^athletic-control-/.test(block.id));
+  assert.equal(blocks.filter(block=>/^athletic-control-/.test(block.id)).length,1,'a spent partner pool is consolidated, not relabelled');
+  const replay=copy(athletic),target=replay.main.blocks.find(block=>block.id===first.id);
+  target.exercises=[C['forward-back-line-steps'],C['single-leg-balance-reach'],C['quarter-turn-pivot-steps']].map(copy);G.normaliseWorkout(replay);
   const result=validate(replay);
   assert.deepEqual(result.technicalIssues,[],'technically playable');
-  assert.deepEqual(result.qualityIssues,['quality:redundant-block:'+second.id],'each block was valid alone; the session is not');
-  // A reordered subset is still nothing new; so is a renamed or out-of-order stage.
-  target.exercises=copy(first.exercises).reverse();G.normaliseWorkout(replay);
-  assert.ok(validate(replay).qualityIssues.includes('quality:redundant-block:'+second.id));
+  assert.deepEqual(result.qualityIssues,['quality:redundant-block:'+first.id],'each block was valid alone; the session is not');
+  // A reordered copy is still nothing new; so is a renamed or out-of-order stage.
+  target.exercises.reverse();G.normaliseWorkout(replay);
+  assert.ok(validate(replay).qualityIssues.includes('quality:redundant-block:'+first.id));
+  assert.ok(footwork&&footwork.exercises.every(ex=>ex.id!=='single-leg-balance-reach'));
   const renamed=copy(athletic);renamed.main.blocks[1].id='athletic-control-2';
   assert.ok(validate(renamed).qualityIssues.some(issue=>issue.startsWith('quality:stage-identity')));
   const reordered=copy(athletic),[a,b]=[1,2];[reordered.main.blocks[a],reordered.main.blocks[b]]=[reordered.main.blocks[b],reordered.main.blocks[a]];

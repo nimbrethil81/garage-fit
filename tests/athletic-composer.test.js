@@ -7,7 +7,7 @@ const {loadAppContext}=require('./helpers/app-context');
 global.window=global;
 for(const path of ['data/equipment','data/exercises','data/workout-families','js/workout-families','js/generator','data/athletic-membership','js/athletic-composer'])require('../'+path);
 const G=GarageFitGenerator,F=GarageFitWorkoutFamilies,C=GarageFitData.exercises,FAMILY='athletic-movement';
-// New workouts use the current published composition (#244: v2). v1 stays composable and is pinned below.
+// New workouts use the current published composition (v3). v1 and v2 stay composable and are pinned below.
 const VERSION=F.currentVersion(FAMILY);
 const PROFILES={10:[120,180,180,120],15:[180,240,300,180],20:[180,360,360,300],30:[240,540,600,420],45:[300,840,900,660]};
 const SEEDS=[1,31,733,2026,424242,0xdeadbeef,987654321,2147483647];
@@ -106,17 +106,17 @@ test('[Full] five durations × three difficulties × eight seeds × five constra
     for(let i=1;i<work.length;i++)assert.ok(work[i-1].ex.impact!=='high'||work[i].ex.impact!=='high','including rounds and block boundaries');
     const strengthSeconds=work.filter(item=>item.ex.strength>=3).reduce((sum,item)=>sum+item.s.estimatedSeconds,0);
     assert.ok(strengthSeconds<duration*60*.3,'strength-like approved combinations remain a minority');
-    // Purposeful blocks: within a stage each further block brings a drill that stage has not yet practised.
-    for(const name of ['footwork','control','integrated']) {
-      const seen=new Set();
-      for(const [i,b] of w.main.blocks.filter(b=>stage(b)===name).entries()){
-        if(i)assert.ok(b.exercises.some(e=>!seen.has(e.id)),'redundant '+b.id);
-        b.exercises.forEach(e=>seen.add(e.id));
-      }
+    // Purposeful blocks (v3): every Main block brings at least two drills no earlier Main block practised
+    // (warm-up, resets and finish are bookends), so a spent approved pool consolidates instead of relabelling.
+    const seen=new Set();
+    for(const b of w.main.blocks.filter(b=>['footwork','control','integrated'].includes(stage(b)))) {
+      const ids=[...new Set(b.exercises.map(e=>e.id))];
+      assert.ok(ids.filter(id=>!seen.has(id)).length>=Math.min(2,ids.length),'redundant '+b.id);
+      ids.forEach(id=>seen.add(id));
     }
     assert.ok(w.main.blocks.filter(b=>stage(b)==='control').every(b=>b.exercises.some(e=>e.id==='single-leg-balance-reach')),'every control drill keeps single-leg balance');
     if(duration<=20)assert.equal(w.main.blocks.length,5,'short sessions are not fragmented');
-    else assert.ok(w.main.blocks.filter(b=>stage(b)==='control').length===2,'30/45 minutes progress through two balance/control drills');
+    assert.equal(w.main.blocks.filter(b=>stage(b)==='control').length,1,'the balance/control stage is one circuit: its approved partners are spent after one block');
     app.input=copy(w);const timeline=app.buildGeneratedTimeline(app.input),phases=timeline.filter(p=>p.kind==='exercise');
     assert.equal(seconds(timeline)-3,w.estimatedSeconds);
     const plan=app.GarageFitSessionTracker.plannedWorkFromTimeline(timeline);
@@ -175,14 +175,16 @@ test('constraints fail honestly when approved integrated movement cannot be comp
   assert.ok(resolved(low).filter(x=>x.b.familyContext.role==='integrated').every(x=>['bear-crawl','grapevine-cross-steps'].includes(x.ex.id)));
 });
 
-test('production and test harness register the same version-pinned composers; new workouts use v2',()=>{
-  for(const version of [1,2])assert.throws(()=>G.registerFamilyComposer(FAMILY,version,()=>{},()=>[]),/registered once/);
-  assert.throws(()=>G.registerFamilyComposer(FAMILY,3,()=>{}),e=>e.code==='unsupported-workout-family-version');
-  // v2 is the same family (identity, styles, membership) with a new composition policy; the default lookup stays v1.
-  const [one,two]=[1,2].map(version=>F.getDefinition(FAMILY,version));
-  assert.equal(F.getDefinition(FAMILY),one);assert.equal(VERSION,2);
-  assert.deepEqual({...copy(two),version:1,compositionPolicy:one.compositionPolicy},copy(one));
-  assert.deepEqual(copy(two.compositionPolicy),{id:FAMILY,version:2});assert.deepEqual(copy(two.membershipPolicy),{id:FAMILY,version:1});
+test('production and test harness register the same version-pinned composers; new workouts use v3',()=>{
+  for(const version of [1,2,3])assert.throws(()=>G.registerFamilyComposer(FAMILY,version,()=>{},()=>[]),/registered once/);
+  assert.throws(()=>G.registerFamilyComposer(FAMILY,4,()=>{}),e=>e.code==='unsupported-workout-family-version');
+  // Every later version is the same family (identity, styles, membership) with a new composition policy; the default lookup stays v1.
+  const [one,two,three]=[1,2,3].map(version=>F.getDefinition(FAMILY,version));
+  assert.equal(F.getDefinition(FAMILY),one);assert.equal(VERSION,3);
+  for(const [definition,version] of [[two,2],[three,3]]) {
+    assert.deepEqual({...copy(definition),version:1,compositionPolicy:one.compositionPolicy},copy(one));
+    assert.deepEqual(copy(definition.compositionPolicy),{id:FAMILY,version});assert.deepEqual(copy(definition.membershipPolicy),{id:FAMILY,version:1});
+  }
   for(const id of F.FAMILY_IDS.filter(id=>id!==FAMILY))assert.equal(F.currentVersion(id),1);
   assert.match(fs.readFileSync('index.html','utf8'),/data\/athletic-membership.js[\s\S]*js\/athletic-composer.js/);
   const app=loadAppContext(new Map());
@@ -190,7 +192,7 @@ test('production and test harness register the same version-pinned composers; ne
   // The standalone Generator screen asks for the current version, with no extra user choice.
   app.input=FAMILY;vm.runInContext('selectGeneratorFamily(input);generateWorkout()',app);
   const delivered=vm.runInContext('generatorState.workout',app);
-  assert.equal(delivered.workoutFamilyVersion,2);
+  assert.equal(delivered.workoutFamilyVersion,3);
   assert.equal(app.GarageFitGenerator.validateFamilyWorkout(delivered,{catalogue:app.GarageFitData.exercises,equipment:vm.runInContext('state.ownedEquipment',app)}).valid,true);
 });
 
@@ -209,43 +211,100 @@ const V1_30_MINUTE=[
   'athletic-reset-9: knee-to-opposite-elbow, quarter-turn-pivot-steps',
   'athletic-integrated-10: reverse-lunge-knee-drive, alternating-lateral-lunge',
   'athletic-finish-11: quarter-turn-pivot-steps, knee-to-opposite-elbow'];
-test('30-minute ordinary-space Athletic: v1 slices repeat drills; v2 stages each block with a distinct purpose',()=>{
-  const before=v1({duration:30}),after=generate({duration:30});
+// v2 as published by #251: stages compared only with their own earlier blocks, so control recycled footwork.
+const V2_30_MINUTE=[
+  'athletic-preparation-1: knee-to-opposite-elbow, forward-back-line-steps, quarter-turn-pivot-steps',
+  'athletic-footwork-2: lateral-step-and-stick, forward-back-line-steps, quarter-turn-pivot-steps',
+  'athletic-control-3: forward-back-line-steps, single-leg-balance-reach, knee-to-opposite-elbow',
+  'athletic-control-4: quarter-turn-pivot-steps, single-leg-balance-reach, lateral-step-and-stick',
+  'athletic-integrated-5: reverse-lunge-knee-drive, alternating-lateral-lunge',
+  'athletic-finish-6: forward-back-line-steps, quarter-turn-pivot-steps, knee-to-opposite-elbow'];
+const MAIN_STAGES=['footwork','control','integrated'];
+const retag=(w,version)=>({...copy(w),workoutFamilyVersion:version,main:{...copy(w.main),blocks:w.main.blocks.map(b=>({...copy(b),familyContext:{...b.familyContext,workoutFamilyVersion:version}}))}});
+const qualityOf=(w,version)=>G.validateFamilyWorkout(retag(w,version),{catalogue:C,equipment:[]}).qualityIssues.filter(i=>i.startsWith('quality:redundant-block')).sort();
+// Drills a Main block shares with earlier Main blocks (warm-up, resets and finish are gentle bookends).
+const mainOverlap=w=>{const seen=new Set();return w.main.blocks.filter(b=>MAIN_STAGES.includes(stage(b))).map(b=>{
+  const ids=[...new Set(b.exercises.map(e=>e.id))],shared=ids.filter(id=>seen.has(id)).length;ids.forEach(id=>seen.add(id));return b.id+':'+shared+'/'+ids.length;});};
+
+test('30-minute ordinary-space Athletic: v1 slices repeat drills, v2 relabels them across stages, v3 gives each Main block a distinct purpose',()=>{
+  const before=v1({duration:30}),middle=generate({workoutFamilyVersion:2,duration:30}),after=generate({duration:30});
   assert.deepEqual(scripts(before),V1_30_MINUTE,'the reported 11-block v1 pattern is reproduced exactly');
-  // v1 subsets and reorders: the near-duplicate blocks the v2 gate now rejects.
-  assert.deepEqual(G.validateFamilyWorkout({...copy(before),workoutFamilyVersion:2,main:{...copy(before.main),blocks:before.main.blocks.map(b=>({...copy(b),
-    familyContext:{...b.familyContext,workoutFamilyVersion:2}}))}},{catalogue:C,equipment:[]}).qualityIssues.filter(i=>i.startsWith('quality:redundant-block')).sort(),
-    ['quality:redundant-block:athletic-footwork-3','quality:redundant-block:athletic-footwork-4','quality:redundant-block:athletic-integrated-10']);
+  assert.deepEqual(scripts(middle),V2_30_MINUTE,'published v2 composes exactly as released');
+  // v1 subsets and reorders: the near-duplicate blocks the v2 gate rejects within a stage.
+  assert.deepEqual(qualityOf(before,2),['quality:redundant-block:athletic-footwork-3','quality:redundant-block:athletic-footwork-4','quality:redundant-block:athletic-integrated-10']);
   assert.equal(G.validateFamilyWorkout(before,{catalogue:C,equipment:[]}).valid,true,'saved v1 workouts remain valid under v1 rules');
-  // Same seed, same approved pool, no new exercises: preparation → three-direction footwork →
-  // two different single-leg balance pairings → integrated lunges → a two-minute gentle finish.
+  // The #244 follow-up: v2's control blocks pass its stage-local gate yet repeat the footwork circuit's
+  // drills, so a user saw forward-back and quarter-turn steps in footwork, control, warm-up and cool-down.
+  assert.deepEqual(qualityOf(middle,2),[],'v2 passes its own stage-local rule');
+  assert.deepEqual(qualityOf(middle,3),['quality:redundant-block:athletic-control-4']);
+  assert.deepEqual(mainOverlap(middle),['athletic-footwork-2:0/3','athletic-control-3:1/3','athletic-control-4:3/3','athletic-integrated-5:0/2']);
+  // Same seed, same approved pool, no new exercises: preparation → three-direction footwork → one balance/control
+  // circuit built from drills footwork has not used plus the least-used stepping partner → integrated lunges → finish.
   assert.deepEqual(scripts(after),[
     'athletic-preparation-1: knee-to-opposite-elbow, forward-back-line-steps, quarter-turn-pivot-steps',
     'athletic-footwork-2: lateral-step-and-stick, forward-back-line-steps, quarter-turn-pivot-steps',
-    'athletic-control-3: forward-back-line-steps, single-leg-balance-reach, knee-to-opposite-elbow',
-    'athletic-control-4: quarter-turn-pivot-steps, single-leg-balance-reach, lateral-step-and-stick',
-    'athletic-integrated-5: reverse-lunge-knee-drive, alternating-lateral-lunge',
-    'athletic-finish-6: forward-back-line-steps, quarter-turn-pivot-steps, knee-to-opposite-elbow']);
+    'athletic-control-3: lateral-step-and-stick, single-leg-balance-reach, knee-to-opposite-elbow',
+    'athletic-integrated-4: reverse-lunge-knee-drive, alternating-lateral-lunge',
+    'athletic-finish-5: forward-back-line-steps, quarter-turn-pivot-steps, knee-to-opposite-elbow']);
+  assert.deepEqual(mainOverlap(after),['athletic-footwork-2:0/3','athletic-control-3:1/3','athletic-integrated-4:0/2']);
   const ids=w=>new Set(w.main.blocks.flatMap(b=>b.exercises.map(e=>e.id)));
   assert.deepEqual([...ids(after)].sort(),[...ids(before)].sort(),'the same approved drills, nothing invented');
-  // Fewer, longer drills repeat within a circuit for skill practice instead of across nominal blocks.
-  assert.equal(after.main.blocks[1].prescription.rounds,6);
+  // Consolidated, not thinned: the control circuit repeats within its block for skill practice.
+  assert.equal(after.main.blocks[2].prescription.rounds,5);
   const plan=G.trainingSectionPlan(after).seconds;
   assert.deepEqual([plan.warmup,plan.cooldown,after.estimatedSeconds],[240,120,1800]);
   assert.deepEqual(G.trainingSectionPlan(before).seconds.cooldown,76);
   assert.deepEqual(G.validateFamilyWorkout(after,{catalogue:C,equipment:[]}),{valid:true,technicalIssues:[],qualityIssues:[]});
 });
 
-test('v2 depth grows with time and pool: short sessions stay concise, room adds new drills not copies',()=>{
-  for(const [duration,extra,count] of [[10,{},5],[15,{movementRoom:true},5],[20,{},5],[45,{},6],[45,{movementRoom:true},9]]) {
+test('v3 rejects a constructed cross-stage near-duplicate block, including through preview swaps',()=>{
+  const w=generate({duration:30}),index=w.main.blocks.findIndex(b=>stage(b)==='control'),at=id=>w.main.blocks.findIndex(b=>b.id===id);
+  const check=workout=>G.validateFamilyWorkout(workout,{catalogue:C,equipment:[]});
+  assert.equal(check(w).valid,true);
+  // The control circuit swapped to footwork's own stepping drills adds nothing but the balance anchor.
+  const dup=copy(w);dup.main.blocks[index].exercises=[C['forward-back-line-steps'],C['single-leg-balance-reach'],C['quarter-turn-pivot-steps']].map(copy);
+  assert.deepEqual(check(dup).qualityIssues,['quality:redundant-block:'+w.main.blocks[index].id]);
+  // The warm-up, resets and finish are bookends: reusing familiar drills there never counts against Main novelty.
+  assert.deepEqual(check(w).qualityIssues,[]);
+  assert.ok(w.main.blocks.at(-1).exercises.every(e=>w.main.blocks.slice(0,-1).some(b=>b.exercises.some(x=>x.id===e.id))));
+  // Within-block repetition stays valid; the check is only about drills new to the Main session.
+  assert.ok(w.main.blocks[index].prescription.rounds>=3);
+  // Preview swaps run the same registered gate: whatever a swap produces still passes it, and the
+  // swap that would recreate the duplicate (balance-circuit partner → a footwork drill) is never offered.
+  let swaps=0;
+  for(const [b,block] of w.main.blocks.entries())for(let i=0;i<block.exercises.length;i++) {
+    const edited=copy(w);
+    try{G.swap(edited,b,i,{catalogue:C,equipment:[],random:rng(b*7+i)});}catch(error){continue;}
+    swaps++;
+    assert.equal(check(edited).valid,true,'swap '+block.id+'#'+i);
+  }
+  assert.ok(swaps>0);
+  // v2 keeps its published stage-local rule, so saved v2 workouts stay valid.
+  assert.equal(check(retag(dup,2)).valid,true);
+});
+
+test('v3 depth grows with time and pool: short sessions stay concise, room adds new drills not copies',()=>{
+  for(const [duration,extra,count] of [[10,{},5],[15,{movementRoom:true},5],[20,{},5],[30,{},5],[45,{},5],[45,{movementRoom:true},6]]) {
     const w=generate({duration,...extra}),stages=w.main.blocks.map(stage);
     assert.equal(w.main.blocks.length,count,duration+' '+JSON.stringify(extra)+': '+stages.join(','));
     assert.equal(G.validateFamilyWorkout(w,{catalogue:C,equipment:[]}).valid,true);
   }
-  // With room at 45 minutes the travelling drills form a second footwork block and a second
-  // integrated block (after a gentle reset); each brings drills its stage has not practised.
+  // With room at 45 minutes the travelling drills form a second footwork block that brings drills the
+  // first block did not; control and integrated work each stay one long, distinct circuit.
   const rich=generate({duration:45,movementRoom:true}),by=name=>rich.main.blocks.filter(b=>stage(b)===name);
-  assert.deepEqual(rich.main.blocks.map(stage),['preparation','footwork','footwork','control','control','integrated','reset','integrated','finish']);
-  for(const name of ['footwork','integrated']){const [a,b]=by(name);assert.ok(b.exercises.some(e=>!a.exercises.some(x=>x.id===e.id)));}
+  assert.deepEqual(rich.main.blocks.map(stage),['preparation','footwork','footwork','control','integrated','finish']);
+  const [a,b]=by('footwork');assert.ok(b.exercises.filter(e=>!a.exercises.some(x=>x.id===e.id)).length>=2);
   assert.ok(by('footwork')[1].exercises.some(e=>['grapevine-cross-steps','lateral-shuffle'].includes(e.id)));
+  assert.deepEqual(mainOverlap(rich).map(item=>+item.split(':')[1].split('/')[0]),[0,1,1,0]);
+});
+
+test('v3 keeps the integrated pool honest: low-impact practice with room reserves its shared drills',()=>{
+  // Low impact with room leaves only grapevine steps and the crawl for integrated work, so footwork
+  // leaves the grapevine alone and uses its three core drills instead of spending it first.
+  for(const duration of [10,30,45])for(const seed of SEEDS.slice(0,4)) {
+    const w=generate({duration,movementRoom:true,excludedImpact:['medium','high'],random:rng(seed)});
+    assert.equal(w.familyDiagnostics,undefined);
+    assert.deepEqual(mainOverlap(w).map(item=>item.split(':')[1].split('/')[0]).slice(-1),['0'],'integrated practice is new to the session');
+    assert.ok(w.main.blocks.filter(b=>stage(b)==='integrated').every(b=>b.exercises.some(e=>e.id==='bear-crawl')));
+  }
 });

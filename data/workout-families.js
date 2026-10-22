@@ -49,16 +49,17 @@
   ];
   // Later published versions of the same family: identity, purpose, styles and feasibility are
   // unchanged, so v1 and v2 are one family for training balance and recency; only the versioned
-  // composition differs. Athletic Movement v2 (#244) corrects block construction and lengthens the
-  // finish, reusing the reviewed v1 membership. v1 remains registered for history and saved records.
+  // composition differs. Athletic Movement v2 and v3 (#244) correct block construction and lengthen the
+  // finish, reusing the reviewed v1 membership. v1 and v2 remain registered for history and saved records.
   const revision = (base, version, compositionVersion) => ({...JSON.parse(JSON.stringify(base)), version,
     compositionPolicy: {id: base.id, version: compositionVersion}});
   const versions = Object.fromEntries(definitions.map(item => [item.id, {1: item}]));
   versions['athletic-movement'][2] = revision(versions['athletic-movement'][1], 2, 2);
+  versions['athletic-movement'][3] = revision(versions['athletic-movement'][1], 3, 3);
   // The version every new workout is composed with, standalone or Coach. Explicit requests and
   // stored records keep the version they name; `getDefinition`'s default remains version 1.
   const current = Object.fromEntries(definitions.map(item => [item.id, 1]));
-  current['athletic-movement'] = 2;
+  current['athletic-movement'] = 3;
   function freeze(value) {
     Object.values(value).forEach(item => { if (item && typeof item === 'object') freeze(item); });
     return Object.freeze(value);

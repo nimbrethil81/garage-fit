@@ -7,7 +7,7 @@ policy change needs a new definition version and versioned policy reference.
 A later version of the same family keeps its id, name, purpose, styles and feasibility; it is the
 same family for training balance and recency, while composition and history keep the version.
 `GarageFitData.workoutFamilyCurrentVersions` names the version new workouts use; today that is
-version 1 for every family except Athletic Movement, whose current version is 2 (#244).
+version 1 for every family except Athletic Movement, whose current version is 3 (#244).
 
 Each definition owns its display name, purpose, supported internal styles, Body
 Focus compatibility, composition/membership policy references, suitability criteria
@@ -270,8 +270,8 @@ early exit or interrupted-draft recovery), while their `blockIndex` keeps the bl
 Existing Session Results and Drafts keep what they recorded; nothing migrates. Other families,
 no-family generation and benchmark blocks are always Main. The classification does not change any
 published composition: Athletic v1's short finish (30/32/54/76/119 s at 10/15/20/30/45 minutes)
-is unchanged. Athletic v2 (#244) lengthens it within the same total and keeps the same stage ids,
-so both versions share one stage classifier.
+is unchanged. Athletic v2 and v3 (#244) lengthen it within the same total and keep the same stage ids,
+so all versions share one stage classifier.
 
 Missing composers fail with `family-composer-unavailable`; unsupported duration or
 difficulty fails with `family-configuration-unsupported`. An explicit family plus
@@ -393,7 +393,7 @@ restriction with exclusion of medium impact fails `family-not-feasible`. Floor-o
 hanging-only and other requests losing the standing directional/balance essentials
 also fail honestly. Membership is never expanded to fill time; A9/A13 remain deferred.
 
-### Athletic Movement composition v2 (#244, current)
+### Athletic Movement composition v2 (#244)
 
 v1 cut each phase into roughly four-minute slices and filled them from fixed drill patterns. With
 the ordinary in-place pool (three footwork drills, two integrated lunges) a standalone 30-minute
@@ -423,7 +423,29 @@ emphasis, per-drill caps and exercise-sensitive recovery are unchanged) with a n
 Ordinary space at 30/45 minutes therefore gives six blocks (one long footwork block, two
 control blocks, one integrated block); confirmed room gives seven to nine. Feasibility, reasons and
 adjustments are those of v1. v2 blocks carry `workoutFamilyVersion: 2` in their family context,
-which resolves the v1 membership policy.
+which resolves the v1 membership policy. v2 stays composable and validatable exactly as released.
+
+### Athletic Movement composition v3 (#244 follow-up, current)
+
+v2 judged novelty only against earlier blocks of the same stage, so a control block built from
+footwork's own stepping drills passed (a 30-minute Dynamic Balance session showed forward-back and
+quarter-turn steps in warm-up, footwork, control and cool-down). v3 is the same family and the same
+staged script, with novelty judged across the whole Main session:
+
+- **Session-wide purpose.** Each footwork, control or integrated block must bring at least two drills
+  (both, for a two-drill block) that no earlier Main block practised. When a stage's approved pool is
+  spent it is consolidated into one longer circuit with deliberate round repetition rather than a
+  relabelled copy: ordinary space at 30/45 minutes is five blocks (preparation, footwork, control,
+  integrated, finish); confirmed room adds a second footwork block at 30 and 45 minutes.
+- **Bookends stay gentle.** Preparation, resets and the finish may reuse familiar drills and are
+  neither counted for nor against Main novelty. Control prefers the partner the session has used
+  least, so the bookends do not decide which drills the Main block repeats; ties stay seeded.
+- **Honest limited pools.** When the integrated pool has fewer than two drills of its own (low impact
+  with room is only grapevine steps and the crawl), footwork leaves the shared ones for integrated
+  work, using one only to cover a movement plane.
+- Gate: `redundant-block:<id>` now means fewer than two drills new to the Main session. Stage ids,
+  the finish, per-drill caps, recovery, membership (v1 policy), feasibility and styles are unchanged.
+  Saved v1 and v2 workouts keep their own rules; v3 blocks carry `workoutFamilyVersion: 3`.
 
 ### Strength & Control and Cardio & Conditioning composition v1
 
@@ -515,12 +537,13 @@ one post-composition gate before it is returned: `GarageFitGenerator.validateFam
   with control, footwork across all three movement planes, single-leg control, 2–4 slot drills,
   per-drill effort caps, exercise-sensitive minimum recovery, integrated blocks followed by
   recovery and high impact only in `integrated-movement`, never at a block edge or consecutively.
-  Athletic v2 adds session-wide construction rules: explicit stage ids matching their roles in the
+  Athletic v2 adds construction rules: explicit stage ids matching their roles in the
   coached order (preparation, footwork, control, integrated with resets between, finish), single-leg
   balance in every control block, a finish of at least 30 s, context versions matching the workout,
   and `redundant-block:<id>` for any footwork, control or integrated block whose drills are all
-  already in earlier blocks of that stage (a copy, reorder or subset). Rounds within a block and
-  the gentle resets may repeat. Saved v1 workouts keep the v1 rules.
+  already in earlier blocks of that stage (a copy, reorder or subset); v3 widens that to fewer than two
+  drills new to the whole Main session. Rounds within a block and the gentle resets may repeat.
+  Saved v1 and v2 workouts keep their own rules.
 
 **Same-family fallback.** If composition of one style fails (`familyStyleId` on the composer's
 `family-not-feasible` error) or the gate rejects it, the wrapper composes again with that style in

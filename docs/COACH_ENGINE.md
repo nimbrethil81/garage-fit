@@ -583,8 +583,8 @@ a plan no family can build fails visibly with each family's reasons.
 **Family versions (#244).** Both released definitions name every family at version 1 and are not
 edited. The plan composes each family at its current published version
 (`GarageFitData.workoutFamilyCurrentVersions`, never older than the definition's), so existing v1
-and v2 instances plan Athletic Movement v2 automatically with no new choice; other families are
-still version 1. Balance, variety and recency compare families by id, so a v1 and a v2 Athletic
+and v2 instances plan Athletic Movement v3 automatically with no new choice; other families are
+still version 1. Balance, variety and recency compare families by id, so any Athletic version's
 session earn the same effect and recency; results keep their recorded version. `tests/general-fitness.test.js`
 covers lifecycle, sequences at 2/3/5 sessions per week, cross-source context, recovery,
 external preferences and the family-plan seam.
