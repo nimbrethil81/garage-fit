@@ -216,7 +216,7 @@ test('shared equipment edits preserve the live Coach workout, durable draft and 
 
 test('General Fitness is offered and runs home → preview/edit → player → save → progress on the shared screens', async () => {
   const p = await ui(new Map(), ['dumbbells']);
-  assert.match(p.text(), /A training goal and sessions adapted to the work you actually do\. Strength & fitness.*Build Arms General Fitness Cross-training Tennis/);
+  assert.match(p.text(), /A training goal and sessions adapted to the work you actually do\. Fitness programmes.*General Fitness 4-Week General Strength Build Arms Sport cross-training Tennis/);
   assert.doesNotMatch(p.text(), /stable anchors/);
   await p.click('General Fitness');
   assert.match(p.text(), /Open-ended: 2–5 sessions per week.*10, 15, 20 or 45 minutes when needed.*Mobility & Movement Quality\) from the training you have actually done\. No fixed targets/);

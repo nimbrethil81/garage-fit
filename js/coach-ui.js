@@ -556,9 +556,9 @@
       if (current.interruptedDraft) { wrap.append(heading('Interrupted session'),paragraph('Your recorded work is safe. Save it before starting another session.'),button('Save performed work',() => showEnd('exit',null),true)); return; }
       if (!state || state.status==='completed') {
         wrap.append(paragraph('A training goal and sessions adapted to the work you actually do.'));
-        wrap.append(heading('Strength & fitness'));
+        wrap.append(heading('Fitness programmes'));
         programmes.filter(programme => programme.type !== 'tennis-conditioning').forEach(programme => wrap.append(button(programme.name, () => { def=programme; overview(); }, true)));
-        wrap.append(heading('Cross-training'));
+        wrap.append(heading('Sport cross-training'));
         programmes.filter(programme => programme.type === 'tennis-conditioning').forEach(programme => wrap.append(button('Tennis', () => { def=programme; overview(); }, true)));
         if (state) wrap.append(paragraph('Previous programme finished · '+state.meaningfulSessionsCompleted+' meaningful sessions. Your history is saved.'));
         return;

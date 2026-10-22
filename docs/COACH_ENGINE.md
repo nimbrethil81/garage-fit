@@ -202,7 +202,7 @@ user-confirmed variation changes are described in
 
 ## Coach screens
 
-Coach groups Strength & fitness and Cross-training → Tennis. Tennis setup offers
+Coach groups Fitness programmes and Sport cross-training → Tennis. Tennis setup offers
 focus/frequency, usual playing days, intensity and an optional local-date event.
 Anchor Done explicitly confirms visible actual reps/load; blank values stay unknown.
 
