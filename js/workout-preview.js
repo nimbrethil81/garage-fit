@@ -80,6 +80,10 @@
         ?'Superset · '+p.sets+' sets · A then B':'Mini-circuit · '+p.rounds+(p.rounds===1?' round':' rounds');
       return title+(recovery.length?' · Recovery '+min+(min===max?'':'–'+max)+' sec between movements/rounds':' · No recovery between movements');
     }
+    if(block.protocol==='amrap'){
+      const minutes=block.prescription.capSeconds/60;
+      return 'AMRAP · '+minutes+' min cap · '+block.exercises.length+' exercises in order, repeated · Steady, comfortable pace; recover as needed';
+    }
     if(block.protocol==='density'){
       const p=block.prescription;
       return 'Density · '+p.repeats+' fixed rounds · '+p.timeCapSeconds+' sec cap · '+p.exerciseRestSeconds+' sec between exercises · '+p.roundRestSeconds+' sec between rounds · Finish the target, then stop; no racing';
@@ -109,7 +113,7 @@
   }
 
   function occurrenceTargetLabel(block,exerciseIndex){
-    if(!block.occurrenceTargets&&!['ladder','pyramid','complex','density'].includes(block.protocol))return null;
+    if(!block.occurrenceTargets&&!['ladder','pyramid','complex','density','amrap'].includes(block.protocol))return null;
     const exercise=block.exercises[exerciseIndex];
     // A complex repeats one target per movement in every sequence; show it once.
     const steps=root.GarageFitGenerator.resolveBlockSteps(block).filter(step=>step.kind==='exercise'&&step.exerciseIndex===exerciseIndex);

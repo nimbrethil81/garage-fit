@@ -25,12 +25,12 @@ test('More lists Workout Patterns beside Exercise Library and navigates there an
   assert.equal(app.document.getElementById('exerciseLibrary').classList.contains('hidden'),false);
 });
 
-test('guide has nine entries: every generated Main protocol by display name, plus AMRAP',()=>{
+test('guide has nine entries: every generated Main protocol by display name, including AMRAP',()=>{
   const app=loadAppContext(),generated=[...app.GarageFitGenerator.GENERATED_PROTOCOLS];
-  const display={rounds:'Mini-circuit',paired_sets:'Superset',timed_intervals:'Timed intervals',emom:'EMOM',ladder:'Ladder',pyramid:'Pyramid',complex:'Complex',density:'Density'};
+  const display={rounds:'Mini-circuit',paired_sets:'Superset',timed_intervals:'Timed intervals',emom:'EMOM',ladder:'Ladder',pyramid:'Pyramid',complex:'Complex',density:'Density',amrap:'AMRAP'};
   assert.deepEqual(generated.slice().sort(),Object.keys(display).sort(),'guide must be updated when generated protocols change');
   const names=entries.map(match=>match[2]);
-  assert.deepEqual(names,[...generated.map(id=>display[id]),'AMRAP']);
+  assert.deepEqual(names,generated.map(id=>display[id]));
   assert.equal(entries.length,9);
   assert.doesNotMatch(section,/paired_sets|timed_intervals|\brounds\b protocol/);
 });
@@ -56,7 +56,15 @@ test('copy matches current EMOM, Superset, Density and AMRAP behaviour',()=>{
   assert.match(body('pyramid'),/TRX/);
   const amrap=body('amrap');
   assert.match(amrap,/Cindy/);
-  assert.match(amrap,/does not yet choose AMRAP automatically/);
+  // Generated AMRAP (#221): Balanced/Cardio and optional Coach conditioning, 2–3 exercises, 3–8 minutes, no score.
+  assert.doesNotMatch(amrap,/does not yet choose AMRAP|Cindy only/);
+  assert.match(amrap,/Generated Balanced and Cardio workouts, including optional Coach conditioning/);
+  assert.match(amrap,/two or three exercises lasting 3 to 8 minutes/);
+  assert.match(amrap,/tap Next after each exercise/);
+  assert.match(amrap,/When time is up, finish or skip the exercise you are on, then move on/);
+  assert.match(amrap,/Generated AMRAP blocks keep no score/);
+  const policy=loadAppContext().GarageFitGenerator.AMRAP_POLICY;
+  assert.deepEqual([policy.minExercises,policy.maxExercises,policy.minCapSeconds/60,policy.maxCapSeconds/60],[2,3,3,8]);
   const cindy=loadAppContext().GarageFitData.fixedWorkouts.cindy;
   assert.equal(cindy.termination.type,'amrap');
   assert.match(amrap,new RegExp(`${cindy.termination.durationSeconds/60}-minute AMRAP of 5 pull-ups, 10 push-ups and 15 air squats`));

@@ -34,7 +34,7 @@
   const WORKOUT_STYLES = ['strength','balanced','cardio'];
   const WORKOUT_DIFFICULTIES = ['easy','normal','hard'];
   const WORKOUT_BODY_FOCUSES = ['upper','full-body','lower','core'];
-  const MAIN_PROTOCOLS = ['rounds','paired_sets','timed_intervals','emom','ladder','pyramid','complex','density'];
+  const MAIN_PROTOCOLS = ['rounds','paired_sets','timed_intervals','emom','ladder','pyramid','complex','density','amrap'];
   const MOVEMENT_PATTERNS = ['squat','hinge','lunge','push','pull','carry','core'];
   const MOVEMENT_PRIORITIES = ['primary','secondary','maintenance'];
   const BODY_REGION_PRIORITIES = ['high','normal','maintenance'];

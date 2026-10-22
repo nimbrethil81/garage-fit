@@ -82,7 +82,7 @@ def capture(page, output, label):
 
 
 def fixture_blocks():
-    return json.loads(subprocess.check_output(['node','-e',"global.window=global;require('./data/exercises.js');console.log(JSON.stringify(require('./tests/helpers/protocol-fixtures').blockFixtures(GarageFitData.exercises,{emom:true,ladder:true,pyramid:true,complex:true,density:true})))"],text=True))
+    return json.loads(subprocess.check_output(['node','-e',"global.window=global;require('./data/exercises.js');console.log(JSON.stringify(require('./tests/helpers/protocol-fixtures').blockFixtures(GarageFitData.exercises,{emom:true,ladder:true,pyramid:true,complex:true,density:true,amrap:true})))"],text=True))
 
 
 def protocols(page, blocks):
@@ -265,6 +265,23 @@ def main():
             partial_outcome=page.evaluate('id=>generatorState.tracker.outcome(id)',partial_id)
             assert partial_outcome['status']=='partial' and partial_outcome['sets'][0]['reps']==3,partial_outcome
             check(page,report,label+'-density-partial-saved')
+            # AMRAP: one cap clock across repeated rounds, then the active exercise at zero.
+            protocols(page,blocks)
+            page.evaluate("enterGeneratedPhase(generatorState.timeline.findIndex(p=>p.protocol==='amrap'));document.getElementById('workoutExercise').textContent='TRX chest press with a slow controlled return'")
+            check(page,report,label+'-amrap-long');capture(page,args.output,label+'-amrap-long')
+            optional_checks(page,report,args.output,label+'-amrap')
+            for _ in range(3):
+                page.evaluate('__now+=400');page.locator('#completeMovementBtn').click()
+                page.wait_for_function('!coachAdvancing')
+            assert 'Round 2' in page.locator('#workoutMovementProgress').text_content()
+            check(page,report,label+'-amrap-round-2')
+            page.locator('#workoutRing').click();check(page,report,label+'-amrap-paused');page.locator('#workoutRing').click()
+            timers.pulse(page,'generatorState.phaseTimer',300000)
+            assert page.locator('#workoutRingNum').text_content()=='0'
+            check(page,report,label+'-amrap-zero');capture(page,args.output,label+'-amrap-zero')
+            page.evaluate('__now+=400');page.locator('#completeMovementBtn').click()
+            page.wait_for_function("currentGeneratedPhase().protocol!=='amrap'")
+            check(page,report,label+'-amrap-ended')
             # Exercise orientation changes on the same active session.
             page.set_viewport_size({'width':852,'height':393});check(page,report,label+'-rotate')
             page.set_viewport_size({'width':size[0],'height':size[1]});check(page,report,label+'-rotate-back')

@@ -200,7 +200,9 @@ test('swaps reject incompatible-only replacements, can keep other kit, and prote
   assert.equal(coached.main.blocks[placement.blockIndex].exercises[placement.exerciseIndex].id,'ring-pull-up');
 });
 
-test('no-ring plans, estimates and random consumption match baseline main d454da9',()=>{
+// Baseline main d454da9; #221 deliberately re-pinned only the Balanced/Cardio entries whose AMRAP
+// weight changed selection (Strength entries and the fixture shape are unchanged).
+test('no-ring plans, estimates and random consumption match the pinned no-ring baseline',()=>{
   for(const {equipment,duration,focus,seed,draws,hash} of baseline.fixtures){
     const rng=random(seed);let actualDraws=0;
     const workout=G.generate({catalogue:C,equipment,duration,focus,random:()=>{actualDraws++;return rng();}});

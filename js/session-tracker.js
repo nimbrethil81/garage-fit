@@ -41,6 +41,7 @@
     if (Number.isInteger(phase.ladderStep)) parts.push('l'+phase.ladderStep);
     if (Number.isInteger(phase.complexSequence)) parts.push('q'+phase.complexSequence);
     if (Number.isInteger(phase.densityRound)) parts.push('d'+phase.densityRound);
+    if (Number.isInteger(phase.amrapSequence)) parts.push('a'+phase.amrapSequence);
     if (Number.isInteger(phase.minute)) parts.push('m'+phase.minute);
     if (Number.isInteger(phase.slotIndex)) parts.push('slot'+phase.slotIndex);
     parts.push('e'+phase.exerciseIndex);
@@ -99,6 +100,8 @@
           ...(phase.protocol==='pyramid' ? {pyramidStep:phase.pyramidStep} : {}),
           ...(phase.protocol==='ladder' ? {ladderStep:phase.ladderStep} : {}),
           ...(phase.protocol==='density' ? {densityRound:phase.densityRound} : {}),
+          // One planned occurrence per AMRAP movement; repeated rounds add no planned work.
+          ...(phase.protocol==='amrap' ? {amrapSequence:phase.amrapSequence} : {}),
           ...(phase.protocol==='complex' ? {complexSequence:phase.complexSequence} : {}),
           ...(phase.plannedPrescription ? {plannedPrescription:clone(phase.plannedPrescription)} : {}),
           ...(phase.plannedLoad ? {plannedLoad:clone(phase.plannedLoad)} : {}),
