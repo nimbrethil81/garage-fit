@@ -340,7 +340,7 @@ test('completed family workout records actual edited identity despite a reset pi
   h.app.startStandaloneGeneratedWorkout();
   const draft=plain(h.run('generatorState.tracker.draft()'));
   assert.equal(draft.workoutFamilyId,workout.workoutFamilyId);assert.equal(draft.familyStyleId,workout.familyStyleId);
-  assert.equal(draft.workoutFamilyVersion,1);
+  assert.equal(draft.workoutFamilyVersion,2,'the standalone screen composes the current Strength & Control version');
   await h.playToEnd();
   const result=plain(await h.run('generatorState.trackedResult'));
   assert.equal(result.workoutFamilyId,workout.workoutFamilyId);assert.equal(result.familyStyleId,workout.familyStyleId);

@@ -61,7 +61,7 @@ test('General Fitness v1 is an immutable, open-ended, anchor-free definition on 
     `{...copy,missedSessionPolicy:{strategy:'catch-up'}}`,
     `{...copy,supportedDurations:[25]}`,
     `{...copy,familyBalancePolicy:{...copy.familyBalancePolicy,families:copy.familyBalancePolicy.families.slice(1)}}`,
-    `{...copy,familyBalancePolicy:{...copy.familyBalancePolicy,families:[...copy.familyBalancePolicy.families.slice(1),{...copy.familyBalancePolicy.families[0],workoutFamilyVersion:2}]}}`
+    `{...copy,familyBalancePolicy:{...copy.familyBalancePolicy,families:[...copy.familyBalancePolicy.families.slice(1),{...copy.familyBalancePolicy.families[0],workoutFamilyVersion:9}]}}`
   ];
   for (const source of invalid) assert.throws(() => p.run(`(()=>{const copy=JSON.parse(JSON.stringify(GF));
     GarageFitCoachPolicies.createDefaultRegistry().get('general-fitness').validateDefinition(${source});})()`), /General Fitness/, source);
@@ -88,7 +88,7 @@ test('Athletic v1 and v4 are one family for balance and variety; released defini
     assert.deepEqual(out.two, out.one, 'GF v'+version+': a v4 Athletic session earns exactly what a v1 session earns');
     assert.deepEqual(out.one.basis, ['family-identity']);
     assert.ok(out.one.families.find(item => item.workoutFamilyId === 'athletic-movement').varietyPenalty > 0, 'recency counts the family, not its version');
-    assert.deepEqual(Object.fromEntries(out.candidates), {'strength-control':1,'cardio-conditioning':1,'full-body-challenges':1,'athletic-movement':4,'core-stability':1,'mobility-movement-quality':1});
+    assert.deepEqual(Object.fromEntries(out.candidates), {'strength-control':2,'cardio-conditioning':1,'full-body-challenges':1,'athletic-movement':4,'core-stability':1,'mobility-movement-quality':1});
     assert.deepEqual(out.pinned, [1,1,1,1,1,1], 'the released definition is not edited');
     assert.equal(out.unchanged, true);
   }

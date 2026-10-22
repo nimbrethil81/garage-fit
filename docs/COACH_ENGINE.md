@@ -580,11 +580,11 @@ Generator builds the first feasible family and reports any transparent replan (s
 the tracker records the delivered family/style. Unsupported durations are planning conflicts;
 a plan no family can build fails visibly with each family's reasons.
 
-**Family versions (#244).** Both released definitions name every family at version 1 and are not
+**Family versions (#244, #261).** Both released definitions name every family at version 1 and are not
 edited. The plan composes each family at its current published version
 (`GarageFitData.workoutFamilyCurrentVersions`, never older than the definition's), so existing v1
-and v2 instances plan Athletic Movement v4 automatically with no new choice; other families are
-still version 1. Balance, variety and recency compare families by id, so any Athletic version's
+and v2 instances plan Athletic Movement v4 and Strength & Control v2 automatically with no new choice;
+other families are still version 1. Balance, variety and recency compare families by id, so any Athletic version's
 session earn the same effect and recency; results keep their recorded version. `tests/general-fitness.test.js`
 covers lifecycle, sequences at 2/3/5 sessions per week, cross-source context, recovery,
 external preferences and the family-plan seam.
@@ -615,7 +615,8 @@ squat, core), each with the explicit unloaded setup id `bodyweight`.
   recent-benchmark, short-session, easy-today, recovery-preferred, other-family). It is offered only
   after a first meaningful session, at least 28 days after the last benchmark *occasion*, in a plan of
   20 minutes or more that is not Easy, has no recovery preference, and whose first (intended) family is
-  Strength & Control. An occasion is a completed session that reached the benchmark (measured or
+  Strength & Control (at the version it is composed with: the policy names v1, the plan composes the current
+  version and the benchmark spec carries that version, #261). An occasion is a completed session that reached the benchmark (measured or
   skipped) or any session that measured one; an abandoned or early exit that measured nothing does not
   use the opportunity up. Cadence is read from saved results: no benchmark state, queue or debt is
   stored on Programme State, and a long absence yields a single opportunity.

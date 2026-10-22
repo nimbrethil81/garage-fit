@@ -7,7 +7,8 @@ policy change needs a new definition version and versioned policy reference.
 A later version of the same family keeps its id, name, purpose, styles and feasibility; it is the
 same family for training balance and recency, while composition and history keep the version.
 `GarageFitData.workoutFamilyCurrentVersions` names the version new workouts use; today that is
-version 1 for every family except Athletic Movement, whose current version is 4 (#244, #255).
+version 1 for every family except Athletic Movement, whose current version is 4 (#244, #255), and
+Strength & Control, whose current version is 2 (#261).
 
 Each definition owns its display name, purpose, supported internal styles, Body
 Focus compatibility, composition/membership policy references, suitability criteria
@@ -528,6 +529,46 @@ feature: round rests are never below 45 s there and never above 45 s in Cardio e
 No-family generation, explicit-family Coach prescriptions (still `family-prescription-unsupported`), exercise
 eligibility and fixed workouts are untouched. Final family quality validation and fallback
 belong to the shared gate below.
+
+### Strength & Control composition v2 (#261, current)
+
+Strength & Control was audited (#256) as using supporting-role drills (curls, raises, reverse flies, face
+pulls, Pallof presses and similar) far less than the Generator's own Strength: the Generator's bounded
+supporting route (`SUPPORTING_ROUTE`, `supportingRouteOpen`, `selectBlockExercises`) was only ever enabled in
+its own Main builder, never in a family composer's selection state. v2 is the same family (definition,
+styles, feasibility, suitability, quality gate and v1 membership, which is none) with one composition change:
+**paired sets and controlled circuits may take that same route**. Cardio, the other families and the Generator are untouched.
+
+- **One shared draw.** `G.drawSupportingRoute(pool, duration, focus, random)` is the Main builder's own roll,
+  now a named function both use: a Main of at least 30 minutes, not Cardio, at least two accessories
+  (`mainRole: supporting`, not conditioning) in the pool, then one seeded draw at 25%. The composer applies it to
+  its *suitable* pool (kit, difficulty, impact and position constraints already applied). Below 30 minutes or
+  with fewer candidates no random value is consumed, so v2 composes exactly what v1 does.
+- **Same selection rule.** The draw sets `supportingRoute` on the composer's selection state; nothing else
+  changes. The slot opens only as the last slot of an accessory-intent block (every block after the first), once
+  the exercises before it cover four recipe roles and none is supporting; it is then narrowed to the supporting
+  accessories that passed every other filter (protocol, family cap, setup compatibility) when at least two remain,
+  scored by the normal scorer with the supporting-role penalty, with a shortlist spanning all of them. At most one
+  exercise comes through the route; the first eligible block takes it.
+- **Filled-attempt preference.** As in the Generator's Main, a session that drew the route keeps the fittest valid
+  attempt that filled the slot over fitter attempts that never reached it; without such an attempt the fittest
+  attempt is chosen as before. There is no quota: about three in four long sessions never draw the route, and a
+  drawn route can go unused.
+- **Style fit.** Paired sets: the closing exercise of a later pair may be a supporting drill, so a primary
+  movement is paired with a supporting one. Controlled circuits: the last station of a later circuit block may be
+  one. Straight sets is **intentionally inapplicable**: every block is one exercise with full rests, so "the last
+  slot of an accessory block" would turn a whole block into supporting work; straight-set sessions draw nothing and
+  are byte-identical to v1 for the same seed (suitable supporting drills stay eligible there under the ordinary
+  score-down). No extra blocks are created and rests, volume, structure rules and recovery are v1's.
+- **Quality gate.** v2 registers `strengthQuality` unchanged, so swaps and edits meet the same suitability,
+  resistance-led, no-repeat and structure rules; a v1 workout validates as released.
+
+v1 stays registered and composes exactly as released (pinned by a structural digest in
+`tests/strength-cardio-composer.test.js`). Explicit generation without a `workoutFamilyVersion` still composes v1;
+the standalone Generator and General Fitness compose v2. Because General Fitness v2's benchmark policy was released
+naming Strength & Control v1, the plan offers the benchmark for the same family at its current version and the
+benchmark spec carries the composed version; the released definition is not edited
+([Coach engine](COACH_ENGINE.md#optional-comparable-benchmarks-192-v2)).
 
 ### Core & Stability and Full-Body Challenges composition v1
 
