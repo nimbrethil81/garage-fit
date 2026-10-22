@@ -1227,7 +1227,7 @@
       patterns:['hinge'], conditioning:false, strength:3, cardio:2, difficulty:'moderate', bodyFocus:'lower', sidedness:'per-side', movementPlanes:['sagittal'],
       prescription:{type:'unilateral-reps',value:8}, estimatedSeconds:50, generator:true, main:true,
       instruction:'Stand on one slightly bent leg and hinge at your hips with a flat back as the other leg extends behind you and your hands reach forwards, then stand tall.', voiceInstruction:true },
-    { id:'lateral-lunge-to-balance', name:'Lateral lunge to balance', family:'lateral-lunge',
+    { id:'lateral-lunge-to-balance', name:'Lateral lunge to balance',
       patterns:['lunge'], conditioning:false, strength:3, cardio:2, difficulty:'moderate', bodyFocus:'lower', impact:'medium', sidedness:'per-side', movementPlanes:['frontal'],
       prescription:{type:'unilateral-reps',value:6}, estimatedSeconds:45, generator:true, main:true,
       instruction:'Step wide to one side into a lateral lunge, then drive back to centre and balance on the other leg for a moment; repeat on the other side.', voiceInstruction:true },

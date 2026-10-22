@@ -24,7 +24,7 @@ async function start(p) { await p.click('Tennis'); await p.click('Start programm
 
 test('compact Tennis home orders the weekly progress, collapsed adjustments and actual workout CTA without dead links',async()=>{
   const p=await ui();await start(p);
-  assert.equal(p.state().programmeDefinitionVersion,7,'new starts use the current version');
+  assert.equal(p.state().programmeDefinitionVersion,8,'new starts use the current version');
   assert.deepEqual(p.json("document.getElementById('coachContent').children.slice(0,4).map(node=>node.className)"),
     ['coach-tennis-intro','coach-weekly','generator-options','coach-card']);
   assert.match(p.run("nodes().find(node=>node.className==='coach-status').textContent"),/Development/);
@@ -162,7 +162,7 @@ test('Coach selection groups existing programmes and Tennis; minimal setup saves
   await p.change('Typical tennis intensity','hard'); await p.change('Training intent','event');
   await p.change('Important event date','2026-11-20'); await p.click('Start programme');
   const state=p.state(),config=state.currentTargets.programmeSettings;
-  assert.equal(state.programmeDefinitionVersion,7); assert.equal(state.anchors.length,4);
+  assert.equal(state.programmeDefinitionVersion,8); assert.equal(state.anchors.length,4);
   assert.equal(config.focus,'power');assert.equal(config.weeklyCoachFrequency,3);
   assert.deepEqual(config.usualPlayingDays,['monday','friday']);assert.equal(config.typicalSportIntensity,'hard');
   assert.equal(config.intent,'event');assert.equal(config.significantEventDate,'2026-11-20');

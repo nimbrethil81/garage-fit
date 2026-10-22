@@ -58,10 +58,19 @@
   const ringUpper = tennisRings.capabilities.find(cap => cap.id === 'upper-body').mappings;
   ringUpper.find(mapping => mapping.facet === 'push-pull').exerciseIds.push('ring-row','ring-press-up');
   ringUpper.find(mapping => mapping.facet === 'shoulder-support').exerciseIds.push('ring-face-pull');
+  // v4 (#255) reviews the shared single-leg and lateral drills added to the catalogue: single-leg hip hinge
+  // reach is controlled single-leg lower-body strength/stability, and lateral lunge to balance is a
+  // single-step lateral lunge returning to centre (home-feasible controlled lateral loading, like its
+  // existing lateral-lunge peers) that ends in single-leg balance. Neither proves lateral braking or power.
+  // Travelling shuffle/stop, acceleration/stop, hop and bound drills stay unmapped: they need confirmed
+  // room the Generator-level selection cannot express, and they are family-only catalogue entries.
+  const tennisMovementDrills = {...JSON.parse(JSON.stringify(tennisRings)), version: 4};
+  tennisMovementDrills.capabilities.find(cap => cap.id === 'lateral-movement').mappings[0].exerciseIds.push('lateral-lunge-to-balance');
+  tennisMovementDrills.capabilities.find(cap => cap.id === 'lower-body').mappings[1].exerciseIds.push('single-leg-hip-hinge-reach', 'lateral-lunge-to-balance');
   function freeze(value) {
     Object.values(value).forEach(item => { if (item && typeof item === 'object') freeze(item); });
     return Object.freeze(value);
   }
   root.GarageFitData = root.GarageFitData || {};
-  root.GarageFitData.sportCapabilityPolicies = freeze({tennis: {1: tennis, 2: tennisHome, 3: tennisRings}});
+  root.GarageFitData.sportCapabilityPolicies = freeze({tennis: {1: tennis, 2: tennisHome, 3: tennisRings, 4: tennisMovementDrills}});
 })(typeof window !== 'undefined' ? window : globalThis);

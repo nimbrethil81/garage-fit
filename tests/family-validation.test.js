@@ -55,7 +55,7 @@ test('the gate rejects edits that keep a label but lose the family: Mobility wei
 });
 
 test('the Athletic gate rejects near-duplicate blocks session-wide while allowing deliberate repetition within a drill',()=>{
-  const athletic=generate('athletic-movement',{duration:30}),blocks=athletic.main.blocks;
+  const athletic=generate('athletic-movement',{duration:30,workoutFamilyVersion:3}),blocks=athletic.main.blocks;
   assert.deepEqual(validate(athletic),{valid:true,technicalIssues:[],qualityIssues:[]});
   assert.ok(blocks.some(block=>block.prescription.rounds>1),'repetition within a drill is normal practice');
   // A misleading regression: the balance/control block quietly replays the footwork circuit's stepping drills

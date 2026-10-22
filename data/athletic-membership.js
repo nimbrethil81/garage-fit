@@ -65,8 +65,9 @@
       const exercise = catalogue[exerciseId];
       if (!exercise) throw new Error('Unknown Athletic exercise: ' + exerciseId);
       const side = exercise.sidedness === 'per-side' ? 'per-side' : 'bilateral';
-      // v2 landings are short, quality-led efforts (at most fifteen seconds); v1 keeps its released bounds.
-      const jump = version > 1 && exercise.impact === 'high' ? {type: side === 'per-side' ? 'unilateral-timed' : 'timed', minValue: 10, maxValue: 15} : JUMP_TIMED;
+      // New landings (v2 additions) are short, quality-led efforts (at most fifteen seconds); every v1 entry,
+      // including skater jumps, keeps its released bounds in both tables.
+      const jump = version > 1 && ADDITIONS.some(item => item[0] === exerciseId) && exercise.impact === 'high' ? {type: side === 'per-side' ? 'unilateral-timed' : 'timed', minValue: 10, maxValue: 15} : JUMP_TIMED;
       const timed = exercise.impact === 'high' ? jump : TIMED[side];
       // Canonical rep-based drills keep reps as their default; reps are offered nowhere else.
       const prescriptions = exercise.prescription.type.includes('reps') ? [REPS[side], timed] : [timed];

@@ -7,7 +7,7 @@ policy change needs a new definition version and versioned policy reference.
 A later version of the same family keeps its id, name, purpose, styles and feasibility; it is the
 same family for training balance and recency, while composition and history keep the version.
 `GarageFitData.workoutFamilyCurrentVersions` names the version new workouts use; today that is
-version 1 for every family except Athletic Movement, whose current version is 3 (#244).
+version 1 for every family except Athletic Movement, whose current version is 4 (#244, #255).
 
 Each definition owns its display name, purpose, supported internal styles, Body
 Focus compatibility, composition/membership policy references, suitability criteria
@@ -155,7 +155,7 @@ Its six new drills are family-only catalogue entries with no phase flags; `bear-
 `knee-to-opposite-elbow` keep their canonical entries and flags. Travelling drills set
 `requiresMovementRoom`, so only in-place low-impact drills are assumed viable in ordinary
 space; high-impact skater jumps need an explicit Hard-difficulty opt-in that lifts the
-default high-impact exclusion. Deferred A9 and A13 are absent. Neither Coach nor Generator supplies a
+default high-impact exclusion. Deferred A9 and A13 are absent from membership v1 (they join membership v2, #255). Neither Coach nor Generator supplies a
 separate table, guessed exercise aliases or grants copied from saved data.
 
 Each entry identifies one exact canonical `exerciseId` and family-specific `role`,
@@ -391,7 +391,7 @@ is available with confirmed room. With no confirmed room, the approved integrate
 pool contains only the two medium-impact lunge combinations: combining that space
 restriction with exclusion of medium impact fails `family-not-feasible`. Floor-only,
 hanging-only and other requests losing the standing directional/balance essentials
-also fail honestly. Membership is never expanded to fill time; A9/A13 remain deferred.
+also fail honestly. Membership is never expanded to fill time; A9/A13 remain deferred in v1 (membership v2 admits them).
 
 ### Athletic Movement composition v2 (#244)
 
@@ -425,7 +425,7 @@ control blocks, one integrated block); confirmed room gives seven to nine. Feasi
 adjustments are those of v1. v2 blocks carry `workoutFamilyVersion: 2` in their family context,
 which resolves the v1 membership policy. v2 stays composable and validatable exactly as released.
 
-### Athletic Movement composition v3 (#244 follow-up, current)
+### Athletic Movement composition v3 (#244 follow-up)
 
 v2 judged novelty only against earlier blocks of the same stage, so a control block built from
 footwork's own stepping drills passed (a 30-minute Dynamic Balance session showed forward-back and
@@ -446,6 +446,52 @@ staged script, with novelty judged across the whole Main session:
 - Gate: `redundant-block:<id>` now means fewer than two drills new to the Main session. Stage ids,
   the finish, per-drill caps, recovery, membership (v1 policy), feasibility and styles are unchanged.
   Saved v1 and v2 workouts keep their own rules; v3 blocks carry `workoutFamilyVersion: 3`.
+
+### Athletic Movement composition v4 and membership v2 (#255, current)
+
+v4 is the v3 staged script and session-wide rule drawing on **membership v2**: membership v1 plus eleven
+new canonical movements, `fast-feet`, `side-step-touches` and `cossack-squat` (reused identities, no
+new entries). Definitions v1–v3 keep membership v1; only definition v4 resolves `{athletic-movement, 2}`,
+so saved and explicit v1–v3 workouts, drafts and Coach pins are unchanged (v1–v3 composition digests are pinned
+in `tests/athletic-composer.test.js`). New standalone and General Fitness workouts use v4 automatically.
+
+A membership entry may state `minimumDifficulty` (`normal` excludes Easy; `hard` allows Hard only). It is a
+family-policy field, enforced by the shared eligibility check for generation, validation and swaps; it is not
+exercise metadata, because family-only catalogue entries carry no `difficulty`. Travelling drills set
+`requiresMovementRoom`; high impact still needs Hard **and** an explicit exclusion list that permits it.
+
+| Identity | Athletic roles | Minimum difficulty | Room | Impact | Shared elsewhere |
+| --- | --- | --- | --- | --- | --- |
+| In-in-out-out steps | footwork | Easy | in place | medium | Main flags: Cardio & Conditioning, Full-Body, Generator (supporting conditioning) |
+| Lateral line steps | footwork | Easy | in place | low | family-only |
+| Split-stance step switches | footwork, control | Easy | in place | low | family-only |
+| Clock-step balance | control | Easy | in place | low | family-only |
+| Single-leg hip hinge reach | control | Normal | in place | low | Main flags: Strength & Control, Generator; Tennis mapping v4 (lower body) |
+| Lateral lunge to balance | control, integrated | Normal | in place | medium | Main flags: Strength & Control, Generator; Tennis mapping v4 (lateral control, lower body) |
+| 180-degree step turns | footwork | Normal | in place | low | family-only |
+| Lateral shuffle and stop | footwork, integrated | Normal | confirmed | medium | family-only |
+| Forward-back acceleration and stop (A9) | footwork, integrated | Normal | confirmed | medium | family-only |
+| Forward hop and stick (A13) | integrated | Hard | confirmed | high | family-only |
+| Lateral bound and stick | integrated | Hard | confirmed | high | family-only |
+| Fast feet (reused) | footwork | Easy | in place | medium | existing Cardio/Generator flags |
+| Side step touches (reused) | control (finish, partner) | Easy | in place | low | existing warm-up flag |
+| Cossack squat (reused) | integrated | Easy | in place | medium | existing flags; Tennis mapping unchanged |
+
+Intentional exclusions: travelling and landing drills are never globally flagged, because the Generator
+has no confirmed-room concept; they are therefore unavailable to Tennis Conditioning, Mobility, Core &
+Stability and every non-Athletic family. Mobility, Core & Stability and Full-Body Challenges receive no
+new family memberships (Mobility's and Core's published policies need no change for these movements; Full-Body
+selection reads the shared Main flags). Hops and bounds are integrated-only: Athletic control blocks are gentle
+balance circuits and high impact is only an optional middle drill of an integrated block (never a block edge,
+never consecutive), with 10–15 s quality-led efforts and 40 s recovery (no reps, AMRAPs or intervals).
+
+v4 changes composition only where the larger pool needs it: the footwork pool and control partners include the
+additions (still three-plane footwork first); control blocks rotate their standing single-leg anchor through
+single-leg balance and reach, clock-step balance, single-leg hip hinge reach and lateral lunge to balance, each
+bringing a new challenge (the v3 two-fresh-drills rule still decides how many blocks a stage earns); integrated
+blocks draw lateral lunge to balance and the cossack squat in place and the shuffle/stop, acceleration/stop,
+hop and bound with room; the finish swaps its pivot steps for side-step touches. Preparation, resets and the
+longer finish timings are unchanged.
 
 ### Strength & Control and Cardio & Conditioning composition v1
 

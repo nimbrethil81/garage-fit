@@ -319,3 +319,96 @@ test('v3 keeps the integrated pool honest: low-impact practice with room reserve
     assert.ok(w.main.blocks.filter(b=>stage(b)==='integrated').every(b=>b.exercises.some(e=>e.id==='bear-crawl')));
   }
 });
+
+// ---- #255: membership v2 / composition v4 -------------------------------------------------------
+const NEW_255=['in-in-out-out-steps','lateral-line-steps','split-stance-step-switches','clock-step-balance','single-leg-hip-hinge-reach',
+  'lateral-lunge-to-balance','180-degree-step-turns','lateral-shuffle-and-stop','forward-back-acceleration-and-stop','forward-hop-and-stick','lateral-bound-and-stick'];
+const REUSED_255=['fast-feet','side-step-touches','cossack-squat'];
+const idsOf=w=>new Set(w.main.blocks.flatMap(b=>b.exercises.map(e=>e.id)));
+
+test('v4 draws the reviewed additions through staged blocks with exact, distinct scripts',()=>{
+  assert.deepEqual(scripts(generate({duration:30})),[
+    'athletic-preparation-1: knee-to-opposite-elbow, forward-back-line-steps, quarter-turn-pivot-steps',
+    'athletic-footwork-2: 180-degree-step-turns, in-in-out-out-steps, forward-back-line-steps',
+    'athletic-footwork-3: lateral-step-and-stick, fast-feet, split-stance-step-switches',
+    'athletic-control-4: lateral-lunge-to-balance, single-leg-balance-reach, single-leg-hip-hinge-reach',
+    'athletic-control-5: quarter-turn-pivot-steps, clock-step-balance, side-step-touches',
+    'athletic-integrated-6: reverse-lunge-knee-drive, cossack-squat, alternating-lateral-lunge',
+    'athletic-finish-7: forward-back-line-steps, side-step-touches, knee-to-opposite-elbow']);
+  // Easy drops the Normal-and-above drills (hinge reach, lateral lunge to balance, 180-degree turns); still staged and novel.
+  const easy=generate({duration:30,difficulty:'easy'});
+  assert.deepEqual(scripts(easy).map(line=>line.split(':')[0]),['athletic-preparation-1','athletic-footwork-2','athletic-footwork-3','athletic-control-4','athletic-integrated-5','athletic-finish-6']);
+  assert.ok(['single-leg-hip-hinge-reach','lateral-lunge-to-balance','180-degree-step-turns'].every(id=>!idsOf(easy).has(id)));
+  for(const w of [generate({duration:30}),generate({duration:30,movementRoom:true}),easy])assert.deepEqual(mainOverlap(w).map(item=>+item.split(':')[1].split('/')[0]).filter(n=>n>1),[],'no Main block repeats most of its drills');
+  // Published compositions never see the additions (their digests are pinned in the Full matrix).
+  for(const version of [1,2,3])assert.ok(NEW_255.concat(REUSED_255).filter(id=>idsOf(generate({workoutFamilyVersion:version,duration:45,movementRoom:true,excludedImpact:[]})).has(id)&&!['fast-feet'].includes(id)).length===0,'v'+version);
+});
+
+test('v4 eligibility honours minimum difficulty, confirmed room, impact and per-role membership',()=>{
+  const context=(role,extra={})=>({workoutFamilyId:FAMILY,workoutFamilyVersion:4,role,...extra});
+  const ok=(id,role,difficulty,extra)=>G.generatedPhaseEligible(C[id],'main',[],difficulty,context(role,{difficulty,...extra}));
+  // Normal-and-above: unavailable on Easy only.
+  for(const id of ['single-leg-hip-hinge-reach','180-degree-step-turns','lateral-lunge-to-balance']) {
+    const role=id==='180-degree-step-turns'?'footwork':'control';
+    assert.deepEqual(['easy','normal','hard'].map(d=>ok(id,role,d)),[false,true,true],id);
+  }
+  // Travelling drills need confirmed room; in-place ones do not.
+  for(const [id,role] of [['lateral-shuffle-and-stop','footwork'],['forward-back-acceleration-and-stop','footwork']]) {
+    assert.deepEqual([ok(id,role,'normal'),ok(id,role,'normal',{movementRoom:true}),ok(id,role,'easy',{movementRoom:true})],[false,true,false],id);
+  }
+  for(const id of ['in-in-out-out-steps','lateral-line-steps','split-stance-step-switches'])assert.equal(ok(id,'footwork','easy'),true,id);
+  assert.equal(ok('clock-step-balance','control','easy'),true);
+  // Landing drills: Hard only, confirmed room, integrated role only, and only when high impact is explicitly allowed.
+  for(const id of ['forward-hop-and-stick','lateral-bound-and-stick']) {
+    for(const role of ['footwork','control'])assert.equal(ok(id,role,'hard',{movementRoom:true,excludedImpact:[]}),false,id+' '+role);
+    assert.deepEqual(['easy','normal','hard'].map(d=>ok(id,'integrated',d,{movementRoom:true,excludedImpact:[]})),[false,false,true],id);
+    assert.equal(ok(id,'integrated','hard',{movementRoom:true}),false,'default exclusion keeps high impact out');
+    assert.equal(ok(id,'integrated','hard',{movementRoom:true,excludedImpact:['high']}),false);
+    assert.equal(ok(id,'integrated','hard',{excludedImpact:[]}),false,'unconfirmed room');
+  }
+  // The additions belong to membership v2 only.
+  for(const id of NEW_255)for(const role of ['footwork','control','integrated'])assert.equal(F.getMembership({workoutFamilyId:FAMILY,workoutFamilyVersion:3,role},id),null,id);
+  assert.equal(F.getMembership({workoutFamilyId:FAMILY,workoutFamilyVersion:4,role:'integrated'},'cossack-squat')!==null,true);
+  // In-place drills are never marked as travelling; travelling ones always are.
+  const policy=id=>F.getMembership(context('footwork'),id)||F.getMembership(context('integrated'),id);
+  for(const id of ['in-in-out-out-steps','lateral-line-steps','split-stance-step-switches','180-degree-step-turns','fast-feet'])assert.equal(policy(id).requiresMovementRoom,undefined,id);
+  for(const id of ['lateral-shuffle-and-stop','forward-back-acceleration-and-stop','forward-hop-and-stick','lateral-bound-and-stick'])assert.equal(policy(id).requiresMovementRoom,true,id);
+});
+
+test('v4 reaches every reviewed addition in a suitable context and keeps landings optional, brief and isolated',()=>{
+  const seen={};let landings=0,sessions=0;
+  const scenarios=[{difficulty:'easy'},{difficulty:'normal'},{difficulty:'normal',movementRoom:true},{difficulty:'hard',movementRoom:true},
+    {difficulty:'hard',movementRoom:true,excludedImpact:[]}];
+  for(const duration of [20,30,45])for(const extra of scenarios)for(let seed=1;seed<=24;seed++) {
+    const w=generate({duration,...extra,random:rng(seed*7919)});sessions++;
+    assert.equal(w.familyDiagnostics,undefined);
+    assert.equal(G.validateFamilyWorkout(w,{catalogue:C,equipment:[]}).valid,true);
+    for(const id of idsOf(w)){const key=id+'@'+extra.difficulty+(extra.movementRoom?'+room':'')+(extra.excludedImpact?'+impact':'');seen[key]=(seen[key]||0)+1;}
+    const hops=resolved(w).filter(x=>x.ex.impact==='high');
+    if(hops.length)landings++;
+    for(const [index,{b,s,ex}] of hops.entries()) {
+      assert.ok(s.plannedPrescription.value<=15,'landing efforts stay brief: '+ex.id);
+      assert.ok(b.exercises[0].impact!=='high'&&b.exercises.at(-1).impact!=='high','landings never open or close a block');
+      assert.ok(b.occurrenceRecoverySeconds.every(n=>n>=8));
+    }
+  }
+  const reached=id=>Object.keys(seen).some(key=>key.startsWith(id+'@'));
+  assert.deepEqual(NEW_255.concat(REUSED_255).filter(id=>!reached(id)),[]);
+  // Travelling and landing drills never appear without confirmed room; landings only on Hard with the explicit opt-in.
+  for(const id of ['lateral-shuffle-and-stop','forward-back-acceleration-and-stop','forward-hop-and-stick','lateral-bound-and-stick'])
+    assert.deepEqual(Object.keys(seen).filter(key=>key.startsWith(id+'@')&&!key.includes('+room')),[],id);
+  for(const id of ['forward-hop-and-stick','lateral-bound-and-stick'])
+    assert.deepEqual(Object.keys(seen).filter(key=>key.startsWith(id+'@')&&!key.endsWith('@hard+room+impact')),[],id);
+  assert.ok(landings>0&&landings<sessions*.1,'optional landings stay a small minority: '+landings+'/'+sessions);
+  for(const id of ['single-leg-hip-hinge-reach','lateral-lunge-to-balance','180-degree-step-turns'])assert.deepEqual(Object.keys(seen).filter(key=>key.startsWith(id+'@')&&key.includes('@easy')),[],id);
+});
+
+test('v4 swaps can never introduce a drill the session difficulty or room excludes',()=>{
+  const easy=generate({duration:30,difficulty:'easy',random:rng(11)});
+  for(const [b,block] of easy.main.blocks.entries())for(let i=0;i<block.exercises.length;i++) {
+    const edited=copy(easy);
+    try{G.swap(edited,b,i,{catalogue:C,equipment:[],random:rng(b*13+i)});}catch(error){continue;}
+    assert.equal(G.validateFamilyWorkout(edited,{catalogue:C,equipment:[]}).valid,true);
+    assert.ok(['single-leg-hip-hinge-reach','lateral-lunge-to-balance','180-degree-step-turns','lateral-shuffle-and-stop','forward-back-acceleration-and-stop','forward-hop-and-stick','lateral-bound-and-stick'].every(id=>!idsOf(edited).has(id)));
+  }
+});
