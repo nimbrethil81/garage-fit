@@ -165,18 +165,28 @@
   // brings practice the stage has not had yet (at least one drill absent from all its earlier blocks).
   // Otherwise the stage is consolidated into fewer, longer drills with deliberate within-block
   // repetition, so a limited eligible pool never becomes a series of near-identical circuits.
-  const BLOCK_SECONDS=240,CONNECTOR_SECONDS=60,FINISH_MINIMUM=30;
+  // ---- Published composition v3 (#244 follow-up): the same staged script, judged session-wide ----
+  // v2 only compared a block with earlier blocks of its own stage, so control could recycle footwork's
+  // drills and still read as new. v3 asks each Main block (footwork, control, integrated) for at least
+  // two drills that no earlier Main block practised, so a stage whose approved pool is spent is
+  // consolidated into one longer circuit instead of a relabelled copy. Warm-up, resets and the finish
+  // are gentle bookends that may reuse familiar drills; they never count towards (or against) Main novelty.
+  const BLOCK_SECONDS=240,CONNECTOR_SECONDS=60,FINISH_MINIMUM=30,FRESH_DRILLS=2;
   const finishTarget=duration=>duration>=30?120:60;
-  function composeV2(options,request,attempt) {
+  const composeV2=(options,request,attempt)=>composeStaged(options,request,attempt,false);
+  const composeV3=(options,request,attempt)=>composeStaged(options,request,attempt,true);
+  function composeStaged(options,request,attempt,sessionWide) {
     const setup=prepare(options,request,attempt),{duration,catalogue,random,pools,style,targets,light,fail}=setup;
     const {blocks,drill,minimum,fits}=builder(setup);
     const wanted=budget=>Math.max(1,Math.floor(budget/BLOCK_SECONDS));
     const rank=pool=>pool.map(ex=>({ex,rank:random()})).sort((a,b)=>a.rank-b.rank).map(x=>x.ex);
     const practised=new Set(); // drills already used by an earlier Main stage
+    const finishIds=duration>=30?['forward-back-line-steps',...RESET.slice().reverse()]:RESET.slice().reverse();
     // Fresh drills first (new to this stage, then new to the session), then the seeded order.
     const order=(pool,used)=>[...pool.filter(ex=>!used.has(ex.id)&&!practised.has(ex.id)),
       ...pool.filter(ex=>!used.has(ex.id)&&practised.has(ex.id)),...pool.filter(ex=>used.has(ex.id))];
-    const brings=(list,used)=>list.some(ex=>!used.has(ex.id));
+    const brings=sessionWide?(list,used)=>list.filter(ex=>!used.has(ex.id)&&!practised.has(ex.id)).length>=Math.min(FRESH_DRILLS,list.length)
+      :(list,used)=>list.some(ex=>!used.has(ex.id));
     // Chosen drills play in their seeded order, so equal choices still vary between sessions.
     const seeded=(list,pool)=>list.slice().sort((a,b)=>pool.indexOf(a)-pool.indexOf(b));
     function plan(count,next) {
@@ -189,10 +199,15 @@
       lists.flat().forEach(ex=>practised.add(ex.id));
       return lists;
     }
+    // v3: when the approved integrated pool has fewer than two drills of its own (low-impact practice
+    // with room is only grapevine steps and the crawl), footwork leaves the shared ones for integrated
+    // work rather than spending them first. Footwork still uses one only to cover a movement plane.
+    const own=pools.integrated.filter(ex=>!pools.footwork.includes(ex)&&!pools.control.includes(ex));
+    const reserved=new Set(sessionWide?pools.integrated.filter(ex=>!own.includes(ex)).slice(0,Math.max(0,FRESH_DRILLS-own.length)).map(ex=>ex.id):[]);
+    const rankedFeet=rank(pools.footwork),feet=[...rankedFeet.filter(ex=>!reserved.has(ex.id)),...rankedFeet.filter(ex=>reserved.has(ex.id))];
     // Footwork opens with forward/back, lateral and rotational practice; later blocks add new drills.
-    const feet=rank(pools.footwork);
     const footwork=plan(wanted(targets[1]),(index,used)=>{
-      const options=order(feet,used),list=[];
+      const options=order(index?feet.filter(ex=>!reserved.has(ex.id)):feet,used),list=[];
       if(!index)for(const plane of ['sagittal','frontal','transverse'])
         if(!list.some(ex=>ex.movementPlanes.includes(plane)))list.push(options.find(ex=>!list.includes(ex)&&ex.movementPlanes.includes(plane)));
       for(const ex of options)if(list.length<3&&!list.includes(ex))list.push(ex);
@@ -200,7 +215,11 @@
     });
     // Every control drill centres on standing single-leg balance, combined with different stepping,
     // sticking or cross-body partners in each block.
+    // v3 offers partners the session has used least (warm-up, footwork and finish included), so the
+    // gentle bookends do not decide which drills the Main control block repeats; ties stay seeded.
     const anchor=catalogue['single-leg-balance-reach'],partners=rank(pools.control.filter(ex=>ex.id!==anchor.id));
+    const load=ex=>[...PREPARATION,...finishIds,...footwork.flat().map(e=>e.id)].filter(id=>id===ex.id).length;
+    if(sessionWide)partners.sort((a,b)=>load(a)-load(b));
     const control=plan(wanted(targets[2]),(index,used)=>{
       const [before,after]=seeded(order(partners,used).slice(0,2),partners);
       return [before,anchor,after].filter(Boolean);
@@ -231,7 +250,7 @@
     });
     // Bounded efforts and recoveries cannot fill every whole-second budget, so the finish moves by the
     // fewest seconds from its target (never below thirty, at most twenty above) until every drill fits.
-    const finishList=light(duration>=30?['forward-back-line-steps',...RESET.slice().reverse()]:RESET.slice().reverse());
+    const finishList=light(finishIds);
     const fitsWith=seconds=>fits('finish','control',finishList,seconds+G.BLOCK_TRANSITION_SECONDS)
       &&integrated.every((list,index)=>fits('integrated','integrated',list,share(practiceFor(seconds),integrated.length,index)));
     let finish=target;
@@ -294,7 +313,11 @@
     const match=/^athletic-([a-z]+)-\d+$/.exec(block.id||'');
     return match&&STAGE_ROLES[match[1]]===block.familyContext.role?match[1]:null;
   };
-  function qualityV2(workout) {
+  const qualityV2=workout=>stagedQuality(workout,false);
+  // v3 (#244 follow-up): a Main block is redundant unless at least two of its drills (all of them, for a
+  // two-drill block) are new to the whole Main session so far, whichever stage practised them before.
+  const qualityV3=workout=>stagedQuality(workout,true);
+  function stagedQuality(workout,sessionWide) {
     const issues=quality(workout),blocks=workout.main.blocks;
     if(!blocks.length||blocks.some(block=>!block.familyContext||block.familyContext.workoutFamilyId!==FAMILY))return issues;
     if(blocks.some(block=>block.familyContext.workoutFamilyVersion!==workout.workoutFamilyVersion))issues.push('context-version');
@@ -302,13 +325,15 @@
     stages.forEach((stage,index)=>{if(!stage)issues.push('stage-identity:'+blocks[index].id);});
     const letters=stages.map(stage=>({preparation:'P',footwork:'F',control:'C',integrated:'I',reset:'R',finish:'X'})[stage]||'?').join('');
     if(!/^PF+C+I(RI)*X$/.test(letters))issues.push('stage-order');
-    const used={};
+    const used={},seen=new Set();
     blocks.forEach((block,index)=>{
       const stage=stages[index],ids=block.exercises.map(ex=>ex.id);
       if(stage==='control'&&!block.exercises.some(ex=>ex.sidedness==='per-side'&&ex.bodyPosition==='standing'))issues.push('control-without-single-leg:'+block.id);
       if(!['footwork','control','integrated'].includes(stage))return;
-      if(used[stage]&&ids.every(id=>used[stage].has(id)))issues.push('redundant-block:'+block.id);
-      used[stage]=new Set([...(used[stage]||[]),...ids]);
+      const redundant=sessionWide?[...new Set(ids)].filter(id=>!seen.has(id)).length<Math.min(FRESH_DRILLS,new Set(ids).size)
+        :used[stage]&&ids.every(id=>used[stage].has(id));
+      if(redundant)issues.push('redundant-block:'+block.id);
+      used[stage]=new Set([...(used[stage]||[]),...ids]);ids.forEach(id=>seen.add(id));
     });
     const last=blocks[blocks.length-1];
     if(stages[stages.length-1]==='finish'&&last.estimatedSeconds<FINISH_MINIMUM)issues.push('finish-too-short');
@@ -322,4 +347,5 @@
     ?/^athletic-preparation-\d+$/.test(block.id)?'warmup':/^athletic-finish-\d+$/.test(block.id)?'cooldown':'main':'main';
   G.registerFamilyComposer(FAMILY,1,composeV1,quality,stageSection);
   G.registerFamilyComposer(FAMILY,2,composeV2,qualityV2,stageSection);
+  G.registerFamilyComposer(FAMILY,3,composeV3,qualityV3,stageSection);
 })(typeof window==='undefined'?globalThis:window);
