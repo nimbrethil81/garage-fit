@@ -234,10 +234,10 @@
     return !!(first && second && (first.id===second.id || sameFamily(first,second)));
   }
 
-  // Main policy: families whose equipment variants are interchangeable enough that one
-  // workout should never contain two of them (dumbbell and kettlebell sumo squat). Other
+  // Main policy: families whose equipment or assistance variants are interchangeable enough
+  // that one workout should contain at most one (e.g. sumo squats, assisted/unassisted dips). Other
   // families stay subject only to the soft repeat and recency scoring.
-  const MAIN_SINGLE_VARIANT_FAMILIES = new Set(['sumo-squat']);
+  const MAIN_SINGLE_VARIANT_FAMILIES = new Set(['sumo-squat','ring-dip','ring-support']);
 
   // Main policy: an "occasional" family (e.g. farmer carry across dumbbell/kettlebell
   // variants) or a single-variant family is capped at one exposure across the whole Main
@@ -2633,7 +2633,9 @@
     const required=entries.filter(entry=>entry.anchor.importance==='required'),reserved=[],planned=new Set();
     // A dedicated rounds/interval block needs no filler. Paired-only anchors may share a
     // block with an equally prescribed required anchor, or an eligible optional partner.
-    const candidatesFor=(entry,index,allowPair=true)=>{
+    // Optional partners honour every required anchor, including later blocks, and work
+    // already reserved by this plan; an anchor never loses its place to generic filler.
+    const candidatesFor=(entry,index,allowPair=true,preceding=[])=>{
       if(entry.issues.length)return [];
       const candidates=[];
       for(const protocol of entry.protocols){
@@ -2641,7 +2643,7 @@
         else if(allowPair){
           const partner=required.find(other=>other!==entry&&!planned.has(other)&&!other.issues.length&&other.anchor.exerciseId!==entry.anchor.exerciseId&&other.repeats===entry.repeats&&other.protocols.includes(protocol)&&setupProfilesCompatible([entry.exercise,other.exercise],owned));
           if(partner)candidates.push({block:anchorBlock(protocol,[entry.exercise,partner.exercise],entry.repeats,rest,index),entries:[entry,partner]});
-          const generic=optionalEligible.filter(exercise=>!anchorIds.has(exercise.id)&&!mainFamilyCapReached(exercise,[entry.exercise])&&setupProfilesCompatible([entry.exercise,exercise],owned)&&protocolCompatible(exercise,protocol)&&permittedProtocols(rx,null).includes(protocol)).sort((a,b)=>a.estimatedSeconds-b.estimatedSeconds||a.id.localeCompare(b.id))[0];
+          const generic=optionalEligible.filter(exercise=>!anchorIds.has(exercise.id)&&!mainFamilyCapReached(exercise,[entry.exercise,...required.map(item=>item.exercise),...preceding])&&setupProfilesCompatible([entry.exercise,exercise],owned)&&protocolCompatible(exercise,protocol)&&permittedProtocols(rx,null).includes(protocol)).sort((a,b)=>a.estimatedSeconds-b.estimatedSeconds||a.id.localeCompare(b.id))[0];
           if(generic)candidates.push({block:anchorBlock(protocol,[entry.exercise,generic],entry.repeats,rest,index),entries:[entry]});
         }
       }
@@ -2652,7 +2654,7 @@
       planned.clear();const blocks=[],conflicts=[];
       for(const entry of required){
         if(planned.has(entry)||entry.issues.length)continue;
-        let choices=candidatesFor(entry,blocks.length);
+        let choices=candidatesFor(entry,blocks.length,true,blocks.flatMap(block=>block.exercises));
         if(honourSoft)choices=choices.filter(choice=>choice.entries.every(item=>permittedProtocols(rx,item.anchor,true).includes(choice.block.protocol))&&
           (choice.block.exercises.every(exercise=>exercise.coachAnchor)||permittedProtocols(rx,null,true).includes(choice.block.protocol)));
         choices.sort((a,b)=>(preferSimple?simpleRank(a.block.protocol)-simpleRank(b.block.protocol):0)||a.block.estimatedDurationSeconds/a.entries.length-b.block.estimatedDurationSeconds/b.entries.length);
@@ -2696,7 +2698,7 @@
       const choices=candidatesFor(entry,reserved.length,false);
       // Preferred paired sets can use an optional partner too; never absorb required work.
       if(entry.protocols.includes('paired_sets')&&!entry.issues.length){
-        const partner=optionalEligible.filter(exercise=>!anchorIds.has(exercise.id)&&!mainFamilyCapReached(exercise,[entry.exercise])&&setupProfilesCompatible([entry.exercise,exercise],owned)&&protocolCompatible(exercise,'paired_sets')&&genericProtocols.includes('paired_sets')).sort((a,b)=>a.estimatedSeconds-b.estimatedSeconds||a.id.localeCompare(b.id))[0];
+        const partner=optionalEligible.filter(exercise=>!anchorIds.has(exercise.id)&&!mainFamilyCapReached(exercise,[entry.exercise,...reserved.flatMap(block=>block.exercises)])&&setupProfilesCompatible([entry.exercise,exercise],owned)&&protocolCompatible(exercise,'paired_sets')&&genericProtocols.includes('paired_sets')).sort((a,b)=>a.estimatedSeconds-b.estimatedSeconds||a.id.localeCompare(b.id))[0];
         if(partner)choices.push({block:anchorBlock('paired_sets',[entry.exercise,partner],entry.repeats,rest,reserved.length),entries:[entry]});
       }
       choices.sort((a,b)=>Number(!permittedProtocols(rx,entry.anchor,true).includes(a.block.protocol))-Number(!permittedProtocols(rx,entry.anchor,true).includes(b.block.protocol))||simpleRank(a.block.protocol)-simpleRank(b.block.protocol)||a.block.estimatedDurationSeconds-b.block.estimatedDurationSeconds);
