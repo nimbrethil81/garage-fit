@@ -363,7 +363,7 @@ test('Coach preview uses Generator sections and rows for every phase, with small
   assert.doesNotMatch(text,/Required anchor|Required support|Maintenance ·|Begin workout/);
   assert.equal(p.json("nodes('coachPreviewContent').filter(node=>node.textContent==='Edit Workout'&&node.onclick).length"),1);
   assert.equal(p.run("nodes('coachPreviewContent').find(node=>node.className==='preview-actions coach-preview-actions').children.map(node=>node.textContent).join()"),'Edit Workout,Start workout');
-  assert.ok(p.run("action('Back to Coach','coachPreviewContent')"));
+  assert.equal(p.run("action('Back to Coach','coachPreviewContent')"),undefined,'the top-left back is the single return control');
   const why=p.json("(()=>{const why=nodes('coachPreviewContent').find(node=>node.className==='generator-options coach-why');return {open:!!why.open,summary:why.children[0].textContent,text:why.children.slice(1).map(node=>node.textContent).join(' ')};})()");
   assert.deepEqual([why.open,why.summary],[false,'Why this workout?']);
   assert.match(why.text,/Last two weeks.*not proven tennis skill improvement/);
@@ -378,7 +378,7 @@ test('reopening an unchanged Coach preview keeps the same session; real changes 
   await p.click('Edit Workout','coachPreviewContent');await p.click('Swap','coachPreviewContent');
   const edited=p.json('coachUI.controller.snapshot().preview.workout.main.blocks');
   p.run("nodes('coachPreviewContent').find(node=>node.className==='generator-options coach-why').open=true;nodes('coachPreviewContent').find(node=>node.className==='generator-options coach-why').ontoggle()");
-  await p.click('Back to Coach','coachPreviewContent');await p.click('View today’s workout');
+  p.run('appBack()');await p.click('View today’s workout');
   assert.equal(p.json('coachUI.controller.snapshot().preview.plan.prescription.prescriptionId'),first);
   assert.deepEqual(p.json('coachUI.controller.snapshot().preview.workout.main.blocks'),edited,'edits are kept, not regenerated');
   assert.equal(p.run("action('Edit Workout','coachPreviewContent')")!==undefined,true,'reopening leaves edit mode');

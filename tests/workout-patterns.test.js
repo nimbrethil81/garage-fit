@@ -13,7 +13,7 @@ test('More lists Workout Patterns beside Exercise Library and navigates there an
   assert.match(more,/onclick="showScreen\('workoutPatterns'\)"[^>]*>[\s\S]*Workout Patterns →<\/span><\/button>/);
   assert.doesNotMatch(more,/Learn how different workouts work|library-entry-note/);
   assert.match(more,/openExerciseLibrary\(\)/);
-  assert.match(section,/aria-label="Back to More" onclick="showScreen\('more'\)"/);
+  assert.match(section,/aria-label="Back to More" onclick="appBack\(\)"/);
   const app=loadAppContext();
   app.openMore();app.showScreen('workoutPatterns');
   assert.equal(app.document.getElementById('workoutPatterns').classList.contains('hidden'),false);
