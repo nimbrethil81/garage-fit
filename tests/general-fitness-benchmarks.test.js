@@ -531,7 +531,9 @@ test('the preview and player offer an optional benchmark that records exactly wh
   await p.click('View today’s workout');
   const preview = p.text('coachPreviewContent').replace(/\s+/g, ' ');
   assert.match(preview, /Optional benchmark first: one set each of a few bodyweight exercises/);
-  assert.match(preview, /Block 1 of 4 Optional benchmark · Mini-circuit · 1 round/);
+  const blockCount = p.json('coachUI.controller.snapshot().preview.workout.main.blocks.length');
+  assert.ok(blockCount >= 2, 'the benchmark precedes the family’s own Main work');
+  assert.match(preview, new RegExp('Block 1 of '+blockCount+' Optional benchmark · Mini-circuit · 1 round'));
   assert.match(preview, /As many controlled reps as you can/);
   assert.match(preview, /Push-up .*Air squat .*Lying leg raise/);
   assert.ok(p.json('coachUI.controller.snapshot().preview.workout.main.blocks[0].benchmark'));

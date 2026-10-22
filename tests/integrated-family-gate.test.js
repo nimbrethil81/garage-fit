@@ -65,10 +65,13 @@ function verifyTimeline(p, workout, equipment) {
 test('six representative families use the shipped Ramp-up player and truthful work-only tracker plan',()=>{
   const p=pilot(new Map(),'general-fitness',2,{rampupUi:true});
   for(const workoutFamilyId of p.app.GarageFitWorkoutFamilies.FAMILY_IDS) {
-    const workout=p.app.GarageFitGenerator.generate({workoutFamilyId,duration:10,difficulty:'normal',equipment:[],catalogue:p.app.GarageFitData.exercises,random:rng(31)});
+    // Both routes build the family's current published version (Athletic v2, #244).
+    const workoutFamilyVersion=p.app.GarageFitWorkoutFamilies.currentVersion(workoutFamilyId);
+    const workout=p.app.GarageFitGenerator.generate({workoutFamilyId,workoutFamilyVersion,duration:10,difficulty:'normal',equipment:[],catalogue:p.app.GarageFitData.exercises,random:rng(31)});
+    assert.equal(workout.workoutFamilyVersion,workoutFamilyVersion);
     const {timeline}=verifyTimeline(p,workout,[]);
     assert.equal(timeline.some(step=>step.section==='rampup'&&step.kind==='exercise'),workout.rampup.exercises.length>0);
-    const rx=p.run(`GarageFitCoachModel.createSessionPrescription({prescriptionId:'representative',programmeInstanceId:'gate',sessionRole:'general-fitness',duration:10,difficulty:'normal',equipment:[],workoutFamilyPlan:{candidates:[{workoutFamilyId:${JSON.stringify(workoutFamilyId)},workoutFamilyVersion:1,rationale:'Explicit family release check.'}]}})`);
+    const rx=p.run(`GarageFitCoachModel.createSessionPrescription({prescriptionId:'representative',programmeInstanceId:'gate',sessionRole:'general-fitness',duration:10,difficulty:'normal',equipment:[],workoutFamilyPlan:{candidates:[{workoutFamilyId:${JSON.stringify(workoutFamilyId)},workoutFamilyVersion:${workoutFamilyVersion},rationale:'Explicit family release check.'}]}})`);
     const coach=p.app.GarageFitGenerator.generate({catalogue:p.app.GarageFitData.exercises,sessionPrescription:rx,random:rng(31)});
     assert.deepEqual(plain(coach.main),plain(workout.main),'representative route parity');
     verifyTimeline(p,coach,[]);
@@ -91,12 +94,12 @@ test('[Full] integrated six-family matrix: 180 routes × two seeds × four safet
       for(const difficulty of DIFFICULTIES) for(const seed of SEEDS) for(const route of ['generator','coach']) {
         const label=[name,family,duration,difficulty,seed,route].join('/');
         const key=[name,family,duration,difficulty,seed].join('/');
-        const {equipment,...constraints}=context;
+        const {equipment,...constraints}=context,workoutFamilyVersion=p.app.GarageFitWorkoutFamilies.currentVersion(family);
         let workout;
         try {
-          if(route==='generator') workout=G.generate({catalogue,workoutFamilyId:family,duration,difficulty,...context,random:rng(seed)});
+          if(route==='generator') workout=G.generate({catalogue,workoutFamilyId:family,workoutFamilyVersion,duration,difficulty,...context,random:rng(seed)});
           else {
-            p.app.matrixInput={duration,difficulty,equipment,workoutFamilyPlan:{candidates:[{workoutFamilyId:family,workoutFamilyVersion:1,rationale:'Integrated release gate: explicit family.'}],...constraints}};
+            p.app.matrixInput={duration,difficulty,equipment,workoutFamilyPlan:{candidates:[{workoutFamilyId:family,workoutFamilyVersion,rationale:'Integrated release gate: explicit family.'}],...constraints}};
             workout=p.run(`GarageFitGenerator.generate({catalogue:CATALOGUE,random:${rng.toString()}(${seed}),sessionPrescription:GarageFitCoachModel.createSessionPrescription({prescriptionId:'matrix',programmeInstanceId:'gate',sessionRole:'general-fitness',...JSON.parse(JSON.stringify(matrixInput))})})`);
           }
         } catch(error) {
@@ -111,7 +114,7 @@ test('[Full] integrated six-family matrix: 180 routes × two seeds × four safet
           counts.infeasible++;totals.infeasible++;continue;
         }
         assert.equal(workout.workoutFamilyId,family,label+': explicit family must never cross');
-        assert.equal(workout.workoutFamilyVersion,1);
+        assert.equal(workout.workoutFamilyVersion,workoutFamilyVersion);
         assert.equal(workout.duration,duration);assert.equal(workout.difficulty,difficulty);
         assert.deepEqual(plain(workout.familyConstraints||{}),constraints,label+': no silent constraint relaxation');
         try {verifyTimeline(p,workout,equipment);} catch(error) {error.message=label+': '+error.message;throw error;}
@@ -192,6 +195,7 @@ test('[Full] actual 20-session General Fitness v2 experiences at 2/3/5 weekly: c
         continue;
       }
       delivered.push(workout.workoutFamilyId);
+      assert.equal(workout.workoutFamilyVersion,p.app.GarageFitWorkoutFamilies.currentVersion(workout.workoutFamilyId),'Coach composes the current version');
       const familyStyles=styles.get(workout.workoutFamilyId)||new Set();familyStyles.add(workout.familyStyleId);styles.set(workout.workoutFamilyId,familyStyles);
       workout.main.blocks.forEach(block=>protocols.add(block.protocol));
       scripts.add(workout.main.blocks.map(block=>block.exercises.map(ex=>ex.id).join(',')).join('/'));

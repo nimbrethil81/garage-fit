@@ -114,6 +114,14 @@
     if (exercise.conditioning || exercise.cardio > exercise.strength) return 'conditioning';
     return exercise.strength >= 3 ? 'strength' : null;
   }
+  // Released definitions name each family by the version they were published with. New sessions are
+  // composed with that family's current published version (registry-declared, never older than the
+  // definition's), so a corrected composition reaches existing instances without editing a released
+  // definition. Balance, variety and recency already compare families by id across versions.
+  function compositionVersion(family) {
+    const current = root.GarageFitData.workoutFamilyCurrentVersions && root.GarageFitData.workoutFamilyCurrentVersions[family.workoutFamilyId];
+    return Number.isInteger(current) && current > family.workoutFamilyVersion ? current : family.workoutFamilyVersion;
+  }
   const localDateOf = (today) => typeof today.localDate === 'string' ? today.localDate : String(today.now).slice(0, 10);
   const dayNumber = day => { const [y, m, d] = day.split('-').map(Number); return Date.UTC(y, m-1, d) / DAY; };
 
@@ -130,7 +138,8 @@
       const planned = (result.plannedWork || []).filter(item => definition.doseTargets.sections.includes(item.section)).length;
       const performed = main.reduce((sum, item) => sum + (item.exposure.value || 0), 0);
       const weight = performed > 0 ? Math.min(1, planned ? performed / planned : 1) : 0;
-      const family = families.find(item => item.workoutFamilyId === session.workoutFamilyId && item.workoutFamilyVersion === session.workoutFamilyVersion) || null;
+      // Every published version of a family is that family for balance (e.g. Athletic v1 and v2, #244).
+      const family = families.find(item => item.workoutFamilyId === session.workoutFamilyId) || null;
       let effects = {}, basis = 'family-identity';
       if (family) effects = clone(family.effects);
       else {
@@ -224,7 +233,7 @@
       varietyPenalty += variety.recentRepeatPenalty * recent.filter(item => item.workoutFamilyId === family.workoutFamilyId).length;
       const recoveryPenalty = reasons.length && family.demanding ? recoveryPolicy.demandingPenalty : 0;
       const last = sessions.find(item => item.workoutFamilyId === family.workoutFamilyId) || null;
-      return {workoutFamilyId: family.workoutFamilyId, workoutFamilyVersion: family.workoutFamilyVersion, index,
+      return {workoutFamilyId: family.workoutFamilyId, workoutFamilyVersion: compositionVersion(family), index,
         primaryEffect: Object.entries(family.effects).sort((a, b) => b[1] - a[1])[0][0],
         balanceScore: value, varietyPenalty, recoveryPenalty, score: value - varietyPenalty - recoveryPenalty,
         lastPerformedAt: last ? last.occurredAt : null, lastFamilyStyleId: last ? last.familyStyleId : null};

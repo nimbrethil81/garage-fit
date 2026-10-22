@@ -9,8 +9,8 @@ const T0 = Date.parse('2026-10-05T08:00:00Z');
 const at = hours => new Date(T0 + hours * 3600000).toISOString();
 
 // A pure engine context with synthetic performed results; generation stays in the controller tests.
-function context(storage) {
-  const p = pilot(storage, 'general-fitness', 1);
+function context(storage, version = 1) {
+  const p = pilot(storage, 'general-fitness', version);
   p.run(`
     const GF=pilotDef;
     const gfEngine=pilotEngine;
@@ -20,7 +20,7 @@ function context(storage) {
       const source=options.source||'coach', exercises=options.exerciseIds||['air-squat','push-up','plank'];
       return GarageFitCoachModel.createSessionResult({sessionResultId:id, source,
         programmeInstanceId:source==='coach'?(options.instance||'gf'):null, prescriptionId:source==='coach'?'rx-'+id:null,
-        ...(family?{workoutFamilyId:family,workoutFamilyVersion:1,familyStyleId:options.style||'style'}:{}),
+        ...(family?{workoutFamilyId:family,workoutFamilyVersion:options.version||1,familyStyleId:options.style||'style'}:{}),
         startedAt:when, endedAt:when, finalStatus:options.finalStatus||'completed',
         plannedWork:exercises.map((exerciseId,i)=>({occurrenceId:id+':'+i,exerciseId,section:'main'})),
         performedWork:exercises.map((exerciseId,i)=>({occurrenceId:id+':'+i,exerciseId,status:'completed'}))});
@@ -70,6 +70,28 @@ test('General Fitness v1 is an immutable, open-ended, anchor-free definition on 
     return registry.get('general-strength').buildPrescription===GarageFitCoachPolicies.generalStrengthPolicy.buildPrescription
       && registry.get('build-arms').interpretDose===GarageFitCoachPolicies.buildArmsPolicy.interpretDose
       && registry.get('tennis-conditioning').buildPrescription===GarageFitCoachTennisPolicy.buildPrescription;})()`));
+});
+
+test('Athletic v1 and v2 are one family for balance and variety; released definitions stay pinned but plan the current Athletic composition', () => {
+  for (const version of [1, 2]) {
+    const p = context(undefined, version);
+    const out = p.json(`(()=>{
+      const before=JSON.stringify(GF), state=gfStart(${JSON.stringify(at(0))}), now=${JSON.stringify(at(30))};
+      const view=plan=>{const priorities=plan.rationale.priorities;return {effects:priorities.effects,
+        families:priorities.families.map(({workoutFamilyId,balanceScore,varietyPenalty,score})=>({workoutFamilyId,balanceScore,varietyPenalty,score})),
+        basis:priorities.history.sessions.map(item=>item.basis)};};
+      const one=gfPlan(state,[gfResult('a',${JSON.stringify(at(1))},'athletic-movement',{version:1})],now);
+      const two=gfPlan(state,[gfResult('a',${JSON.stringify(at(1))},'athletic-movement',{version:2})],now);
+      return {one:view(one),two:view(two),candidates:two.prescription.workoutFamilyPlan.candidates.map(({workoutFamilyId,workoutFamilyVersion})=>[workoutFamilyId,workoutFamilyVersion]),
+        pinned:GF.familyBalancePolicy.families.map(item=>item.workoutFamilyVersion),unchanged:JSON.stringify(GF)===before};
+    })()`);
+    assert.deepEqual(out.two, out.one, 'GF v'+version+': a v2 Athletic session earns exactly what a v1 session earns');
+    assert.deepEqual(out.one.basis, ['family-identity']);
+    assert.ok(out.one.families.find(item => item.workoutFamilyId === 'athletic-movement').varietyPenalty > 0, 'recency counts the family, not its version');
+    assert.deepEqual(Object.fromEntries(out.candidates), {'strength-control':1,'cardio-conditioning':1,'full-body-challenges':1,'athletic-movement':2,'core-stability':1,'mobility-movement-quality':1});
+    assert.deepEqual(out.pinned, [1,1,1,1,1,1], 'the released definition is not edited');
+    assert.equal(out.unchanged, true);
+  }
 });
 
 test('starts, pauses, resumes and completes sessions with zero anchors; history and draft recovery survive reload', async () => {
