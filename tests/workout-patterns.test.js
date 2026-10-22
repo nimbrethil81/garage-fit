@@ -10,7 +10,8 @@ const entries=[...section.matchAll(/<details id="pattern-([a-z-]+)"[^>]*><summar
 
 test('More lists Workout Patterns beside Exercise Library and navigates there and back',()=>{
   const more=html.match(/<main id="more"[\s\S]*?<\/main>/)[0];
-  assert.match(more,/onclick="showScreen\('workoutPatterns'\)"[^>]*>[\s\S]*Workout Patterns[\s\S]*Learn how different workouts work/);
+  assert.match(more,/onclick="showScreen\('workoutPatterns'\)"[^>]*>[\s\S]*Workout Patterns →<\/span><\/button>/);
+  assert.doesNotMatch(more,/Learn how different workouts work|library-entry-note/);
   assert.match(more,/openExerciseLibrary\(\)/);
   assert.match(section,/aria-label="Back to More" onclick="showScreen\('more'\)"/);
   const app=loadAppContext();
@@ -38,6 +39,7 @@ test('guide has nine entries: every generated Main protocol by display name, inc
 test('each entry is a native disclosure with the four required sections',()=>{
   for(const [block,id,name] of entries){
     assert.match(block,/<summary>/,name);
+    assert.match(block,/<summary><span class="pattern-name">[^<]+<\/span><\/summary>/,`${name}: collapsed card shows name only`);
     for(const heading of ['What is it?','How does it work?','Why does GarageFit use it?','Example'])assert.ok(block.includes(`<h3>${heading}</h3>`),`${name}: ${heading}`);
     assert.doesNotMatch(block,/<details[^>]*\bopen\b/,`${name} starts collapsed`);
   }
