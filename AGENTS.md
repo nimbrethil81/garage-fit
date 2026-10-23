@@ -15,7 +15,7 @@ GarageFit is a dependency-free browser PWA for fixed and generated workouts.
 - Preserve established behaviour unless the requested change requires otherwise.
 - Keep the implementation dependency-free unless explicitly authorised.
 - Do not introduce new product decisions merely to complete a task.
-- Informational list/detail screens under More (e.g. Exercise Library, Workout Patterns) should reuse Exercise Library-style whole-card entries, spacing, typography, teal detail headings and the shared back/swipe navigation when appropriate, and avoid decorative chevrons. This does not apply automatically to settings, forms, action menus or equipment-management views (My Equipment, Settings).
+- Informational list/detail screens under More (e.g. Exercise Library, Workout Patterns) should reuse Exercise Library-style whole-card entries, spacing, typography, teal detail headings and the shared back/swipe navigation when appropriate (detail screens use the shared `info-detail` class on their `<main class="screen">`, not per-ID padding rules), and avoid decorative chevrons. This does not apply automatically to settings, forms, action menus or equipment-management views (My Equipment, Settings).
 - New primary tabs must reuse the shared masthead (`js/masthead.js`, `data-masthead` host) and the existing `showScreen()` / `#bottomNav` behaviour, and extend `tests/primary-masthead.test.js`. Inspect existing components and styles before creating new patterns.
 - When adding or editing exercises, follow the catalogue and editorial rules in data/EXERCISE_METADATA.md, including the exercise-instruction standard.
 
