@@ -1173,6 +1173,25 @@
       prescription:{type:'timed',value:30}, voiceInstruction:true,
       instruction:'Stand tall and fold forwards to hold your toes, sink your hips into a deep squat with your chest up, then straighten your legs while holding your toes.' },
 
+    // Mobility v2 additions (#263): family-only like the entries above. Squat rocks need an actually
+    // owned, anchored support, so they require TRX instead of assuming furniture the user may not have.
+    { id:'quadruped-thoracic-rotation', name:'Quadruped thoracic rotation',
+      sidedness:'per-side', bodyPosition:'floor', movementPlanes:['transverse'],
+      prescription:{type:'unilateral-timed',value:20}, voiceInstruction:true,
+      instruction:'On hands and knees, place one hand behind your head, rotate that elbow up towards the ceiling, then return; repeat on the other side.' },
+    { id:'supported-squat-rocks', name:'Supported squat rocks', equipment:[['trx']],
+      movementPlanes:['sagittal'],
+      prescription:{type:'timed',value:25}, voiceInstruction:true,
+      instruction:'Face the anchor holding the handles, lower into a comfortable squat using them for support, then rock gently forwards and back with your heels down.' },
+    { id:'controlled-shoulder-rotations', name:'Controlled shoulder rotations',
+      sidedness:'per-side', movementPlanes:['sagittal','frontal'],
+      prescription:{type:'unilateral-timed',value:20},
+      instruction:'Stand tall and slowly rotate one straight arm in a controlled arc, keeping your trunk still and stopping short of end range; repeat on the other side.' },
+    { id:'half-kneeling-hip-flexor-rocks-with-reach', name:'Half-kneeling hip flexor rocks with reach',
+      sidedness:'per-side', bodyPosition:'floor', movementPlanes:['sagittal'],
+      prescription:{type:'unilateral-timed',value:20}, voiceInstruction:true,
+      instruction:'Kneel on one knee with your pelvis tucked, rock gently forwards and back while reaching the arm on the kneeling side overhead; repeat on the other side.' },
+
     // ---- Athletic Movement family catalogue (family-scoped; no phase flags) ----
     // Authorised only by the Athletic Movement membership policy (data/athletic-membership.js),
     // so ordinary selection never sees them. Reused and adapted identities keep their entries above.

@@ -62,6 +62,9 @@
   // Strength & Control v2 (#261) keeps v1's styles, structure and feasibility and lets paired sets and controlled
   // circuits of 30+ minutes draw the Generator's bounded supporting route. v1 stays composable and validatable.
   versions['strength-control'][2] = revision(versions['strength-control'][1], 2, 2);
+  // Mobility v2 (#263) registers reviewed membership v2 and names composition v2, which has no composer yet:
+  // it is intentionally non-current and cannot be composed until the follow-on activation. v1 stays published.
+  versions['mobility-movement-quality'][2] = revision(versions['mobility-movement-quality'][1], 2, 2, 2);
   // The version every new workout is composed with, standalone or Coach. Explicit requests and
   // stored records keep the version they name; `getDefinition`'s default remains version 1.
   const current = Object.fromEntries(definitions.map(item => [item.id, 1]));

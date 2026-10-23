@@ -32,15 +32,61 @@
   ];
   const catalogue = root.GarageFitData && root.GarageFitData.exercises;
   if (!catalogue) throw new Error('Load data/exercises.js before data/mobility-membership.js.');
-  const entries = [];
-  for (const [exerciseId, roles] of MEMBERS) {
-    const exercise = catalogue[exerciseId];
-    if (!exercise) throw new Error('Unknown Mobility exercise: ' + exerciseId);
-    const timed = exercise.sidedness === 'per-side' ? TIMED['per-side'] : TIMED.bilateral;
-    // Canonical rep-based Cossack squat keeps reps as its default; reps are not offered elsewhere.
-    const prescriptions = exercise.prescription.type.includes('reps')
-      ? [{type: 'reps', minValue: 4, maxValue: 12}, timed] : [timed];
-    for (const role of roles) entries.push({exerciseId, role, protocols: PROTOCOLS.slice(), prescriptions: JSON.parse(JSON.stringify(prescriptions))});
+  function build(members) {
+    const entries = [];
+    for (const [exerciseId, roles] of members) {
+      const exercise = catalogue[exerciseId];
+      if (!exercise) throw new Error('Unknown Mobility exercise: ' + exerciseId);
+      const timed = exercise.sidedness === 'per-side' ? TIMED['per-side'] : TIMED.bilateral;
+      // Canonical rep-based Cossack squat keeps reps as its default; reps are not offered elsewhere.
+      const prescriptions = exercise.prescription.type.includes('reps')
+        ? [{type: 'reps', minValue: 4, maxValue: 12}, timed] : [timed];
+      for (const role of roles) entries.push({exerciseId, role, protocols: PROTOCOLS.slice(), prescriptions: JSON.parse(JSON.stringify(prescriptions))});
+    }
+    return entries;
   }
-  families.registerMembershipPolicy({workoutFamilyId: 'mobility-movement-quality', workoutFamilyVersion: 1, entries});
+  // Membership v2 (#263, Mobility & Movement Quality v2 workstream 1): all fifteen v1 entries unchanged, plus
+  // fifteen existing and four new identities. Membership is eligibility only; the v2 composer that selects from
+  // it is a separate deliverable and is not registered, so the family's current version stays 1.
+  // [exerciseId, roles, minimumDifficulty?, prescription override?]
+  const GENTLE = {bilateral: {type: 'timed', minValue: 15, maxValue: 40}, 'per-side': {type: 'unilateral-timed', minValue: 15, maxValue: 40}};
+  const ADDITIONS = [
+    ['ankle-circles', ['prep', 'focused']],
+    ['heel-toe-rocks', ['prep', 'focused']],
+    ['shoulder-rolls', ['prep']],
+    ['open-close-gates', ['prep']],
+    ['standing-side-bends', ['prep', 'focused']],
+    ['body-hoops', ['prep']],
+    ['body-twists', ['prep', 'focused']],
+    ['shallow-knee-bends', ['prep']],
+    ['trx-lateral-weight-shift', ['prep', 'flow']],          // TRX required (canonical equipment)
+    ['hip-flexor-arm-stretch', ['focused', 'finish']],       // static hold, kept canonical
+    ['runners-stretch', ['focused'], 'normal'],              // plank-bearing set-up: not offered at Easy
+    ['childs-pose', ['finish']],
+    ['lying-torso-twist', ['finish']],
+    ['glute-stretch', ['finish']],
+    ['chest-opener', ['finish']],
+    // New canonical movements; bounds follow their reviewed doses.
+    ['quadruped-thoracic-rotation', ['focused', 'flow'], undefined, {minValue: 15, maxValue: 25}],
+    ['supported-squat-rocks', ['focused', 'flow'], undefined, {minValue: 20, maxValue: 30}], // TRX required (anchored support)
+    ['controlled-shoulder-rotations', ['prep', 'focused'], undefined, {minValue: 15, maxValue: 25}],
+    ['half-kneeling-hip-flexor-rocks-with-reach', ['focused', 'flow'], undefined, {minValue: 15, maxValue: 25}]
+  ];
+  function buildV2() {
+    const entries = build(MEMBERS);
+    for (const [exerciseId, roles, minimumDifficulty, bounds] of ADDITIONS) {
+      const exercise = catalogue[exerciseId];
+      if (!exercise) throw new Error('Unknown Mobility exercise: ' + exerciseId);
+      const side = exercise.sidedness === 'per-side' ? 'per-side' : 'bilateral';
+      const target = {...GENTLE[side], ...(bounds || {})};
+      for (const role of roles) {
+        const entry = {exerciseId, role, protocols: PROTOCOLS.slice(), prescriptions: [JSON.parse(JSON.stringify(target))]};
+        if (minimumDifficulty) entry.minimumDifficulty = minimumDifficulty;
+        entries.push(entry);
+      }
+    }
+    return entries;
+  }
+  families.registerMembershipPolicy({workoutFamilyId: 'mobility-movement-quality', workoutFamilyVersion: 1, entries: build(MEMBERS)});
+  families.registerMembershipPolicy({workoutFamilyId: 'mobility-movement-quality', workoutFamilyVersion: 2, entries: buildV2()});
 })(typeof window !== 'undefined' ? window : globalThis);
