@@ -3491,7 +3491,7 @@
   function generateFamilyPlanWorkout(prepared) {
     const {rx,context,assessment}=prepared,plan=rx.workoutFamilyPlan,{usable,unavailable}=familyPlanCandidates(rx,context);
     const options={catalogue:context.catalogue,duration:context.duration,difficulty:context.difficulty,bodyFocus:context.bodyFocus,equipment:context.equipment,
-      history:context.history||[],recentProtocols:context.recentProtocols,random:context.random};
+      history:context.history||[],recentProtocols:context.recentProtocols,recentFamilySessions:context.recentFamilySessions,random:context.random};
     for(const field of FAMILY_CONSTRAINT_FIELDS)if(plan[field]!=null)options[field]=jsonCopy(plan[field]);
     const skipped=unavailable.map(item=>({workoutFamilyId:item.workoutFamilyId,code:item.reason,reasons:[]}));
     let workout=null;

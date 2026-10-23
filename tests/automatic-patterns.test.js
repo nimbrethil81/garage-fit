@@ -165,3 +165,24 @@ test('standalone recency queries at most four existing results and reaches gener
   app.generateWorkout();assert.deepEqual(copy(received),['emom']);
   assert.deepEqual(copy(run('generatorRecentProtocols')),['emom']);
 });
+
+test('standalone generation receives the newest completed family session derived from existing results, with nothing stored (#264)',async()=>{
+  const app=loadAppContext(new Map(),{ownIntrinsics:true});const filters=[];let received;
+  const mobility=fixtures.sessionResult({sessionResultId:'mobility-1',source:'generator',programmeInstanceId:null,prescriptionId:null,workoutId:null,
+    workoutFamilyId:'mobility-movement-quality',workoutFamilyVersion:2,familyStyleId:'joint-focused',
+    plannedWork:[{occurrenceId:'a',exerciseId:'thread-the-needle',section:'main',blockIndex:1},{occurrenceId:'b',exerciseId:'cat-cow',section:'warmup',blockIndex:0}],
+    performedWork:[{occurrenceId:'a',exerciseId:'thread-the-needle',status:'completed'},{occurrenceId:'b',exerciseId:'cat-cow',status:'skipped'}]});
+  const stored=copy(mobility);app.storedJson=JSON.stringify(mobility);
+  app.GarageFitCoachStore.createStore=()=>({listSessionResults:async options=>{filters.push(copy(options));return {results:[vm.runInContext('JSON.parse(storedJson)',app)],errors:[]};}});
+  await app.refreshGeneratorFamilySessions();
+  assert.deepEqual(filters,[{sources:['coach','generator','fixed'],performedOnly:true,limit:12,candidateLimit:12}],'one bounded read of existing results');
+  const generate=app.GarageFitGenerator.generate;app.GarageFitGenerator.generate=options=>{received=options.recentFamilySessions;return generate({...options,random:random(9)});};
+  app.generateWorkout();
+  assert.deepEqual(copy(received['mobility-movement-quality'].completedOccurrences),[{exerciseId:'thread-the-needle',blockIndex:1}]);
+  assert.equal(received['mobility-movement-quality'].plannedOccurrences,2);
+  assert.deepEqual(JSON.parse(app.storedJson),stored,'the Session Result itself is not changed');
+  // Unreadable evidence is absent evidence: generation still works with no preference.
+  app.GarageFitCoachStore.createStore=()=>({listSessionResults:async()=>{throw new Error('unreadable');}});
+  await app.refreshGeneratorFamilySessions();app.generateWorkout();
+  assert.deepEqual(copy(received),{});
+});

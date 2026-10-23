@@ -257,7 +257,10 @@
       const crossSource = definition().coverageTargets.includeCrossSourceHistory;
       const history = results.filter(item => crossSource || item.programmeInstanceId === state.programmeInstanceId).slice(-4).reverse()
         .map(item => [...new Set((item.performedWork || []).filter(work => ['completed','partial'].includes(work.status)).map(work => work.exerciseId))]);
-      const workout = root.GarageFitGenerator.generate({catalogue, sessionPrescription: plan.prescription, history, recentProtocols:root.GarageFitGenerator.recentProtocolsFromResults(results)});
+      // Newest completed session per family, derived on demand from the results already loaded (never stored).
+      let recentFamilySessions = {};
+      try { recentFamilySessions = root.GarageFitTrainingHistory.createHistory(results, catalogue).lastCompletedFamilySessions(); } catch (error) { recentFamilySessions = {}; }
+      const workout = root.GarageFitGenerator.generate({catalogue, sessionPrescription: plan.prescription, history, recentProtocols:root.GarageFitGenerator.recentProtocolsFromResults(results), recentFamilySessions});
       preview = {workout, plan, today: context, generatedAt: clock()}; previewKey = key;
       return preview;
     }
