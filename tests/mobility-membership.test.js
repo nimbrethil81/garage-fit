@@ -159,3 +159,114 @@ test('ordinary Generator, warm-up, cool-down and Main eligibility are unchanged 
   }
   assert.deepEqual(NEW.filter(id=>ids.has(id)),[]);
 });
+
+// ---- Mobility membership v2 (#263): reviewed eligibility only; the v2 composer is a later deliverable ----
+const V2_ADDED={'ankle-circles':['prep','focused'],'heel-toe-rocks':['prep','focused'],'shoulder-rolls':['prep'],'open-close-gates':['prep'],
+  'standing-side-bends':['prep','focused'],'body-hoops':['prep'],'body-twists':['prep','focused'],'shallow-knee-bends':['prep'],
+  'trx-lateral-weight-shift':['prep','flow'],'hip-flexor-arm-stretch':['focused','finish'],'runners-stretch':['focused'],
+  'childs-pose':['finish'],'lying-torso-twist':['finish'],'glute-stretch':['finish'],'chest-opener':['finish'],
+  'quadruped-thoracic-rotation':['focused','flow'],'supported-squat-rocks':['focused','flow'],
+  'controlled-shoulder-rotations':['prep','focused'],'half-kneeling-hip-flexor-rocks-with-reach':['focused','flow']};
+const V2_NEW=['quadruped-thoracic-rotation','supported-squat-rocks','controlled-shoulder-rotations','half-kneeling-hip-flexor-rocks-with-reach'];
+const V2_TABLE={...ROLE_TABLE,...V2_ADDED},V2_IDS=Object.keys(V2_TABLE);
+const v2=(role,extra={})=>context(role,{workoutFamilyVersion:2,...extra});
+const eligible2=(role,owned,difficulty='normal',extra={})=>Object.values(C)
+  .filter(exercise=>G.generatedPhaseEligible(exercise,'main',owned,difficulty,v2(role,extra))).map(exercise=>exercise.id);
+
+test('four new Mobility canonical movements are distinct, family-only, safely prescribed and instructed (#263)',()=>{
+  assert.deepEqual(G.validateCatalogue(C),[]);
+  const expected={'quadruped-thoracic-rotation':['per-side','floor','unilateral-timed',[]],'supported-squat-rocks':['bilateral','standing','timed',[['trx']]],
+    'controlled-shoulder-rotations':['per-side','standing','unilateral-timed',[]],'half-kneeling-hip-flexor-rocks-with-reach':['per-side','floor','unilateral-timed',[]]};
+  for(const id of V2_NEW){
+    const ex=C[id],[side,position,type,equipment]=expected[id];
+    assert.equal(ex.sidedness,side,id);assert.equal(ex.bodyPosition,position,id);assert.equal(ex.prescription.type,type,id);
+    assert.deepEqual(ex.equipment,equipment,id);
+    assert.equal(ex.generator||ex.main||ex.warmup||ex.rampup||ex.cooldown,false,id+' stays family-only');
+    assert.equal(ex.impact,'low',id);assert.equal(ex.difficulty,null,id);assert.equal(ex.family,null,id);
+    assert.ok(ex.instruction.length<=180&&ex.instruction.split(/(?<=\.)\s+/).length===1,id);
+  }
+  assert.equal(new Set(V2_NEW.map(id=>C[id].name)).size,4);
+  // Distinct from the neighbouring movements they must not duplicate.
+  assert.notEqual(C['quadruped-thoracic-rotation'].instruction,C['thread-the-needle'].instruction);
+  assert.deepEqual(C['half-kneeling-hip-flexor-rocks-with-reach'].stretchTargets,[]);
+  assert.equal(C['half-kneeling-hip-flexor-rocks-with-reach'].cooldown,false);
+});
+
+test('membership v2 resolves exactly 34 identities with the approved roles and keeps v1 byte-identical (#263)',()=>{
+  assert.equal(V2_IDS.length,34);assert.equal(F.currentVersion(FAMILY),1);
+  const def=F.getDefinition(FAMILY,2);
+  assert.deepEqual([def.membershipPolicy,def.compositionPolicy],[{id:FAMILY,version:2},{id:FAMILY,version:2}]);
+  for(const role of ROLES){
+    const expected=V2_IDS.filter(id=>V2_TABLE[id].includes(role)).sort();
+    assert.deepEqual(eligible2(role,['trx']).sort(),expected.filter(id=>id!=='runners-stretch'||role==='focused'),role);
+  }
+  for(const id of V2_IDS)for(const role of ROLES)assert.equal(!!F.getMembership(v2(role),id),V2_TABLE[id].includes(role),id+':'+role);
+  assert.equal(new Set(ROLES.flatMap(role=>V2_IDS.filter(id=>F.getMembership(v2(role),id)))).size,34);
+  for(const id of ['frog-stretch','pigeon-stretch','side-plank-reach-through','plank'])for(const role of ROLES)assert.equal(F.getMembership(v2(role),id),null,id);
+  // v1 keeps exactly its 15 identities and published entries (no v2 additions, no changed prescriptions).
+  for(const id of V2_IDS)for(const role of ROLES)assert.equal(!!F.getMembership(context(role),id),!!(ROLE_TABLE[id]&&ROLE_TABLE[id].includes(role)),'v1 '+id+':'+role);
+  assert.equal(createHash('sha256').update(JSON.stringify(ALL.flatMap(id=>ROLES.map(role=>F.getMembership(context(role),id))))).digest('hex'),
+    '5d72a0cbcd70f2196d839744b8fdaa8f6f1d1358892e1b0b0a1a552210b0f252','published membership v1 entries are frozen');
+  for(const id of ALL)for(const role of ROLE_TABLE[id])
+    assert.deepEqual(F.getMembership(context(role),id).prescriptions,F.getMembership(v2(role),id).prescriptions,id+':'+role);
+});
+
+test('v2 doses: new movements keep reviewed bounds; existing additions stay within 15-40 seconds; static holds are Focus/Finish only (#263)',()=>{
+  const bounds={'quadruped-thoracic-rotation':[15,25],'supported-squat-rocks':[20,30],'controlled-shoulder-rotations':[15,25],'half-kneeling-hip-flexor-rocks-with-reach':[15,25]};
+  for(const id of V2_IDS.filter(id=>!ALL.includes(id)))for(const role of V2_TABLE[id]){
+    const entry=F.getMembership(v2(role),id),[low,high]=bounds[id]||[15,40];
+    assert.equal(entry.prescriptions.length,1,id);
+    assert.deepEqual([entry.prescriptions[0].minValue,entry.prescriptions[0].maxValue],[low,high],id);
+    assert.equal(entry.prescriptions[0].type,C[id].sidedness==='per-side'?'unilateral-timed':'timed',id);
+    assert.ok(C[id].prescription.value>=low&&C[id].prescription.value<=high,id+' canonical default sits inside its dose');
+  }
+  for(const id of ['hip-flexor-arm-stretch','runners-stretch','childs-pose','lying-torso-twist','glute-stretch','chest-opener'])
+    for(const role of V2_TABLE[id])assert.ok(['focused','finish'].includes(role),id+' static hold is never Prepare or Flow');
+  const dose=(id,role,type,value)=>({...block([id],role,'rounds',v2(role)),occurrenceTargets:[{plannedPrescription:{type,value}}]});
+  assert.deepEqual(G.validateMain({blocks:[dose('quadruped-thoracic-rotation','flow','unilateral-timed',25)]},C,[]),[]);
+  assert.ok(G.validateMain({blocks:[dose('quadruped-thoracic-rotation','flow','unilateral-timed',26)]},C,[]).length);
+  assert.deepEqual(G.validateMain({blocks:[dose('chest-opener','finish','timed',40)]},C,[]),[]);
+  assert.ok(G.validateMain({blocks:[dose('chest-opener','finish','timed',41)]},C,[]).length);
+  assert.ok(G.validateMain({blocks:[dose('supported-squat-rocks','flow','timed',31)]},C,['trx']).length);
+});
+
+test('v2 safety: supported squat rocks and TRX shifts need owned TRX; runner\'s stretch is not offered at Easy (#263)',()=>{
+  for(const id of ['supported-squat-rocks','trx-lateral-weight-shift'])for(const role of V2_TABLE[id])for(const difficulty of ['easy','normal','hard']){
+    assert.equal(G.generatedPhaseEligible(C[id],'main',[],difficulty,v2(role)),false,id+' without TRX');
+    assert.equal(G.generatedPhaseEligible(C[id],'main',['dumbbells','bands'],difficulty,v2(role)),false,id+' with other equipment');
+    assert.equal(G.generatedPhaseEligible(C[id],'main',['trx'],difficulty,v2(role)),true,id+':'+difficulty);
+    assert.ok(G.validateMain({blocks:[block([id],role,'rounds',v2(role))]},C,[]).some(issue=>issue.includes('family:ineligible')),id);
+  }
+  assert.equal(G.generatedPhaseEligible(C['runners-stretch'],'main',[],'easy',v2('focused')),false);
+  for(const difficulty of ['normal','hard'])assert.equal(G.generatedPhaseEligible(C['runners-stretch'],'main',[],difficulty,v2('focused')),true,difficulty);
+  assert.equal(G.generatedPhaseEligible(C['runners-stretch'],'main',[],'normal',v2('finish')),false);
+  assert.equal(G.generatedPhaseEligible(C['runners-stretch'],'main',[],'normal',v2('focused',{difficulty:'easy'})),false);
+});
+
+test('every v2 identity is eligible in at least one suitable context, with valid blocks and per-side timing (#263)',()=>{
+  for(const id of V2_IDS){
+    const owned=['supported-squat-rocks','trx-lateral-weight-shift','trx-squat-overhead'].includes(id)?['trx']:[];
+    for(const role of V2_TABLE[id]){
+      assert.equal(G.generatedPhaseEligible(C[id],'main',owned,'normal',v2(role)),true,id+':'+role);
+      assert.equal(G.protocolCompatible(C[id],'rounds',v2(role)),true,id);
+      const b=block([id],role,'rounds',v2(role));assert.deepEqual(G.validateMain({blocks:[b]},C,owned),[],id+':'+role);
+      assert.equal(G.estimateBlockDuration(b),C[id].estimatedSeconds,id);
+    }
+    for(const role of ROLES.filter(item=>!V2_TABLE[id].includes(item)))assert.equal(G.generatedPhaseEligible(C[id],'main',['trx'],'normal',v2(role)),false,id+':'+role);
+    assert.equal(G.protocolCompatible(C[id],'paired_sets',v2(V2_TABLE[id][0])),false,id);
+  }
+  // Position gates remain hard: a floor movement is not selected in a standing-only context.
+  const standing=eligible2('focused',['trx'],'normal',{bodyPositions:['standing']});
+  assert.ok(standing.includes('controlled-shoulder-rotations')&&standing.includes('supported-squat-rocks'));
+  assert.ok(!standing.includes('quadruped-thoracic-rotation')&&!standing.includes('half-kneeling-hip-flexor-rocks-with-reach'));
+  // Per-side static holds cannot use one shared interval.
+  assert.equal(G.protocolCompatible(C['glute-stretch'],'timed_intervals',v2('finish')),false);
+});
+
+test('the new movements and v2 additions are not promoted into ordinary Generator, warm-up or cool-down selection (#263)',()=>{
+  for(const id of V2_NEW)for(const phase of ['main','warmup','rampup','cooldown'])
+    assert.equal(G.generatedPhaseEligible(C[id],phase,['trx','dumbbells','bands','bench','box']),false,id+':'+phase);
+  for(const id of ['childs-pose','chest-opener'])assert.equal(G.generatedPhaseEligible(C[id],'main',[]),false,id);
+  assert.equal(G.generatedPhaseEligible(C['childs-pose'],'cooldown',[]),true);
+  assert.equal(G.generatedPhaseEligible(C['shoulder-rolls'],'warmup',[]),true);
+});

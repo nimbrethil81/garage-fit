@@ -282,6 +282,38 @@ below). No-family Coach and standalone calls
 retain their existing paths and random consumption. These transient workout identity
 fields introduce no persisted family history or preference migrations.
 
+### Mobility v2 membership (staged; #263)
+
+Mobility family v2 is published but **not current** and has **no composer**: current stays v1, so standalone
+and General Fitness output are unchanged. Its membership reference is reviewed membership v2 (registered in
+`data/mobility-membership.js`); its composition reference is v2, which is deliberately unregistered. An explicit
+`workoutFamilyVersion: 2` request fails with `family-composer-unavailable` and never falls back to v1. The
+follow-on issue adds the Prepare/Focus/Flow/Finish v2 composer and activation; until then v2 membership is
+eligibility only and end-to-end v2 reachability is not claimed.
+
+Membership v2 resolves 34 identities: all 15 v1 identities with their v1 roles and prescriptions (v1 stays
+frozen), fifteen existing catalogue movements and four new family-only ones. Roles (`prep`, `focused`, `flow`,
+`finish`) are eligibility, not mandatory selection.
+
+| Exercise | v2 roles |
+| --- | --- |
+| `ankle-circles`, `heel-toe-rocks`, `standing-side-bends`, `body-twists` | prep, focused |
+| `shoulder-rolls`, `open-close-gates`, `body-hoops`, `shallow-knee-bends` | prep |
+| `trx-lateral-weight-shift` (TRX required) | prep, flow |
+| `hip-flexor-arm-stretch` (static hold) | focused, finish |
+| `runners-stretch` (static; plank set-up, `minimumDifficulty: normal`, not offered at Easy) | focused |
+| `childs-pose`, `lying-torso-twist`, `glute-stretch`, `chest-opener` | finish |
+| `quadruped-thoracic-rotation`, `half-kneeling-hip-flexor-rocks-with-reach` (15-25 s per side) | focused, flow |
+| `supported-squat-rocks` (20-30 s; TRX required) | focused, flow |
+| `controlled-shoulder-rotations` (15-25 s per side) | prep, focused |
+
+The four new movements are family-only catalogue entries (no phase flags, low impact, no difficulty), so
+ordinary Generator, Warm-up and Cool-down selection never sees them. `supported-squat-rocks` requires the
+user's TRX because the catalogue has no way to promise a reliably stable support otherwise; no equipment
+setting was added. Existing additions use 15-40 s contextual bounds (per side where applicable); static holds
+appear only in focused and finish roles. Same-session near-duplicate avoidance among similar members belongs
+to the composer, not to membership.
+
 ### Mobility composition v1
 
 Load `js/mobility-composer.js` after the Generator and approved Mobility membership.

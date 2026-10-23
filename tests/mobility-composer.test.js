@@ -138,9 +138,18 @@ test('restricted or unsupported requests fail honestly without crossing families
   const low=generate({excludedImpact:['medium','high']});assert.ok(low.main.blocks.flatMap(b=>b.exercises).every(e=>e.impact==='low'));
 });
 
+test('Mobility v2 is published but non-current with no composer: explicit v2 requests fail clearly and never fall back to v1 (#263)',()=>{
+  assert.equal(F.currentVersion(FAMILY),1);
+  assert.equal(F.getDefinition(FAMILY,2).compositionPolicy.version,2);
+  for(const extra of [{workoutFamilyVersion:2},{workoutFamilyVersion:2,duration:45,difficulty:'hard',equipment:['trx']}])
+    assert.throws(()=>generate(extra),e=>e.code==='family-composer-unavailable');
+  assert.equal(generate().workoutFamilyVersion,1);
+  assert.equal(G.generate({workoutFamilyId:FAMILY,duration:20,catalogue:C,random:rng(31)}).workoutFamilyVersion,1);
+});
+
 test('shared registry is version-pinned and single-registration; production and test harness load the same composer',()=>{
   assert.throws(()=>G.registerFamilyComposer(FAMILY,1,()=>{}),/registered once/);
-  assert.throws(()=>G.registerFamilyComposer(FAMILY,2,()=>{}),e=>e.code==='unsupported-workout-family-version');
+  assert.throws(()=>G.registerFamilyComposer(FAMILY,3,()=>{}),e=>e.code==='unsupported-workout-family-version');
   assert.match(fs.readFileSync('index.html','utf8'),/data\/mobility-membership.js[\s\S]*js\/mobility-composer.js/);
   const app=loadAppContext(new Map());
   assert.equal(app.GarageFitGenerator.generate({workoutFamilyId:FAMILY,duration:10,catalogue:app.GarageFitData.exercises,random:()=>.2}).workoutFamilyId,FAMILY);
