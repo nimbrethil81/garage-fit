@@ -70,7 +70,11 @@ test('each pattern opens the one reusable detail view with name and the four sec
   });
   // Teal headings and long-title safety are shared with the Exercise Library styles.
   assert.match(html,/\.library-detail-section h2\{[^}]*color:var\(--rest\)/);
-  assert.match(html,/#exerciseDetail \.page-header h1,#workoutPatternDetail \.page-header h1\{[^}]*overflow-wrap:anywhere/);
+  assert.match(html,/\.info-detail \.page-header h1\{[^}]*overflow-wrap:anywhere/);
+  // Both informational detail screens share one layout class (screen padding + header), with no ID-specific padding rules.
+  assert.match(html,/\.info-detail\{padding:20px 20px 14px;overflow-y:auto\}/);
+  for(const id of ['exerciseDetail','workoutPatternDetail'])assert.match(html,new RegExp('<main id="'+id+'" class="screen info-detail hidden">'));
+  assert.doesNotMatch(html,/#(exerciseDetail|workoutPatternDetail)[ ,{]/);
 });
 
 test('back navigation goes detail to list to More and restores list scroll',()=>{
