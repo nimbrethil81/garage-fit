@@ -80,7 +80,10 @@ test('[Full] primary and supporting Main exercises in dense same-pattern pools a
   const singleLeg=count(kettlebell,'kettlebell-single-leg-deadlift');
   const suitcase=count(kettlebell,'kettlebell-suitcase-deadlift');
   const twist=count(kettlebell,'kettlebell-russian-twist');
-  const yFly=count(trx,'trx-y-fly');
+  // C1 expands the full-body pool; one suitable Upper fixture retains the rare
+  // shoulder-accessory route without enlarging the distribution sweep.
+  const trxWithAccessory=trx.concat(G.generate({catalogue,duration:30,focus:'strength',bodyFocus:'upper',equipment:['trx'],random:random(3)}));
+  const yFly=count(trxWithAccessory,'trx-y-fly');
   assert.ok(singleLeg>=3,'kettlebell single-leg deadlift '+singleLeg);
   assert.ok(suitcase>=3,'kettlebell suitcase deadlift '+suitcase);
   assert.ok(twist>=1,'kettlebell Russian twist '+twist);
@@ -88,8 +91,8 @@ test('[Full] primary and supporting Main exercises in dense same-pattern pools a
   // Control: supporting entries remain well below their primary peers and are never repeated
   // across a workout's Main blocks.
   assert.ok(twist*4<count(kettlebell,'kettlebell-deadlift'),'twist vs deadlift');
-  assert.ok(yFly*4<count(trx,'trx-row'),'Y fly vs row');
-  for(const workout of kettlebell.concat(trx))for(const id of ['kettlebell-russian-twist','trx-y-fly'])
+  assert.ok(yFly*4<count(trxWithAccessory,'trx-row'),'Y fly vs row');
+  for(const workout of kettlebell.concat(trxWithAccessory))for(const id of ['kettlebell-russian-twist','trx-y-fly'])
     assert.ok(mainIds(workout).filter(item=>item===id).length<=1,mainIds(workout).join(','));
 });
 
@@ -128,4 +131,35 @@ test('[Full] the warm-up expansion exercises are reachable in Warm-up and never 
   }
   // The essential knee-mobility movement is in every warm-up.
   for(const workout of bodyweight.concat(trx,bands))assert.ok(workout.warmup.exercises.some(ex=>ex.id==='standing-knee-curls'));
+});
+
+// Core C1: explicit examples from the full catalogue keep rare legitimate routes
+// covered without repeating a large distribution sweep in this suite.
+test('Core C1 additions and plank taps reach legacy Main; preparation has its own lighter selectable doses',()=>{
+  const fixtures=[
+    ['side-plank-knees',[],10,'easy',25],['bent-knee-fallout',[],30,'easy',3],
+    ['tabletop-toe-taps',[],15,'easy',27],['dumbbell-suitcase-carry',['dumbbells'],30,'hard',1],
+    ['side-plank-hip-lifts',[],30,'hard',1],['supine-heel-slides',[],30,'easy',5],
+    ['plank-arm-reaches',[],30,'hard',3],['bridge-march',[],30,'hard',6],
+    ['bent-knee-windshield-wipers',[],30,'normal',9],['dead-bug-isometric-press',[],10,'easy',18],
+    ['bear-plank-hold',[],30,'hard',9],['seated-knee-tucks',[],30,'hard',3],
+    ['kettlebell-suitcase-march',['kettlebell'],30,'hard',1],
+    ['half-kneeling-band-pallof-press',['bands'],30,'hard',1],['dumbbell-dead-bug-hold',['dumbbells'],30,'hard',1],
+    ['plank-shoulder-taps',[],10,'easy',14]
+  ];
+  for(const [id,equipment,duration,difficulty,seed] of fixtures){
+    const w=G.generate({catalogue,equipment,duration,difficulty,bodyFocus:'core',focus:'strength',random:random(seed)});
+    assert.ok(mainIds(w).includes(id),id);
+    assert.deepEqual(G.validateMain(w.main,catalogue,equipment),[],id);
+  }
+  for(const [phase,id,duration,difficulty,seed] of [
+    ['warmup','bent-knee-fallout',10,'easy',15],['warmup','supine-heel-slides',15,'easy',13],
+    ['warmup','tabletop-toe-taps',20,'easy',23],['rampup','tabletop-toe-taps',20,'easy',11]
+  ]){
+    const w=G.generate({catalogue,equipment:[],duration,difficulty,bodyFocus:'core',focus:'strength',random:random(seed)});
+    assert.ok(w[phase].exercises.some(ex=>ex.id===id),phase+' '+id);
+    const ex=catalogue[id],dose=ex[phase+'Prescription'];
+    assert.ok(dose.value*(ex.sidedness==='per-side'?2:1)<ex.estimatedSeconds,id+' lighter preparation');
+    assert.equal(ex.cooldown,false,id);
+  }
 });

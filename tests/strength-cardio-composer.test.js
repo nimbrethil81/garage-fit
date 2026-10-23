@@ -288,9 +288,10 @@ test('v2 equals v1 wherever the route cannot apply, with the same feasibility, s
 
 test('Strength & Control v1 compositions stay exactly as released, and all three styles keep their structure and gate under v2',()=>{
   // Published v1: one structural digest of 120 compositions across durations, difficulties, kits and seeds.
+  const snapshotCatalogue=require('./helpers/coach-fixtures').catalogueBeforeC1(C);
   const digest=crypto.createHash('sha256'),styles=new Set();
   for(const duration of DURATIONS)for(const difficulty of ['easy','hard'])for(const key of ['bodyweight','limited','broad'])for(const seed of [1,2,3,4])
-    digest.update(JSON.stringify(detail(generate(STRENGTH,{duration,difficulty,equipment:EQUIPMENT[key],random:rng(seed*977+duration),workoutFamilyVersion:1}))));
+    digest.update(JSON.stringify(detail(generate(STRENGTH,{duration,difficulty,equipment:EQUIPMENT[key],random:rng(seed*977+duration),workoutFamilyVersion:1,catalogue:snapshotCatalogue}))));
   assert.equal(digest.digest('hex'),'cd67bb713ab222f10e30b58f9b338bb04ff88239e4e5e1b751ddbd8da4e930bd','published Strength & Control v1 compositions are unchanged');
   for(const duration of [30,45])for(const key of ['limited','broad'])for(let seed=1;seed<=12;seed++) {
     const w=generate(STRENGTH,{duration,equipment:EQUIPMENT[key],random:rng(seed*61+duration),workoutFamilyVersion:2}),context={catalogue:C,equipment:EQUIPMENT[key]};

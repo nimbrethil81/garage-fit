@@ -15,7 +15,6 @@ const exercisesOf=w=>w.main.blocks.flatMap(b=>b.exercises);
 const mean=(list,key)=>list.reduce((sum,ex)=>sum+ex[key],0)/list.length;
 const timed=ex=>String(ex.prescription.type).includes('timed');
 const isHold=ex=>ex.cardio<=2&&timed(ex)&&['none','per-side'].includes(ex.sidedness);
-const LOWER_BODY=['squat','hinge','lunge','carry'];
 
 // Independent restatement of the documented balance rule: every body region is credited and none dominates.
 function regionCredit(list) {
@@ -64,9 +63,9 @@ function assertSession(w,family,{duration,difficulty,equipment}) {
   for(const ex of exercises)uses[ex.id]=(uses[ex.id]||0)+1;
   assert.ok(Math.max(...Object.values(uses))<=2,'no exercise appears in more than two places');
   if(family===CORE) {
-    // Trunk-led, low impact, controlled: no squat/hinge/lunge/carry or press pattern, no conditioning-grade cardio.
+    // Trunk-led, low impact and controlled; asymmetric carries can train the trunk.
     assert.ok(exercises.every(ex=>ex.bodyFocus==='core'&&ex.patterns.includes('core')&&!ex.patterns.includes('push')
-      &&!ex.patterns.some(p=>LOWER_BODY.includes(p))&&ex.impact==='low'&&ex.cardio<=3));
+      &&ex.impact==='low'&&ex.cardio<=3));
     assert.ok(exercises.filter(isHold).length>=exercises.length*.25,'holds carry a meaningful share');
     assert.ok(mean(exercises,'cardio')<=2.5,'control, not conditioning');
     assert.ok(new Set(exercises.map(ex=>ex.id)).size>=3);
@@ -207,10 +206,12 @@ test('recent-session history lowers exercise repetition and recent protocols inf
 test('impact and position constraints filter the canonical pool and infeasible requests fail honestly',()=>{
   const lowOnly=generate(CHALLENGE,{excludedImpact:['medium','high'],duration:20,equipment:EQUIPMENT.broad});
   assert.ok(exercisesOf(lowOnly).every(ex=>ex.impact==='low'));
-  // A floor-only Main used to pass by leaking standing warm-up movements. The whole
-  // session now honours the restriction and explains the unavailable preparation.
-  assert.throws(()=>generate(CORE,{bodyPositions:['floor'],equipment:EQUIPMENT.broad}),
-    error=>error.code==='family-not-feasible'&&error.reasons.every(reason=>reason.code==='preparation-not-feasible'));
+  // C1 adds genuine floor preparation, so this restriction is now feasible without
+  // leaking standing movements from the generic preparation pool.
+  const floor=generate(CORE,{bodyPositions:['floor'],equipment:EQUIPMENT.broad});
+  assert.ok([...exercisesOf(floor),...floor.warmup.exercises,...floor.rampup.exercises,...floor.cooldown.exercises]
+    .every(ex=>ex.bodyPosition==='floor'));
+  assert.equal(G.validateFamilyWorkout(floor,{catalogue:C,equipment:EQUIPMENT.broad}).valid,true);
   for(const [family,extra] of [[CORE,{excludedImpact:['low','medium','high']}],[CHALLENGE,{excludedImpact:['low','medium','high']}],
     [CORE,{bodyPositions:['standing']}],[CORE,{bodyPositions:['hanging']}],[CHALLENGE,{bodyPositions:['hanging']}]])
     assert.throws(()=>generate(family,extra),error=>error instanceof F.FamilyContractError&&error.code==='family-not-feasible'&&/cannot build/.test(error.message));
@@ -262,4 +263,111 @@ test('[Full] five durations × three difficulties × five equipment sets × thre
     sessions++;assertSession(w,family,{duration,difficulty,equipment});
   }
   assert.equal(sessions,2*5*3*5*3);
+});
+
+// C1: real draws from the complete catalogue, not an artificially narrowed exercise pool.
+const C1_IDS=['side-plank-knees','bent-knee-fallout','tabletop-toe-taps','dumbbell-suitcase-carry',
+  'side-plank-hip-lifts','supine-heel-slides','plank-arm-reaches','bridge-march','bent-knee-windshield-wipers',
+  'dead-bug-isometric-press','bear-plank-hold','seated-knee-tucks','kettlebell-suitcase-march',
+  'half-kneeling-band-pallof-press','dumbbell-dead-bug-hold'];
+function c1Random(seed){return()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296}}
+
+test('C1 metadata keeps controlled dynamic work, unilateral doses and deliberate route exclusions',()=>{
+  assert.equal(new Set(C1_IDS).size,15);
+  for(const id of C1_IDS){
+    const ex=C[id];
+    assert.ok(ex.generator&&ex.main,id);
+    assert.equal(ex.impact,'low',id);
+    assert.equal(ex.conditioning,false,id);
+    assert.equal(ex.cooldown,false,id);
+    assert.ok(ex.instruction.length<=180,id);
+    assert.deepEqual(ex.mainProtocols,['rounds','paired_sets'],id);
+    assert.equal(G.generatedPhaseEligible(ex,'main',EQUIPMENT.broad,'easy'),id!=='dumbbell-dead-bug-hold',id);
+    if(ex.sidedness==='per-side')assert.match(ex.prescription.type,/^unilateral-/);
+    if(timed(ex))assert.equal(ex.estimatedSeconds,ex.prescription.value*(ex.sidedness==='per-side'?2:1),id);
+  }
+  for(const id of ['dumbbell-suitcase-carry','kettlebell-suitcase-march']){
+    assert.ok(C[id].patterns.includes('carry'));
+    assert.equal(isHold(C[id]),false,'locomotion is dynamic, not an isometric hold');
+  }
+  assert.match(C['dumbbell-suitcase-carry'].instruction,/clear path/);
+  assert.match(C['kettlebell-suitcase-march'].instruction,/on the spot/);
+  assert.match(C['dumbbell-dead-bug-hold'].instruction,/above your chest/);
+  assert.equal(C['plank-shoulder-taps'].mainRole,'supporting');
+  assert.ok(C['plank-shoulder-taps'].patterns.includes('push'));
+  assert.equal(C['floor-wipers'].generator,false,'demanding fixed-only work is not promoted');
+  assert.deepEqual(C['floor-wipers'].prescription,{type:'reps',value:50});
+  assert.equal(C['glute-bridge'].bodyFocus,'lower');
+  assert.notEqual(C['band-pallof-press'].id,C['half-kneeling-band-pallof-press'].id);
+  assert.equal(C['dumbbell-farmer-carry'].bodyFocus,'full-body');
+});
+
+test('all 15 C1 identities are selected in appropriate Core sessions, including accessible supporting work',()=>{
+  // id, kit, duration, difficulty, seed: fifteen end-to-end fixtures, no frequency quota.
+  const fixtures=[
+    ['side-plank-knees',[],10,'easy',2],['bent-knee-fallout',[],30,'easy',12],
+    ['tabletop-toe-taps',[],30,'easy',4],['dumbbell-suitcase-carry',['dumbbells'],30,'hard',2],
+    ['side-plank-hip-lifts',[],30,'hard',1],['supine-heel-slides',[],15,'easy',5],
+    ['plank-arm-reaches',[],30,'hard',1],['bridge-march',[],30,'hard',2],
+    ['bent-knee-windshield-wipers',[],30,'hard',3],['dead-bug-isometric-press',[],10,'easy',25],
+    ['bear-plank-hold',[],30,'hard',1],['seated-knee-tucks',[],30,'hard',1],
+    ['kettlebell-suitcase-march',['kettlebell'],30,'hard',1],
+    ['half-kneeling-band-pallof-press',['bands'],30,'hard',7],['dumbbell-dead-bug-hold',['dumbbells'],30,'hard',1]
+  ];
+  for(const [id,equipment,duration,difficulty,seed] of fixtures){
+    const w=generate(CORE,{equipment,duration,difficulty,random:c1Random(seed)});
+    assert.ok(exercisesOf(w).some(ex=>ex.id===id),id);
+    assertSession(w,CORE,{equipment,duration,difficulty});
+    assert.equal(G.validateFamilyWorkout(w,{catalogue:C,equipment}).valid,true,id);
+    if(C[id].cardio===3)assert.equal(w.familyStyleId,'dynamic-core');
+    assert.ok(!exercisesOf(w).some(ex=>ex.id==='plank-shoulder-taps'),'push demand stays outside Core');
+  }
+  const seen=new Set();
+  for(let seed=1;seed<=20;seed++)for(const ex of exercisesOf(generate(CORE,{duration:30,difficulty:'easy',random:c1Random(seed)})))seen.add(ex.id);
+  for(const id of ['dead-bug','bird-dog','reverse-crunch'])assert.ok(seen.has(id),'foundation '+id);
+});
+
+test('C1 supporting and loaded work reaches secondary families under their unchanged quality gates',()=>{
+  for(const [family,version,id,equipment,duration,seed] of [
+    ['strength-control',2,'bent-knee-fallout',[],45,9],
+    ['strength-control',2,'supine-heel-slides',[],30,9],
+    ['strength-control',2,'dumbbell-suitcase-carry',['dumbbells'],30,3],
+    ['strength-control',2,'half-kneeling-band-pallof-press',['bands'],30,10],
+    ['strength-control',2,'plank-shoulder-taps',[],30,1],
+    [CHALLENGE,1,'plank-arm-reaches',[],30,4],
+    [CHALLENGE,1,'bridge-march',[],30,1],
+    [CHALLENGE,1,'seated-knee-tucks',[],30,2],
+    [CHALLENGE,1,'kettlebell-suitcase-march',['kettlebell'],45,10]
+  ]){
+    const w=generate(family,{workoutFamilyVersion:version,equipment,duration,difficulty:'hard',bodyFocus:'core',random:c1Random(seed)});
+    assert.ok(exercisesOf(w).some(ex=>ex.id===id),family+' '+id);
+    assert.equal(G.validateFamilyWorkout(w,{catalogue:C,equipment}).valid,true);
+  }
+});
+
+test('C1 accessories reach all four Coach routes without replacing their anchors or granting sport membership',async()=>{
+  const {pilot}=require('./helpers/coach-pilot');
+  for(const [id,version,expected,anchorIds] of [
+    ['general-strength-4w',2,'dumbbell-suitcase-carry',['goblet-squat','dumbbell-floor-press','dumbbell-bent-over-row']],
+    ['build-arms',1,'bridge-march',['dumbbell-biceps-curl','dumbbell-overhead-triceps-extension']],
+    ['tennis-conditioning',8,'plank-arm-reaches',['dumbbell-reverse-lunge','dumbbell-romanian-deadlift','dumbbell-floor-press','dumbbell-bent-over-row']],
+    ['general-fitness',2,'bridge-march',[]]
+  ]){
+    const p=pilot(new Map(),id,version);
+    p.run("pilotOptions.equipment=['dumbbells','bands','bench'];pilotOptions.duration=45;pilotOptions.bodyFocus='core';");
+    await p.start();
+    assert.deepEqual(p.json('pilot.snapshot().state.anchors.map(a=>a.exerciseId)'),anchorIds,id);
+    p.run('let c1Seed=1;Math.random=()=>{c1Seed=(c1Seed*1664525+1013904223)>>>0;return c1Seed/4294967296;};');
+    p.run('pilot.prepare(pilotOptions)');
+    const workout=p.json('pilot.snapshot().preview.workout');
+    assert.ok(exercisesOf(workout).some(ex=>ex.id===expected),id+' '+expected);
+    const required=p.json('(pilot.snapshot().preview.plan.prescription.requiredAnchors||[]).map(a=>a.exerciseId)');
+    for(const anchorId of required)assert.ok(exercisesOf(workout).some(ex=>ex.id===anchorId),id+' anchor '+anchorId);
+    // New core exercises remain generic accessories in Tennis strength roles;
+    // reviewed movement-role optional pools and sport credit remain deliberately pinned.
+    const sport=p.app.GarageFitSportCoverage.createPolicy(p.app.GarageFitData.sportCapabilityPolicies.tennis[4],p.app.GarageFitData.exercises);
+    for(const exerciseId of C1_IDS)assert.equal(sport.classifyExercise(exerciseId).status,'unmapped',exerciseId);
+    for(const [family,version,roles] of [['athletic-movement',4,['footwork','control','integrated']],['mobility-movement-quality',2,['prep','focused','flow','finish']]])
+      for(const exerciseId of C1_IDS)for(const role of roles)assert.equal(p.app.GarageFitWorkoutFamilies.getMembership({workoutFamilyId:family,workoutFamilyVersion:version,role},exerciseId),null);
+  }
 });

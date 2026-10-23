@@ -119,7 +119,9 @@ test('balanced 30-minute warm-ups pair lower-body preparation with upper/trunk m
   for (let seed=1;seed<=60;seed++) {
     const warmup = GarageFitGenerator.generate({catalogue,duration:30,focus:'balanced',equipment:['dumbbells','kettlebell','trx','pullup-bar'],random:random(seed)}).warmup.exercises;
     assert.ok(warmup.filter(meaningful).length>=2, warmup.map(ex=>ex.id).join(', '));
-    assert.ok(warmup.some(upperTrunkOnly), warmup.map(ex=>ex.id).join(', '));
+    // Multi-region drills (C1) can prepare the trunk as well as the hips.
+    assert.ok(warmup.filter(ex=>ex.warmupAreas.some(area=>['shoulders','trunk'].includes(area))).length
+      >=2, warmup.map(ex=>ex.id).join(', '));
   }
 });
 

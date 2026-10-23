@@ -162,8 +162,9 @@ test('ordinary Generator, warm-up and Main eligibility and no-family output are 
     assert.equal(G.generatedPhaseEligible(C[id],'main',[]),true,id);
   assert.equal(G.generatedPhaseEligible(C['knee-to-opposite-elbow'],'main',[]),false);
   assert.equal(G.generatedPhaseEligible(C['knee-to-opposite-elbow'],'warmup',[]),true);
+  const snapshotCatalogue=require('./helpers/coach-fixtures').catalogueBeforeC1(C);
   let seed=31,draws=0;
-  const w=G.generate({duration:10,focus:'strength',bodyFocus:'upper',difficulty:'easy',equipment:[],catalogue:C,
+  const w=G.generate({duration:10,focus:'strength',bodyFocus:'upper',difficulty:'easy',equipment:[],catalogue:snapshotCatalogue,
     random:()=>{draws++;seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}});delete w.id;
   assert.equal(draws,68);
   assert.equal(createHash('sha256').update(JSON.stringify(w)).digest('hex'),'f6b2266805a3e7bd97e2e733105240fcdb9ccdaa5ee43c611a04a79d7d183c5f');

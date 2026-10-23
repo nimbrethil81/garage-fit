@@ -25,7 +25,7 @@ test('the batch entries match the approved metadata',()=>{
   assert.equal(pp.estimatedSeconds,30);
   assert.deepEqual(pp.mainProtocols,['rounds','paired_sets']);
   assert.deepEqual(pa.equipment,[['bands']]);
-  assert.deepEqual([pa.family,pa.repetitionClass,pa.patterns,pa.conditioning,pa.strength,pa.cardio,pa.impact,pa.load,pa.sidedness,pa.bodyPosition,pa.movementPlanes,pa.mainRole],[null,null,['core'],false,3,1,'low','Light','per-side','standing',['transverse'],'supporting']);
+  assert.deepEqual([pa.family,pa.repetitionClass,pa.patterns,pa.conditioning,pa.strength,pa.cardio,pa.impact,pa.load,pa.sidedness,pa.bodyPosition,pa.movementPlanes,pa.mainRole],[null,'pallof-press',['core'],false,3,1,'low','Light','per-side','standing',['transverse'],'supporting']);
   assert.deepEqual(pa.prescription,{type:'unilateral-timed',value:20});
   assert.deepEqual(pa.prescriptionModes,['time']);
   assert.deepEqual(tp.equipment,[['trx']]);
@@ -58,7 +58,9 @@ test('relationships use the existing overhead-press and biceps-curl families onl
   assert.ok(G.sameFamily(press,catalogue['dumbbell-shoulder-press']));
   assert.ok(!G.sameFamily(press,catalogue['dumbbell-thruster']));
   assert.ok(G.sameFamily(catalogue['dumbbell-biceps-curl'],catalogue['band-biceps-curl']));
-  for(const id of ['bear-crawl','band-pallof-press','trx-pike'])
+  assert.equal(catalogue['band-pallof-press'].family,null);
+  assert.equal(catalogue['band-pallof-press'].repetitionClass,'pallof-press'); // C1 kneeling variant
+  for(const id of ['bear-crawl','trx-pike'])
     assert.ok(!catalogue[id].family&&!catalogue[id].repetitionClass,id);
 });
 

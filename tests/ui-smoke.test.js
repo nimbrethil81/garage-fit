@@ -93,7 +93,8 @@ test('Generator preview/player and both fixed players initialise without runtime
   context.goHome();
   vm.runInContext("state.ownedEquipment=[]",context);
   // Routine plans draw from the shared seeded random source; restart it so the Generator checks below see the same workouts.
-  context.Math.random=(seed=>()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;})(7);
+  // C1: pin a generic rounds/interval session; AMRAP announcements have dedicated tests.
+  context.Math.random=(seed=>()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;})(2);
   context.showLanding('generator');
   // Workout style is labelled Strength / Mixed / Cardio; Body focus and Difficulty sit collapsed under
   // Additional options, defaulting to Full Body and Normal.
@@ -158,7 +159,7 @@ test('Generator preview/player and both fixed players initialise without runtime
       // A sided cue speaks "name, side" and the quantity as separate utterances; an optional
       // spoken instruction follows.
       const cue=spoken.slice(before),parts=phase.side?2:1,quantity=phase.timed?'seconds':'reps';
-      assert.ok(cue.length>=parts && cue.length<=parts+1);
+      assert.ok(cue.length>=parts && cue.length<=parts+1,phase.exercise.id+' '+phase.protocol+' '+JSON.stringify(cue));
       assert.ok(cue[0].includes(phase.exercise.name));
       assert.ok(cue[parts-1].includes(quantity));
       if(phase.side) assert.ok(cue[0].includes(phase.side+' side') && !cue[0].includes(quantity));

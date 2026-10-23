@@ -191,6 +191,7 @@ test('shared preview/player/tracker use contextual targets and per-side occurren
 });
 
 test('no-family seeded output and random draws match the pre-178 main baseline',()=>{
+  const snapshotCatalogue=require('./helpers/coach-fixtures').catalogueBeforeC1(C);
   const fixtures=[
     // Re-pinned for #255: three newly shared Main exercises change this pool (same RNG count).
     [{duration:10,focus:'strength',bodyFocus:'upper',difficulty:'easy',equipment:[]},68,'f6b2266805a3e7bd97e2e733105240fcdb9ccdaa5ee43c611a04a79d7d183c5f'],
@@ -201,7 +202,7 @@ test('no-family seeded output and random draws match the pre-178 main baseline',
   ];
   for(const [options,expectedDraws,expectedHash] of fixtures){
     let seed=31,draws=0;
-    const w=G.generate({...options,catalogue:C,random:()=>{draws++;seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}});delete w.id;
+    const w=G.generate({...options,catalogue:snapshotCatalogue,random:()=>{draws++;seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}});delete w.id;
     assert.equal(draws,expectedDraws);assert.equal(createHash('sha256').update(JSON.stringify(w)).digest('hex'),expectedHash);
   }
   assert.equal(JSON.stringify(C),catalogueBefore);

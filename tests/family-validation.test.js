@@ -182,9 +182,11 @@ test('explicit family safety constraints cover preparation and cooldown, includi
       }
     }
   }
-  const unavailable=infeasible(()=>generate('core-stability',{bodyPositions:['floor']}));
-  assert.ok(unavailable.reasons.every(reason=>reason.code==='preparation-not-feasible'));
-  assert.ok(unavailable.adjustments.some(item=>item.code==='remove-body-position-restriction'));
+  // C1 supplies legitimate floor preparation; Main and all preparation now fit.
+  const floorCore=generate('core-stability',{bodyPositions:['floor']});
+  assert.equal(validate(floorCore).valid,true);
+  for(const section of ['warmup','rampup','cooldown'])
+    assert.ok(floorCore[section].exercises.every(ex=>ex.bodyPosition==='floor'));
 });
 
 test('an infeasible manual family request returns verified reasons and adjustments, never another family',()=>{
