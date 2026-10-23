@@ -10,7 +10,7 @@ const {create, createSwipe} = globalThis.GarageFitBackNav;
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 
 const NESTED = {
-  equipment: 'generator', generatedPreview: 'generator', settings: 'more', spokenCues: 'settings', workoutPatterns: 'more',
+  equipment: 'generator', generatedPreview: 'generator', settings: 'more', spokenCues: 'settings', workoutPatterns: 'more', workoutPatternDetail: 'workoutPatterns',
   exerciseLibrary: 'more', exerciseDetail: 'exerciseLibrary', coachPreview: 'coach', coachProgress: 'coach', coachSettings: 'coach'
 };
 const PROTECTED = ['player', 'workoutPlayer', 'done', 'coachResult', 'snackpick', 'home', 'workouts', 'generator', 'more', 'coach'];
