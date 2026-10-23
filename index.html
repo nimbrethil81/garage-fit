@@ -763,7 +763,14 @@ let generatorRecentProtocols=[];
 async function refreshGeneratorProtocols(){
   try{const query=await GarageFitCoachStore.createStore(localStorage).listSessionResults({source:'generator',limit:4});generatorRecentProtocols=GarageFitGenerator.recentProtocolsFromResults(query.results)}catch(e){generatorRecentProtocols=[]}
 }
+// Transient, derived from existing completed Session Results (nothing is stored): the newest completed session of each
+// family, so a family composer can vary its next session (e.g. Mobility's internal emphasis). Bounded to recent history.
+let generatorRecentFamilySessions={};
+async function refreshGeneratorFamilySessions(){
+  try{const limit=GarageFitTrainingHistory.RECENT_SESSION_LIMIT,query=await GarageFitCoachStore.createStore(localStorage).listSessionResults({sources:['coach','generator','fixed'],performedOnly:true,limit,candidateLimit:limit});generatorRecentFamilySessions=GarageFitTrainingHistory.createHistory(query.results,CATALOGUE).lastCompletedFamilySessions()}catch(e){generatorRecentFamilySessions={}}
+}
 refreshGeneratorProtocols();
+refreshGeneratorFamilySessions();
 function familyFailureMessage(error){
   const family=GarageFitWorkoutFamilies.getDefinition(generatorState.workoutFamilyId),codes=(error.reasons||[]).map(reason=>reason.code);
   const reason=codes.includes('insufficient-eligible-movements')||codes.includes('missing-essential-practice')?'There are too few suitable movements for its required practice.':codes.includes('phase-cannot-fit')?'Its movement practice and recovery cannot fit the selected time.':'A suitable session with the required movement balance and recovery could not be built.';
@@ -772,8 +779,8 @@ function familyFailureMessage(error){
 }
 function generateWorkout(){
   clearGeneratorFamilyError();
-  const options={catalogue:CATALOGUE,duration:generatorState.duration,focus:generatorState.focus,bodyFocus:generatorState.bodyFocus,difficulty:generatorState.difficulty,equipment:state.ownedEquipment,history:getGeneratedHistory(),recentProtocols:generatorRecentProtocols};
-  // New standalone workouts use the family's current published composition (Athletic Movement v2, #244).
+  const options={catalogue:CATALOGUE,duration:generatorState.duration,focus:generatorState.focus,bodyFocus:generatorState.bodyFocus,difficulty:generatorState.difficulty,equipment:state.ownedEquipment,history:getGeneratedHistory(),recentProtocols:generatorRecentProtocols,recentFamilySessions:generatorRecentFamilySessions};
+  // New standalone workouts use the family's current published composition (e.g. Athletic Movement v4, Mobility v2).
   if(generatorState.workoutFamilyId){options.workoutFamilyId=generatorState.workoutFamilyId;options.workoutFamilyVersion=GarageFitWorkoutFamilies.currentVersion(generatorState.workoutFamilyId)}
   try{generatorState.workout=GarageFitGenerator.generate(options)}catch(error){
     if(!generatorState.workoutFamilyId||error.code!=='family-not-feasible')throw error;
@@ -1075,7 +1082,7 @@ function trackGenerated(action){try{const write=action();if(write&&write.catch)w
 // Record the current exercise occurrence's outcome before the timeline moves on. Timed work is
 // measured from the countdown; rep work is Done or skipped. Moving the index is not evidence.
 function recordGeneratedOutcome(action){const tracker=generatorState.tracker,phase=currentGeneratedPhase();if(!tracker||!tracker.started||tracker.finalised||generatorState.trackedResult||!phase||phase.kind!=='exercise')return;trackGenerated(()=>phase.timed?tracker.recordTimed(phase.occurrenceId,{plannedSeconds:phase.seconds,elapsedSeconds:phase.seconds-Math.max(0,generatorState.remaining)}):action==='done'?tracker.recordDone(phase.occurrenceId):tracker.recordSkip(phase.occurrenceId))}
-function finishGeneratedTracking(kind){const tracker=generatorState.tracker;if(!tracker||!tracker.started||tracker.finalised||generatorState.trackedResult)return null;if(kind==='exit'&&generatorState.standaloneTracking){generatorState.tracker=null;return null}const options={actualDurationSeconds:Math.floor(currentWorkoutElapsedMs()/1000)};generatorState.trackedResult=trackGenerated(()=>kind==='complete'?tracker.complete(options):tracker.exitEarly(options));if(kind==='complete'&&generatorState.standaloneTracking&&generatorState.trackedResult)Promise.resolve(generatorState.trackedResult).then(refreshGeneratorProtocols).catch(()=>{});return generatorState.trackedResult}
+function finishGeneratedTracking(kind){const tracker=generatorState.tracker;if(!tracker||!tracker.started||tracker.finalised||generatorState.trackedResult)return null;if(kind==='exit'&&generatorState.standaloneTracking){generatorState.tracker=null;return null}const options={actualDurationSeconds:Math.floor(currentWorkoutElapsedMs()/1000)};generatorState.trackedResult=trackGenerated(()=>kind==='complete'?tracker.complete(options):tracker.exitEarly(options));if(kind==='complete'&&generatorState.standaloneTracking&&generatorState.trackedResult)Promise.resolve(generatorState.trackedResult).then(()=>Promise.all([refreshGeneratorProtocols(),refreshGeneratorFamilySessions()])).catch(()=>{});return generatorState.trackedResult}
 function currentGeneratedPhase(){return generatorState.timeline[generatorState.timelineIndex]}
 function syncGeneratedCountdown(){if(isAmrapBlockPhase()&&amrapBlockRun()){generatorState.remaining=amrapBlockRemaining();return}if(isDensityPhase()&&densityRun()){generatorState.remaining=densityRemaining();return}if(isEmomPhase()&&emomRun()){generatorState.remaining=Math.max(0,(emomRun().originMs+currentGeneratedPhase().endsAtSeconds*1000-currentWorkoutElapsedMs())/1000);return}if(generatorState.phaseTimer!==null&&generatorState.phaseTickAt!=null){const now=Date.now();if(!workoutState.paused)generatorState.remaining=Math.max(0,generatorState.remaining-(now-generatorState.phaseTickAt)/1000);generatorState.phaseTickAt=now}}
 function stopGeneratedPhaseTimer(){syncGeneratedCountdown();clearInterval(generatorState.phaseTimer);generatorState.phaseTimer=null}

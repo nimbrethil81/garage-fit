@@ -180,6 +180,35 @@ test('bounded sequences expose cross-source family/style/exercise/pattern/protoc
   assert.throws(()=>view(sequence).recentTrainingSummary({limit:-1}),/limit/);
 });
 
+test('the newest completed session of each family is derived read-only, with its completed occurrences and blocks (#264)', () => {
+  const family = (version, style = 'joint-focused') => ({workoutFamilyId: 'mobility-movement-quality', workoutFamilyVersion: version, familyStyleId: style});
+  const stages = ['cat-cow', 'kneeling-ankle-rocks', 'thread-the-needle', 'worlds-greatest-stretch', 'wall-angel'];
+  const make = (id, day, extra = {}, statuses = stages.map(() => 'completed')) => performance({sessionResultId: id, source: 'generator', programmeInstanceId: null, ...family(2),
+    startedAt: `2026-10-0${day}T08:00:00Z`, endedAt: `2026-10-0${day}T08:20:00Z`,
+    plannedWork: stages.map((exerciseId, i) => ({occurrenceId: id + i, exerciseId, section: i === 0 ? 'warmup' : i === 4 ? 'cooldown' : 'main', blockIndex: [0, 1, 1, 2, 3][i]})),
+    performedWork: stages.map((exerciseId, i) => ({occurrenceId: id + i, exerciseId, status: statuses[i]})), anchorResults: [], ...extra});
+  const results = [make('old-complete', 1, family(1)), make('newest-complete', 2), make('later-partial', 3, {finalStatus: 'partial'}, ['completed', 'completed', 'skipped', 'skipped', 'skipped']),
+    make('later-abandoned', 4, {finalStatus: 'abandoned'}), make('fixed-untagged', 5, {source: 'fixed', workoutFamilyId: undefined, workoutFamilyVersion: undefined, familyStyleId: undefined}),
+    make('other-family', 6, {workoutFamilyId: 'core-stability', workoutFamilyVersion: 1, familyStyleId: 'controlled-stability'})];
+  const history = view(results), found = history.lastCompletedFamilySessions();
+  assert.deepEqual(Object.keys(found).sort(), ['core-stability', 'mobility-movement-quality']);
+  const mobility = found['mobility-movement-quality'];
+  assert.equal(mobility.sessionResultId, 'newest-complete', 'partial, abandoned and untagged sessions never qualify');
+  assert.deepEqual([mobility.workoutFamilyVersion, mobility.familyStyleId, mobility.plannedOccurrences], [2, 'joint-focused', 5]);
+  assert.deepEqual(mobility.completedOccurrences.map(item => [item.exerciseId, item.blockIndex]),
+    [['cat-cow', 0], ['kneeling-ankle-rocks', 1], ['thread-the-needle', 1], ['worlds-greatest-stretch', 2], ['wall-angel', 3]], 'all sections, with their block');
+  assert.ok(Object.isFrozen(found) && Object.isFrozen(mobility.completedOccurrences[0]));
+  assert.deepEqual(Object.keys(history.lastCompletedFamilySessions({until: '2026-10-01T23:00:00Z'})), ['mobility-movement-quality']);
+  assert.equal(history.lastCompletedFamilySessions({until: '2026-10-01T23:00:00Z'})['mobility-movement-quality'].sessionResultId, 'old-complete');
+  assert.deepEqual(view([]).lastCompletedFamilySessions(), {});
+  // Skipped occurrences are not completed work.
+  const skipped = view([make('skips', 7, {}, ['completed', 'skipped', 'completed', 'completed', 'skipped'])]).lastCompletedFamilySessions()['mobility-movement-quality'];
+  assert.deepEqual(skipped.completedOccurrences.map(item => item.exerciseId), ['cat-cow', 'thread-the-needle', 'worlds-greatest-stretch']);
+  assert.equal(skipped.plannedOccurrences, 5);
+  // Nothing in a Session Result changes: the stored records are untouched by the derived view.
+  assert.deepEqual(JSON.parse(JSON.stringify(results)), JSON.parse(JSON.stringify(results.map(item => history.sessions.find(entry => entry.sessionResultId === item.sessionResultId)))));
+});
+
 test('recent balance retains measured partial work, unknown amount and unlinked fixed patterns honestly', () => {
   const partial=performance({sessionResultId:'partial-time',finalStatus:'partial',
     plannedWork:[{occurrenceId:'main-1',exerciseId:'plank',section:'main',prescription:{type:'timed',timed:true,seconds:40,protocol:'timed_intervals'}}],

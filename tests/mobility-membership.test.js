@@ -160,7 +160,7 @@ test('ordinary Generator, warm-up, cool-down and Main eligibility are unchanged 
   assert.deepEqual(NEW.filter(id=>ids.has(id)),[]);
 });
 
-// ---- Mobility membership v2 (#263): reviewed eligibility only; the v2 composer is a later deliverable ----
+// ---- Mobility membership v2 (#263): reviewed eligibility only; composition v2 (#264) is covered in mobility-composer.test.js ----
 const V2_ADDED={'ankle-circles':['prep','focused'],'heel-toe-rocks':['prep','focused'],'shoulder-rolls':['prep'],'open-close-gates':['prep'],
   'standing-side-bends':['prep','focused'],'body-hoops':['prep'],'body-twists':['prep','focused'],'shallow-knee-bends':['prep'],
   'trx-lateral-weight-shift':['prep','flow'],'hip-flexor-arm-stretch':['focused','finish'],'runners-stretch':['focused'],
@@ -193,7 +193,7 @@ test('four new Mobility canonical movements are distinct, family-only, safely pr
 });
 
 test('membership v2 resolves exactly 34 identities with the approved roles and keeps v1 byte-identical (#263)',()=>{
-  assert.equal(V2_IDS.length,34);assert.equal(F.currentVersion(FAMILY),1);
+  assert.equal(V2_IDS.length,34);assert.equal(F.currentVersion(FAMILY),2,'composition v2 is current since #264');
   const def=F.getDefinition(FAMILY,2);
   assert.deepEqual([def.membershipPolicy,def.compositionPolicy],[{id:FAMILY,version:2},{id:FAMILY,version:2}]);
   for(const role of ROLES){

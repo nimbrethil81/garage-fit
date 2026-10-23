@@ -238,6 +238,23 @@
         });
         return Model.deepFreeze({limit, sessions: evidence, ...dimensions});
       },
+      // Newest *completed* session of each workout family, with the occurrences actually completed (any section,
+      // with their block). Derived, read-only evidence a family composer may use to vary its next session; it is not
+      // stored, adds no field to a Session Result, and a partial, abandoned, skipped or untagged session never qualifies.
+      lastCompletedFamilySessions(options = {}) {
+        const found = {};
+        for (const session of filter(sessions, options, true).slice().reverse()) {
+          const family = session.workoutFamilyId;
+          if (!family || found[family] || session.source === 'external' || session.finalStatus !== 'completed') continue;
+          const planned = new Map((session.plannedWork || []).map(work => [work.occurrenceId, work]));
+          found[family] = {sessionResultId: session.sessionResultId, source: session.source, occurredAt: when(session),
+            workoutFamilyId: family, workoutFamilyVersion: session.workoutFamilyVersion || null, familyStyleId: session.familyStyleId || null,
+            plannedOccurrences: planned.size,
+            completedOccurrences: performances.filter(item => item.sessionResultId === session.sessionResultId && item.status === 'completed')
+              .map(item => ({exerciseId: item.exerciseId, blockIndex: Number.isInteger(planned.get(item.occurrenceId)?.blockIndex) ? planned.get(item.occurrenceId).blockIndex : null}))};
+        }
+        return Model.deepFreeze(found);
+      },
       sessionsForProgramme(programmeInstanceId, options = {}) { return filter(sessions, {...options, programmeInstanceId, includeStandalone: false}, true); },
       recentPerformedSessions(options = {}) {
         const ids = new Set(filter(performances, options).filter(item => item.exposure.value > 0 || item.exposure.confidence === 'unknown').map(item => item.sessionResultId));

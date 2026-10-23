@@ -7,8 +7,8 @@ policy change needs a new definition version and versioned policy reference.
 A later version of the same family keeps its id, name, purpose, styles and feasibility; it is the
 same family for training balance and recency, while composition and history keep the version.
 `GarageFitData.workoutFamilyCurrentVersions` names the version new workouts use; today that is
-version 1 for every family except Athletic Movement, whose current version is 4 (#244, #255), and
-Strength & Control, whose current version is 2 (#261).
+version 1 for every family except Athletic Movement (current version 4; #244, #255), Strength & Control
+(current version 2; #261) and Mobility & Movement Quality (current version 2; #264).
 
 Each definition owns its display name, purpose, supported internal styles, Body
 Focus compatibility, composition/membership policy references, suitability criteria
@@ -282,14 +282,11 @@ below). No-family Coach and standalone calls
 retain their existing paths and random consumption. These transient workout identity
 fields introduce no persisted family history or preference migrations.
 
-### Mobility v2 membership (staged; #263)
+### Mobility v2 membership (#263)
 
-Mobility family v2 is published but **not current** and has **no composer**: current stays v1, so standalone
-and General Fitness output are unchanged. Its membership reference is reviewed membership v2 (registered in
-`data/mobility-membership.js`); its composition reference is v2, which is deliberately unregistered. An explicit
-`workoutFamilyVersion: 2` request fails with `family-composer-unavailable` and never falls back to v1. The
-follow-on issue adds the Prepare/Focus/Flow/Finish v2 composer and activation; until then v2 membership is
-eligibility only and end-to-end v2 reachability is not claimed.
+Mobility family v2 pairs reviewed membership v2 (registered in `data/mobility-membership.js`) with composition v2
+(see [Mobility composition v2](#mobility-composition-v2-264-current)); #263 delivered the membership and the four new
+movements, #264 the composer and activation. Membership is eligibility only.
 
 Membership v2 resolves 34 identities: all 15 v1 identities with their v1 roles and prescriptions (v1 stays
 frozen), fifteen existing catalogue movements and four new family-only ones. Roles (`prep`, `focused`, `flow`,
@@ -364,6 +361,58 @@ the central membership context gates. No large movement space is assumed. A requ
 that leaves too few eligible movements or loses required shoulder/ankle/thoracic
 practice fails with `family-not-feasible`, including standing-only and floor-only
 restrictions. It never substitutes a different family or an unapproved exercise.
+
+### Mobility composition v2 (#264, current)
+
+`js/mobility-composer.js` also registers composition v2 against family v2 / membership v2 (#263). Mobility v2 is
+current, so new standalone workouts and General Fitness plans compose it; v1 stays registered and composes and
+validates exactly as released (`tests/mobility-composer.test.js` pins 54 seeded v1 sessions by digest), and an
+explicit request without a `workoutFamilyVersion` is still v1. Nothing is added to the catalogue metadata, protocol
+vocabulary, UI, settings or persistence. The two internal styles keep their meaning (`joint-focused` shifts 8% of
+flow time into Focus with deliberate seven-second resets; `integrated-flow` the reverse with three-second flow
+changeovers) and are never read as a regional emphasis. The four blocks, their minute profile (table above),
+`occurrenceTargets`, explicit per-gap recovery, equal per-side time, exact budgets and the Warm-up (Prepare) /
+Cool-down (Finish) classification are the same as v1.
+
+**Internal emphasis.** After the style draw, the seeded composer chooses hips & lower body, shoulders & upper back or
+full body. It is a construction decision only (no third style, setting or stored value). A Mobility-local region
+mapping in the composer (lower body, upper body and trunk, primary then secondary) drives selection; it is not
+catalogue metadata. Focus carries the emphasis (60% of the primary region at 10 minutes, 50% at 15-20, 42% at 30-45,
+the others sharing the rest); Prepare, Flow and Finish stay half-way to even so the whole body is always practised.
+Coverage is by region, never by fixed identities: sessions need distinct movements in every region (1 at 10 minutes,
+2 at 15-20, 3 at 30-45), checked again by the family quality gate. Pools come from membership v2 and the existing
+eligibility gates (equipment, difficulty, impact, positions); no fixed order or core list can hold a member out.
+
+**Variety and sequencing (soft).** Stage selection scores regional need, recency and near-duplicates (for example
+shoulder rolls against controlled rotations, ankle circles against heel-to-toe rocks, hip rotations against open/close
+gates; a more developed member in a later stage counts as progression) and keeps body-level changes few: Prepare is
+standing, Focus runs standing then floor, Flow floor then mixed then standing, Finish descends once, each stage starting
+at the level the previous one ended on. Static holds stay in Focus/Finish only (canonical instructions unchanged, at
+most 30 s, and at most one or two in Focus); Prepare and Flow are active. At most six visits of one movement and no
+unchanged four-movement run are allowed in a session.
+
+**Long sessions.** 30/45 minutes draw the approved pool broadly first. Only when the time cannot otherwise be filled does
+a stage add shorter return passes of active movements already practised, ordered differently each time; a restricted
+or Easy bodyweight session may widen that in two bounded steps. Doses never exceed the family caps (Easy 35/30 s,
+Normal 45/35, Hard 50/40 bilateral/per side; 50 s in Finish) and static holds are never lengthened to fill time. The
+approved pool is small, so at 45 minutes it is nearly exhausted and the emphasis shows chiefly in return choices and
+order rather than in which movements appear.
+
+**History evidence (transient).** Training History derives the newest completed session of each family
+(`createHistory(...).lastCompletedFamilySessions()`: completed occurrences with their block, read-only and never
+stored). The standalone screen reads it from the most recent twelve performed results (existing bounded query) and the
+Coach controller from the results it already loaded; both pass it as `recentFamilySessions`, and the Coach family-plan
+route forwards it. Mobility reads only a completed v2 session with at least 75% of its occurrences completed, and infers
+its emphasis only from a clear lower-body or upper-body skew in its Focus block; balanced, partial, v1, untagged or
+malformed evidence gives no preference. A reliable previous emphasis halves that emphasis's draw weight (a mild
+preference, not a rotation), and recently performed movements (the Generator's four recent sessions plus the last Mobility
+session) are softly avoided. Absent evidence, the seeded draw is unchanged and equivalent inputs regenerate identically.
+
+**Restrictions.** Easy excludes medium impact (Cossack squat) and the plank-bearing runner's stretch; `supported-squat-rocks`
+and the TRX movements need an owned TRX; excluded impact and body positions pass through the central gates. Standing-only
+without a TRX, hanging/supported-only and low-impact exclusions fail with `family-not-feasible` and verified
+adjustments; a floor-only request composes a floor-only session up to 30 minutes (Prepare is then not standing) and is
+infeasible at 45.
 
 ### Athletic Movement composition v1
 

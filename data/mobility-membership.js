@@ -46,8 +46,8 @@
     return entries;
   }
   // Membership v2 (#263, Mobility & Movement Quality v2 workstream 1): all fifteen v1 entries unchanged, plus
-  // fifteen existing and four new identities. Membership is eligibility only; the v2 composer that selects from
-  // it is a separate deliverable and is not registered, so the family's current version stays 1.
+  // fifteen existing and four new identities. Membership is eligibility only; composition v2 (#264,
+  // js/mobility-composer.js) selects from it and is current.
   // [exerciseId, roles, minimumDifficulty?, prescription override?]
   const GENTLE = {bilateral: {type: 'timed', minValue: 15, maxValue: 40}, 'per-side': {type: 'unilateral-timed', minValue: 15, maxValue: 40}};
   const ADDITIONS = [

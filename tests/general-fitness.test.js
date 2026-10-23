@@ -88,7 +88,7 @@ test('Athletic v1 and v4 are one family for balance and variety; released defini
     assert.deepEqual(out.two, out.one, 'GF v'+version+': a v4 Athletic session earns exactly what a v1 session earns');
     assert.deepEqual(out.one.basis, ['family-identity']);
     assert.ok(out.one.families.find(item => item.workoutFamilyId === 'athletic-movement').varietyPenalty > 0, 'recency counts the family, not its version');
-    assert.deepEqual(Object.fromEntries(out.candidates), {'strength-control':2,'cardio-conditioning':1,'full-body-challenges':1,'athletic-movement':4,'core-stability':1,'mobility-movement-quality':1});
+    assert.deepEqual(Object.fromEntries(out.candidates), {'strength-control':2,'cardio-conditioning':1,'full-body-challenges':1,'athletic-movement':4,'core-stability':1,'mobility-movement-quality':2});
     assert.deepEqual(out.pinned, [1,1,1,1,1,1], 'the released definition is not edited');
     assert.equal(out.unchanged, true);
   }
@@ -231,6 +231,13 @@ test('recent demanding work, confirmed hard activity and Easy today permit lower
   const workout = p.json(`GarageFitGenerator.generate({catalogue:CATALOGUE,sessionPrescription:${JSON.stringify(plans.mobility.prescription)},random:seeded})`);
   assert.equal(workout.workoutFamilyId, 'mobility-movement-quality'); assert.equal(workout.difficulty, 'easy');
   assert.ok(workout.estimatedSeconds <= 15 * 60);
+  assert.equal(workout.workoutFamilyVersion, 2, 'General Fitness composes the current Mobility version (#264)');
+  // The Coach route threads existing completed-session evidence to the composer (transient; stored records are untouched).
+  const lowerFocus = ['kneeling-ankle-rocks','adductor-rock-backs','ninety-ninety-hip-switches','standing-hip-rotations','heel-toe-rocks','half-kneeling-hip-flexor-rocks-with-reach'];
+  const evidence = {'mobility-movement-quality': {workoutFamilyVersion: 2, plannedOccurrences: 6, completedOccurrences: lowerFocus.map(exerciseId => ({exerciseId, blockIndex: 1}))}};
+  const focus = recentFamilySessions => p.json(`(()=>{const draws=[.1,.3];let s=7;const random=()=>draws.length?draws.shift():(s=(s*1664525+1013904223)>>>0)/4294967296;
+    return GarageFitGenerator.generate({catalogue:CATALOGUE,sessionPrescription:${JSON.stringify(plans.mobility.prescription)},recentFamilySessions:${JSON.stringify(recentFamilySessions)},random}).main.blocks[1].exercises.map(item=>item.id);})()`);
+  assert.notDeepEqual(focus(evidence), focus({}), 'a recent lower-body session shifts the next emphasis through the Coach route too');
 });
 
 test('external activity preferences influence priorities conservatively and never create credit', async () => {
