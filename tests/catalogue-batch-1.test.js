@@ -68,13 +68,13 @@ test('exactly the 13 approved exercises are present, generated-Main only, with t
     assert.equal(ex.voiceInstruction,!id.endsWith('sumo-squat'),id);
     assert.ok(ex.generator&&ex.main,id);
     assert.equal(ex.warmup||ex.rampup||ex.cooldown,false,id);
-    assert.equal(ex.repetitionClass,null,id);
+    assert.equal(ex.repetitionClass,id==='dead-bug'?'dead-bug':null,id); // C1 near-variations
   }
   assert.deepEqual(G.validateCatalogue(catalogue),[]);
 });
 
 test('Dead bug has one canonical definition shared with the fixed routines, whose playback is unchanged',()=>{
-  assert.equal(Object.values(catalogue).filter(ex=>/dead bug/i.test(ex.name)).length,1);
+  assert.equal(Object.values(catalogue).filter(ex=>ex.name==='Dead bug').length,1);
   const fixed=GarageFitData.fixedWorkouts;
   const uses=Object.values(fixed).flatMap(workout=>(workout.exercises||[]).filter(item=>item.id==='dead-bug').map(item=>[workout.id,item]));
   assert.deepEqual(uses.map(([id,item])=>[id,item]),[
@@ -314,7 +314,7 @@ const count=(workouts,id)=>workouts.filter(workout=>mainIds(workout).includes(id
 test('[Full] the bodyweight additions are reachable in Main',()=>{
   const bodyweight=sample([],['strength','balanced','cardio'],[20,30,45],20);
   for(const [id,min] of [['alternating-lateral-lunge',10],['squat-pulses',5],['plank-up-downs',10]])assert.ok(count(bodyweight,id)>=min,id+' '+count(bodyweight,id));
-  const core=sample([],['strength','balanced'],[30,45],20,{bodyFocus:'core'});
+  const core=sample([],['strength','balanced'],[30,45],20,{bodyFocus:'core',difficulty:'easy'});
   assert.ok(count(core,'dead-bug')>=3,'dead bug '+count(core,'dead-bug'));
 });
 

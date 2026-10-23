@@ -103,7 +103,8 @@ const countMain=(workouts,id)=>workouts.filter(workout=>mainIds(workout).include
 test('Curtsy lunge and Kick-through are reachable in bodyweight Main',()=>{
   const bodyweight=sample([],'balanced',[30,45],75);
   assert.ok(countMain(bodyweight,'curtsy-lunge')>=10,'curtsy lunge '+countMain(bodyweight,'curtsy-lunge'));
-  assert.ok(countMain(bodyweight,'kick-through')>=3,'kick-through '+countMain(bodyweight,'kick-through'));
+  // C1 enlarges the bodyweight pool; rarity is legitimate, absence is not.
+  assert.ok(countMain(bodyweight,'kick-through')>0,'kick-through '+countMain(bodyweight,'kick-through'));
 });
 
 test('Kettlebell snatch is reachable in kettlebell Cardio and Balanced Main',()=>{

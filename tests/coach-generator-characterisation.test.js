@@ -12,7 +12,8 @@ require('../data/equipment.js');
 require('../data/exercises.js');
 require('../js/generator.js');
 
-const catalogue = GarageFitData.exercises;
+// Pin policy with its original input; C1 reachability tests use the expanded catalogue.
+const catalogue = require('./helpers/coach-fixtures').catalogueBeforeC1(GarageFitData.exercises);
 function random(seed) { return () => { seed=(seed*1664525+1013904223)>>>0; return seed/4294967296; }; }
 
 const KIT = ['dumbbells','kettlebell','pullup-bar','trx','barbell','bench','box','bands'];

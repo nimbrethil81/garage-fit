@@ -206,9 +206,10 @@ test('swaps reject incompatible-only replacements, can keep other kit, and prote
 // weight changed selection (Strength entries and the fixture shape are unchanged). #212 re-pinned
 // dumbbells+bench 20 Cardio only: it was the short last-resort fallback Main, now a reserve attempt.
 test('no-ring plans, estimates and random consumption match the pinned no-ring baseline',()=>{
+  const snapshotCatalogue=require('./helpers/coach-fixtures').catalogueBeforeC1(C);
   for(const {equipment,duration,focus,seed,draws,hash} of baseline.fixtures){
     const rng=random(seed);let actualDraws=0;
-    const workout=G.generate({catalogue:C,equipment,duration,focus,random:()=>{actualDraws++;return rng();}});
+    const workout=G.generate({catalogue:snapshotCatalogue,equipment,duration,focus,random:()=>{actualDraws++;return rng();}});
     delete workout.id;
     // The new default null field is an intentional catalogue shape change.
     const actual=crypto.createHash('sha256').update(JSON.stringify(workout,(key,value)=>key==='setupProfile'?undefined:value)).digest('hex');

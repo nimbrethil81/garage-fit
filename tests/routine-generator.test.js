@@ -313,3 +313,13 @@ test('cool-down stretch targets are a validated classification on every cool-dow
   assert.ok(errors({stretchTargets:['back','back']}).some(error => /invalid stretch targets/.test(error)));
   assert.ok(G.validateCatalogue({'air-squat':Object.assign({}, catalogue['air-squat'], {stretchTargets:['back']})}).some(error => /non-cool-down/.test(error)));
 });
+
+test('C1 gentle preparation also reaches five-minute Prep & Recover without becoming recovery stretches',()=>{
+  for(const [id,seed] of [['bent-knee-fallout',3],['supine-heel-slides',8],['tabletop-toe-taps',63]]){
+    const item=routine('warmup','bodyweight',seed,{equipment:[]});
+    assert.ok(item.exercises.some(ex=>ex.id===id),id);
+    assert.deepEqual(R.validateRoutine(item,catalogue),[]);
+    assert.equal(item.estimatedSeconds,300);
+    assert.equal(catalogue[id].cooldown,false);
+  }
+});

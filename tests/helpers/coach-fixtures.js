@@ -101,4 +101,19 @@ function sessionDraft(overrides) {
   }, overrides);
 }
 
-module.exports = { programmeState, anchor, prescription, sessionResult, sessionDraft };
+// Fixed input for pre-C1 behavioural snapshots: catalogue expansion is allowed to
+// change fresh draws, while these pins continue to detect policy changes on the
+// original catalogue. This projection is test-only; all other tests use production.
+function catalogueBeforeC1(catalogue) {
+  const added=new Set(['side-plank-knees','bent-knee-fallout','tabletop-toe-taps','dumbbell-suitcase-carry',
+    'side-plank-hip-lifts','supine-heel-slides','plank-arm-reaches','bridge-march','bent-knee-windshield-wipers',
+    'dead-bug-isometric-press','bear-plank-hold','seated-knee-tucks','kettlebell-suitcase-march',
+    'half-kneeling-band-pallof-press','dumbbell-dead-bug-hold']);
+  const copy=JSON.parse(JSON.stringify(Object.fromEntries(Object.entries(catalogue).filter(([id])=>!added.has(id)))));
+  for(const id of ['side-plank','dead-bug','band-pallof-press'])copy[id].repetitionClass=null;
+  Object.assign(copy['plank-shoulder-taps'],{strength:2,difficulty:null,bodyFocus:null,
+    generator:false,main:false,mainRole:'primary',mainProtocols:null});
+  return copy;
+}
+
+module.exports = { programmeState, anchor, prescription, sessionResult, sessionDraft, catalogueBeforeC1 };

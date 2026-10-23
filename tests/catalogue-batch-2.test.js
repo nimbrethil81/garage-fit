@@ -173,7 +173,7 @@ test('equipment and grip variants share the existing families; related but disti
   // Close duplicates without being variants of one exercise.
   assert.equal(G.sameFamily(catalogue['bear-plank-shoulder-taps'],catalogue['plank-shoulder-taps']),false);
   assert.equal(G.sameRepetitionClass(catalogue['bear-plank-shoulder-taps'],catalogue['plank-shoulder-taps']),true);
-  assert.deepEqual(Object.values(catalogue).filter(ex=>ex.repetitionClass==='plank-shoulder-taps').map(ex=>ex.id).sort(),['bear-plank-shoulder-taps','plank-shoulder-taps']);
+  assert.deepEqual(Object.values(catalogue).filter(ex=>ex.repetitionClass==='plank-shoulder-taps').map(ex=>ex.id).sort(),['bear-plank-shoulder-taps','plank-arm-reaches','plank-shoulder-taps']);
   // Mechanically distinct: pattern proximity, not family identity.
   assert.equal(G.sameFamily(catalogue['dumbbell-kickstand-romanian-deadlift'],catalogue['dumbbell-romanian-deadlift']),false);
   assert.equal(G.sameFamily(catalogue['reverse-lunge-knee-drive'],catalogue['reverse-lunge']),false);
@@ -253,7 +253,10 @@ test('[Full] the bodyweight additions are reachable in Main',()=>{
   const bodyweight=sample([],['strength','balanced','cardio'],[20,30,45],10);
   for(const [id,min] of [['hollow-body-hold',5],['reverse-lunge-knee-drive',5]])assert.ok(count(bodyweight,id)>=min,id+' '+count(bodyweight,id));
   const core=sample([],['strength','balanced'],[30,45],20,{bodyFocus:'core'});
-  for(const [id,min] of [['reverse-crunch',3],['bear-plank-shoulder-taps',3],['hollow-body-hold',10]])assert.ok(count(core,id)>=min,id+' '+count(core,id));
+  for(const [id,min] of [['bear-plank-shoulder-taps',3],['hollow-body-hold',10]])assert.ok(count(core,id)>=min,id+' '+count(core,id));
+  // Accessible foundations are favoured at Easy; hard holds retain their own Normal sample.
+  const accessible=sample([],['strength','balanced'],[30,45],20,{bodyFocus:'core',difficulty:'easy'});
+  assert.ok(count(accessible,'reverse-crunch')>=3,'reverse crunch '+count(accessible,'reverse-crunch'));
   // Supporting work stays below its primary peers.
   assert.ok(count(core,'bear-plank-shoulder-taps')<count(core,'hollow-body-hold'));
 });

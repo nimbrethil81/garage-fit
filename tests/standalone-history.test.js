@@ -81,7 +81,7 @@ test('starting a standalone workout earns no history and never replaces a persis
 
 test('a completed standalone run persists one source=generator result from measured outcomes, without load', async () => {
   const h = harness();
-  h.generate(3); // includes rep work displayed with a catalogue load
+  h.generate(5); // C1 catalogue: includes rep work displayed with a catalogue load
   h.app.startStandaloneGeneratedWorkout();
   const timeline = h.run('generatorState.timeline');
   const full = h.indexWhere(p => p.kind === 'exercise' && p.timed && p.seconds > 18);

@@ -146,8 +146,9 @@ test('ordinary Generator, warm-up, cool-down and Main eligibility are unchanged 
   assert.equal(G.generatedPhaseEligible(C['downward-upward-dog'],'cooldown',[]),true);
   assert.equal(G.generatedPhaseEligible(C['trx-squat-overhead'],'warmup',['trx']),true);
   // Same pre-#178 seeded baseline as the family-eligibility regression: no extra draws.
+  const snapshotCatalogue=require('./helpers/coach-fixtures').catalogueBeforeC1(C);
   let seed=31,draws=0;
-  const w=G.generate({duration:10,focus:'strength',bodyFocus:'upper',difficulty:'easy',equipment:[],catalogue:C,
+  const w=G.generate({duration:10,focus:'strength',bodyFocus:'upper',difficulty:'easy',equipment:[],catalogue:snapshotCatalogue,
     random:()=>{draws++;seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}});delete w.id;
   assert.equal(draws,68);
   assert.equal(createHash('sha256').update(JSON.stringify(w)).digest('hex'),'f6b2266805a3e7bd97e2e733105240fcdb9ccdaa5ee43c611a04a79d7d183c5f');
