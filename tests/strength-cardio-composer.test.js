@@ -352,3 +352,147 @@ test('shared single-leg and stepping drills reach Strength and Cardio (and legac
   assert.ok(!(seen['core-stability']||new Set()).size,'Core & Stability stays trunk-led');
   assert.ok(seen.legacy.has('single-leg-hip-hinge-reach'));
 });
+
+// Strength catalogue S1 (#274): bounded full-catalogue routes and safety.
+require('../js/coach-model');
+const S1_IDS=['single-leg-glute-bridge','hand-release-push-up','wall-push-up','reverse-nordic','side-lying-hip-adduction',
+  'prone-swimmer-raise','dumbbell-suitcase-march','dumbbell-half-kneeling-press','dumbbell-lateral-lunge','ring-scapular-row','dumbbell-staggered-stance-row'];
+const s1Random=seed=>()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296};
+const s1Main=w=>w.main.blocks.flatMap(b=>b.exercises);
+const s1Generate=(family,kit,duration,bodyFocus,seed,difficulty='hard')=>G.generate({catalogue:C,equipment:kit,duration,bodyFocus,difficulty,focus:'strength',
+  ...(family?{workoutFamilyId:family,workoutFamilyVersion:family==='strength-control'?2:1}:{}),random:s1Random(seed)});
+
+test('S1 adds distinct Main identities with conservative protocols and coherent equipment variants',()=>{
+  assert.deepEqual(G.validateCatalogue(C),[]);
+  for(const id of S1_IDS){
+    const ex=C[id];assert.ok(ex.generator&&ex.main,id);
+    assert.equal(ex.conditioning,false,id);assert.equal(ex.warmup||ex.rampup||ex.cooldown,false,id);
+    assert.deepEqual(ex.mainProtocols,['rounds','paired_sets'],id);
+    assert.equal(G.protocolCompatible(ex,'timed_intervals'),false,id);
+    for(const protocol of ['emom','density','amrap'])assert.equal(G.protocolCompatible(ex,protocol),false,id+' '+protocol);
+    assert.equal(G.generatedPhaseEligible(ex,'main',ex.equipment.flat(),'easy'),id!=='reverse-nordic',id);
+  }
+  assert.equal(C['trx-assisted-push-up'],undefined);
+  assert.equal(C['kettlebell-goblet-reverse-lunge'],undefined);
+  assert.match(C['trx-chest-press'].instruction,/upright to ease/);
+  assert.match(C['kettlebell-reverse-lunge'].instruction,/at your chest/);
+  assert.match(C['single-arm-dumbbell-row'].instruction,/free hand on your thigh/);
+  assert.match(C['dumbbell-staggered-stance-row'].instruction,/free hand off your thigh/);
+  assert.equal(C['single-arm-dumbbell-row'].repetitionClass,C['dumbbell-staggered-stance-row'].repetitionClass);
+  const db=C['dumbbell-suitcase-march'],kb=C['kettlebell-suitcase-march'];
+  assert.ok(G.sameFamily(db,kb));assert.equal(db.repetitionClass,kb.repetitionClass);
+  assert.ok(G.recentUsePenalty(db,[[kb.id]],C)>0);
+  assert.equal(db.estimatedSeconds,40);assert.equal(kb.estimatedSeconds,40);
+  assert.match(db.instruction,/on the spot/);
+});
+
+test('Reverse Nordic remains controlled low-rep work outside every challenge and fatigue-clock protocol',()=>{
+  const ex=C['reverse-nordic'];
+  assert.deepEqual(ex.prescription,{type:'reps',value:5});assert.deepEqual(ex.prescriptionModes,['reps']);
+  assert.equal(ex.difficulty,'hard');assert.equal(ex.strength,5);assert.equal(ex.mainRole,'supporting');
+  assert.deepEqual(ex.patterns,[],'isolated knee extension is not a squat, hinge or lunge');
+  assert.match(ex.instruction,/small pain-free range/);
+  for(const protocol of ['timed_intervals','emom','ladder','pyramid','complex','density','amrap'])assert.equal(G.protocolCompatible(ex,protocol),false,protocol);
+  // Full-Body rounds additionally excludes strength 5. Other four styles use
+  // the shared protocol predicates above, so none can rush or ramp this dose.
+  assert.ok(!(ex.load!=='Heavy'&&ex.strength<5));
+  const rx=require('./helpers/coach-fixtures').prescription({equipment:[],difficulty:'hard',movementPriorities:[],requiredAnchors:[
+    require('./helpers/coach-fixtures').anchor({exerciseId:ex.id,target:{type:'timed',minSeconds:20,maxSeconds:20},prescriptionMode:'time'})]});
+  assert.equal(G.assessSessionPrescription({catalogue:C,sessionPrescription:rx}).status,'infeasible');
+});
+
+test('S1 unilateral prescriptions play both sides once with correct total estimates',()=>{
+  const app=loadAppContext();
+  for(const id of S1_IDS.filter(id=>C[id].sidedness==='per-side')){
+    const ex=C[id];assert.match(ex.prescription.type,/^unilateral-/);
+    const phases=JSON.parse(JSON.stringify(app.makeGeneratedExercisePhases(ex,'main',null,0).map(p=>[p.side,p.seconds,p.timed])));
+    if(ex.prescription.type==='unilateral-timed')assert.deepEqual(phases,[['right',20,true],['left',20,true]],id);
+    else {assert.deepEqual(phases,[['right',null,false],['left',null,false]],id);assert.ok(ex.estimatedSeconds>=ex.prescription.value*2*2.5+5,id);}
+  }
+});
+
+// One real full-catalogue draw per addition, retaining rare supporting selection
+// without duplicating the exhaustive audit's distribution sweep.
+test('every S1 addition is selected by the standalone Generator in a suitable configuration',()=>{
+  for(const [id,kit,duration,focus,seed] of [
+    ['single-leg-glute-bridge',[],30,'lower',1],['hand-release-push-up',['rings'],30,'upper',1],
+    ['wall-push-up',[],30,'upper',5],['reverse-nordic',[],30,'upper',1],
+    ['side-lying-hip-adduction',[],45,'lower',2],['prone-swimmer-raise',['kettlebell'],30,'lower',1],
+    ['dumbbell-suitcase-march',['dumbbells'],45,'core',2],['dumbbell-half-kneeling-press',['dumbbells'],30,'upper',1],
+    ['dumbbell-lateral-lunge',['dumbbells'],30,'lower',1],['ring-scapular-row',['rings'],45,'upper',42],
+    ['dumbbell-staggered-stance-row',['dumbbells'],45,'upper',4]
+  ]){
+    const w=s1Generate(null,kit,duration,focus,seed);assert.ok(s1Main(w).some(e=>e.id===id),id);
+    assert.deepEqual(G.validateMain(w.main,C,kit),[],id);
+  }
+});
+
+test('S1 Strength v2 and deliberate secondary-family routes preserve shared quality gates',()=>{
+  for(const [family,id,kit,duration,focus,seed,difficulty] of [
+    ['strength-control','single-leg-glute-bridge',[],30,'upper',1],
+    ['strength-control','hand-release-push-up',[],30,'upper',1],
+    ['strength-control','prone-swimmer-raise',[],30,'upper',1],
+    ['strength-control','reverse-nordic',[],30,'lower',1],
+    ['strength-control','wall-push-up',['kettlebell'],30,'upper',1],
+    ['strength-control','side-lying-hip-adduction',['rings'],30,'core',9],
+    ['strength-control','dumbbell-suitcase-march',['dumbbells'],30,'upper',3],
+    ['strength-control','dumbbell-lateral-lunge',['dumbbells'],30,'upper',3],
+    ['strength-control','dumbbell-half-kneeling-press',['dumbbells'],45,'upper',6],
+    ['strength-control','dumbbell-staggered-stance-row',['dumbbells'],30,'core',3],
+    ['strength-control','ring-scapular-row',['rings'],45,'upper',50,'easy'],
+    ['core-stability','dumbbell-suitcase-march',['dumbbells'],30,'core',1],
+    ['full-body-challenges','hand-release-push-up',[],30,'upper',1],
+    ['full-body-challenges','wall-push-up',[],30,'upper',3],
+    ['full-body-challenges','prone-swimmer-raise',[],30,'upper',3],
+    ['full-body-challenges','dumbbell-suitcase-march',['dumbbells'],45,'upper',66]
+  ]){
+    const w=s1Generate(family,kit,duration,focus,seed,difficulty);assert.ok(s1Main(w).some(e=>e.id===id),family+' '+id);
+    assert.equal(G.validateFamilyWorkout(w,{catalogue:C,equipment:kit}).valid,true,id);
+    if(family==='core-stability')assert.equal(w.familyStyleId,'dynamic-core');
+  }
+});
+
+test('new resistance work reaches all four Coach routes while programme anchors and reviewed memberships stay pinned',async()=>{
+  const {pilot}=require('./helpers/coach-pilot');
+  for(const [id,version,expected,anchors] of [
+    ['general-strength-4w',2,'dumbbell-staggered-stance-row',['goblet-squat','dumbbell-floor-press','dumbbell-bent-over-row']],
+    ['build-arms',1,'dumbbell-staggered-stance-row',['dumbbell-biceps-curl','dumbbell-overhead-triceps-extension']],
+    ['tennis-conditioning',8,'dumbbell-half-kneeling-press',['dumbbell-reverse-lunge','dumbbell-romanian-deadlift','dumbbell-floor-press','dumbbell-bent-over-row']],
+    ['general-fitness',2,'dumbbell-half-kneeling-press',[]]
+  ]){
+    const p=pilot(new Map(),id,version);
+    p.run("pilotOptions.equipment=['dumbbells','bands','bench'];pilotOptions.duration=45;pilotOptions.bodyFocus='upper';");await p.start();
+    assert.deepEqual(p.json('pilot.snapshot().state.anchors.map(a=>a.exerciseId)'),anchors,id);
+    p.run('let s1Seed=1;Math.random=()=>{s1Seed=(s1Seed*1664525+1013904223)>>>0;return s1Seed/4294967296;};pilot.prepare(pilotOptions);');
+    const w=p.json('pilot.snapshot().preview.workout');assert.ok(s1Main(w).some(e=>e.id===expected),id);
+    for(const anchor of p.json('(pilot.snapshot().preview.plan.prescription.requiredAnchors||[])'))assert.ok(s1Main(w).some(e=>e.id===anchor.exerciseId));
+    const sport=p.app.GarageFitSportCoverage.createPolicy(p.app.GarageFitData.sportCapabilityPolicies.tennis[4],p.app.GarageFitData.exercises);
+    for(const exerciseId of S1_IDS){
+      assert.equal(sport.classifyExercise(exerciseId).status,'unmapped',exerciseId);
+      for(const [family,version,roles] of [['athletic-movement',4,['footwork','control','integrated']],['mobility-movement-quality',2,['prep','focused','flow','finish']]])
+        for(const role of roles)assert.equal(p.app.GarageFitWorkoutFamilies.getMembership({workoutFamilyId:family,workoutFamilyVersion:version,role},exerciseId),null);
+    }
+  }
+});
+
+// Existing candidates retain rare real routes rather than receiving blanket
+// role promotion or a larger supporting-route probability.
+test('reviewed existing resistance accessories and unilateral work remain selectable',()=>{
+  for(const [family,id,kit,duration,focus,seed,difficulty] of [
+    [null,'ring-face-pull',['rings'],30,'upper',73],
+    ['strength-control','ring-biceps-curl',['rings'],30,'core',37],
+    ['strength-control','ring-triceps-extension',['rings'],45,'upper',2,'easy'],
+    [null,'dumbbell-plank-pull-through',['dumbbells'],45,'core',16],
+    [null,'kettlebell-rack-march',['kettlebell'],30,'core',1],
+    [null,'kettlebell-single-leg-deadlift',['kettlebell'],45,'upper',6],
+    [null,'kettlebell-suitcase-deadlift',['kettlebell'],30,'lower',1],
+    ['strength-control','dumbbell-split-squat',['dumbbells'],30,'lower',3],
+    [null,'single-arm-dumbbell-floor-press',['dumbbells'],45,'lower',2],
+    [null,'kettlebell-half-kneeling-press',['kettlebell'],30,'upper',1]
+  ]){
+    const w=s1Generate(family,kit,duration,focus,seed,difficulty);
+    assert.ok(s1Main(w).some(ex=>ex.id===id),id);
+    assert.deepEqual(G.validateMain(w.main,C,kit),[],id);
+    if(C[id].mainRole==='supporting')assert.equal(s1Main(w).filter(ex=>ex.id===id).length,1,id);
+  }
+});

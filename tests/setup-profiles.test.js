@@ -14,7 +14,7 @@ const copy=value=>JSON.parse(JSON.stringify(value));
 function random(seed){return()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};}
 const profiles={
   'rings-high':['ring-pull-up','ring-chin-up','neutral-grip-ring-pull-up','ring-knee-raise'],
-  'rings-standing':['ring-row','ring-face-pull','ring-triceps-extension','ring-biceps-curl'],
+  'rings-standing':['ring-row','ring-face-pull','ring-triceps-extension','ring-biceps-curl','ring-scapular-row'],
   'rings-low':['ring-press-up','ring-fallout'],
   'rings-support':['ring-dip','foot-assisted-ring-dip','ring-support-hold','foot-assisted-ring-support-hold']
 };
@@ -27,7 +27,7 @@ const anchor=(id,overrides={})=>fixtures.anchor({requirementId:'anchor-'+id,exer
 const prescription=overrides=>fixtures.prescription({equipment:['rings'],movementPriorities:[],
   requiredAnchors:[],...overrides});
 
-test('setup profiles default to null, validate allowed values and classify all fourteen rings',()=>{
+test('setup profiles default to null, validate allowed values and classify all fifteen rings',()=>{
   assert.deepEqual(G.validateCatalogue(C),[]);
   assert.equal(C['air-squat'].setupProfile,null);
   assert.equal(GarageFitData.buildExerciseCatalogue([{id:'example',name:'Example',
@@ -216,4 +216,15 @@ test('no-ring plans, estimates and random consumption match the pinned no-ring b
     assert.equal(actual,hash,equipment+' '+duration+' '+focus);
     assert.equal(actualDraws,draws,equipment+' '+duration+' '+focus+' RNG');
   }
+});
+
+test('setup fitting tries an otherwise valid diversity reserve before removing a large whole repeat',()=>{
+  // S1 seed 902 selected a 452 s Main, then lost a whole round to pay for its
+  // setup (196 s Main / 371 s total). A 376 s reserve already fits unchanged.
+  const equipment=['rings'];
+  const workout=G.generate({catalogue:C,equipment,duration:10,focus:'strength',random:random(902)});
+  assert.deepEqual(G.validateMain(workout.main,C,equipment,G.BUDGETS[10].main),[]);
+  assert.ok(workout.estimatedSeconds>=10*60*.82&&workout.estimatedSeconds<=600);
+  assert.ok(new Set(workout.main.blocks.flatMap(b=>b.exercises.map(e=>e.id))).size>=3);
+  assert.ok(workout.main.blocks.every(b=>G.setupProfilesCompatible(b.exercises,equipment)));
 });

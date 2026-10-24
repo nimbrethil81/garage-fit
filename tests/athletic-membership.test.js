@@ -238,8 +238,9 @@ test('#255 membership v2 table: roles, room, impact, minimum difficulty; v1 unto
 test('#255 shared Main drills are reachable in the Generator by bounded deterministic seeds',()=>{
   const rng=seed=>()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
   const reaches=(id,focus,duration,seed)=>G.generate({duration,focus,equipment:[],catalogue:C,random:rng(seed)}).main.blocks.some(b=>b.exercises.some(ex=>ex.id===id));
-  assert.ok(reaches('single-leg-hip-hinge-reach','strength',10,14));
-  assert.ok(reaches('lateral-lunge-to-balance','strength',20,13));
+  // S1 catalogue growth shifts real draws without changing shared Main eligibility.
+  assert.ok(reaches('single-leg-hip-hinge-reach','strength',10,21));
+  assert.ok(reaches('lateral-lunge-to-balance','strength',20,25));
   assert.ok(reaches('in-in-out-out-steps','cardio',30,13));
   // Family-only identities are never offered by the ordinary Generator, even for generous kits.
   const kit=['dumbbells','kettlebell','pullup-bar','trx','barbell','bench','box','bands'];

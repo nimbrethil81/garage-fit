@@ -136,15 +136,23 @@ test('[Full] the warm-up expansion exercises are reachable in Warm-up and never 
 // Core C1: explicit examples from the full catalogue keep rare legitimate routes
 // covered without repeating a large distribution sweep in this suite.
 test('Core C1 additions and plank taps reach legacy Main; preparation has its own lighter selectable doses',()=>{
+  // S1 expansion shifts the seeded draws; these still use the full live catalogue.
   const fixtures=[
-    ['side-plank-knees',[],10,'easy',25],['bent-knee-fallout',[],30,'easy',3],
-    ['tabletop-toe-taps',[],15,'easy',27],['dumbbell-suitcase-carry',['dumbbells'],30,'hard',1],
-    ['side-plank-hip-lifts',[],30,'hard',1],['supine-heel-slides',[],30,'easy',5],
-    ['plank-arm-reaches',[],30,'hard',3],['bridge-march',[],30,'hard',6],
-    ['bent-knee-windshield-wipers',[],30,'normal',9],['dead-bug-isometric-press',[],10,'easy',18],
-    ['bear-plank-hold',[],30,'hard',9],['seated-knee-tucks',[],30,'hard',3],
+    ['side-plank-knees',[],10,'easy',34],
+    ['bent-knee-fallout',[],30,'easy',16],
+    ['tabletop-toe-taps',[],15,'easy',27],
+    ['dumbbell-suitcase-carry',['dumbbells'],30,'hard',1],
+    ['side-plank-hip-lifts',[],30,'hard',3],
+    ['supine-heel-slides',[],30,'easy',1],
+    ['plank-arm-reaches',[],30,'hard',5],
+    ['bridge-march',[],30,'hard',2],
+    ['bent-knee-windshield-wipers',[],30,'normal',6],
+    ['dead-bug-isometric-press',[],10,'easy',18],
+    ['bear-plank-hold',[],30,'hard',18],
+    ['seated-knee-tucks',[],30,'hard',1],
     ['kettlebell-suitcase-march',['kettlebell'],30,'hard',1],
-    ['half-kneeling-band-pallof-press',['bands'],30,'hard',1],['dumbbell-dead-bug-hold',['dumbbells'],30,'hard',1],
+    ['half-kneeling-band-pallof-press',['bands'],30,'hard',25],
+    ['dumbbell-dead-bug-hold',['dumbbells'],30,'hard',3],
     ['plank-shoulder-taps',[],10,'easy',14]
   ];
   for(const [id,equipment,duration,difficulty,seed] of fixtures){
@@ -153,8 +161,10 @@ test('Core C1 additions and plank taps reach legacy Main; preparation has its ow
     assert.deepEqual(G.validateMain(w.main,catalogue,equipment),[],id);
   }
   for(const [phase,id,duration,difficulty,seed] of [
-    ['warmup','bent-knee-fallout',10,'easy',15],['warmup','supine-heel-slides',15,'easy',13],
-    ['warmup','tabletop-toe-taps',20,'easy',23],['rampup','tabletop-toe-taps',20,'easy',11]
+    ['warmup','bent-knee-fallout',10,'easy',15],
+    ['warmup','supine-heel-slides',15,'easy',13],
+    ['warmup','tabletop-toe-taps',30,'easy',19],
+    ['rampup','tabletop-toe-taps',20,'easy',12]
   ]){
     const w=G.generate({catalogue,equipment:[],duration,difficulty,bodyFocus:'core',focus:'strength',random:random(seed)});
     assert.ok(w[phase].exercises.some(ex=>ex.id===id),phase+' '+id);

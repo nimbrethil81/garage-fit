@@ -222,8 +222,8 @@ test('Coach hard complex constraints reserve optional work safely; anchors can n
 });
 
 test('bounded automatic seeds reach complexes after an established block at 15–45 minutes, deterministically',()=>{
-  // Catalogue growth and AMRAP selection (#221) change full-kit draws; seed 106 retains the 15-minute complex case. C1 moved Cardio complex cases to seeds 20 and 45.
-  const cases=[[15,'balanced',kit,106],[20,'strength',[],10],[20,'cardio',['dumbbells'],20],[30,'balanced',['kettlebell','trx','bands'],7],[45,'cardio',[],45],[45,'balanced',kit,24]];
+  // S1 catalogue growth shifts draws; these bounded fixtures retain the same validated protocol coverage.
+  const cases=[[15,'balanced',kit,12],[20,'strength',[],16],[20,'cardio',['dumbbells'],3],[30,'balanced',['kettlebell','trx','bands'],7],[45,'cardio',[],9],[45,'balanced',kit,24]];
   const setups=new Set();
   for(const [duration,focus,equipment,seed] of cases){
     const options={catalogue:C,duration,focus,equipment},w=G.generate({...options,random:random(seed)});

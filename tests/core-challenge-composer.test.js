@@ -328,18 +328,18 @@ test('all 15 C1 identities are selected in appropriate Core sessions, including 
 });
 
 test('C1 supporting and loaded work reaches secondary families under their unchanged quality gates',()=>{
-  for(const [family,version,id,equipment,duration,seed] of [
-    ['strength-control',2,'bent-knee-fallout',[],45,9],
-    ['strength-control',2,'supine-heel-slides',[],30,9],
-    ['strength-control',2,'dumbbell-suitcase-carry',['dumbbells'],30,3],
-    ['strength-control',2,'half-kneeling-band-pallof-press',['bands'],30,10],
-    ['strength-control',2,'plank-shoulder-taps',[],30,1],
-    [CHALLENGE,1,'plank-arm-reaches',[],30,4],
-    [CHALLENGE,1,'bridge-march',[],30,1],
-    [CHALLENGE,1,'seated-knee-tucks',[],30,2],
-    [CHALLENGE,1,'kettlebell-suitcase-march',['kettlebell'],45,10]
+  for(const [family,version,id,equipment,duration,seed,constraints] of [
+    ['strength-control',2,'bent-knee-fallout',[],45,91],
+    ['strength-control',2,'supine-heel-slides',[],30,13],
+    ['strength-control',2,'dumbbell-suitcase-carry',['dumbbells'],30,2],
+    ['strength-control',2,'half-kneeling-band-pallof-press',['bands'],30,4],
+    ['strength-control',2,'plank-shoulder-taps',[],30,19],
+    [CHALLENGE,1,'plank-arm-reaches',[],30,1],
+    [CHALLENGE,1,'bridge-march',[],30,2],
+    [CHALLENGE,1,'seated-knee-tucks',[],30,3],
+    [CHALLENGE,1,'kettlebell-suitcase-march',['kettlebell'],45,1,{bodyPositions:['standing']}]
   ]){
-    const w=generate(family,{workoutFamilyVersion:version,equipment,duration,difficulty:'hard',bodyFocus:'core',random:c1Random(seed)});
+    const w=generate(family,{workoutFamilyVersion:version,equipment,duration,difficulty:'hard',bodyFocus:'core',random:c1Random(seed),...constraints});
     assert.ok(exercisesOf(w).some(ex=>ex.id===id),family+' '+id);
     assert.equal(G.validateFamilyWorkout(w,{catalogue:C,equipment}).valid,true);
   }
@@ -347,17 +347,17 @@ test('C1 supporting and loaded work reaches secondary families under their uncha
 
 test('C1 accessories reach all four Coach routes without replacing their anchors or granting sport membership',async()=>{
   const {pilot}=require('./helpers/coach-pilot');
-  for(const [id,version,expected,anchorIds] of [
-    ['general-strength-4w',2,'dumbbell-suitcase-carry',['goblet-squat','dumbbell-floor-press','dumbbell-bent-over-row']],
-    ['build-arms',1,'bridge-march',['dumbbell-biceps-curl','dumbbell-overhead-triceps-extension']],
-    ['tennis-conditioning',8,'plank-arm-reaches',['dumbbell-reverse-lunge','dumbbell-romanian-deadlift','dumbbell-floor-press','dumbbell-bent-over-row']],
-    ['general-fitness',2,'bridge-march',[]]
+  for(const [id,version,expected,anchorIds,seed] of [
+    ['general-strength-4w',2,'dumbbell-suitcase-carry',['goblet-squat','dumbbell-floor-press','dumbbell-bent-over-row'],2],
+    ['build-arms',1,'bridge-march',['dumbbell-biceps-curl','dumbbell-overhead-triceps-extension'],3],
+    ['tennis-conditioning',8,'plank-arm-reaches',['dumbbell-reverse-lunge','dumbbell-romanian-deadlift','dumbbell-floor-press','dumbbell-bent-over-row'],4],
+    ['general-fitness',2,'bridge-march',[],2]
   ]){
     const p=pilot(new Map(),id,version);
     p.run("pilotOptions.equipment=['dumbbells','bands','bench'];pilotOptions.duration=45;pilotOptions.bodyFocus='core';");
     await p.start();
     assert.deepEqual(p.json('pilot.snapshot().state.anchors.map(a=>a.exerciseId)'),anchorIds,id);
-    p.run('let c1Seed=1;Math.random=()=>{c1Seed=(c1Seed*1664525+1013904223)>>>0;return c1Seed/4294967296;};');
+    p.run(`let c1Seed=${seed};Math.random=()=>{c1Seed=(c1Seed*1664525+1013904223)>>>0;return c1Seed/4294967296;};`);
     p.run('pilot.prepare(pilotOptions)');
     const workout=p.json('pilot.snapshot().preview.workout');
     assert.ok(exercisesOf(workout).some(ex=>ex.id===expected),id+' '+expected);
