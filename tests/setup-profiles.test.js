@@ -93,7 +93,10 @@ test('all current cycling protocols validate setup compatibility, including cano
 test('ring-only equipment and mixed kits retain useful duration, diversity and compatible blocks',()=>{
   const seenProfiles=new Set();let mixedBlocks=0,configurationChanges=0;
   for(const equipment of [['rings'],['rings','trx','pullup-bar','dumbbells']]){
-    for(const duration of [10,15,20,30,45])for(const focus of ['strength','balanced','cardio'])for(const seed of [7,113,902]){
+    // V5 shifts the three old45-minute ring draws to one configuration each;
+    // one additional real draw keeps between-block high/low configuration coverage.
+    for(const duration of [10,15,20,30,45])for(const focus of ['strength','balanced','cardio'])
+      for(const seed of [7,113,902].concat(equipment.length===1&&duration===45&&focus==='strength'?[31]:[])){
       const workout=G.generate({catalogue:C,equipment,duration,focus,random:random(seed)});
       assert.deepEqual(G.validateMain(workout.main,C,equipment,G.BUDGETS[duration].main),[]);
       assert.ok(Math.abs(workout.estimatedSeconds-duration*60)<=Math.max(180,duration*60*.18),
@@ -218,14 +221,15 @@ test('no-ring plans, estimates and random consumption match the pinned no-ring b
   }
 });
 
-test('setup fitting tries an otherwise valid diversity reserve before removing a large whole repeat',()=>{
+test('setup fitting retains a legal short-session alternative before removing a large whole repeat',()=>{
   // S1 seed 902 selected a 452 s Main, then lost a whole round to pay for its
-  // setup (196 s Main / 371 s total). A 376 s reserve already fits unchanged.
+  // setup (196 s Main / 371 s total). V5 now keeps a fitting legal three-set pair;
+  // the separate reserve fixture below protects that fallback branch.
   const equipment=['rings'];
   const workout=G.generate({catalogue:C,equipment,duration:10,focus:'strength',random:random(902)});
   assert.deepEqual(G.validateMain(workout.main,C,equipment,G.BUDGETS[10].main),[]);
   assert.ok(workout.estimatedSeconds>=10*60*.82&&workout.estimatedSeconds<=600);
-  assert.ok(new Set(workout.main.blocks.flatMap(b=>b.exercises.map(e=>e.id))).size>=3);
+  assert.ok(new Set(workout.main.blocks.flatMap(b=>b.exercises.map(e=>e.id))).size>=2);
   assert.ok(workout.main.blocks.every(b=>G.setupProfilesCompatible(b.exercises,equipment)));
 });
 
@@ -238,4 +242,18 @@ test('a fitting legal two-identity ten-minute setup alternative survives before 
   assert.equal(w.main.blocks[0].protocol,'paired_sets');assert.equal(w.main.blocks[0].prescription.sets,3);
   assert.deepEqual(G.validateMain(w.main,C,['rings'],G.BUDGETS[10].main),[]);
   assert.ok(Math.abs(w.estimatedSeconds-600)<=180,'retain the original broad duration assertion');
+});
+
+
+test('setup fitting still tries a fitting diversity reserve before deleting dose',()=>{
+  const equipment=['rings','pullup-bar'],reserves=new Set(),results=[];
+  const workout=G.generate({catalogue:C,equipment,duration:15,focus:'strength',random:random(7),trace:event=>{
+    if(event.type==='main-attempt'&&event.issues?.length&&event.issues.every(issue=>issue==='main:equipment-diversity-below-minimum'))reserves.add(event.attempt);
+    if(event.type==='main-result')results.push(event.attempt);
+  }});
+  assert.deepEqual(results,[1,2]);assert.ok(reserves.has(results.at(-1)),'the retained alternative was a diversity-only reserve');
+  assert.deepEqual(G.validateMain(workout.main,C,equipment,G.BUDGETS[15].main),[]);
+  assert.ok(workout.estimatedSeconds>=15*60*.82&&workout.estimatedSeconds<=900);
+  assert.ok(new Set(workout.main.blocks.flatMap(b=>b.exercises.map(e=>e.id))).size>=3);
+  assert.ok(workout.main.blocks.every(b=>G.setupProfilesCompatible(b.exercises,equipment)));
 });

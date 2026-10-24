@@ -121,7 +121,7 @@ function catalogueBeforeC1(catalogue) {
   copy['single-arm-dumbbell-row'].repetitionClass=null;
   copy['trx-chest-press'].instruction='Face away from the anchor holding the handles, lean forward, bend your elbows to lower your chest and press back, keeping your body straight.';
   Object.assign(copy['split-stance-step-switches'],{warmup:false,warmupPhase:null,warmupPrescription:null,warmupAreas:[],
-    prepIntensity:null,prepFatigue:null,prepComplexity:null});
+    prepIntensity:null,prepFatigue:null,prepComplexity:null,warmupEstimatedSeconds:null});
   return copy;
 }
 
