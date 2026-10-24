@@ -59,6 +59,21 @@
     ['side-step-touches', ['control'], false],          // reused: light stepping and controlled recovery (finish, partner)
     ['cossack-squat', ['integrated'], false]            // reused: selective in-place lateral control
   ];
+  // Membership v3 (#271), used only by composition v5. Floor coordination is integrated-only,
+  // never a replacement for standing balance anchors. Travelling recovery/braking needs room.
+  const V5_ADDITIONS = [
+    ['four-square-steps', ['footwork'], false],
+    ['drop-step-and-recover', ['footwork'], true, 'normal'],
+    ['stationary-bear-crawl', ['integrated'], false, 'normal'],
+    ['reverse-lunge-with-rotation', ['control', 'integrated'], false, 'normal'],
+    ['crab-position-alternating-steps', ['integrated'], false, 'normal'],
+    ['crossover-step-and-recover', ['footwork'], true, 'normal'],
+    ['step-out-and-brake', ['footwork', 'integrated'], true, 'normal'],
+    ['split-step-preparation', ['integrated'], false, 'hard'],
+    ['transverse-lunge-to-balance', ['control', 'integrated'], false, 'normal'],
+    ['lateral-ape-weight-transfer', ['integrated'], false, 'normal'],
+    ['tandem-step-and-hold', ['control'], false]
+  ];
   function build(members, version) {
     const entries = [];
     for (const [exerciseId, roles, requiresMovementRoom, minimumDifficulty] of members) {
@@ -67,8 +82,9 @@
       const side = exercise.sidedness === 'per-side' ? 'per-side' : 'bilateral';
       // New landings (v2 additions) are short, quality-led efforts (at most fifteen seconds); every v1 entry,
       // including skater jumps, keeps its released bounds in both tables.
-      const jump = version > 1 && ADDITIONS.some(item => item[0] === exerciseId) && exercise.impact === 'high' ? {type: side === 'per-side' ? 'unilateral-timed' : 'timed', minValue: 10, maxValue: 15} : JUMP_TIMED;
-      const timed = exercise.impact === 'high' ? jump : TIMED[side];
+      const jump = version > 1 && (version > 2 ? ADDITIONS.concat(V5_ADDITIONS) : ADDITIONS).some(item => item[0] === exerciseId) && exercise.impact === 'high' ? {type: side === 'per-side' ? 'unilateral-timed' : 'timed', minValue: 10, maxValue: 15} : JUMP_TIMED;
+      const timed = exercise.impact === 'high' ? jump : version > 2 && V5_ADDITIONS.some(item => item[0] === exerciseId) && exercise.bodyPosition === 'floor'
+        ? {type: 'timed', minValue: 10, maxValue: exerciseId === 'lateral-ape-weight-transfer' ? 15 : 20} : TIMED[side];
       // Canonical rep-based drills keep reps as their default; reps are offered nowhere else.
       const prescriptions = exercise.prescription.type.includes('reps') ? [REPS[side], timed] : [timed];
       for (const role of roles) {
@@ -82,4 +98,5 @@
   }
   families.registerMembershipPolicy({workoutFamilyId: 'athletic-movement', workoutFamilyVersion: 1, entries: build(MEMBERS, 1)});
   families.registerMembershipPolicy({workoutFamilyId: 'athletic-movement', workoutFamilyVersion: 4, entries: build(MEMBERS.concat(ADDITIONS), 2)});
+  families.registerMembershipPolicy({workoutFamilyId: 'athletic-movement', workoutFamilyVersion: 5, entries: build(MEMBERS.concat(ADDITIONS, V5_ADDITIONS), 3)});
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -311,3 +311,31 @@ test('same-family fallback carries its resolved actual style into the tracker re
   assert.equal(result.workoutFamilyId,'strength-control');assert.equal(result.familyStyleId,'paired-sets');
   assert.notEqual(result.familyStyleId,workout.familyDiagnostics[0].familyStyleId);
 });
+
+test('v5 shared gate rejects rotation-only Control, combined short-session ground work and floor integrated bookends',()=>{
+  const original=generate('athletic-movement',{movementRoom:true,duration:20});
+  // Keep canonical exercise copies, legal contextual timed targets and sufficient recovery;
+  // these edits fail family quality rather than permission or prescription validation.
+  const replace=(w,block,ids)=>{
+    block.exercises=ids.map(id=>copy(C[id]));
+    const sequence=Array.from({length:block.prescription.rounds},()=>block.exercises).flat();
+    block.occurrenceTargets=sequence.map(ex=>({plannedPrescription:{type:G.sideCount(ex)===2?'unilateral-timed':'timed',value:10}}));
+    block.occurrenceRecoverySeconds=sequence.slice(1).map((ex,i)=>{
+      const a=sequence[i];return a.bodyPosition==='floor'||ex.bodyPosition==='floor'?25:a.impact==='medium'||ex.impact==='medium'?20:G.sideCount(a)===2||G.sideCount(ex)===2?16:8;
+    });
+    G.normaliseWorkout(w);
+  };
+  const control=copy(original),c=control.main.blocks.find(b=>b.id.startsWith('athletic-control-'));
+  replace(control,c,['quarter-turn-pivot-steps','reverse-lunge-with-rotation','tandem-step-and-hold']);
+  const check=validate(control);assert.deepEqual(check.technicalIssues,[]);
+  assert.ok(check.qualityIssues.includes('quality:control-without-single-leg:'+c.id));
+  const ground=copy(original),g=ground.main.blocks.find(b=>b.id.startsWith('athletic-control-'));
+  replace(ground,g,['bear-crawl','single-leg-balance-reach','tandem-step-and-hold']);
+  replace(ground,ground.main.blocks.find(b=>b.id.startsWith('athletic-integrated-')),['alternating-lateral-lunge','stationary-bear-crawl','reverse-lunge-knee-drive']);
+  const groupCheck=validate(ground);assert.deepEqual(groupCheck.technicalIssues,[]);
+  assert.ok(groupCheck.qualityIssues.includes('quality:short-session-ground-exposure'));
+  const edge=copy(original),e=edge.main.blocks.find(b=>b.id.startsWith('athletic-integrated-'));
+  replace(edge,e,['stationary-bear-crawl','alternating-lateral-lunge','reverse-lunge-knee-drive']);
+  const edgeCheck=validate(edge);assert.deepEqual(edgeCheck.technicalIssues,[]);
+  assert.ok(edgeCheck.qualityIssues.includes('quality:integrated-standing-bookends:'+e.id));
+});

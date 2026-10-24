@@ -16,6 +16,12 @@
     integrated:[...ORDER.integrated,'lateral-lunge-to-balance','cossack-squat','lateral-shuffle-and-stop','forward-back-acceleration-and-stop',
       'forward-hop-and-stick','lateral-bound-and-stick']
   };
+  const ORDER_V5={
+    footwork:[...ORDER_V4.footwork,'four-square-steps','drop-step-and-recover','crossover-step-and-recover','step-out-and-brake'],
+    control:[...ORDER_V4.control,'reverse-lunge-with-rotation','transverse-lunge-to-balance','tandem-step-and-hold'],
+    integrated:[...ORDER_V4.integrated,'stationary-bear-crawl','reverse-lunge-with-rotation','crab-position-alternating-steps',
+      'step-out-and-brake','split-step-preparation','transverse-lunge-to-balance','lateral-ape-weight-transfer']
+  };
   const STYLES=['footwork-coordination','dynamic-balance','integrated-movement'];
   const PREPARATION=['knee-to-opposite-elbow','forward-back-line-steps','quarter-turn-pivot-steps'];
   const RESET=['knee-to-opposite-elbow','quarter-turn-pivot-steps'];
@@ -41,6 +47,8 @@
       &&G.generatedPhaseEligible(ex,'main',owned,difficulty,contexts[role])&&G.protocolCompatible(ex,'rounds',contexts[role]))]));
     for(const role of Object.keys(preferred))if(pools[role].length<2)
       fail('Athletic Movement needs at least two eligible '+role+' drills; low-impact-only integrated practice needs confirmed movement room.','insufficient-eligible-movements',{role});
+    if(request.workoutFamilyVersion>=5&&!pools.integrated.some(ex=>ex.bodyPosition==='standing'&&ex.impact!=='high'))
+      fail('Athletic Movement needs standing non-jumping integrated practice; low-impact-only practice needs confirmed movement room.','insufficient-eligible-movements',{role:'integrated'});
     const has=(role,id)=>pools[role].some(ex=>ex.id===id);
     if(!['forward-back-line-steps','lateral-step-and-stick','quarter-turn-pivot-steps'].every(id=>has('footwork',id))
       ||!has('control','single-leg-balance-reach')||!has('control','knee-to-opposite-elbow'))
@@ -74,7 +82,12 @@
     function fit(stage,role,list,budget) {
       // The three-second shared transition is part of this phase's allocation.
       budget-=G.BLOCK_TRANSITION_SECONDS;
-      const cap=ex=>ex.impact==='high'?15:ex.bodyPosition==='floor'?20:G.sideCount(ex)===2?22:difficulty==='easy'?25:30;
+      const cap=ex=>{
+        const usual=ex.impact==='high'?15:ex.bodyPosition==='floor'?20:G.sideCount(ex)===2?22:difficulty==='easy'?25:30;
+        if(contexts[role].workoutFamilyVersion<5)return usual;
+        const timed=F.getMembership(contexts[role],ex.id).prescriptions.find(p=>p.type.includes('timed'));
+        return Math.min(usual,timed.maxValue);
+      };
       const preferred=ex=>stage==='preparation'||stage==='finish'?18:ex.impact==='high'?12:
         G.sideCount(ex)===2?(style==='dynamic-balance'?18:14):style==='footwork-coordination'&&role==='footwork'?22:20;
       let best;
@@ -185,8 +198,9 @@
   const composeV2=(options,request,attempt)=>composeStaged(options,request,attempt,false);
   const composeV3=(options,request,attempt)=>composeStaged(options,request,attempt,true);
   const composeV4=(options,request,attempt)=>composeStaged(options,request,attempt,true,true);
-  function composeStaged(options,request,attempt,sessionWide,rich) {
-    const setup=prepare(options,request,attempt,rich?ORDER_V4:ORDER),{duration,catalogue,random,pools,style,targets,light,fail}=setup;
+  const composeV5=(options,request,attempt)=>composeStaged(options,request,attempt,true,true,true);
+  function composeStaged(options,request,attempt,sessionWide,rich,expanded=false) {
+    const setup=prepare(options,request,attempt,expanded?ORDER_V5:rich?ORDER_V4:ORDER),{duration,catalogue,random,pools,style,targets,light,fail}=setup;
     const {blocks,drill,minimum,fits}=builder(setup);
     const wanted=budget=>Math.max(1,Math.floor(budget/BLOCK_SECONDS));
     const rank=pool=>pool.map(ex=>({ex,rank:random()})).sort((a,b)=>a.rank-b.rank).map(x=>x.ex);
@@ -217,6 +231,10 @@
     // work rather than spending them first. Footwork still uses one only to cover a movement plane.
     const own=pools.integrated.filter(ex=>!pools.footwork.includes(ex)&&!pools.control.includes(ex));
     const reserved=new Set(sessionWide?pools.integrated.filter(ex=>!own.includes(ex)).slice(0,Math.max(0,FRESH_DRILLS-own.length)).map(ex=>ex.id):[]);
+    // v5's larger floor pool cannot compensate for a sole standing bookend: leave that
+    // identity fresh for integrated practice (notably low-impact-only grapevine steps).
+    const standingIntegrated=pools.integrated.filter(ex=>ex.bodyPosition==='standing'&&ex.impact!=='high');
+    if(expanded&&standingIntegrated.length<2)standingIntegrated.forEach(ex=>reserved.add(ex.id));
     const rankedFeet=rank(pools.footwork),feet=[...rankedFeet.filter(ex=>!reserved.has(ex.id)),...rankedFeet.filter(ex=>reserved.has(ex.id))];
     // Footwork opens with forward/back, lateral and rotational practice; later blocks add new drills.
     const footwork=plan(wanted(targets[1]),(index,used)=>{
@@ -233,7 +251,8 @@
     // v3+ offers partners the session has used least (warm-up, footwork and finish included), so the
     // gentle bookends do not decide which drills the Main control block repeats; ties stay seeded.
     const anchor=catalogue['single-leg-balance-reach'];
-    const anchors=rich?[anchor,...rank(pools.control.filter(ex=>ex!==anchor&&ex.sidedness==='per-side'&&ex.bodyPosition==='standing'))]:[anchor];
+    const anchors=rich?[anchor,...rank(pools.control.filter(ex=>ex!==anchor&&ex.sidedness==='per-side'&&ex.bodyPosition==='standing'
+      &&(!expanded||ex.id!=='reverse-lunge-with-rotation')))]:[anchor];
     const partners=rank(pools.control.filter(ex=>rich||!anchors.includes(ex)));
     const load=ex=>[...PREPARATION,...finishIds,...footwork.flat().map(e=>e.id)].filter(id=>id===ex.id).length;
     if(sessionWide)partners.sort((a,b)=>load(a)-load(b));
@@ -251,7 +270,11 @@
     const target=finishTarget(duration);
     const integrated=plan(wanted(targets[3]-target),(index,used)=>{
       const edges=order(standing,used),first=edges[0],end=edges[1]||edges[0];
-      const middle=order(candidates.filter(ex=>ex!==first&&ex!==end),used);
+      // v5 groups all ground locomotion, including the existing travelling crawl: short sessions
+      // may practise one identity, while longer sessions can add fresh floor work when useful.
+      const groundUsed=expanded&&duration<=20?[...used].find(id=>catalogue[id].bodyPosition==='floor'):null;
+      const middle=order(candidates.filter(ex=>ex!==first&&ex!==end
+        &&(!groundUsed||ex.bodyPosition!=='floor'||ex.id===groundUsed)),used);
       if(!first||first===end&&!middle.length)return null;
       return first!==end&&(duration<20||!middle.length)?[first,end]:[first,middle[0],end];
     });
@@ -339,6 +362,18 @@
   // v4 applies the v3 rules unchanged to the larger reviewed membership; its dose, recovery, impact and
   // eligibility checks come from the shared family gate and membership policy v2.
   const qualityV4=qualityV3;
+  function qualityV5(workout) {
+    const issues=qualityV3(workout),blocks=workout.main.blocks;
+    const ground=new Set(blocks.flatMap(b=>b.exercises).filter(ex=>ex.bodyPosition==='floor').map(ex=>ex.id));
+    if(workout.duration<=20&&ground.size>1)issues.push('short-session-ground-exposure');
+    for(const block of blocks) {
+      if(stageOf(block)==='control'&&!block.exercises.some(ex=>ex.sidedness==='per-side'&&ex.bodyPosition==='standing'&&ex.id!=='reverse-lunge-with-rotation'))
+        issues.push('control-without-single-leg:'+block.id);
+      if(stageOf(block)==='integrated'&&[block.exercises[0],block.exercises.at(-1)].some(ex=>ex.bodyPosition!=='standing'||ex.impact==='high'))
+        issues.push('integrated-standing-bookends:'+block.id);
+    }
+    return [...new Set(issues)];
+  }
   function stagedQuality(workout,sessionWide) {
     const issues=quality(workout),blocks=workout.main.blocks;
     if(!blocks.length||blocks.some(block=>!block.familyContext||block.familyContext.workoutFamilyId!==FAMILY))return issues;
@@ -371,4 +406,5 @@
   G.registerFamilyComposer(FAMILY,2,composeV2,qualityV2,stageSection);
   G.registerFamilyComposer(FAMILY,3,composeV3,qualityV3,stageSection);
   G.registerFamilyComposer(FAMILY,4,composeV4,qualityV4,stageSection);
+  G.registerFamilyComposer(FAMILY,5,composeV5,qualityV5,stageSection);
 })(typeof window==='undefined'?globalThis:window);

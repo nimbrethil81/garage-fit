@@ -16,6 +16,7 @@ function rng(seed){return ()=>{seed=(seed*1664525+1013904223)>>>0;return seed/42
 const generate=(extra={})=>G.generate({workoutFamilyId:FAMILY,workoutFamilyVersion:VERSION,duration:20,difficulty:'normal',catalogue:C,equipment:[],random:rng(31),...extra});
 const v1=(extra={})=>generate({workoutFamilyVersion:1,...extra});
 const v3=(extra={})=>generate({workoutFamilyVersion:3,...extra});
+const v4=(extra={})=>generate({workoutFamilyVersion:4,...extra});
 // Structural identity of a composition: blocks, drills, rounds, resolved targets and recoveries.
 const shape=w=>[w.familyStyleId,w.main.blocks.map(b=>[b.id,b.exercises.map(e=>e.id),b.prescription.rounds,b.occurrenceTargets.map(t=>t.plannedPrescription.value),b.occurrenceRecoverySeconds])];
 const scripts=w=>w.main.blocks.map(b=>b.id+': '+b.exercises.map(e=>e.id).join(', '));
@@ -47,11 +48,12 @@ test('[Full] five durations × three difficulties × eight seeds × five constra
   vm.runInContext(fs.readFileSync('js/rampup-ui.js','utf8'),app);
   const styles=new Set();let sessions=0;
   // Published v1 stays exactly as released: one structural digest of the same 600 compositions.
-  const digest=crypto.createHash('sha256'),digestV2=crypto.createHash('sha256'),digestV3=crypto.createHash('sha256');
+  const digest=crypto.createHash('sha256'),digestV2=crypto.createHash('sha256'),digestV3=crypto.createHash('sha256'),digestV4=crypto.createHash('sha256');
   for(const duration of Object.keys(PROFILES).map(Number))for(const difficulty of ['easy','normal','hard'])for(const seed of SEEDS)for(const constraint of SCENARIOS) {
     digest.update(JSON.stringify(shape(v1({duration,difficulty,...constraint,random:rng(seed)}))));
     digestV2.update(JSON.stringify(shape(generate({workoutFamilyVersion:2,duration,difficulty,...constraint,random:rng(seed)}))));
     digestV3.update(JSON.stringify(shape(v3({duration,difficulty,...constraint,random:rng(seed)}))));
+    digestV4.update(JSON.stringify(shape(v4({duration,difficulty,...constraint,random:rng(seed)}))));
     const w=generate({duration,difficulty,...constraint,random:rng(seed)});sessions++;styles.add(w.familyStyleId);
     assert.equal(w.workoutFamilyId,FAMILY);assert.equal(w.workoutFamilyVersion,VERSION);assert.equal(w.bodyFocus,'full-body');
     assert.equal(w.familyDiagnostics,undefined,'the seeded style builds first time');
@@ -121,7 +123,12 @@ test('[Full] five durations × three difficulties × eight seeds × five constra
       ids.forEach(id=>seen.add(id));
     }
     assert.ok(w.main.blocks.filter(b=>stage(b)==='control').every(b=>b.exercises.some(e=>e.sidedness==='per-side'&&e.bodyPosition==='standing')),'every control drill keeps standing single-leg work');
-    if(duration<=20)assert.equal(w.main.blocks.length,5,'short sessions are not fragmented');
+    if(duration<=20){
+      assert.equal(w.main.blocks.length,5,'short sessions are not fragmented');
+      assert.ok(new Set(work.filter(x=>x.ex.bodyPosition==='floor').map(x=>x.ex.id)).size<=1,'one ground identity across short sessions');
+    }
+    for(const {s,ex} of work.filter(x=>['stationary-bear-crawl','crab-position-alternating-steps','lateral-ape-weight-transfer'].includes(x.ex.id)))
+      assert.ok(s.plannedPrescription.value<=(ex.id==='lateral-ape-weight-transfer'?15:20),'brief floor coordination '+ex.id);
     // A control block per further four minutes only while it brings fresh balance work (never a copy).
     const controls=w.main.blocks.filter(b=>stage(b)==='control').length;
     assert.ok(controls>=1&&controls<=Math.max(1,Math.floor(PROFILES[duration][2]/240)),'control blocks '+controls);
@@ -143,6 +150,7 @@ test('[Full] five durations × three difficulties × eight seeds × five constra
   assert.equal(sessions,600);assert.deepEqual([...styles].sort(),['dynamic-balance','footwork-coordination','integrated-movement']);
   assert.equal(digest.digest('hex'),'e8ac4393c44c34659ed325ff2cb5c1ebc5627b31c6eaa0c4dbc6b37e15e1eab4','published Athletic v1 compositions are unchanged');
   assert.equal(digestV2.digest('hex'),'1a5a6bd0421b8457853c062ac761dc70a621e9bb63b12e929f81210f5a604efa','published Athletic v2 compositions are unchanged');
+  assert.equal(digestV4.digest('hex'),'678512349b523983f2ea18c93337b60f8795ad3e3d3c511b6301a882f7767968','published Athletic v4 compositions are unchanged');
   assert.equal(digestV3.digest('hex'),'d128234ca653a0bb06473fe46f054d71ef14bbb46c5d3b8463d28a0110316c02','published Athletic v3 compositions are unchanged');
 });
 
@@ -174,25 +182,25 @@ test('high impact is optional on Hard, reachable only by opt-in and never adjace
 
 test('constraints fail honestly when approved integrated movement cannot be composed',()=>{
   for(const extra of [{excludedImpact:['medium','high']},{excludedImpact:['low']},{bodyPositions:['floor']},{bodyPositions:['hanging']}])
-    assert.throws(()=>generate(extra),e=>e.code==='family-not-feasible');
-  assert.throws(()=>generate({movementRoom:false,excludedImpact:['medium','high']}),e=>e.code==='family-not-feasible'&&/integrated.*confirmed movement room/.test(e.message));
+    assert.throws(()=>v4(extra),e=>e.code==='family-not-feasible');
+  assert.throws(()=>v4({movementRoom:false,excludedImpact:['medium','high']}),e=>e.code==='family-not-feasible'&&/integrated.*confirmed movement room/.test(e.message));
   for(const extra of [{bodyPositions:[]},{movementRoom:'yes'},{excludedImpact:null},{excludedImpact:'high'}])
-    assert.throws(()=>generate(extra),e=>e.code==='invalid-family-context');
-  for(const extra of [{duration:5},{difficulty:'maximal'}])assert.throws(()=>generate(extra),e=>e.code==='family-configuration-unsupported');
-  assert.throws(()=>generate({sessionPrescription:{}}),e=>e.code==='family-prescription-unsupported');
-  const low=generate({movementRoom:true,excludedImpact:['medium','high']});
+    assert.throws(()=>v4(extra),e=>e.code==='invalid-family-context');
+  for(const extra of [{duration:5},{difficulty:'maximal'}])assert.throws(()=>v4(extra),e=>e.code==='family-configuration-unsupported');
+  assert.throws(()=>v4({sessionPrescription:{}}),e=>e.code==='family-prescription-unsupported');
+  const low=v4({movementRoom:true,excludedImpact:['medium','high']});
   assert.ok(resolved(low).every(x=>x.ex.impact==='low'));
   assert.ok(resolved(low).filter(x=>x.b.familyContext.role==='integrated').every(x=>['bear-crawl','grapevine-cross-steps'].includes(x.ex.id)));
 });
 
-test('production and test harness register the same version-pinned composers; new workouts use v4',()=>{
-  for(const version of [1,2,3,4])assert.throws(()=>G.registerFamilyComposer(FAMILY,version,()=>{},()=>[]),/registered once/);
-  assert.throws(()=>G.registerFamilyComposer(FAMILY,5,()=>{}),e=>e.code==='unsupported-workout-family-version');
+test('production and test harness register the same version-pinned composers; new workouts use v5',()=>{
+  for(const version of [1,2,3,4,5])assert.throws(()=>G.registerFamilyComposer(FAMILY,version,()=>{},()=>[]),/registered once/);
+  assert.throws(()=>G.registerFamilyComposer(FAMILY,6,()=>{}),e=>e.code==='unsupported-workout-family-version');
   // Every later version is the same family (identity, styles, membership) with a new composition policy; the default lookup stays v1.
-  const [one,two,three,four]=[1,2,3,4].map(version=>F.getDefinition(FAMILY,version));
-  assert.equal(F.getDefinition(FAMILY),one);assert.equal(VERSION,4);
+  const [one,two,three,four,five]=[1,2,3,4,5].map(version=>F.getDefinition(FAMILY,version));
+  assert.equal(F.getDefinition(FAMILY),one);assert.equal(VERSION,5);
   // v2 and v3 reuse membership v1; v4 (#255) resolves the extended membership v2.
-  for(const [definition,version,membership] of [[two,2,1],[three,3,1],[four,4,2]]) {
+  for(const [definition,version,membership] of [[two,2,1],[three,3,1],[four,4,2],[five,5,3]]) {
     assert.deepEqual({...copy(definition),version:1,compositionPolicy:one.compositionPolicy,membershipPolicy:one.membershipPolicy},copy(one));
     assert.deepEqual(copy(definition.compositionPolicy),{id:FAMILY,version});assert.deepEqual(copy(definition.membershipPolicy),{id:FAMILY,version:membership});
   }
@@ -204,7 +212,7 @@ test('production and test harness register the same version-pinned composers; ne
   // The standalone Generator screen asks for the current version, with no extra user choice.
   app.input=FAMILY;vm.runInContext('selectGeneratorFamily(input);generateWorkout()',app);
   const delivered=vm.runInContext('generatorState.workout',app);
-  assert.equal(delivered.workoutFamilyVersion,4);
+  assert.equal(delivered.workoutFamilyVersion,5);
   assert.equal(app.GarageFitGenerator.validateFamilyWorkout(delivered,{catalogue:app.GarageFitData.exercises,equipment:vm.runInContext('state.ownedEquipment',app)}).valid,true);
 });
 
@@ -328,7 +336,7 @@ const REUSED_255=['fast-feet','side-step-touches','cossack-squat'];
 const idsOf=w=>new Set(w.main.blocks.flatMap(b=>b.exercises.map(e=>e.id)));
 
 test('v4 draws the reviewed additions through staged blocks with exact, distinct scripts',()=>{
-  assert.deepEqual(scripts(generate({duration:30})),[
+  assert.deepEqual(scripts(v4({duration:30})),[
     'athletic-preparation-1: knee-to-opposite-elbow, forward-back-line-steps, quarter-turn-pivot-steps',
     'athletic-footwork-2: 180-degree-step-turns, in-in-out-out-steps, forward-back-line-steps',
     'athletic-footwork-3: lateral-step-and-stick, fast-feet, split-stance-step-switches',
@@ -337,12 +345,12 @@ test('v4 draws the reviewed additions through staged blocks with exact, distinct
     'athletic-integrated-6: reverse-lunge-knee-drive, cossack-squat, alternating-lateral-lunge',
     'athletic-finish-7: forward-back-line-steps, side-step-touches, knee-to-opposite-elbow']);
   // Easy drops the Normal-and-above drills (hinge reach, lateral lunge to balance, 180-degree turns); still staged and novel.
-  const easy=generate({duration:30,difficulty:'easy'});
+  const easy=v4({duration:30,difficulty:'easy'});
   assert.deepEqual(scripts(easy).map(line=>line.split(':')[0]),['athletic-preparation-1','athletic-footwork-2','athletic-footwork-3','athletic-control-4','athletic-integrated-5','athletic-finish-6']);
   assert.ok(['single-leg-hip-hinge-reach','lateral-lunge-to-balance','180-degree-step-turns'].every(id=>!idsOf(easy).has(id)));
-  for(const w of [generate({duration:30}),generate({duration:30,movementRoom:true}),easy])assert.deepEqual(mainOverlap(w).map(item=>+item.split(':')[1].split('/')[0]).filter(n=>n>1),[],'no Main block repeats most of its drills');
+  for(const w of [v4({duration:30}),v4({duration:30,movementRoom:true}),easy])assert.deepEqual(mainOverlap(w).map(item=>+item.split(':')[1].split('/')[0]).filter(n=>n>1),[],'no Main block repeats most of its drills');
   // Published compositions never see the additions (their digests are pinned in the Full matrix).
-  for(const version of [1,2,3])assert.ok(NEW_255.concat(REUSED_255).filter(id=>idsOf(generate({workoutFamilyVersion:version,duration:45,movementRoom:true,excludedImpact:[]})).has(id)&&!['fast-feet'].includes(id)).length===0,'v'+version);
+  for(const version of [1,2,3])assert.ok(NEW_255.concat(REUSED_255).filter(id=>idsOf(v4({workoutFamilyVersion:version,duration:45,movementRoom:true,excludedImpact:[]})).has(id)&&!['fast-feet'].includes(id)).length===0,'v'+version);
 });
 
 test('v4 eligibility honours minimum difficulty, confirmed room, impact and per-role membership',()=>{
@@ -381,7 +389,7 @@ test('v4 reaches every reviewed addition in a suitable context and keeps landing
   const scenarios=[{difficulty:'easy'},{difficulty:'normal'},{difficulty:'normal',movementRoom:true},{difficulty:'hard',movementRoom:true},
     {difficulty:'hard',movementRoom:true,excludedImpact:[]}];
   for(const duration of [20,30,45])for(const extra of scenarios)for(let seed=1;seed<=24;seed++) {
-    const w=generate({duration,...extra,random:rng(seed*7919)});sessions++;
+    const w=v4({duration,...extra,random:rng(seed*7919)});sessions++;
     assert.equal(w.familyDiagnostics,undefined);
     assert.equal(G.validateFamilyWorkout(w,{catalogue:C,equipment:[]}).valid,true);
     for(const id of idsOf(w)){const key=id+'@'+extra.difficulty+(extra.movementRoom?'+room':'')+(extra.excludedImpact?'+impact':'');seen[key]=(seen[key]||0)+1;}
@@ -405,11 +413,55 @@ test('v4 reaches every reviewed addition in a suitable context and keeps landing
 });
 
 test('v4 swaps can never introduce a drill the session difficulty or room excludes',()=>{
-  const easy=generate({duration:30,difficulty:'easy',random:rng(11)});
+  const easy=v4({duration:30,difficulty:'easy',random:rng(11)});
   for(const [b,block] of easy.main.blocks.entries())for(let i=0;i<block.exercises.length;i++) {
     const edited=copy(easy);
     try{G.swap(edited,b,i,{catalogue:C,equipment:[],random:rng(b*13+i)});}catch(error){continue;}
     assert.equal(G.validateFamilyWorkout(edited,{catalogue:C,equipment:[]}).valid,true);
     assert.ok(['single-leg-hip-hinge-reach','lateral-lunge-to-balance','180-degree-step-turns','lateral-shuffle-and-stop','forward-back-acceleration-and-stop','forward-hop-and-stick','lateral-bound-and-stick'].every(id=>!idsOf(edited).has(id)));
   }
+});
+
+// #271: explicit bounded draws prove composition, not just permission or map membership.
+const NEW_271=['four-square-steps','drop-step-and-recover','stationary-bear-crawl','reverse-lunge-with-rotation','crab-position-alternating-steps',
+  'crossover-step-and-recover','step-out-and-brake','split-step-preparation','transverse-lunge-to-balance','lateral-ape-weight-transfer','tandem-step-and-hold'];
+test('v5 selects all eleven additions under their real difficulty, room and impact constraints',()=>{
+  for(const [id,duration,difficulty,movementRoom,seed] of [
+    ['four-square-steps',20,'easy',false,7919],['tandem-step-and-hold',20,'easy',false,15838],
+    ['crab-position-alternating-steps',20,'normal',false,7919],['reverse-lunge-with-rotation',20,'normal',false,15838],
+    ['lateral-ape-weight-transfer',20,'normal',false,15838],['transverse-lunge-to-balance',20,'normal',false,31676],
+    ['stationary-bear-crawl',20,'normal',false,39595],['drop-step-and-recover',20,'normal',true,7919],
+    ['step-out-and-brake',20,'normal',true,23757],['split-step-preparation',20,'hard',false,71271],
+    ['crossover-step-and-recover',45,'normal',true,7919]
+  ]) {
+    const w=generate({duration,difficulty,movementRoom,excludedImpact:[],random:rng(seed)});
+    assert.ok(idsOf(w).has(id),id);assert.equal(w.familyDiagnostics,undefined,id);
+    assert.equal(G.validateFamilyWorkout(w,{catalogue:C,equipment:[]}).valid,true,id);
+  }
+});
+
+test('v5 membership keeps earlier policies intact and rejects accidental generic and Easy eligibility',()=>{
+  const ctx=(version,role,extra={})=>({workoutFamilyId:FAMILY,workoutFamilyVersion:version,role,...extra});
+  for(const id of NEW_271){
+    const ex=C[id];assert.deepEqual(ex.equipment,[]);assert.equal(ex.load,null);
+    assert.ok(ex.instruction.length<=180);assert.equal(ex.rampup||ex.cooldown,false,id);
+    for(const version of [1,2,3,4])for(const role of ['footwork','control','integrated'])assert.equal(F.getMembership(ctx(version,role),id),null,id);
+    assert.equal(G.generatedPhaseEligible(ex,'main',[],'hard'),['reverse-lunge-with-rotation','transverse-lunge-to-balance'].includes(id),id);
+    assert.equal(G.generatedPhaseEligible(ex,'warmup',[],'easy'),id==='tandem-step-and-hold',id);
+    for(const role of ['footwork','control','integrated']) {
+      const entry=F.getMembership(ctx(5,role),id);if(!entry)continue;
+      assert.equal(G.generatedPhaseEligible(ex,'main',[],'easy',ctx(5,role,{difficulty:'easy',movementRoom:true,excludedImpact:[]})),
+        ['four-square-steps','tandem-step-and-hold'].includes(id),id);
+      if(['drop-step-and-recover','crossover-step-and-recover','step-out-and-brake'].includes(id))assert.equal(entry.requiresMovementRoom,true,id);
+    }
+  }
+  for(const [id,ex] of Object.entries(C))for(const role of ['footwork','control','integrated']){
+    const old=F.getMembership(ctx(4,role),id);if(old)assert.deepEqual(F.getMembership(ctx(5,role),id),old,id);
+  }
+  for(const id of ['reverse-lunge-with-rotation','transverse-lunge-to-balance']) {
+    assert.deepEqual(C[id].prescription,{type:'unilateral-reps',value:6});assert.equal(G.sideCount(C[id]),2);
+    assert.equal(C[id].estimatedSeconds,50);
+  }
+  assert.equal(C['split-step-preparation'].impact,'high');assert.match(C['split-step-preparation'].instruction,/hop/);
+  assert.equal(C['knee-to-opposite-elbow'].instruction,'Stand tall and bring each knee towards the opposite elbow, alternating sides with a gentle torso rotation.');
 });

@@ -190,7 +190,8 @@ test('#255 catalogue: eleven distinct canonical definitions, three shared Main f
     const ex=C[id];assert.ok(ex,id);assert.deepEqual(ex.equipment,[],id);assert.equal(ex.load,null,id);
     assert.ok(ex.instruction.length<=180&&ex.instruction.split(/(?<=\.)\s+/).length===1,id);
     assert.equal(ex.prescription.type.startsWith('unilateral'),ex.sidedness==='per-side',id);
-    assert.equal(ex.warmup||ex.rampup||ex.cooldown,false,id);
+    assert.equal(ex.warmup,id==='split-stance-step-switches',id); // #271: reviewed light preparation
+    assert.equal(ex.rampup||ex.cooldown,false,id);
     // Only the three shared drills carry Main flags; the rest are authorised solely by Athletic membership v2.
     assert.equal(!!(ex.generator&&ex.main),SHARED_FLAGGED.includes(id),id);
     assert.ok(F.getMembership(V4('footwork'),id)||F.getMembership(V4('control'),id)||F.getMembership(V4('integrated'),id),id+' has a role');
@@ -237,10 +238,10 @@ test('#255 membership v2 table: roles, room, impact, minimum difficulty; v1 unto
 
 test('#255 shared Main drills are reachable in the Generator by bounded deterministic seeds',()=>{
   const rng=seed=>()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
-  const reaches=(id,focus,duration,seed)=>G.generate({duration,focus,equipment:[],catalogue:C,random:rng(seed)}).main.blocks.some(b=>b.exercises.some(ex=>ex.id===id));
-  // S1 catalogue growth shifts real draws without changing shared Main eligibility.
-  assert.ok(reaches('single-leg-hip-hinge-reach','strength',10,21));
-  assert.ok(reaches('lateral-lunge-to-balance','strength',20,25));
+  const reaches=(id,focus,duration,seed,bodyFocus='full-body')=>G.generate({duration,focus,bodyFocus,equipment:[],catalogue:C,random:rng(seed)}).main.blocks.some(b=>b.exercises.some(ex=>ex.id===id));
+  // v5 catalogue growth shifts real draws; Lower fixtures retain the same genuine routes.
+  assert.ok(reaches('single-leg-hip-hinge-reach','strength',20,7,'lower'));
+  assert.ok(reaches('lateral-lunge-to-balance','strength',45,9,'lower'));
   assert.ok(reaches('in-in-out-out-steps','cardio',30,13));
   // Family-only identities are never offered by the ordinary Generator, even for generous kits.
   const kit=['dumbbells','kettlebell','pullup-bar','trx','barbell','bench','box','bands'];

@@ -7,7 +7,7 @@ policy change needs a new definition version and versioned policy reference.
 A later version of the same family keeps its id, name, purpose, styles and feasibility; it is the
 same family for training balance and recency, while composition and history keep the version.
 `GarageFitData.workoutFamilyCurrentVersions` names the version new workouts use; today that is
-version 1 for every family except Athletic Movement (current version 4; #244, #255), Strength & Control
+version 1 for every family except Athletic Movement (current version 5; #244, #255, #271), Strength & Control
 (current version 2; #261) and Mobility & Movement Quality (current version 2; #264).
 
 Each definition owns its display name, purpose, supported internal styles, Body
@@ -529,13 +529,13 @@ staged script, with novelty judged across the whole Main session:
   the finish, per-drill caps, recovery, membership (v1 policy), feasibility and styles are unchanged.
   Saved v1 and v2 workouts keep their own rules; v3 blocks carry `workoutFamilyVersion: 3`.
 
-### Athletic Movement composition v4 and membership v2 (#255, current)
+### Athletic Movement composition v4 and membership v2 (#255)
 
 v4 is the v3 staged script and session-wide rule drawing on **membership v2**: membership v1 plus eleven
 new canonical movements, `fast-feet`, `side-step-touches` and `cossack-squat` (reused identities, no
 new entries). Definitions v1–v3 keep membership v1; only definition v4 resolves `{athletic-movement, 2}`,
 so saved and explicit v1–v3 workouts, drafts and Coach pins are unchanged (v1–v3 composition digests are pinned
-in `tests/athletic-composer.test.js`). New standalone and General Fitness workouts use v4 automatically.
+in `tests/athletic-composer.test.js`). At publication, new standalone and General Fitness workouts used v4 automatically; v5 is current below.
 
 A membership entry may state `minimumDifficulty` (`normal` excludes Easy; `hard` allows Hard only). It is a
 family-policy field, enforced by the shared eligibility check for generation, validation and swaps; it is not
@@ -574,6 +574,43 @@ bringing a new challenge (the v3 two-fresh-drills rule still decides how many bl
 blocks draw lateral lunge to balance and the cossack squat in place and the shuffle/stop, acceleration/stop,
 hop and bound with room; the finish swaps its pivot steps for side-step touches. Preparation, resets and the
 longer finish timings are unchanged.
+
+### Athletic Movement composition v5 and membership v3 (#271, current)
+
+V5 adds eleven canonical bodyweight identities to membership v3 (36 unique members), with explicit
+composer pools. Definitions, memberships and composition v1–v4 stay published; all four composition
+shapes are pinned by deterministic digests. New standalone and General Fitness sessions use v5.
+
+Four-square steps extend Easy footwork. Drop-step recovery, crossover recovery and step-out braking
+require confirmed movement room and Normal or Hard. Crossover recovery uses a crossing step; braking
+stops in a two-foot stance rather than the existing single-leg stick. Tandem step and hold adds Easy
+narrow-base control. Reverse lunge with rotation and transverse lunge to balance use six reps per side
+by default (50 s total); Athletic uses bounded unilateral time. The former turns the trunk above a
+lunge and is a control partner; the latter turns hips/feet into a diagonal lunge and returns to single-leg
+balance, so it can anchor later control blocks.
+
+Stationary bear crawl and crab-position alternating steps have 10–20 s efforts; lateral ape weight
+transfer has 10–15 s efforts. All need Normal or Hard and remain optional integrated middle movements.
+The existing travelling bear crawl and all new floor identities count together: sessions up to 20 minutes
+allow at most one ground identity, including edits/swaps; longer sessions can add fresh floor practice
+when the session-wide novelty rule earns another block. Every floor effort/transition retains at least
+25 s recovery. Standing single-leg anchors, standing non-jumping integrated bookends, three-plane
+footwork, preparation and finish remain. Low-impact practice reserves its sole standing integrated
+identity rather than spending it during footwork.
+
+Split-step preparation explicitly includes flight: high impact, Hard opt-in, 10–15 s efforts, integrated
+middle only and 40 s landing recovery. Its tiny stationary hop needs immediate safe clearance, not
+travelling room; permitting it never makes it compulsory.
+
+Only the two controlled lunges gain shared Main flags (rounds/paired sets); their lower-body strength
+metadata permits existing Generator, Strength and appropriate challenge-round selection without new
+scoring rules. They are outside cardio-led and trunk-led families. Tandem steps and existing non-hopping
+split-stance switches gain light Warm-up doses and reach five-minute Prep & Recover, never Ramp-up or
+Cool-down. Floor coordination stays outside generic preparation and ordinary Main. Mobility v2 membership,
+fixed workouts, Coach anchors, Tennis mapping v4 and programme v8 are unchanged: these additions do not
+justify new sporting credit or expansion of Tennis movement-role optional pools. General Strength can
+select the lunges as ordinary lower-body work; Build Arms and Tennis retain their objectives and can use
+the light preparation. The existing knee-to-opposite-elbow identity and instructions needed no adaptation.
 
 ### Strength & Control and Cardio & Conditioning composition v1
 

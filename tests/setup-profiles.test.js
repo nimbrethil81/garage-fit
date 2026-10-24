@@ -228,3 +228,14 @@ test('setup fitting tries an otherwise valid diversity reserve before removing a
   assert.ok(new Set(workout.main.blocks.flatMap(b=>b.exercises.map(e=>e.id))).size>=3);
   assert.ok(workout.main.blocks.every(b=>G.setupProfilesCompatible(b.exercises,equipment)));
 });
+
+test('a fitting legal two-identity ten-minute setup alternative survives before round deletion',()=>{
+  const events=[];
+  const w=G.generate({catalogue:C,equipment:['rings'],duration:10,focus:'strength',random:random(113),
+    trace:e=>{if(e.type==='main-result')events.push(e.attempt);}});
+  assert.deepEqual(events,[2,4],'retain the existing fitting pair after the initial 605-second session');
+  assert.equal(new Set(w.main.blocks.flatMap(b=>b.exercises.map(e=>e.id))).size,2);
+  assert.equal(w.main.blocks[0].protocol,'paired_sets');assert.equal(w.main.blocks[0].prescription.sets,3);
+  assert.deepEqual(G.validateMain(w.main,C,['rings'],G.BUDGETS[10].main),[]);
+  assert.ok(Math.abs(w.estimatedSeconds-600)<=180,'retain the original broad duration assertion');
+});
