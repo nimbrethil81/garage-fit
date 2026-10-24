@@ -307,7 +307,7 @@ test('fixed Workouts keep their data; the authored routine lists are retired', (
   assert.equal(a.storage.has(HISTORY_KEY), false);
 });
 
-test('the TRX stretches remain direct variants of their bodyweight stretches', () => {
+test('recovery alternative families retain TRX pairs and reviewed Mobility calf/hamstring variants', () => {
   const catalogue = loadAppContext().GarageFitData.exercises;
   const families = {};
   for (const exercise of Object.values(catalogue)) if (exercise.cooldown && exercise.family) (families[exercise.family] = families[exercise.family] || []).push(exercise.id);
@@ -315,7 +315,9 @@ test('the TRX stretches remain direct variants of their bodyweight stretches', (
     'back-lat-stretch': ['childs-pose','trx-lean-back-sink'],
     'chest-opener': ['chest-opener','trx-lunge-calf-chest'],
     'glute-stretch': ['glute-stretch','trx-glute-standing'],
-    'side-stretch': ['side-stretch','trx-side-stretch']
+    'side-stretch': ['side-stretch','trx-side-stretch'],
+    'supported-hamstring-stretch': ['kneeling-hamstring','supine-hamstring-stretch'],
+    'standing-calf-stretch': ['standing-calf-stretch','bent-knee-calf-stretch']
   });
 });
 
