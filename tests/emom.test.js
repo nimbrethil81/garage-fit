@@ -198,14 +198,14 @@ test('explicit optional EMOM candidates preserve Coach anchors, hard avoids, pro
   const prescription = rx({requiredAnchors:[fixtures.anchor({allowedProtocols:['rounds']})],mainTimeLimitSeconds:600,
     protocolConstraints:[{requirementId:'optional-patterns',importance:'hard',allowedProtocols:['rounds','emom']}],
     avoidConstraints:[{requirementId:'avoid-push',importance:'hard',pattern:'push'}]});
-  const options = {catalogue,sessionPrescription:prescription,availableSeconds:1000,random:random(3)};
+  const options = {catalogue,sessionPrescription:prescription,availableSeconds:1000,random:random(1)};
   const assessment = G.assessSessionPrescription(options);
   assert.equal(assessment.status,'feasible');
   const candidate = G.buildEmomBlock(options);
   assert.ok(candidate);
   assert.ok(candidate.estimatedSeconds+assessment.requiredMainSeconds+G.BLOCK_TRANSITION_SECONDS<=600);
   assert.ok(candidate.exercises.every(exercise => exercise.id !== 'goblet-squat' && !exercise.patterns.includes('push') && !exercise.coachAnchor));
-  const automatic = G.generate({...options,random:random(3)});
+  const automatic = G.generate({...options,random:random(1)});
   assert.ok(automatic.main.blocks.some(block => block.protocol === 'emom'));
   assert.ok(automatic.main.blocks.filter(block=>block.protocol==='emom').every(block=>G.validateEmomBlock(block,catalogue).length===0));
   assert.ok(automatic.prescriptionOutcome.requiredAnchorPlacements.every(placement => placement.protocol === 'rounds'));

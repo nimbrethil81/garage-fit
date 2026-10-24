@@ -122,6 +122,8 @@ test('generated timeline occurrences have stable unique ids across rounds, sets,
   let sided = 0, repeatedAnchorSets = 0;
   const cases = [];
   for (const [index, focus] of ['strength','balanced','cardio'].entries()) for (const duration of [20, 30, 45]) cases.push({focus, duration, seed: 100 + index * 10 + duration});
+  // S1 growth shifts paired sets out of the spread; keep explicit coverage.
+  cases.push({focus:'strength',duration:30,seed:3});
   // Bounded Balanced seeds reaching density and AMRAP.
   cases.push({focus: 'balanced', duration: 20, seed: 31}, {focus: 'balanced', duration: 20, seed: 28});
   for (const {focus, duration, seed} of cases) for (const rampupUi of [true, false]) {

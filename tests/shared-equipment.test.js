@@ -122,7 +122,7 @@ test('rings are listed once in the Library filter without implying TRX or a bar'
   assert.equal(filter.children.filter(node=>node.value==='rings').length,1);
   assert.equal(filter.children.find(node=>node.value==='rings').textContent,'Gymnastic rings');
   filter.value='rings'; app.renderExerciseLibrary();
-  assert.equal(app.document.getElementById('libraryList').children.length,14);
+  assert.equal(app.document.getElementById('libraryList').children.length,15);
   app.toggleEquipmentItem('rings'); app.generateWorkout();
   assert.ok(json(app,'generatorState.workout.main.blocks.flatMap(block=>block.exercises)').every(ex=>!ex.equipment.length||ex.equipment.flat().every(id=>id==='rings')));
 });

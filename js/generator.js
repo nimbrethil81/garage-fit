@@ -1937,10 +1937,16 @@
     // A drawn route keeps its accessory: the fittest valid attempt that filled the route slot is
     // chosen over fitter attempts that never reached it (no accessory block, or too few roles
     // before its last slot). Without such an attempt the fittest attempt is chosen as before.
+    // Duration validity precedes the supporting preference: a filled accessory
+    // route must not displace an attempt that fits with an underfilled one.
+    const fitting=pool.filter(fits);
+    if(fitting.length)pool=fitting;
     const chosen=pool.find(item=>item.routeFilled)||pool[0];
     if(activeTrace)activeTrace({type:'main-result',attempt:chosen?chosen.attempt:null,supportingRoute});
     if(chosen){
-      if(captureAlternatives)captureAlternatives(pool.filter(attempt=>attempt!==chosen).map(attempt=>({blocks:attempt.blocks,attempt:attempt.attempt,supportingRoute})));
+      // Setup fitting may use a diversity-only reserve before deleting a whole
+      // repeat; equipment diversity is a preference, not a dose requirement.
+      if(captureAlternatives)captureAlternatives(pool.filter(attempt=>attempt!==chosen).concat(reserve.filter(attempt=>attempt!==chosen&&!pool.includes(attempt)&&fits(attempt))).map(attempt=>({blocks:attempt.blocks,attempt:attempt.attempt,supportingRoute})));
       return {blocks:chosen.blocks,transitionSeconds:BLOCK_TRANSITION_SECONDS,estimatedDurationSeconds:chosen.estimated};
     }
     const fallbackSelected=selectExercises(eligible,Math.min(3,eligible.length),focus,history,random,catalogue);

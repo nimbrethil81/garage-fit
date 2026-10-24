@@ -242,3 +242,14 @@ test('the same seed gives the same workout, and preparation and cool-down never 
   }
   for(const run of longSample)for(const event of run.events)if(event.type==='pick'&&event.phase!=='main')assert.ok(!event.route,event.phase);
 });
+
+test('a filled supporting route cannot displace an available duration-valid Main attempt',()=>{
+  // S1 exposed the existing fallback: filled attempt 4 had only 1133 s of a
+  // 2015 s Main budget, despite complete unfilled attempts being available.
+  const equipment=['kettlebell','pullup-bar'],events=[];
+  const workout=G.generate({catalogue,duration:45,focus:'strength',bodyFocus:'lower',equipment,random:random(24),
+    trace:event=>{if(event.type==='main-result')events.push(event)}});
+  assert.equal(events[0].supportingRoute,true,'the draw is preserved');
+  assert.ok(workout.estimatedSeconds>=45*60*.82);
+  assert.deepEqual(G.validateMain(workout.main,catalogue,equipment,G.BUDGETS[45].main),[]);
+});

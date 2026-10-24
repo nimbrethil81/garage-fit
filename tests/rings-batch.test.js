@@ -33,8 +33,8 @@ const BATCH=[
 ];
 const IDS=BATCH.map(row=>row[0]);
 
-test('exactly fourteen approved rings-only entries have valid Main metadata and difficulty gates',()=>{
-  assert.deepEqual(Object.values(catalogue).filter(ex=>ex.equipment.flat().includes('rings')).map(ex=>ex.id).sort(),IDS.slice().sort());
+test('the original fourteen rings entries and S1 scapular row have valid Main metadata and difficulty gates',()=>{
+  assert.deepEqual(Object.values(catalogue).filter(ex=>ex.equipment.flat().includes('rings')).map(ex=>ex.id).sort(),IDS.concat('ring-scapular-row').sort());
   for(const [id,name,difficulty,role,patterns,bodyFocus,position,type,value,seconds] of BATCH){
     const ex=catalogue[id];
     assert.deepEqual([ex.name,ex.equipment,ex.difficulty,ex.mainRole,ex.patterns,ex.bodyFocus,ex.bodyPosition,ex.prescription,ex.estimatedSeconds],
@@ -101,8 +101,8 @@ test('Library rings filter lists each approved movement once and details retain 
   const app=loadAppContext();app.openExerciseLibrary();
   app.document.getElementById('libraryEquipment').value='rings';app.renderExerciseLibrary();
   const rows=app.document.getElementById('libraryList').children;
-  assert.equal(rows.length,14);
-  assert.deepEqual(rows.map(row=>row.children[0].children.find(child=>child.className==='library-name').textContent).sort(),BATCH.map(row=>row[1]).sort());
+  assert.equal(rows.length,15);
+  assert.deepEqual(rows.map(row=>row.children[0].children.find(child=>child.className==='library-name').textContent).sort(),BATCH.map(row=>row[1]).concat('Ring scapular row').sort());
   for(const id of IDS){
     app.openExerciseDetail(id);
     assert.equal(app.document.getElementById('libraryDetailEquipment').textContent,'Gymnastic rings');

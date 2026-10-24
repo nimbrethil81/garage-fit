@@ -18,7 +18,7 @@ const CONFIGS={
 const mainOf=w=>w.main.blocks.flatMap(b=>b.exercises);
 
 test('[Full] equipment configurations only select ring entries when rings are owned, with valid budgets',()=>{
-  assert.equal(RING_IDS.length,14);
+  assert.equal(RING_IDS.length,15); // S1 adds the reviewed scapular row.
   const ringsSeen={};
   let n=0;
   for(const [name,equipment] of Object.entries(CONFIGS))

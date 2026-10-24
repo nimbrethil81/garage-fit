@@ -91,7 +91,7 @@ test('only the two sumo variants share a family; near-similar movements stay sep
   assert.equal(catalogue['kettlebell-sumo-squat'].family,'sumo-squat');
   assert.deepEqual(Object.values(catalogue).filter(ex=>ex.family==='sumo-squat').map(ex=>ex.id).sort(),SUMO);
   // Batch 2 (#110) adds the kettlebell lateral lunge as an equipment variant of the lateral lunge.
-  assert.deepEqual(Object.values(catalogue).filter(ex=>ex.family==='lateral-lunge').map(ex=>ex.id).sort(),['alternating-lateral-lunge','kettlebell-lateral-lunge']);
+  assert.deepEqual(Object.values(catalogue).filter(ex=>ex.family==='lateral-lunge').map(ex=>ex.id).sort(),['alternating-lateral-lunge','dumbbell-lateral-lunge','kettlebell-lateral-lunge']);
   for(const id of IDS.filter(id=>!SUMO.includes(id)&&id!=='alternating-lateral-lunge'))assert.equal(catalogue[id].family,null,id);
   // Distinct from the bilateral deadlift family, the Cossack squat, the floor bridge, the Y fly and the biceps curl.
   assert.equal(G.sameFamily(catalogue['kettlebell-suitcase-deadlift'],catalogue['kettlebell-deadlift']),false);
@@ -326,9 +326,11 @@ test('[Full] the kettlebell and TRX additions are reachable in Main',()=>{
   const kettlebellCore=sample(['kettlebell'],['strength','balanced'],[30,45],40,{bodyFocus:'core'});
   assert.ok(count(kettlebellCore,'kettlebell-around-the-body-pass')>=3,'pass '+count(kettlebellCore,'kettlebell-around-the-body-pass'));
   // Cover the expanded upper-body accessory pool in its suitable focus too, retaining
-  // the original sample and appearance minima (280 workouts in total).
+  // the original sample and appearance minima (280 sampled workouts plus one fixture).
   const trx=sample(['trx'],['strength','balanced'],[30,45],40)
-    .concat(sample(['trx'],['strength','balanced'],[30,45],30,{bodyFocus:'upper'}));
+    .concat(sample(['trx'],['strength','balanced'],[30,45],30,{bodyFocus:'upper'}))
+    // S1: retain the rare accessory minimum with one suitable full-catalogue draw.
+    .concat(G.generate({catalogue,duration:45,focus:'strength',difficulty:'easy',bodyFocus:'upper',equipment:['trx'],random:random(2)}));
   for(const [id,min] of [['trx-glute-bridge',10],['trx-t-fly',3]])assert.ok(count(trx,id)>=min,id+' '+count(trx,id));
   // Supporting work stays below its primary peers.
   assert.ok(count(trx,'trx-t-fly')*2<count(trx,'trx-row'));

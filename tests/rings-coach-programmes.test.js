@@ -28,7 +28,7 @@ const seeded = (p, seed) => p.run(`let r7Seed=${seed};Math.random=()=>{r7Seed=(r
 const mainIds = workout => workout.main.blocks.flatMap(block => block.exercises.map(item => item.id));
 
 test('released definitions stay unchanged; General Strength v2 and Tennis v7 only append reviewed ring anchors', () => {
-  assert.equal(RING_IDS.length, 14);
+  assert.equal(RING_IDS.length, 15); // S1 adds an accessory, with no programme anchor change.
   assert.deepEqual(Object.keys(P[GS]), ['1', '2']);
   assert.deepEqual(Object.keys(P[TENNIS]), ['1', '2', '3', '4', '5', '6', '7', '8']);
   assert.deepEqual(Object.keys(P[ARMS]), ['1'], 'Build Arms already selects ring curls/extensions by intrinsic direct action');
