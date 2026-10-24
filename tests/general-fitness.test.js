@@ -374,14 +374,20 @@ test('[Full] controller-run 20-session sequences at 2, 3 and 5 sessions/week del
   }
 });
 
-test('General Fitness released plans deliver current Mobility v3 without changing programme definitions (#272)',()=>{
+test('General Fitness released plans deliver current Mobility v3 from ordinary history-ranked candidates (#272)',()=>{
   for(const version of [1,2]) {
     const p=context(undefined,version);
-    const out=p.json(`(()=>{const before=JSON.stringify(GF),plan=gfPlan(gfStart(${JSON.stringify(at(0))}),[],${JSON.stringify(at(30))});
-      plan.prescription.workoutFamilyPlan.candidates=plan.prescription.workoutFamilyPlan.candidates.filter(c=>c.workoutFamilyId==='mobility-movement-quality');
+    const out=p.json(`(()=>{const before=JSON.stringify(GF),state=gfStart(${JSON.stringify(at(0))}),results=[];
+      ['strength-control','cardio-conditioning','strength-control','cardio-conditioning','core-stability','athletic-movement','full-body-challenges']
+        .forEach((family,i)=>results.push(gfResult('r'+i,new Date(${T0}+i*86400000).toISOString(),family)));
+      const plan=gfPlan(state,results,new Date(${T0}+9*86400000).toISOString(),{difficulty:'easy',duration:30});
+      const ranked=plan.prescription.workoutFamilyPlan.candidates.map(c=>c.workoutFamilyId);
       const workout=GarageFitGenerator.generate({catalogue:CATALOGUE,sessionPrescription:plan.prescription,random:seeded});
-      return {version:workout.workoutFamilyVersion,validation:GarageFitGenerator.validateFamilyWorkout(workout,{catalogue:CATALOGUE,equipment:[]}),
+      return {family:workout.workoutFamilyId,version:workout.workoutFamilyVersion,ranked,
+        validation:GarageFitGenerator.validateFamilyWorkout(workout,{catalogue:CATALOGUE,equipment:[]}),
         seconds:workout.estimatedSeconds,unchanged:before===JSON.stringify(GF),anchors:plan.prescription.requiredAnchors||[]};})()`);
-    assert.equal(out.version,3);assert.equal(out.seconds,1800);assert.equal(out.validation.valid,true);assert.equal(out.unchanged,true);assert.deepEqual(out.anchors,[]);
+    assert.equal(out.ranked[0],'mobility-movement-quality');assert.deepEqual(out.ranked.slice().sort(),FAMILIES.slice().sort());
+    assert.equal(out.family,'mobility-movement-quality');assert.equal(out.version,3);assert.equal(out.seconds,1800);
+    assert.equal(out.validation.valid,true);assert.equal(out.unchanged,true);assert.deepEqual(out.anchors,[]);
   }
 });

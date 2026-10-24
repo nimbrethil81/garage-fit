@@ -255,18 +255,17 @@ test('temporary ring substitutes keep the stable anchor and attribute history to
 
 test('Mobility crossover leaves General Strength, Build Arms and Tennis anchors intact on their shared prep/recovery routes (#272)',async()=>{
   const crossover=['standing-hinge-and-reach','standing-wall-slides','standing-calf-stretch','bent-knee-calf-stretch','supine-hamstring-stretch'];
-  const seen=new Set();
-  for(const [id,version] of [[GS,2],[ARMS,1],[TENNIS,8]]) {
-    const p=pilot(new Map(),id,version);seeded(p,31);await p.start();
+  for(const [id,version,seed] of [[GS,2,31],[ARMS,1,31],[TENNIS,8,1]]) {
+    const p=pilot(new Map(),id,version);seeded(p,seed);await p.start();
     p.run('pilot.prepare({...pilotOptions,duration:30})');
-    const {workout,plan}=p.json('pilot.snapshot().preview');
+    const {workout,plan}=p.json('pilot.snapshot().preview'),programmeSeen=new Set();
     assert.deepEqual([...new Set(workout.prescriptionOutcome.requiredAnchorPlacements.map(item=>item.exerciseId))].sort(),
       [...new Set(plan.prescription.requiredAnchors.map(item=>item.exerciseId))].sort(),id+' exact required anchors');
     assert.ok(workout.estimatedSeconds<=1800,id);
     assert.ok(mainIds(workout).every(ex=>!crossover.includes(ex)),id+' no new Main');
     for(const kind of ['warmup','cooldown'])for(const ex of workout[kind].exercises)if(crossover.includes(ex.id)) {
-      seen.add(ex.id);assert.ok(ex.prescription.value>=10&&ex.prescription.value<=40,id+' light effective dose');
+      programmeSeen.add(ex.id);assert.ok(ex.prescription.value>=10&&ex.prescription.value<=40,id+' light effective dose');
     }
+    assert.ok(programmeSeen.size>0,id+' actual preparation/recovery crossover');
   }
-  assert.ok(seen.size>0,'actual programme preparation/recovery crossover');
 });
