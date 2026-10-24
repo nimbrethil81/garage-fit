@@ -315,7 +315,7 @@ test('cool-down stretch targets are a validated classification on every cool-dow
 });
 
 test('C1 gentle preparation also reaches five-minute Prep & Recover without becoming recovery stretches',()=>{
-  for(const [id,seed] of [['bent-knee-fallout',6],['supine-heel-slides',3],['tabletop-toe-taps',63]]){
+  for(const [id,seed] of [['bent-knee-fallout',6],['supine-heel-slides',20],['tabletop-toe-taps',54]]){
     const item=routine('warmup','bodyweight',seed,{equipment:[]});
     assert.ok(item.exercises.some(ex=>ex.id===id),id);
     assert.deepEqual(R.validateRoutine(item,catalogue),[]);
@@ -325,7 +325,7 @@ test('C1 gentle preparation also reaches five-minute Prep & Recover without beco
 });
 
 test('Athletic v5 light standing preparation reaches Prep & Recover without adding recovery or floor work',()=>{
-  for(const [id,seed] of [['tandem-step-and-hold',11],['split-stance-step-switches',6]]) {
+  for(const [id,seed] of [['tandem-step-and-hold',6],['split-stance-step-switches',13]]) {
     const item=routine('warmup','bodyweight',seed,{equipment:[]});
     assert.ok(item.exercises.some(ex=>ex.id===id),id);assert.deepEqual(R.validateRoutine(item,catalogue),[]);
     assert.equal(item.estimatedSeconds,300);assert.equal(catalogue[id].cooldown||catalogue[id].rampup,false,id);

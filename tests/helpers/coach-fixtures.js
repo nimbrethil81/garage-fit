@@ -101,12 +101,20 @@ function sessionDraft(overrides) {
   }, overrides);
 }
 
+// Fixed 286-entry input for the precise pre-CD1 setup-fitting regression.
+// Live catalogue reachability and broad quality matrices continue to use production.
+function catalogueBeforeCD1(catalogue) {
+  const added=new Set(['power-march','step-jacks','standing-knee-drive-march','alternating-hamstring-curl-steps','side-step-knee-lift','forward-back-aerobic-steps','low-impact-speed-skaters','alternating-straight-punches','boxer-step-and-punches','alternating-hooks','boxing-slip-and-punch','step-back-burpee','squat-to-alternating-knee-drive','high-knee-power-steps','low-pogo-hops','dumbbell-alternating-punch-out','dumbbell-squat-to-calf-raise','kettlebell-deadlift-to-calf-raise']);
+  const copy=JSON.parse(JSON.stringify(Object.fromEntries(Object.entries(catalogue).filter(([id])=>!added.has(id)))));
+  Object.assign(copy['walk-plank-push-up'],{warmup:true,warmupPhase:'late',warmupPrescription:{type:'timed',value:20},warmupAreas:['hips','shoulders'],warmupEstimatedSeconds:20});
+  return copy;
+}
+
 // Fixed input for pre-C1 behavioural snapshots: catalogue expansion is allowed to
 // change fresh draws, while these pins continue to detect policy changes on the
 // original catalogue. This projection is test-only; all other tests use production.
 function catalogueBeforeC1(catalogue) {
-  const added=new Set(['power-march','step-jacks','standing-knee-drive-march','alternating-hamstring-curl-steps','side-step-knee-lift','forward-back-aerobic-steps','low-impact-speed-skaters','alternating-straight-punches','boxer-step-and-punches','alternating-hooks','boxing-slip-and-punch','step-back-burpee','squat-to-alternating-knee-drive','high-knee-power-steps','low-pogo-hops','dumbbell-alternating-punch-out','dumbbell-squat-to-calf-raise','kettlebell-deadlift-to-calf-raise',
-    'side-plank-knees','bent-knee-fallout','tabletop-toe-taps','dumbbell-suitcase-carry',
+  const added=new Set(['side-plank-knees','bent-knee-fallout','tabletop-toe-taps','dumbbell-suitcase-carry',
     'side-plank-hip-lifts','supine-heel-slides','plank-arm-reaches','bridge-march','bent-knee-windshield-wipers',
     'dead-bug-isometric-press','bear-plank-hold','seated-knee-tucks','kettlebell-suitcase-march',
     'half-kneeling-band-pallof-press','dumbbell-dead-bug-hold',
@@ -115,7 +123,7 @@ function catalogueBeforeC1(catalogue) {
     'ring-scapular-row','dumbbell-staggered-stance-row',
     'four-square-steps','drop-step-and-recover','stationary-bear-crawl','reverse-lunge-with-rotation','crab-position-alternating-steps',
     'crossover-step-and-recover','step-out-and-brake','split-step-preparation','transverse-lunge-to-balance','lateral-ape-weight-transfer','tandem-step-and-hold']);
-  const copy=JSON.parse(JSON.stringify(Object.fromEntries(Object.entries(catalogue).filter(([id])=>!added.has(id)))));
+  const copy=JSON.parse(JSON.stringify(Object.fromEntries(Object.entries(catalogueBeforeCD1(catalogue)).filter(([id])=>!added.has(id)))));
   for(const id of ['side-plank','dead-bug','band-pallof-press'])copy[id].repetitionClass=null;
   Object.assign(copy['plank-shoulder-taps'],{strength:2,difficulty:null,bodyFocus:null,
     generator:false,main:false,mainRole:'primary',mainProtocols:null});
@@ -126,4 +134,4 @@ function catalogueBeforeC1(catalogue) {
   return copy;
 }
 
-module.exports = { programmeState, anchor, prescription, sessionResult, sessionDraft, catalogueBeforeC1 };
+module.exports = { programmeState, anchor, prescription, sessionResult, sessionDraft, catalogueBeforeCD1, catalogueBeforeC1 };

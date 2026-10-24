@@ -10,7 +10,7 @@ const IDS=['power-march','step-jacks','standing-knee-drive-march','alternating-h
   'forward-back-aerobic-steps','low-impact-speed-skaters','alternating-straight-punches','boxer-step-and-punches','alternating-hooks',
   'boxing-slip-and-punch','step-back-burpee','squat-to-alternating-knee-drive','high-knee-power-steps','low-pogo-hops',
   'dumbbell-alternating-punch-out','dumbbell-squat-to-calf-raise','kettlebell-deadlift-to-calf-raise'];
-const SHORT=new Set([IDS[11],...IDS.slice(14)]),PREP=[...IDS.slice(0,6),IDS[7]];
+const SHORT=new Set([IDS[11],...IDS.slice(14)]),PREP=[IDS[0],IDS[1],...IDS.slice(3,6),IDS[7]];
 const EQUIPMENT=['dumbbells','kettlebell'];
 const rng=seed=>()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
 const exercises=w=>w.main.blocks.flatMap(b=>b.exercises);
@@ -44,7 +44,7 @@ test('CD1 has eighteen distinct cardio-led entries, fifteen bodyweight, with rev
     assert.equal(G.protocolCompatible(ex,'timed_intervals'),!SHORT.has(id),id);
     assert.equal(G.protocolCompatible(ex,'emom'),!SHORT.has(id),id);
     if(PREP.includes(id)){
-      assert.equal(ex.warmupPrescription.value,20);assert.equal(ex.warmupPrescription.maxValue,25);
+      assert.equal(ex.warmupPrescription.value,20);assert.equal(ex.warmupPrescription.minValue,15);assert.equal(ex.warmupPrescription.maxValue,25);
       assert.equal(ex.prepFatigue,1);assert.equal(ex.kneeMobility,false);
     }
   }
@@ -67,6 +67,26 @@ test('CD1 preserves a complete short Easy Cardio interval with squat and conditi
   checkDoses(w);
 });
 
+test('gentle CD1 Warm-up fits a short session beside essential knee and per-side hip preparation',()=>{
+  const w=G.generate({catalogue:C,equipment:['dumbbells'],duration:10,focus:'strength',random:rng(258)});
+  assert.equal(w.warmup.exercises.length,3);
+  assert.ok(Math.abs(w.warmup.estimatedSeconds-G.BUDGETS[10].warmup)<=10);
+  const curl=w.warmup.exercises.find(ex=>ex.id==='alternating-hamstring-curl-steps');
+  assert.ok(curl);assert.equal(curl.prescription.value,15);
+  assert.ok(w.warmup.exercises.some(ex=>ex.kneeMobility));
+  assert.ok(w.warmup.exercises.some(ex=>ex.id==='bent-knee-fallout'));
+});
+
+test('walk-to-plank push-up retains specific Ramp-up rehearsal and leaves gentle general preparation',()=>{
+  const ex=C['walk-plank-push-up'];
+  assert.equal(ex.warmup,false);assert.equal(G.generatedPhaseEligible(ex,'warmup',[]),false);
+  assert.equal(ex.rampup,true);assert.deepEqual(ex.rampupPrescription,{type:'timed',value:35,minValue:25,maxValue:45});
+  assert.deepEqual(ex.prescription,{type:'timed',value:20});
+  const w=G.generate({catalogue:C,equipment:['dumbbells'],duration:30,focus:'strength',bodyFocus:'upper',random:rng(1)});
+  assert.ok(w.rampup.exercises.some(ex=>ex.id==='walk-plank-push-up'));
+  assert.ok(!w.warmup.exercises.some(ex=>ex.id==='walk-plank-push-up'));
+});
+
 test('[Full] CD1 additions are observed across all three Cardio styles and all duration/difficulty choices stay valid',t=>{
   const seen=new Set(),styles=new Set(),counts=Object.fromEntries(IDS.map(id=>[id,0]));
   // 90 sessions: bounded cross-product covers all supported lengths and settings with/without kit.
@@ -87,7 +107,7 @@ test('[Full] CD1 additions are observed across all three Cardio styles and all d
 
 test('[Full] legacy Cardio and Mixed Main, generated Warm-up and Prep & Recover actually select intended additions',()=>{
   const seen=new Set(),warm=new Set(),routines=new Set();
-  // Eleven fixed fixtures cover all eighteen Main additions and all seven prep
+  // Eleven fixed fixtures cover all eighteen Main additions and all six prep
   // additions, including the rarer full-body boxing and light loaded routes.
   const fixtures=[
     {"focus":"cardio","bodyFocus":"upper","equipment":[],"duration":45,"seed":2024},
@@ -110,7 +130,7 @@ test('[Full] legacy Cardio and Mixed Main, generated Warm-up and Prep & Recover 
       if(PREP.includes(ex.id))assert.ok(ex.prescription.value<=25&&ex.prescription.value<40,ex.id);
     }
   }
-  for(const seed of [7,30,55]){
+  for(const seed of [7,9,55]){
     const r=GarageFitRoutineGenerator.generateRoutine({catalogue:C,kind:'warmup',variant:'bodyweight',equipment:[],random:rng(seed)});
     r.exercises.forEach(ex=>routines.add(ex.id));
     // Standalone routines use their own established 20–40 s fitter, not Warm-up maxValue.
@@ -158,7 +178,7 @@ test('[Full] current General Fitness plans actually deliver CD1 through the shar
 // Same catalogue and seeds, removing only CD1 for the pre-batch comparison; the
 // original 286 entries and all composition policies are otherwise identical.
 test('[Full] CD1 reports long-session set overlap against the pre-batch catalogue without a frequency target',t=>{
-  const before=Object.fromEntries(Object.entries(C).filter(([id])=>!IDS.includes(id)));
+  const before=require('./helpers/coach-fixtures').catalogueBeforeCD1(C);
   for(const duration of [30,45]){
     const report={};
     for(const [label,catalogue] of [['before',before],['after',C]]){

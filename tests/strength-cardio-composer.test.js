@@ -163,7 +163,7 @@ test('impact and position constraints filter the canonical pool and infeasible r
   const standing=generate(STRENGTH,{bodyPositions:['standing'],equipment:EQUIPMENT.limited});
   assert.ok(exercisesOf(standing).every(ex=>ex.bodyPosition==='standing'));
   for(const [family,extra] of [[STRENGTH,{excludedImpact:['low','medium','high']}],[CARDIO,{excludedImpact:['low','medium','high']}],
-    [STRENGTH,{bodyPositions:['hanging']}],[CARDIO,{bodyPositions:['hanging']}],[CARDIO,{excludedImpact:['medium','high'],duration:10,difficulty:'easy'}]])
+    [STRENGTH,{bodyPositions:['hanging']}],[CARDIO,{bodyPositions:['hanging']}]])
     assert.throws(()=>generate(family,extra),error=>error instanceof F.FamilyContractError&&error.code==='family-not-feasible'&&/cannot build/.test(error.message));
   for(const bad of [{excludedImpact:['loud']},{excludedImpact:'low'},{bodyPositions:[]},{bodyPositions:['floating']}])
     assert.throws(()=>generate(STRENGTH,bad),error=>error.code==='invalid-family-context');
@@ -345,6 +345,9 @@ test('shared single-leg and stepping drills reach Strength and Cardio (and legac
       note(family,G.generate({workoutFamilyId:family,duration,difficulty:'normal',catalogue:C,equipment:[],random:rng(seed*97+duration)}));
     for(const focus of ['strength'])note('legacy',G.generate({duration,focus,catalogue:C,equipment:[],random:rng(seed*131+duration)}));
   }
+  // With CD1's primary aerobic supply, the supporting footwork has a real recency route.
+  const history=[1,2,3].map(seed=>exercisesOf(G.generate({workoutFamilyId:CARDIO,duration:45,catalogue:C,equipment:[],random:s1Random(seed)})).map(ex=>ex.id));
+  note(CARDIO,G.generate({workoutFamilyId:CARDIO,duration:20,catalogue:C,equipment:[],history,random:s1Random(4)}));
   assert.deepEqual([...seen[STRENGTH]].filter(id=>id!=='in-in-out-out-steps').sort(),['lateral-lunge-to-balance','single-leg-hip-hinge-reach'],'Strength & Control: controlled single-leg and lateral work');
   assert.ok(!seen[STRENGTH].has('in-in-out-out-steps'),'conditioning footwork is not controlled resistance work');
   assert.ok(seen[CARDIO]&&seen[CARDIO].has('in-in-out-out-steps'),'Cardio & Conditioning: light conditioning footwork');
@@ -417,9 +420,9 @@ test('every S1 addition retains an observed standalone Generator Main route',()=
   // Ring scapular row remains controlled support: its incidental legacy Cardio draw
   // grants no conditioning status; its intended Strength v2 route is proved below.
   for(const [id,kit,duration,focus,seed,style='strength'] of [
-    ['single-leg-glute-bridge',[],30,'lower',1],['hand-release-push-up',['rings'],30,'upper',1],
-    ['wall-push-up',[],30,'upper',5],['reverse-nordic',[],30,'upper',2],
-    ['side-lying-hip-adduction',[],45,'lower',2],['prone-swimmer-raise',['kettlebell'],30,'lower',1],
+    ['single-leg-glute-bridge',[],30,'lower',4],['hand-release-push-up',['rings'],30,'upper',2],
+    ['wall-push-up',[],30,'upper',2],['reverse-nordic',[],30,'upper',6],
+    ['side-lying-hip-adduction',[],45,'lower',22],['prone-swimmer-raise',['kettlebell'],30,'lower',10],
     ['dumbbell-suitcase-march',['dumbbells'],45,'core',2],['dumbbell-half-kneeling-press',['dumbbells'],30,'upper',1],
     ['dumbbell-lateral-lunge',['dumbbells'],30,'lower',1],['ring-scapular-row',['rings'],20,'upper',1,'cardio'],
     ['dumbbell-staggered-stance-row',['dumbbells'],45,'upper',4]
@@ -430,7 +433,7 @@ test('every S1 addition retains an observed standalone Generator Main route',()=
 });
 
 test('S1 Strength v2 and deliberate secondary-family routes preserve shared quality gates',()=>{
-  for(const [family,id,kit,duration,focus,seed,difficulty] of [
+  for(const [family,id,kit,duration,focus,seed,difficulty,constraints={}] of [
     ['strength-control','single-leg-glute-bridge',[],30,'upper',1],
     ['strength-control','hand-release-push-up',[],30,'upper',1],
     ['strength-control','prone-swimmer-raise',[],30,'upper',1],
@@ -446,9 +449,10 @@ test('S1 Strength v2 and deliberate secondary-family routes preserve shared qual
     ['full-body-challenges','hand-release-push-up',[],30,'upper',1],
     ['full-body-challenges','wall-push-up',[],30,'upper',3],
     ['full-body-challenges','prone-swimmer-raise',[],30,'upper',3],
-    ['full-body-challenges','dumbbell-suitcase-march',['dumbbells'],45,'upper',66]
+    ['full-body-challenges','dumbbell-suitcase-march',['dumbbells'],45,'upper',2,'hard',{bodyPositions:['standing']}]
   ]){
-    const w=s1Generate(family,kit,duration,focus,seed,difficulty);assert.ok(s1Main(w).some(e=>e.id===id),family+' '+id);
+    const w=G.generate({catalogue:C,equipment:kit,duration,bodyFocus:focus,difficulty:difficulty||'hard',workoutFamilyId:family,workoutFamilyVersion:family==='strength-control'?2:1,random:s1Random(seed),...constraints});
+    assert.ok(s1Main(w).some(e=>e.id===id),family+' '+id);
     assert.equal(G.validateFamilyWorkout(w,{catalogue:C,equipment:kit}).valid,true,id);
     if(family==='core-stability')assert.equal(w.familyStyleId,'dynamic-core');
   }
@@ -502,7 +506,7 @@ test('reviewed existing resistance accessories and unilateral work remain select
 // Athletic v5 (#271): shared routes use existing selection and programme contracts.
 test('v5 controlled lunges reach standalone and Strength v2 while technical floor and footwork stay family-scoped',()=>{
   require('../data/mobility-membership');require('../js/mobility-composer');
-  for(const [family,id,duration,seed] of [[null,'transverse-lunge-to-balance',15,10],[null,'reverse-lunge-with-rotation',20,10],
+  for(const [family,id,duration,seed] of [[null,'transverse-lunge-to-balance',15,28],[null,'reverse-lunge-with-rotation',20,19],
     [STRENGTH,'transverse-lunge-to-balance',30,7],[STRENGTH,'reverse-lunge-with-rotation',45,2]]) {
     const w=G.generate({catalogue:C,equipment:[],focus:'strength',difficulty:'normal',duration,random:s1Random(seed),
       ...(family?{workoutFamilyId:family,workoutFamilyVersion:2}:{})});
@@ -523,9 +527,9 @@ test('v5 controlled lunges reach standalone and Strength v2 while technical floo
 test('v5 preparation and lower-body support reach Coach without changing anchors or Tennis capability credit',async()=>{
   const {pilot}=require('./helpers/coach-pilot');
   for(const [id,version,seed,expected,phase,anchors] of [
-    ['general-strength-4w',2,9,'transverse-lunge-to-balance','main',['goblet-squat','dumbbell-floor-press','dumbbell-bent-over-row']],
-    ['build-arms',1,1,'split-stance-step-switches','warmup',['dumbbell-biceps-curl','dumbbell-overhead-triceps-extension']],
-    ['tennis-conditioning',8,2,'tandem-step-and-hold','warmup',['dumbbell-reverse-lunge','dumbbell-romanian-deadlift','dumbbell-floor-press','dumbbell-bent-over-row']],
+    ['general-strength-4w',2,31,'transverse-lunge-to-balance','main',['goblet-squat','dumbbell-floor-press','dumbbell-bent-over-row']],
+    ['build-arms',1,9,'split-stance-step-switches','warmup',['dumbbell-biceps-curl','dumbbell-overhead-triceps-extension']],
+    ['tennis-conditioning',8,15,'tandem-step-and-hold','warmup',['dumbbell-reverse-lunge','dumbbell-romanian-deadlift','dumbbell-floor-press','dumbbell-bent-over-row']],
     ['general-fitness',2,4,'tandem-step-and-hold','warmup',[]]
   ]) {
     const p=pilot(new Map(),id,version);

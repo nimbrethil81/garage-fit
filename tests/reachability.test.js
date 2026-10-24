@@ -142,18 +142,18 @@ test('Core C1 additions and plank taps reach legacy Main; preparation has its ow
     ['bent-knee-fallout',[],30,'easy',24],
     ['tabletop-toe-taps',[],20,'easy',4],
     ['dumbbell-suitcase-carry',['dumbbells'],30,'hard',1],
-    ['side-plank-hip-lifts',[],30,'hard',4],
-    ['supine-heel-slides',[],30,'easy',1],
-    ['plank-arm-reaches',[],30,'hard',5],
-    ['bridge-march',[],30,'hard',2],
-    ['bent-knee-windshield-wipers',[],45,'normal',774569702,'balanced'],
+    ['side-plank-hip-lifts',[],30,'hard',10],
+    ['supine-heel-slides',[],30,'easy',2],
+    ['plank-arm-reaches',[],30,'hard',3],
+    ['bridge-march',[],30,'hard',7],
+    ['bent-knee-windshield-wipers',[],45,'normal',6,'balanced'],
     ['dead-bug-isometric-press',[],10,'easy',18],
     ['bear-plank-hold',[],30,'hard',18],
     ['seated-knee-tucks',[],30,'hard',1],
     ['kettlebell-suitcase-march',['kettlebell'],30,'hard',1],
     ['half-kneeling-band-pallof-press',['bands'],30,'hard',25],
     ['dumbbell-dead-bug-hold',['dumbbells'],30,'hard',3],
-    ['plank-shoulder-taps',[],10,'easy',14]
+    ['plank-shoulder-taps',[],10,'easy',67]
   ];
   for(const [id,equipment,duration,difficulty,seed,focus='strength'] of fixtures){
     const w=G.generate({catalogue,equipment,duration,difficulty,bodyFocus:'core',focus,random:random(seed)});
@@ -161,8 +161,8 @@ test('Core C1 additions and plank taps reach legacy Main; preparation has its ow
     assert.deepEqual(G.validateMain(w.main,catalogue,equipment),[],id);
   }
   for(const [phase,id,duration,difficulty,seed] of [
-    ['warmup','bent-knee-fallout',10,'easy',15],
-    ['warmup','supine-heel-slides',15,'easy',13],
+    ['warmup','bent-knee-fallout',10,'easy',63],
+    ['warmup','supine-heel-slides',15,'easy',19],
     ['warmup','tabletop-toe-taps',30,'easy',19],
     ['rampup','tabletop-toe-taps',20,'easy',12]
   ]){
@@ -175,7 +175,7 @@ test('Core C1 additions and plank taps reach legacy Main; preparation has its ow
 });
 
 test('Athletic v5 light tandem placement and split-stance stepping have their own selectable warm-up doses',()=>{
-  for(const [id,seed] of [['tandem-step-and-hold',27],['split-stance-step-switches',31]]) {
+  for(const [id,seed] of [['tandem-step-and-hold',1],['split-stance-step-switches',31]]) {
     const w=G.generate({catalogue,equipment:[],duration:20,focus:'strength',random:random(seed)});
     assert.ok(w.warmup.exercises.some(ex=>ex.id===id),id);
     assert.ok(!w.rampup.exercises.some(ex=>ex.id===id));assert.ok(!w.cooldown.exercises.some(ex=>ex.id===id));
