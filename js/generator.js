@@ -3124,7 +3124,9 @@
     if(hasConfiguredEquipment(workout)&&workout.estimatedSeconds>duration*60){
       for(const alternative of alternatives){
         const {blocks}=alternative;
-        if(new Set(blocks.flatMap(block=>block.exercises.map(ex=>ex.id))).size<Math.min(3,eligible.length))continue;
+        // Ten-minute sessions already allow two-identity pairs; do not discard a valid
+        // fitting alternative and then delete a much larger round from the first attempt.
+        if(new Set(blocks.flatMap(block=>block.exercises.map(ex=>ex.id))).size<Math.min(duration===10?2:3,eligible.length))continue;
         const candidateMain={blocks,transitionSeconds:BLOCK_TRANSITION_SECONDS,estimatedDurationSeconds:mainSeconds(blocks,owned)};
         if(candidateMain.estimatedDurationSeconds+cooldown.estimatedSeconds>duration*60)continue;
         const candidatePreparation=buildPreparation(catalogue,budget,owned,blocks[0].exercises,focus,random,blocks.flatMap(block=>block.exercises),difficulty);

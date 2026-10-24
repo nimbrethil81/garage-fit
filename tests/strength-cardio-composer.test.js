@@ -359,7 +359,7 @@ const S1_IDS=['single-leg-glute-bridge','hand-release-push-up','wall-push-up','r
   'prone-swimmer-raise','dumbbell-suitcase-march','dumbbell-half-kneeling-press','dumbbell-lateral-lunge','ring-scapular-row','dumbbell-staggered-stance-row'];
 const s1Random=seed=>()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296};
 const s1Main=w=>w.main.blocks.flatMap(b=>b.exercises);
-const s1Generate=(family,kit,duration,bodyFocus,seed,difficulty='hard')=>G.generate({catalogue:C,equipment:kit,duration,bodyFocus,difficulty,focus:'strength',
+const s1Generate=(family,kit,duration,bodyFocus,seed,difficulty='hard',focus='strength')=>G.generate({catalogue:C,equipment:kit,duration,bodyFocus,difficulty,focus,
   ...(family?{workoutFamilyId:family,workoutFamilyVersion:family==='strength-control'?2:1}:{}),random:s1Random(seed)});
 
 test('S1 adds distinct Main identities with conservative protocols and coherent equipment variants',()=>{
@@ -413,16 +413,18 @@ test('S1 unilateral prescriptions play both sides once with correct total estima
 
 // One real full-catalogue draw per addition, retaining rare supporting selection
 // without duplicating the exhaustive audit's distribution sweep.
-test('every S1 addition is selected by the standalone Generator in a suitable configuration',()=>{
-  for(const [id,kit,duration,focus,seed] of [
+test('every S1 addition retains an observed standalone Generator Main route',()=>{
+  // Ring scapular row remains controlled support: its incidental legacy Cardio draw
+  // grants no conditioning status; its intended Strength v2 route is proved below.
+  for(const [id,kit,duration,focus,seed,style='strength'] of [
     ['single-leg-glute-bridge',[],30,'lower',1],['hand-release-push-up',['rings'],30,'upper',1],
-    ['wall-push-up',[],30,'upper',5],['reverse-nordic',[],30,'upper',1],
+    ['wall-push-up',[],30,'upper',5],['reverse-nordic',[],30,'upper',2],
     ['side-lying-hip-adduction',[],45,'lower',2],['prone-swimmer-raise',['kettlebell'],30,'lower',1],
     ['dumbbell-suitcase-march',['dumbbells'],45,'core',2],['dumbbell-half-kneeling-press',['dumbbells'],30,'upper',1],
-    ['dumbbell-lateral-lunge',['dumbbells'],30,'lower',1],['ring-scapular-row',['rings'],45,'upper',42],
+    ['dumbbell-lateral-lunge',['dumbbells'],30,'lower',1],['ring-scapular-row',['rings'],20,'upper',1,'cardio'],
     ['dumbbell-staggered-stance-row',['dumbbells'],45,'upper',4]
   ]){
-    const w=s1Generate(null,kit,duration,focus,seed);assert.ok(s1Main(w).some(e=>e.id===id),id);
+    const w=s1Generate(null,kit,duration,focus,seed,'hard',style);assert.ok(s1Main(w).some(e=>e.id===id),id);
     assert.deepEqual(G.validateMain(w.main,C,kit),[],id);
   }
 });
@@ -433,13 +435,13 @@ test('S1 Strength v2 and deliberate secondary-family routes preserve shared qual
     ['strength-control','hand-release-push-up',[],30,'upper',1],
     ['strength-control','prone-swimmer-raise',[],30,'upper',1],
     ['strength-control','reverse-nordic',[],30,'lower',1],
-    ['strength-control','wall-push-up',['kettlebell'],30,'upper',1],
+    ['strength-control','wall-push-up',['kettlebell'],30,'upper',22],
     ['strength-control','side-lying-hip-adduction',['rings'],30,'core',9],
     ['strength-control','dumbbell-suitcase-march',['dumbbells'],30,'upper',3],
     ['strength-control','dumbbell-lateral-lunge',['dumbbells'],30,'upper',3],
     ['strength-control','dumbbell-half-kneeling-press',['dumbbells'],45,'upper',6],
     ['strength-control','dumbbell-staggered-stance-row',['dumbbells'],30,'core',3],
-    ['strength-control','ring-scapular-row',['rings'],45,'upper',50,'easy'],
+    ['strength-control','ring-scapular-row',['rings'],45,'upper',95,'easy'],
     ['core-stability','dumbbell-suitcase-march',['dumbbells'],30,'core',1],
     ['full-body-challenges','hand-release-push-up',[],30,'upper',1],
     ['full-body-challenges','wall-push-up',[],30,'upper',3],
@@ -479,9 +481,9 @@ test('new resistance work reaches all four Coach routes while programme anchors 
 // role promotion or a larger supporting-route probability.
 test('reviewed existing resistance accessories and unilateral work remain selectable',()=>{
   for(const [family,id,kit,duration,focus,seed,difficulty] of [
-    [null,'ring-face-pull',['rings'],30,'upper',73],
-    ['strength-control','ring-biceps-curl',['rings'],30,'core',37],
-    ['strength-control','ring-triceps-extension',['rings'],45,'upper',2,'easy'],
+    [null,'ring-face-pull',['rings'],45,'upper',43],
+    ['strength-control','ring-biceps-curl',['rings'],30,'upper',42,'easy'],
+    ['strength-control','ring-triceps-extension',['rings'],45,'upper',4,'easy'],
     [null,'dumbbell-plank-pull-through',['dumbbells'],45,'core',16],
     [null,'kettlebell-rack-march',['kettlebell'],30,'core',1],
     [null,'kettlebell-single-leg-deadlift',['kettlebell'],45,'upper',6],
@@ -494,5 +496,47 @@ test('reviewed existing resistance accessories and unilateral work remain select
     assert.ok(s1Main(w).some(ex=>ex.id===id),id);
     assert.deepEqual(G.validateMain(w.main,C,kit),[],id);
     if(C[id].mainRole==='supporting')assert.equal(s1Main(w).filter(ex=>ex.id===id).length,1,id);
+  }
+});
+
+// Athletic v5 (#271): shared routes use existing selection and programme contracts.
+test('v5 controlled lunges reach standalone and Strength v2 while technical floor and footwork stay family-scoped',()=>{
+  require('../data/mobility-membership');require('../js/mobility-composer');
+  for(const [family,id,duration,seed] of [[null,'transverse-lunge-to-balance',15,10],[null,'reverse-lunge-with-rotation',20,10],
+    [STRENGTH,'transverse-lunge-to-balance',30,7],[STRENGTH,'reverse-lunge-with-rotation',45,2]]) {
+    const w=G.generate({catalogue:C,equipment:[],focus:'strength',difficulty:'normal',duration,random:s1Random(seed),
+      ...(family?{workoutFamilyId:family,workoutFamilyVersion:2}:{})});
+    assert.ok(exercisesOf(w).some(e=>e.id===id),id);assert.deepEqual(G.validateMain(w.main,C,[]),[]);
+  }
+  const scoped=['four-square-steps','drop-step-and-recover','stationary-bear-crawl','crab-position-alternating-steps',
+    'crossover-step-and-recover','step-out-and-brake','split-step-preparation','lateral-ape-weight-transfer','tandem-step-and-hold'];
+  for(const family of [STRENGTH,CARDIO,'core-stability','full-body-challenges','mobility-movement-quality']) {
+    const version=F.currentVersion(family);
+    const w=G.generate({workoutFamilyId:family,workoutFamilyVersion:version,catalogue:C,equipment:[],duration:30,difficulty:'normal',random:rng(31)});
+    assert.ok(!exercisesOf(w).some(ex=>scoped.includes(ex.id)),family);
+    // Lunges are lower-body resistance, not cardio-led or trunk-led work; Mobility retains its exact published membership.
+    if([CARDIO,'core-stability','mobility-movement-quality'].includes(family))
+      assert.ok(!exercisesOf(w).some(ex=>['reverse-lunge-with-rotation','transverse-lunge-to-balance'].includes(ex.id)),family);
+  }
+});
+
+test('v5 preparation and lower-body support reach Coach without changing anchors or Tennis capability credit',async()=>{
+  const {pilot}=require('./helpers/coach-pilot');
+  for(const [id,version,seed,expected,phase,anchors] of [
+    ['general-strength-4w',2,9,'transverse-lunge-to-balance','main',['goblet-squat','dumbbell-floor-press','dumbbell-bent-over-row']],
+    ['build-arms',1,1,'split-stance-step-switches','warmup',['dumbbell-biceps-curl','dumbbell-overhead-triceps-extension']],
+    ['tennis-conditioning',8,2,'tandem-step-and-hold','warmup',['dumbbell-reverse-lunge','dumbbell-romanian-deadlift','dumbbell-floor-press','dumbbell-bent-over-row']],
+    ['general-fitness',2,4,'tandem-step-and-hold','warmup',[]]
+  ]) {
+    const p=pilot(new Map(),id,version);
+    p.run("pilotOptions.equipment=['dumbbells','bands','bench'];pilotOptions.duration=45;pilotOptions.bodyFocus='lower';");await p.start();
+    assert.deepEqual(p.json('pilot.snapshot().state.anchors.map(a=>a.exerciseId)'),anchors,id);
+    p.run(`var a271Seed=${seed};Math.random=()=>{a271Seed=(a271Seed*1664525+1013904223)>>>0;return a271Seed/4294967296;};pilot.prepare(pilotOptions);`);
+    const w=p.json('pilot.snapshot().preview.workout');
+    assert.ok((phase==='main'?s1Main(w):w[phase].exercises).some(e=>e.id===expected),id);
+    for(const anchor of p.json('pilot.snapshot().preview.plan.prescription.requiredAnchors||[]'))assert.ok(s1Main(w).some(e=>e.id===anchor.exerciseId),id+' anchor');
+    const sport=p.app.GarageFitSportCoverage.createPolicy(p.app.GarageFitData.sportCapabilityPolicies.tennis[4],p.app.GarageFitData.exercises);
+    for(const exerciseId of ['reverse-lunge-with-rotation','transverse-lunge-to-balance','split-step-preparation'])
+      assert.equal(sport.classifyExercise(exerciseId).status,'unmapped',exerciseId+' earns no inferred sporting credit');
   }
 });

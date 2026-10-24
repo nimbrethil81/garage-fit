@@ -136,17 +136,17 @@ test('[Full] the warm-up expansion exercises are reachable in Warm-up and never 
 // Core C1: explicit examples from the full catalogue keep rare legitimate routes
 // covered without repeating a large distribution sweep in this suite.
 test('Core C1 additions and plank taps reach legacy Main; preparation has its own lighter selectable doses',()=>{
-  // S1 expansion shifts the seeded draws; these still use the full live catalogue.
+  // Catalogue growth shifts draws; these keep the live catalogue and suitable focus/style routes.
   const fixtures=[
     ['side-plank-knees',[],10,'easy',34],
-    ['bent-knee-fallout',[],30,'easy',16],
-    ['tabletop-toe-taps',[],15,'easy',27],
+    ['bent-knee-fallout',[],30,'easy',24],
+    ['tabletop-toe-taps',[],20,'easy',4],
     ['dumbbell-suitcase-carry',['dumbbells'],30,'hard',1],
-    ['side-plank-hip-lifts',[],30,'hard',3],
+    ['side-plank-hip-lifts',[],30,'hard',4],
     ['supine-heel-slides',[],30,'easy',1],
     ['plank-arm-reaches',[],30,'hard',5],
     ['bridge-march',[],30,'hard',2],
-    ['bent-knee-windshield-wipers',[],30,'normal',6],
+    ['bent-knee-windshield-wipers',[],45,'normal',774569702,'balanced'],
     ['dead-bug-isometric-press',[],10,'easy',18],
     ['bear-plank-hold',[],30,'hard',18],
     ['seated-knee-tucks',[],30,'hard',1],
@@ -155,8 +155,8 @@ test('Core C1 additions and plank taps reach legacy Main; preparation has its ow
     ['dumbbell-dead-bug-hold',['dumbbells'],30,'hard',3],
     ['plank-shoulder-taps',[],10,'easy',14]
   ];
-  for(const [id,equipment,duration,difficulty,seed] of fixtures){
-    const w=G.generate({catalogue,equipment,duration,difficulty,bodyFocus:'core',focus:'strength',random:random(seed)});
+  for(const [id,equipment,duration,difficulty,seed,focus='strength'] of fixtures){
+    const w=G.generate({catalogue,equipment,duration,difficulty,bodyFocus:'core',focus,random:random(seed)});
     assert.ok(mainIds(w).includes(id),id);
     assert.deepEqual(G.validateMain(w.main,catalogue,equipment),[],id);
   }
@@ -171,5 +171,14 @@ test('Core C1 additions and plank taps reach legacy Main; preparation has its ow
     const ex=catalogue[id],dose=ex[phase+'Prescription'];
     assert.ok(dose.value*(ex.sidedness==='per-side'?2:1)<ex.estimatedSeconds,id+' lighter preparation');
     assert.equal(ex.cooldown,false,id);
+  }
+});
+
+test('Athletic v5 light tandem placement and split-stance stepping have their own selectable warm-up doses',()=>{
+  for(const [id,seed] of [['tandem-step-and-hold',27],['split-stance-step-switches',31]]) {
+    const w=G.generate({catalogue,equipment:[],duration:20,focus:'strength',random:random(seed)});
+    assert.ok(w.warmup.exercises.some(ex=>ex.id===id),id);
+    assert.ok(!w.rampup.exercises.some(ex=>ex.id===id));assert.ok(!w.cooldown.exercises.some(ex=>ex.id===id));
+    assert.equal(catalogue[id].warmupPrescription.value,20);
   }
 });

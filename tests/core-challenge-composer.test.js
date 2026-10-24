@@ -329,7 +329,7 @@ test('all 15 C1 identities are selected in appropriate Core sessions, including 
 
 test('C1 supporting and loaded work reaches secondary families under their unchanged quality gates',()=>{
   for(const [family,version,id,equipment,duration,seed,constraints] of [
-    ['strength-control',2,'bent-knee-fallout',[],45,91],
+    ['strength-control',2,'bent-knee-fallout',[],30,93],
     ['strength-control',2,'supine-heel-slides',[],30,13],
     ['strength-control',2,'dumbbell-suitcase-carry',['dumbbells'],30,2],
     ['strength-control',2,'half-kneeling-band-pallof-press',['bands'],30,4],
@@ -348,9 +348,9 @@ test('C1 supporting and loaded work reaches secondary families under their uncha
 test('C1 accessories reach all four Coach routes without replacing their anchors or granting sport membership',async()=>{
   const {pilot}=require('./helpers/coach-pilot');
   for(const [id,version,expected,anchorIds,seed] of [
-    ['general-strength-4w',2,'dumbbell-suitcase-carry',['goblet-squat','dumbbell-floor-press','dumbbell-bent-over-row'],2],
+    ['general-strength-4w',2,'dumbbell-suitcase-carry',['goblet-squat','dumbbell-floor-press','dumbbell-bent-over-row'],3],
     ['build-arms',1,'bridge-march',['dumbbell-biceps-curl','dumbbell-overhead-triceps-extension'],3],
-    ['tennis-conditioning',8,'plank-arm-reaches',['dumbbell-reverse-lunge','dumbbell-romanian-deadlift','dumbbell-floor-press','dumbbell-bent-over-row'],4],
+    ['tennis-conditioning',8,'plank-arm-reaches',['dumbbell-reverse-lunge','dumbbell-romanian-deadlift','dumbbell-floor-press','dumbbell-bent-over-row'],1],
     ['general-fitness',2,'bridge-march',[],2]
   ]){
     const p=pilot(new Map(),id,version);

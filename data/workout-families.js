@@ -59,6 +59,8 @@
   // v4 (#255) keeps v3's staged composition and adds reviewed membership v2: eleven further movements
   // and shared existing ones, with optional per-entry minimum difficulty. v1-v3 keep membership v1.
   versions['athletic-movement'][4] = revision(versions['athletic-movement'][1], 4, 4, 2);
+  // Athletic v5 (#271) publishes membership v3 and composition v5; all earlier definitions stay immutable.
+  versions['athletic-movement'][5] = revision(versions['athletic-movement'][1], 5, 5, 3);
   // Strength & Control v2 (#261) keeps v1's styles, structure and feasibility and lets paired sets and controlled
   // circuits of 30+ minutes draw the Generator's bounded supporting route. v1 stays composable and validatable.
   versions['strength-control'][2] = revision(versions['strength-control'][1], 2, 2);
@@ -68,7 +70,7 @@
   // The version every new workout is composed with, standalone or Coach. Explicit requests and
   // stored records keep the version they name; `getDefinition`'s default remains version 1.
   const current = Object.fromEntries(definitions.map(item => [item.id, 1]));
-  current['athletic-movement'] = 4;
+  current['athletic-movement'] = 5;
   current['strength-control'] = 2;
   current['mobility-movement-quality'] = 2;
   function freeze(value) {

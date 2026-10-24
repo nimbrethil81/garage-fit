@@ -111,13 +111,17 @@ function catalogueBeforeC1(catalogue) {
     'half-kneeling-band-pallof-press','dumbbell-dead-bug-hold',
     'single-leg-glute-bridge','hand-release-push-up','wall-push-up','reverse-nordic','side-lying-hip-adduction',
     'prone-swimmer-raise','dumbbell-suitcase-march','dumbbell-half-kneeling-press','dumbbell-lateral-lunge',
-    'ring-scapular-row','dumbbell-staggered-stance-row']);
+    'ring-scapular-row','dumbbell-staggered-stance-row',
+    'four-square-steps','drop-step-and-recover','stationary-bear-crawl','reverse-lunge-with-rotation','crab-position-alternating-steps',
+    'crossover-step-and-recover','step-out-and-brake','split-step-preparation','transverse-lunge-to-balance','lateral-ape-weight-transfer','tandem-step-and-hold']);
   const copy=JSON.parse(JSON.stringify(Object.fromEntries(Object.entries(catalogue).filter(([id])=>!added.has(id)))));
   for(const id of ['side-plank','dead-bug','band-pallof-press'])copy[id].repetitionClass=null;
   Object.assign(copy['plank-shoulder-taps'],{strength:2,difficulty:null,bodyFocus:null,
     generator:false,main:false,mainRole:'primary',mainProtocols:null});
   copy['single-arm-dumbbell-row'].repetitionClass=null;
   copy['trx-chest-press'].instruction='Face away from the anchor holding the handles, lean forward, bend your elbows to lower your chest and press back, keeping your body straight.';
+  Object.assign(copy['split-stance-step-switches'],{warmup:false,warmupPhase:null,warmupPrescription:null,warmupAreas:[],
+    prepIntensity:null,prepFatigue:null,prepComplexity:null,warmupEstimatedSeconds:null});
   return copy;
 }
 
