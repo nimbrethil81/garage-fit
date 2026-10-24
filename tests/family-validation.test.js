@@ -206,12 +206,13 @@ test('an infeasible manual family request returns verified reasons and adjustmen
   const room=generate('athletic-movement',{difficulty:'hard',excludedImpact:['medium','high'],movementRoom:true});
   assert.ok(exercisesOf(room).every(ex=>ex.impact==='low')&&validate(room).valid);
 
-  // Short budget: the shortest Cardio session cannot be built from low-impact bodyweight work on Easy.
-  const short=infeasible(()=>generate('cardio-conditioning',{duration:10,difficulty:'easy',excludedImpact:['medium','high']}));
-  assert.ok(short.adjustments.some(item=>item.code==='change-duration'&&item.value===15));
-  for(const item of short.adjustments)assert.ok(!(item.field==='excludedImpact'&&!item.value.includes('high')));
+  // CD1 adds enough standing low-impact work for the shortest Easy Cardio choice.
+  const short=generate('cardio-conditioning',{duration:10,difficulty:'easy',excludedImpact:['medium','high']});
+  assert.equal(short.workoutFamilyId,'cardio-conditioning');
+  assert.ok(exercisesOf(short).every(ex=>ex.impact==='low'));
+  assert.ok(short.estimatedSeconds<=600&&validate(short).valid);
   // Equipment is never relaxed or invented: no adjustment proposes other equipment.
-  for(const error of [athletic,space,short])assert.ok(error.adjustments.every(item=>['bodyPositions','excludedImpact','movementRoom','duration','difficulty'].includes(item.field)));
+  for(const error of [athletic,space])assert.ok(error.adjustments.every(item=>['bodyPositions','excludedImpact','movementRoom','duration','difficulty'].includes(item.field)));
 
   // Invalid constraints are rejected as such, not reported as infeasible.
   assert.throws(()=>generate('strength-control',{bodyPositions:['ceiling']}),error=>error.code==='invalid-family-context');

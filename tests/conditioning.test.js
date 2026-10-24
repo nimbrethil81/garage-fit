@@ -29,7 +29,8 @@ test('the conditioning set includes the migrated exercises and approved addition
   const expected = ['bicycle-crunch','mountain-climbers','jumping-jacks','high-knees','burpees','squat-jumps','skater-jumps',
     'dumbbell-thruster','dumbbell-clean-and-press','kettlebell-swing','kettlebell-single-arm-swing','kettlebell-clean','kettlebell-figure-eight',
     'trx-knee-tuck','trx-mountain-climber','barbell-clean','barbell-clean-and-press','step-ups','box-jumps','box-step-ups',
-    'chair-step-ups','bum-kicks','star-jumps','devils-press','dumbbell-snatch','switch-kicks','ski-abs','kettlebell-snatch','kick-through','bear-crawl','dumbbell-push-press','fast-feet','in-in-out-out-steps'];
+    'chair-step-ups','bum-kicks','star-jumps','devils-press','dumbbell-snatch','switch-kicks','ski-abs','kettlebell-snatch','kick-through','bear-crawl','dumbbell-push-press','fast-feet','in-in-out-out-steps',
+    'power-march','step-jacks','standing-knee-drive-march','alternating-hamstring-curl-steps','side-step-knee-lift','forward-back-aerobic-steps','low-impact-speed-skaters','alternating-straight-punches','boxer-step-and-punches','alternating-hooks','boxing-slip-and-punch','step-back-burpee','squat-to-alternating-knee-drive','high-knee-power-steps','low-pogo-hops','dumbbell-alternating-punch-out','dumbbell-squat-to-calf-raise','kettlebell-deadlift-to-calf-raise'];
   const actual = Object.values(catalogue).filter(exercise => exercise.conditioning).map(exercise => exercise.id);
   assert.deepEqual(actual.slice().sort(), expected.slice().sort());
   assert.deepEqual(catalogue['mountain-climbers'].patterns, ['core']);

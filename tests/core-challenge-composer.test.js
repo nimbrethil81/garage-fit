@@ -337,7 +337,7 @@ test('C1 supporting and loaded work reaches secondary families under their uncha
     [CHALLENGE,1,'plank-arm-reaches',[],30,1],
     [CHALLENGE,1,'bridge-march',[],30,2],
     [CHALLENGE,1,'seated-knee-tucks',[],30,3],
-    [CHALLENGE,1,'kettlebell-suitcase-march',['kettlebell'],45,1,{bodyPositions:['standing']}]
+    [CHALLENGE,1,'kettlebell-suitcase-march',['kettlebell'],15,8,{bodyPositions:['standing']}]
   ]){
     const w=generate(family,{workoutFamilyVersion:version,equipment,duration,difficulty:'hard',bodyFocus:'core',random:c1Random(seed),...constraints});
     assert.ok(exercisesOf(w).some(ex=>ex.id===id),family+' '+id);
@@ -349,8 +349,8 @@ test('C1 accessories reach all four Coach routes without replacing their anchors
   const {pilot}=require('./helpers/coach-pilot');
   for(const [id,version,expected,anchorIds,seed] of [
     ['general-strength-4w',2,'dumbbell-suitcase-carry',['goblet-squat','dumbbell-floor-press','dumbbell-bent-over-row'],3],
-    ['build-arms',1,'bridge-march',['dumbbell-biceps-curl','dumbbell-overhead-triceps-extension'],3],
-    ['tennis-conditioning',8,'plank-arm-reaches',['dumbbell-reverse-lunge','dumbbell-romanian-deadlift','dumbbell-floor-press','dumbbell-bent-over-row'],1],
+    ['build-arms',1,'bridge-march',['dumbbell-biceps-curl','dumbbell-overhead-triceps-extension'],4],
+    ['tennis-conditioning',8,'plank-arm-reaches',['dumbbell-reverse-lunge','dumbbell-romanian-deadlift','dumbbell-floor-press','dumbbell-bent-over-row'],2],
     ['general-fitness',2,'bridge-march',[],2]
   ]){
     const p=pilot(new Map(),id,version);

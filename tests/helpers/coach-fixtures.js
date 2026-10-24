@@ -105,7 +105,8 @@ function sessionDraft(overrides) {
 // change fresh draws, while these pins continue to detect policy changes on the
 // original catalogue. This projection is test-only; all other tests use production.
 function catalogueBeforeC1(catalogue) {
-  const added=new Set(['side-plank-knees','bent-knee-fallout','tabletop-toe-taps','dumbbell-suitcase-carry',
+  const added=new Set(['power-march','step-jacks','standing-knee-drive-march','alternating-hamstring-curl-steps','side-step-knee-lift','forward-back-aerobic-steps','low-impact-speed-skaters','alternating-straight-punches','boxer-step-and-punches','alternating-hooks','boxing-slip-and-punch','step-back-burpee','squat-to-alternating-knee-drive','high-knee-power-steps','low-pogo-hops','dumbbell-alternating-punch-out','dumbbell-squat-to-calf-raise','kettlebell-deadlift-to-calf-raise',
+    'side-plank-knees','bent-knee-fallout','tabletop-toe-taps','dumbbell-suitcase-carry',
     'side-plank-hip-lifts','supine-heel-slides','plank-arm-reaches','bridge-march','bent-knee-windshield-wipers',
     'dead-bug-isometric-press','bear-plank-hold','seated-knee-tucks','kettlebell-suitcase-march',
     'half-kneeling-band-pallof-press','dumbbell-dead-bug-hold',
