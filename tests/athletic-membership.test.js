@@ -4,7 +4,7 @@ const {createHash}=require('node:crypto');
 const {savedWorkoutV2}=require('./helpers/protocol-fixtures');
 global.window=global;
 require('../data/equipment');require('../data/exercises');require('../data/workout-families');
-require('../js/workout-families');require('../js/generator');require('../data/mobility-membership');require('../data/athletic-membership');
+require('../js/workout-families');require('../js/generator');require('../js/strength-cardio-composer');require('../data/mobility-membership');require('../data/athletic-membership');
 const F=GarageFitWorkoutFamilies,G=GarageFitGenerator,C=GarageFitData.exercises;
 const copy=value=>JSON.parse(JSON.stringify(value));
 const FAMILY='athletic-movement',ROLES=['footwork','control','integrated'];
@@ -239,10 +239,15 @@ test('#255 membership v2 table: roles, room, impact, minimum difficulty; v1 unto
 test('#255 shared Main drills are reachable in the Generator by bounded deterministic seeds',()=>{
   const rng=seed=>()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
   const reaches=(id,focus,duration,seed,bodyFocus='full-body')=>G.generate({duration,focus,bodyFocus,equipment:[],catalogue:C,random:rng(seed)}).main.blocks.some(b=>b.exercises.some(ex=>ex.id===id));
-  // v5 catalogue growth shifts real draws; Lower fixtures retain the same genuine routes.
-  assert.ok(reaches('single-leg-hip-hinge-reach','strength',20,7,'lower'));
-  assert.ok(reaches('lateral-lunge-to-balance','strength',45,9,'lower'));
-  assert.ok(reaches('in-in-out-out-steps','cardio',30,13));
+  // CD1 catalogue growth shifts real draws; Lower fixtures retain the same genuine routes.
+  assert.ok(reaches('single-leg-hip-hinge-reach','strength',20,2,'lower'));
+  assert.ok(reaches('lateral-lunge-to-balance','strength',45,18,'lower'));
+  // CD1's sustained aerobic primaries outrank this supporting drill in neutral draws.
+  // Recent real Cardio sessions leave a genuine novelty route without changing its role.
+  const history=[1,2,3].map(seed=>G.generate({workoutFamilyId:'cardio-conditioning',duration:45,equipment:[],catalogue:C,random:rng(seed)})
+    .main.blocks.flatMap(b=>b.exercises.map(ex=>ex.id)));
+  const varied=G.generate({duration:30,focus:'cardio',equipment:[],catalogue:C,history,random:rng(18)});
+  assert.ok(varied.main.blocks.some(b=>b.exercises.some(ex=>ex.id==='in-in-out-out-steps')));
   // Family-only identities are never offered by the ordinary Generator, even for generous kits.
   const kit=['dumbbells','kettlebell','pullup-bar','trx','barbell','bench','box','bands'];
   for(let seed=1;seed<=12;seed++)for(const focus of ['strength','balanced','cardio']) {

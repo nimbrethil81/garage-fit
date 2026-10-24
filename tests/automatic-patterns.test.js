@@ -52,7 +52,9 @@ test('[Full] seeded standalone matrix spans duration/style/difficulty/body/kit w
         row.maxMainError=Math.max(row.maxMainError,Math.abs(w.main.estimatedDurationSeconds-G.BUDGETS[duration].main));
         const exercises=w.main.blocks.flatMap(b=>b.exercises);
         assert.ok(new Set(exercises.map(x=>x.id)).size>=3,JSON.stringify({duration,focus,difficulty,bodyFocus,equipment}));
-        assert.ok(new Set(exercises.flatMap(x=>x.patterns)).size>=2);
+        // Generator recipes combine movement patterns with the conditioning role.
+        // CD1's grounded aerobics can vary that role without adding strength patterns.
+        assert.ok(new Set(exercises.flatMap(G.selectionTags)).size>=2);
         if(difficulty==='easy')assert.ok(exercises.every(x=>x.difficulty!=='hard'));
         for(const b of w.main.blocks)row.protocols[b.protocol]=(row.protocols[b.protocol]||0)+1;
       }

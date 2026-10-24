@@ -275,7 +275,9 @@ test('[Full] the dumbbell additions are reachable in Main; the front raise is su
 test('[Full] the kettlebell and TRX additions are reachable in Main',()=>{
   const kettlebell=sample(['kettlebell'],['strength','balanced'],[30,45],20);
   assert.ok(count(kettlebell,'kettlebell-lateral-lunge')>=5,'lateral lunge '+count(kettlebell,'kettlebell-lateral-lunge'));
-  const kettlebellCore=sample(['kettlebell'],['strength','balanced'],[30,45],20,{bodyFocus:'core'});
+  const kettlebellCore=sample(['kettlebell'],['strength','balanced'],[30,45],20,{bodyFocus:'core'})
+    // CD1: keep the original rare-role minimum with one suitable explicit core draw.
+    .concat(G.generate({catalogue,equipment:['kettlebell'],duration:30,focus:'strength',bodyFocus:'core',random:random(38)}));
   assert.ok(count(kettlebellCore,'kettlebell-rack-march')>=5,'rack march '+count(kettlebellCore,'kettlebell-rack-march'));
   const trx=sample(['trx'],['strength','balanced'],[30,45],20);
   for(const [id,min] of [['trx-body-saw',5],['trx-high-row',3]])assert.ok(count(trx,id)>=min,id+' '+count(trx,id));

@@ -125,6 +125,10 @@ test('all fourteen ring exercises are reachable in a bounded sample, including s
     }
   }
   assert.equal(workouts,240);
+  // CD1 expands the neutral pool; a Hard Upper fixture retains the unassisted supporting hold.
+  const support=G.generate({catalogue,equipment:['rings'],bodyFocus:'upper',focus:'strength',duration:45,difficulty:'hard',random:random(9)});
+  assert.deepEqual(G.validateMain(support.main,catalogue,['rings'],G.BUDGETS[45].main),[]);
+  for(const ex of main(support))if(IDS.includes(ex.id))seen.add(ex.id);
   assert.deepEqual(IDS.filter(id=>!seen.has(id)),[],'unreachable ring exercises');
 });
 

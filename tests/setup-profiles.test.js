@@ -234,13 +234,15 @@ test('setup fitting retains a legal short-session alternative before removing a 
 });
 
 test('a fitting legal two-identity ten-minute setup alternative survives before round deletion',()=>{
+  // Freeze the original bug-triggering input; catalogue expansion changes the selected shape.
+  const catalogue=require('./helpers/coach-fixtures').catalogueBeforeCD1(C);
   const events=[];
-  const w=G.generate({catalogue:C,equipment:['rings'],duration:10,focus:'strength',random:random(113),
+  const w=G.generate({catalogue,equipment:['rings'],duration:10,focus:'strength',random:random(113),
     trace:e=>{if(e.type==='main-result')events.push(e.attempt);}});
   assert.deepEqual(events,[2,4],'retain the existing fitting pair after the initial 605-second session');
   assert.equal(new Set(w.main.blocks.flatMap(b=>b.exercises.map(e=>e.id))).size,2);
   assert.equal(w.main.blocks[0].protocol,'paired_sets');assert.equal(w.main.blocks[0].prescription.sets,3);
-  assert.deepEqual(G.validateMain(w.main,C,['rings'],G.BUDGETS[10].main),[]);
+  assert.deepEqual(G.validateMain(w.main,catalogue,['rings'],G.BUDGETS[10].main),[]);
   assert.ok(Math.abs(w.estimatedSeconds-600)<=180,'retain the original broad duration assertion');
 });
 

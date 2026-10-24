@@ -33,7 +33,7 @@ function generatedSample() {
     for (const equipment of [allEquipment, ['dumbbells'], []])
       workouts.push(G.generate({catalogue, duration, focus, equipment, random: random(seed * duration)}));
   // A bounded TRX seed that reaches a pyramid (complex selection moved the earlier seed).
-  workouts.push(G.generate({catalogue,duration:30,focus:'strength',bodyFocus:'upper',equipment:['trx'],random:random(54)}));
+  workouts.push(G.generate({catalogue,duration:30,focus:'strength',bodyFocus:'upper',equipment:['trx'],random:random(33)}));
   // Bounded Balanced seeds reaching density and AMRAP (S1 catalogue growth moved density to seed 5).
   for (const seed of [5, 20]) workouts.push(G.generate({catalogue,duration:20,focus:'balanced',equipment:allEquipment,random:random(seed)}));
   return workouts;

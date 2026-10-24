@@ -149,7 +149,7 @@ test('generated timeline occurrences have stable unique ids across rounds, sets,
       repeatedAnchorSets++;
     });
   }
-  assert.deepEqual([...protocols].sort(), ['amrap','complex','density','emom','paired_sets','rounds','timed_intervals']);
+  assert.deepEqual([...protocols].sort(), ['amrap','complex','density','emom','ladder','paired_sets','rounds','timed_intervals']);
   assert.ok(sided > 0, 'per-side occurrences are covered');
   assert.ok(repeatedAnchorSets > 0, 'repeated work sets of one exercise are covered');
 });

@@ -160,12 +160,14 @@ test('new exercises can satisfy an explicit Coach anchor without changing progra
 });
 
 
-test('a larger equipment pool retries rejected variety attempts before falling back to a short Main',()=>{
+test('a larger equipment pool keeps searching after rejected variety attempts and returns a valid Main',()=>{
   const equipment=['kettlebell','pullup-bar'],attempts=[];
   const workout=G.generate({catalogue,equipment,duration:45,focus:'cardio',bodyFocus:'lower',random:random(8*53+45),
     trace:event=>{if(event.type==='main-attempt')attempts.push(event);}});
-  assert.equal(attempts.slice(0,10).filter(attempt=>attempt.issues.includes('main:equipment-diversity-below-minimum')).length,10);
-  assert.ok(attempts.length>10&&attempts.length<=20);
+  // CD1 supplies valid diversity during the first batch; rejection still cannot end the search.
+  assert.ok(attempts[0].issues.includes('main:equipment-diversity-below-minimum'));
+  assert.ok(attempts.some(attempt=>!attempt.issues.length));
+  assert.ok(attempts.length>1&&attempts.length<=20);
   assert.ok(Math.abs(workout.estimatedSeconds-45*60)<=45*60*.18);
   assert.deepEqual(G.validateMain(workout.main,catalogue,equipment,G.BUDGETS[45].main),[]);
   const eligible=Object.values(catalogue).filter(ex=>G.generatedPhaseEligible(ex,'main',equipment));
