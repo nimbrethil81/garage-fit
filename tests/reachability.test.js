@@ -162,7 +162,7 @@ test('Core C1 additions and plank taps reach legacy Main; preparation has its ow
   }
   for(const [phase,id,duration,difficulty,seed] of [
     ['warmup','bent-knee-fallout',10,'easy',63],
-    ['warmup','supine-heel-slides',15,'easy',19],
+    ['warmup','supine-heel-slides',15,'easy',21],
     ['warmup','tabletop-toe-taps',30,'easy',19],
     ['rampup','tabletop-toe-taps',20,'easy',12]
   ]){
@@ -175,10 +175,34 @@ test('Core C1 additions and plank taps reach legacy Main; preparation has its ow
 });
 
 test('Athletic v5 light tandem placement and split-stance stepping have their own selectable warm-up doses',()=>{
-  for(const [id,seed] of [['tandem-step-and-hold',1],['split-stance-step-switches',31]]) {
+  for(const [id,seed] of [['tandem-step-and-hold',10],['split-stance-step-switches',23]]) {
     const w=G.generate({catalogue,equipment:[],duration:20,focus:'strength',random:random(seed)});
     assert.ok(w.warmup.exercises.some(ex=>ex.id===id),id);
     assert.ok(!w.rampup.exercises.some(ex=>ex.id===id));assert.ok(!w.cooldown.exercises.some(ex=>ex.id===id));
     assert.equal(catalogue[id].warmupPrescription.value,20);
+  }
+});
+
+test('Mobility v3 crossover reaches only reviewed light preparation and low-load recovery routes (#272)',()=>{
+  const fixtures=[['warmup','standing-wall-slides',15],['warmup','standing-hinge-and-reach',40],
+    ['cooldown','standing-calf-stretch',12],['cooldown','bent-knee-calf-stretch',10],['cooldown','supine-hamstring-stretch',2]];
+  for(const [phase,id,seed] of fixtures) {
+    const w=G.generate({catalogue,duration:10,difficulty:'normal',equipment:[],focus:'balanced',random:random(seed)});
+    const ex=w[phase].exercises.find(ex=>ex.id===id);assert.ok(ex,id+' actual '+phase);
+    assert.equal(G.generatedPhaseEligible(catalogue[id],'main',[]),false,id);
+    assert.ok(!w.main.blocks.some(b=>b.exercises.some(ex=>ex.id===id)),id);
+    assert.ok(ex.prescription.value>=10&&ex.prescription.value<=40,id+' light effective dose');
+    if(phase==='warmup')assert.deepEqual(G.validatePreparation(w.warmup,w.rampup,w.main.blocks.flatMap(b=>b.exercises)),[]);
+    else assert.equal(ex.prescription.value,25,id+' default per-side recovery exposure');
+  }
+});
+
+
+test('new near-direct recovery alternatives do not duplicate calf or supported hamstring holds (#272)',()=>{
+  for(const seed of [3,14]) {
+    const w=G.generate({catalogue,equipment:[],duration:45,focus:'balanced',random:random(seed)}),cool=w.cooldown.exercises;
+    for(const family of ['standing-calf-stretch','supported-hamstring-stretch'])
+      assert.ok(cool.filter(ex=>ex.family===family).length<=1,family+' recovery alternatives');
+    assert.deepEqual(G.validateMain(w.main,catalogue,[]),[]);
   }
 });

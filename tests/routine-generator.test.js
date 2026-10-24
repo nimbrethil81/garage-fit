@@ -318,7 +318,7 @@ test('cool-down stretch targets are a validated classification on every cool-dow
 });
 
 test('C1 gentle preparation also reaches five-minute Prep & Recover without becoming recovery stretches',()=>{
-  for(const [id,seed] of [['bent-knee-fallout',6],['supine-heel-slides',20],['tabletop-toe-taps',54]]){
+  for(const [id,seed] of [['bent-knee-fallout',3],['supine-heel-slides',32],['tabletop-toe-taps',27]]){
     const item=routine('warmup','bodyweight',seed,{equipment:[]});
     assert.ok(item.exercises.some(ex=>ex.id===id),id);
     assert.deepEqual(R.validateRoutine(item,catalogue),[]);
@@ -328,9 +328,20 @@ test('C1 gentle preparation also reaches five-minute Prep & Recover without beco
 });
 
 test('Athletic v5 light standing preparation reaches Prep & Recover without adding recovery or floor work',()=>{
-  for(const [id,seed] of [['tandem-step-and-hold',6],['split-stance-step-switches',13]]) {
+  for(const [id,seed] of [['tandem-step-and-hold',6],['split-stance-step-switches',20]]) {
     const item=routine('warmup','bodyweight',seed,{equipment:[]});
     assert.ok(item.exercises.some(ex=>ex.id===id),id);assert.deepEqual(R.validateRoutine(item,catalogue),[]);
     assert.equal(item.estimatedSeconds,300);assert.equal(catalogue[id].cooldown||catalogue[id].rampup,false,id);
+  }
+});
+
+test('reviewed Mobility v3 crossover is playable in Prep & Recover with its separate gentle doses (#272)',()=>{
+  for(const [kind,id,seed] of [['warmup','standing-hinge-and-reach',1],['warmup','standing-wall-slides',3],
+    ['cooldown','standing-calf-stretch',1],['cooldown','bent-knee-calf-stretch',2],['cooldown','supine-hamstring-stretch',6]]) {
+    const w=routine(kind,'bodyweight',seed,{equipment:[]}),phases=w.phases.filter(p=>p.id===id);
+    assert.ok(phases.length,id+' actual standalone route');assert.deepEqual(R.validateRoutine(w,catalogue),[]);
+    assert.equal(w.estimatedSeconds,300);
+    for(const p of phases)assert.ok(p.work>=20&&p.work<=(kind==='warmup'?40:45),id+' effective interval');
+    assert.equal(catalogue[id].generator,false);
   }
 });

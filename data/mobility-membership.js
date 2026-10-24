@@ -47,7 +47,7 @@
   }
   // Membership v2 (#263, Mobility & Movement Quality v2 workstream 1): all fifteen v1 entries unchanged, plus
   // fifteen existing and four new identities. Membership is eligibility only; composition v2 (#264,
-  // js/mobility-composer.js) selects from it and is current.
+  // js/mobility-composer.js) selects from it; v3 is now current.
   // [exerciseId, roles, minimumDifficulty?, prescription override?]
   const GENTLE = {bilateral: {type: 'timed', minValue: 15, maxValue: 40}, 'per-side': {type: 'unilateral-timed', minValue: 15, maxValue: 40}};
   const ADDITIONS = [
@@ -87,6 +87,39 @@
     }
     return entries;
   }
+  // V3 adds M25's fifteen canonical movements and six existing identities. Prior entries stay frozen.
+  // Doses are per occurrence (per side where canonical sidedness requires it).
+  const V3_ADDITIONS = [
+    ['standing-calf-stretch', ['focused','finish'], 20,30],
+    ['bent-knee-calf-stretch', ['focused','finish'], 20,30],
+    ['seated-ninety-ninety-hip-lift-offs', ['focused'], 15,25, 'normal'],
+    ['supine-hamstring-stretch', ['focused','finish'], 20,30],
+    ['butterfly-stretch', ['focused','finish'], 20,30],
+    ['standing-hinge-and-reach', ['prep','flow'], 20,35],
+    ['side-lying-open-books', ['focused','flow'], 20,30],
+    ['seated-thoracic-extension', ['focused'], 20,30],
+    ['standing-wall-slides', ['focused'], 20,35],
+    ['standing-lat-stretch', ['focused','finish'], 20,30],
+    ['quadruped-wrist-rocks', ['prep','focused'], 15,25],
+    ['downward-facing-dog', ['focused','flow'], 15,30],
+    ['upward-facing-dog', ['focused','flow'], 10,20, 'normal'],
+    ['low-cobra-pose', ['focused','finish'], 10,25],
+    ['extended-puppy-pose', ['focused','finish'], 15,30],
+    ['kneeling-hamstring', ['focused','finish'], 20,30],
+    ['inside-thigh-stretch', ['focused','finish'], 20,30],
+    ['frog-stretch', ['focused'], 15,30],
+    ['plank-calf-stretch', ['focused','flow'], 15,30, 'normal'],
+    ['side-stretch', ['focused','finish'], 20,30],
+    ['arm-across-pull', ['focused','finish'], 20,30]
+  ];
+  function buildV3() {
+    return buildV2().concat(V3_ADDITIONS.flatMap(([exerciseId,roles,minValue,maxValue,minimumDifficulty])=>roles.map(role=>({
+      exerciseId,role,protocols:PROTOCOLS.slice(),
+      prescriptions:[{type:catalogue[exerciseId].sidedness==='per-side'?'unilateral-timed':'timed',minValue,maxValue}],
+      ...(minimumDifficulty?{minimumDifficulty}:{})
+    }))));
+  }
   families.registerMembershipPolicy({workoutFamilyId: 'mobility-movement-quality', workoutFamilyVersion: 1, entries: build(MEMBERS)});
   families.registerMembershipPolicy({workoutFamilyId: 'mobility-movement-quality', workoutFamilyVersion: 2, entries: buildV2()});
+  families.registerMembershipPolicy({workoutFamilyId: 'mobility-movement-quality', workoutFamilyVersion: 3, entries: buildV3()});
 })(typeof window !== 'undefined' ? window : globalThis);

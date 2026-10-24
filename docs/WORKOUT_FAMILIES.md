@@ -8,7 +8,7 @@ A later version of the same family keeps its id, name, purpose, styles and feasi
 same family for training balance and recency, while composition and history keep the version.
 `GarageFitData.workoutFamilyCurrentVersions` names the version new workouts use; today that is
 version 1 for every family except Athletic Movement (current version 5; #244, #255, #271), Strength & Control
-(current version 2; #261) and Mobility & Movement Quality (current version 2; #264).
+(current version 2; #261) and Mobility & Movement Quality (current version 3; #272).
 
 Each definition owns its display name, purpose, supported internal styles, Body
 Focus compatibility, composition/membership policy references, suitability criteria
@@ -285,7 +285,7 @@ fields introduce no persisted family history or preference migrations.
 ### Mobility v2 membership (#263)
 
 Mobility family v2 pairs reviewed membership v2 (registered in `data/mobility-membership.js`) with composition v2
-(see [Mobility composition v2](#mobility-composition-v2-264-current)); #263 delivered the membership and the four new
+(see [Mobility composition v2](#mobility-composition-v2-264)); #263 delivered the membership and the four new
 movements, #264 the composer and activation. Membership is eligibility only.
 
 Membership v2 resolves 34 identities: all 15 v1 identities with their v1 roles and prescriptions (v1 stays
@@ -362,10 +362,10 @@ that leaves too few eligible movements or loses required shoulder/ankle/thoracic
 practice fails with `family-not-feasible`, including standing-only and floor-only
 restrictions. It never substitutes a different family or an unapproved exercise.
 
-### Mobility composition v2 (#264, current)
+### Mobility composition v2 (#264)
 
-`js/mobility-composer.js` also registers composition v2 against family v2 / membership v2 (#263). Mobility v2 is
-current, so new standalone workouts and General Fitness plans compose it; v1 stays registered and composes and
+`js/mobility-composer.js` also registers composition v2 against family v2 / membership v2 (#263). Mobility v2 remains
+published for explicit and saved sessions; new sessions now use v3 (#272). V1 stays registered and composes and
 validates exactly as released (`tests/mobility-composer.test.js` pins 54 seeded v1 sessions by digest), and an
 explicit request without a `workoutFamilyVersion` is still v1. Nothing is added to the catalogue metadata, protocol
 vocabulary, UI, settings or persistence. The two internal styles keep their meaning (`joint-focused` shifts 8% of
@@ -413,6 +413,54 @@ and the TRX movements need an owned TRX; excluded impact and body positions pass
 without a TRX, hanging/supported-only and low-impact exclusions fail with `family-not-feasible` and verified
 adjustments; a floor-only request composes a floor-only session up to 30 minutes (Prepare is then not standing) and is
 infeasible at 45.
+
+### Mobility v3 (#272, current)
+
+Family v3 publishes membership v3 and composition v3: 55 unique identities, including fifteen new canonical
+movements and six reused stretches. There are **52 equipment-free members** (the v2 baseline on current main was
+31, rather than the issue's estimated 29); the three TRX-dependent identities still require owned TRX.
+All v1/v2 entries, maps, static/near relationships and composition remain version-pinned. A pre-change digest
+also protects 54 v2 sessions alongside the existing v1 digest. General Fitness uses v3 through the shared current
+family route; its released programme definitions, schedules and anchors are unchanged.
+
+V3 reuses v2's four stages, regional shares, duration-sensitive coverage, recency, soft sequencing, selective
+repetition, timing and recovery rules. Its own local region/static/near maps extend the reviewed pool. Passive
+stretches remain in Focus/Finish; Downward-facing Dog and Upward-facing Dog are active supported holds permitted
+in Flow with bounded 15–30 / 10–20 second occurrences. Upward Dog and seated 90/90 lift-offs require Normal/Hard;
+plank calf stretch also requires Normal/Hard. The combined `downward-upward-dog` identity and instructions remain
+unchanged. Related yoga poses are near-variations, a scoring preference allowing purposeful coexistence.
+Quadruped wrist rocks can prepare a suitably floor-restricted session; ordinary Prepare remains standing.
+`GarageFitMobilityComposer`'s existing pure helpers retain v2 interpretation; `forVersion(2|3)` explicitly chooses
+the regional policy and rejects unsupported versions (v1 has its separate published composer).
+
+**Shared preparation/recovery.** Standing hinge and reach and standing wall slides offer light, slow, unloaded
+Warm-up intervals (default 20 s, fitting 10–40 s); 40 seconds means more comfortable controlled repetitions,
+not a longer forced hold. Their Mobility doses stay 20–35 s. The standalone Prep & Recover fitter separately
+uses 20–40 s. Standing straight-/bent-knee calf and supported supine hamstring stretches offer low-load recovery
+(default 25 s/side in Generator and Coach, 20–45 s/side in standalone routines); their Mobility bounds stay
+20–30 s/side. The two standing calf stretches share a canonical alternative family, as do supine and kneeling
+hamstring stretches, so generic recovery does not duplicate these near-direct holds; Mobility still uses its soft
+NEAR preferences. The kneeling identity changes only this relationship metadata, with historical test inputs restored.
+Short loaded wrist work and Cobra/Puppy extension holds remain family-only: generic routine dosing
+would outgrow their reviewed short exposures. Butterfly and standing lat stretch also stay family-only rather
+than accepting generic bilateral 30–60 s holds. No Main promotion, Ramp-up addition, fixed-workout change,
+programme revision or general Generator/Routine fitter change is made. General Strength, Build Arms and Tennis
+retain their shared eligible preparation/recovery routes and their exact required anchors.
+
+A bounded indoor, no-kit Normal sample (eight fixed seeds per version at 10/30/45 minutes) observed:
+
+| Measure | v2 | v3 |
+| --- | ---: | ---: |
+| Mean distinct, 10 min | 14 | 16 |
+| Mean distinct, 30 min | 21.625 | 29.75 |
+| Mean distinct, 45 min | 24.125 | 33.75 |
+| Mean same-seed 10-vs-30 min Jaccard overlap | 0.629 | 0.477 |
+| Mean same-seed 10-vs-45 min Jaccard overlap | 0.582 | 0.450 |
+| Mean neighbouring sampled 30-min session overlap | 0.818 | 0.688 |
+| Mean neighbouring sampled 45-min session overlap | 0.827 | 0.717 |
+
+This describes the sample, not a frequency target; passive Focus caps, regional balance and safe sequences
+continue to govern selection.
 
 ### Athletic Movement composition v1
 

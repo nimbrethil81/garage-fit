@@ -141,7 +141,7 @@ test('restricted or unsupported requests fail honestly without crossing families
 
 test('shared registry is version-pinned and single-registration; production and test harness load the same composer',()=>{
   assert.throws(()=>G.registerFamilyComposer(FAMILY,1,()=>{}),/registered once/);
-  assert.throws(()=>G.registerFamilyComposer(FAMILY,3,()=>{}),e=>e.code==='unsupported-workout-family-version');
+  assert.throws(()=>G.registerFamilyComposer(FAMILY,4,()=>{}),e=>e.code==='unsupported-workout-family-version');
   assert.match(fs.readFileSync('index.html','utf8'),/data\/mobility-membership.js[\s\S]*js\/mobility-composer.js/);
   const app=loadAppContext(new Map());
   assert.equal(app.GarageFitGenerator.generate({workoutFamilyId:FAMILY,duration:10,catalogue:app.GarageFitData.exercises,random:()=>.2}).workoutFamilyId,FAMILY);
@@ -180,8 +180,8 @@ test('published Mobility v1 seeded output is unchanged by the v2 composition (#2
   assert.equal(generate().workoutFamilyVersion,1,'an unversioned request is still the published v1');
 });
 
-test('Mobility v2 is current for new standalone and Coach selections; v1 stays published and version-pinned (#264)',()=>{
-  assert.equal(F.currentVersion(FAMILY),2);
+test('Mobility v3 is current for new standalone and Coach selections; v1/v2 stay version-pinned (#272)',()=>{
+  assert.equal(F.currentVersion(FAMILY),3);
   const definition=F.getDefinition(FAMILY,2);
   assert.deepEqual([definition.membershipPolicy.version,definition.compositionPolicy.version,definition.styles.map(style=>style.id)],[2,2,['joint-focused','integrated-flow']]);
   const first=generate({workoutFamilyVersion:1}),second=v2();
@@ -190,7 +190,7 @@ test('Mobility v2 is current for new standalone and Coach selections; v1 stays p
   assert.ok(first.main.blocks.every(b=>b.familyContext.workoutFamilyVersion===1),'a v1 record keeps resolving its named version');
   // The standalone Generator screen asks for the current version with no extra user choice.
   const app=loadAppContext(new Map());app.input=FAMILY;vm.runInContext('selectGeneratorFamily(input);generateWorkout()',app);
-  assert.equal(vm.runInContext('generatorState.workout.workoutFamilyVersion',app),2);
+  assert.equal(vm.runInContext('generatorState.workout.workoutFamilyVersion',app),3);
 });
 
 test('v2 composes exactly timed, playable Prepare -> Focus -> Flow -> Finish sessions with durable occurrence identities',()=>{
@@ -430,4 +430,99 @@ test('swaps and edits cannot bypass v2 membership, protocol, timing or quality g
   assert.equal(G.validateFamilyWorkout(stretched,{catalogue:C,equipment:['trx']}).valid,false,'a static hold is not a Flow movement');
   const relabelled=copy(w);relabelled.workoutFamilyVersion=1;relabelled.main.blocks.forEach(b=>{b.familyContext.workoutFamilyVersion=1;});
   assert.equal(G.validateFamilyWorkout(relabelled,{catalogue:C,equipment:['trx']}).valid,false,'v2 movements are not a valid v1 session');
+});
+
+const v3=extra=>generate({workoutFamilyVersion:3,...extra}),M3=M.forVersion(3);
+test('published Mobility v2 seeded composition and saved interpretation are unchanged by v3 (#272)',()=>{
+  const sessions=[];
+  for(const duration of [10,20,45])for(const difficulty of ['easy','normal','hard'])for(const equipment of [[],['trx']])for(const seed of [1,31,2026]) {
+    const w=v2({duration,difficulty,equipment,random:rng(seed)});delete w.id;sessions.push(w);
+  }
+  assert.equal(createHash('sha256').update(JSON.stringify(sessions)).digest('hex'),'1ec309aaf74c9bc78f70789cae529eb0e33fcd42c363e4b5ad0af63163902981');
+  for(const w of [sessions[0],sessions.at(-1)]) {
+    assert.deepEqual(copy(G.normaliseWorkout(copy(w))),w);
+    assert.deepEqual(valid(w,w.main.blocks.some(b=>b.exercises.some(ex=>ex.equipment.length))?['trx']:[]),PASSES);
+  }
+  assert.deepEqual(M.regionsOf('upward-facing-dog'),[],'v2 map stays frozen');
+  assert.throws(()=>M.forVersion(1),RangeError);assert.throws(()=>M.forVersion(99),RangeError);
+  assert.deepEqual(M3.regionsOf('upward-facing-dog'),['trunk','upper']);
+});
+
+test('all 21 v3 additions are actually selected in bounded appropriate stages and doses (#272)',()=>{
+  // Ten fixed sessions cover every admitted identity; no runtime seed search.
+  const fixtures=[[10,'easy',1],[10,'easy',2026],[10,'easy',424242],[10,'normal',1],[10,'normal',424242],
+    [20,'easy',1],[20,'easy',31],[45,'easy',31],[45,'easy',2026],[45,'easy',424242]];
+  const missing=new Set(Object.keys(C).filter(id=>ROLES.some(role=>F.getMembership({workoutFamilyId:FAMILY,workoutFamilyVersion:3,role},id))&&!V2_MEMBERS.includes(id)));
+  assert.equal(missing.size,21);
+  for(const [duration,difficulty,seed] of fixtures) {
+    const w=v3({duration,difficulty,random:rng(seed)});assert.deepEqual(valid(w),PASSES);
+    for(const b of w.main.blocks)for(const item of G.resolvedOccurrences(b)) {
+      const ex=item.exercise,entry=F.getMembership(b.familyContext,ex.id),p=entry.prescriptions.find(p=>p.type===(G.sideCount(ex)===2?'unilateral-timed':'timed'));
+      assert.ok(item.seconds>=p.minValue&&item.seconds<=p.maxValue,ex.id+' per-occurrence bounds');
+      assert.deepEqual(ex,C[ex.id]);missing.delete(ex.id);
+      if(M3.isStatic(ex.id))assert.ok(['focused','finish'].includes(b.familyContext.role),ex.id);
+    }
+  }
+  assert.deepEqual([...missing],[]);
+});
+
+test('v3 preserves duration, stages, regional coverage, active Flow and gated loaded poses across representative settings (#272)',()=>{
+  const seen=new Set();
+  for(const {duration,difficulty,equipment} of MATRIX) {
+    const w=v3({duration,difficulty,equipment,random:rng(733)});
+    assert.deepEqual(valid(w,equipment),PASSES);assert.equal(w.estimatedSeconds,duration*60);
+    assert.deepEqual(w.main.blocks.map(b=>b.familyContext.role),ROLES);
+    assert.deepEqual(G.trainingSectionPlan(w).blocks.map(b=>b.section),['warmup','main','main','cooldown']);
+    assert.equal(hasRepeatedRun(ids(w),4),false);
+    const minimum=duration===10?1:duration<=20?2:3;
+    for(const region of M3.REGIONS)assert.ok(new Set(ids(w).filter(id=>M3.regionsOf(id).includes(region))).size>=minimum);
+    for(const b of w.main.blocks) {
+      assert.deepEqual(G.validateOccurrenceRecovery(b),[]);
+      for(const item of G.resolvedOccurrences(b)) {
+        const ex=item.exercise;seen.add(ex.id);
+        assert.ok(G.generatedPhaseEligible(ex,'main',equipment,difficulty,b.familyContext));
+        if(difficulty==='easy')assert.notEqual(ex.id,'upward-facing-dog');
+        if(['prep','flow'].includes(b.familyContext.role))assert.equal(M3.isStatic(ex.id),false,ex.id);
+      }
+    }
+    assert.ok(levelChanges(w.main.blocks.at(-1).exercises)<=1);
+    assert.deepEqual(copy(G.normaliseWorkout(copy(w))),copy(w));
+  }
+  assert.ok(seen.has('upward-facing-dog'));assert.ok(seen.has('downward-facing-dog'));
+  // Approved active holds can coexist with their canonical combined transition; NEAR is a preference.
+  let combined=false;const flowPoses=new Set();
+  for(const seed of [1,31,733]) {
+    const w=v3({duration:45,difficulty:'normal',random:rng(seed)}),all=ids(w);
+    combined ||= all.includes('downward-upward-dog')&&all.includes('downward-facing-dog');
+    for(const ex of w.main.blocks[2].exercises)if(['upward-facing-dog','downward-facing-dog'].includes(ex.id))flowPoses.add(ex.id);
+    for(const block of w.main.blocks.filter(b=>b.familyContext.role==='flow'))for(const ex of block.exercises)
+      if(ex.id==='upward-facing-dog'||ex.id==='downward-facing-dog')assert.deepEqual(valid(w),PASSES);
+  }
+  assert.ok(combined,'near variants are not exclusions');
+  assert.deepEqual([...flowPoses].sort(),['downward-facing-dog','upward-facing-dog'],'both approved active holds actually enter Flow');
+  const floor=v3({duration:20,difficulty:'easy',bodyPositions:['floor'],random:rng(31)});
+  assert.deepEqual(valid(floor),PASSES);
+  assert.ok(floor.main.blocks[0].exercises.some(ex=>ex.id==='quadruped-wrist-rocks'),'wrist Prepare is reachable with an appropriate floor constraint');
+  const altered=copy(v3({duration:20}));altered.main.blocks[2].exercises[0]=C['butterfly-stretch'];
+  assert.equal(M3.isStatic('butterfly-stretch'),true);
+  assert.equal(valid(altered).valid,false,'passive static membership cannot enter Flow');
+});
+
+
+test('v3 retains both pacing styles and soft completed-exercise recency using versioned regional evidence (#272)',()=>{
+  const joint=v3({duration:20,random:forced([.1,.1],31)}),flow=v3({duration:20,random:forced([.9,.1],31)});
+  assert.equal(joint.familyStyleId,'joint-focused');assert.equal(flow.familyStyleId,'integrated-flow');
+  assert.ok(joint.main.blocks[1].estimatedSeconds>flow.main.blocks[1].estimatedSeconds);
+  assert.deepEqual(valid(joint),PASSES);assert.deepEqual(valid(flow),PASSES);
+  const fresh=v3({duration:10,random:rng(31)}),prior=ids(fresh),after=v3({duration:10,history:[prior],random:rng(31)});
+  assert.ok(ids(after).filter(id=>prior.includes(id)).length<prior.length,'completed exercise recency prefers alternatives');
+  assert.ok(ids(after).some(id=>prior.includes(id)),'recency never becomes a hard exclusion');
+  assert.deepEqual(valid(after),PASSES);
+  const addedLower=['standing-calf-stretch','bent-knee-calf-stretch','seated-ninety-ninety-hip-lift-offs','supine-hamstring-stretch'];
+  assert.equal(M3.inferEmphasis(addedLower),'lower');assert.equal(M.inferEmphasis(addedLower),null,'v2 does not reinterpret new identities');
+  const recent={recentFamilySessions:{[FAMILY]:{workoutFamilyVersion:3,plannedOccurrences:4,
+    completedOccurrences:addedLower.map(exerciseId=>({exerciseId,blockIndex:1}))}}};
+  assert.equal(M3.recentEmphasis(recent),'lower');
+  recent.recentFamilySessions[FAMILY].plannedOccurrences=8;
+  assert.equal(M3.recentEmphasis(recent),null,'partial evidence stays ambiguous');
 });
