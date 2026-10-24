@@ -194,7 +194,7 @@ test('four new Mobility canonical movements are distinct, family-only, safely pr
 });
 
 test('membership v2 resolves exactly 34 identities with the approved roles and keeps v1 byte-identical (#263)',()=>{
-  assert.equal(V2_IDS.length,34);assert.equal(F.currentVersion(FAMILY),2,'composition v2 is current since #264');
+  assert.equal(V2_IDS.length,34);assert.equal(F.currentVersion(FAMILY),3,'composition v3 is current since #272');
   const def=F.getDefinition(FAMILY,2);
   assert.deepEqual([def.membershipPolicy,def.compositionPolicy],[{id:FAMILY,version:2},{id:FAMILY,version:2}]);
   for(const role of ROLES){
@@ -270,4 +270,46 @@ test('the new movements and v2 additions are not promoted into ordinary Generato
   for(const id of ['childs-pose','chest-opener'])assert.equal(G.generatedPhaseEligible(C[id],'main',[]),false,id);
   assert.equal(G.generatedPhaseEligible(C['childs-pose'],'cooldown',[]),true);
   assert.equal(G.generatedPhaseEligible(C['shoulder-rolls'],'warmup',[]),true);
+});
+
+// #272: exact reviewed v3 additions; existing canonical definitions remain shared.
+const V3_ADDED={
+  'standing-calf-stretch':['focused','finish'],'bent-knee-calf-stretch':['focused','finish'],
+  'seated-ninety-ninety-hip-lift-offs':['focused'],'supine-hamstring-stretch':['focused','finish'],
+  'butterfly-stretch':['focused','finish'],'standing-hinge-and-reach':['prep','flow'],
+  'side-lying-open-books':['focused','flow'],'seated-thoracic-extension':['focused'],'standing-wall-slides':['focused'],
+  'standing-lat-stretch':['focused','finish'],'quadruped-wrist-rocks':['prep','focused'],
+  'downward-facing-dog':['focused','flow'],'upward-facing-dog':['focused','flow'],'low-cobra-pose':['focused','finish'],
+  'extended-puppy-pose':['focused','finish'],'kneeling-hamstring':['focused','finish'],
+  'inside-thigh-stretch':['focused','finish'],'frog-stretch':['focused'],'plank-calf-stretch':['focused','flow'],
+  'side-stretch':['focused','finish'],'arm-across-pull':['focused','finish']};
+
+test('Mobility v3 adds exactly 21 reviewed identities, 55 total / 52 no-kit, without changing published memberships (#272)',()=>{
+  const table={...V2_TABLE,...V3_ADDED};
+  assert.equal(Object.keys(table).length,55);
+  assert.equal(Object.keys(table).filter(id=>!C[id].equipment.length).length,52,'v2 has 31 no-kit members on current main');
+  const definition=F.getDefinition(FAMILY,3);
+  assert.equal(definition.membershipPolicy.version,3);assert.equal(definition.compositionPolicy.version,3);
+  for(const id of Object.keys(C))for(const role of ROLES) {
+    const entry=F.getMembership(context(role,{workoutFamilyVersion:3}),id);
+    assert.equal(!!entry,!!table[id]?.includes(role),id+':'+role);
+    if(V2_TABLE[id])assert.deepEqual(entry,F.getMembership(v2(role),id),'v2 entry retained: '+id+':'+role);
+  }
+  for(const id of Object.keys(V3_ADDED)) {
+    const ex=C[id];assert.equal(ex.impact,'low',id);assert.equal(ex.generator||ex.main,false,id+' no ordinary Main');
+    assert.ok(ex.instruction.length<=180,id);assert.equal(new Set(ex.sideOrder).size,2,id);
+    for(const role of V3_ADDED[id]) {
+      const c=context(role,{workoutFamilyVersion:3});
+      assert.equal(G.generatedPhaseEligible(ex,'main',[],'normal',c),true,id);
+      assert.equal(F.getMembership(v2(role),id),null,id+' absent from v2');
+      const target=F.getMembership(c,id).prescriptions[0];
+      assert.equal(target.type,ex.sidedness==='per-side'?'unilateral-timed':'timed',id);
+    }
+  }
+  for(const id of ['upward-facing-dog','seated-ninety-ninety-hip-lift-offs','plank-calf-stretch']) {
+    assert.equal(G.generatedPhaseEligible(C[id],'main',[],'easy',context('focused',{workoutFamilyVersion:3})),false,id+' gated at Easy');
+  }
+  // The global generic fitters have different bounds. Short loaded/extension poses stay family-only.
+  for(const id of ['quadruped-wrist-rocks','upward-facing-dog','low-cobra-pose','extended-puppy-pose','butterfly-stretch','standing-lat-stretch'])
+    for(const phase of ['warmup','rampup','cooldown'])assert.equal(G.generatedPhaseEligible(C[id],phase,[]),false,id+':'+phase);
 });

@@ -88,7 +88,7 @@ test('Athletic v1 and v5 are one family for balance and variety; released defini
     assert.deepEqual(out.two, out.one, 'GF v'+version+': a v5 Athletic session earns exactly what a v1 session earns');
     assert.deepEqual(out.one.basis, ['family-identity']);
     assert.ok(out.one.families.find(item => item.workoutFamilyId === 'athletic-movement').varietyPenalty > 0, 'recency counts the family, not its version');
-    assert.deepEqual(Object.fromEntries(out.candidates), {'strength-control':2,'cardio-conditioning':1,'full-body-challenges':1,'athletic-movement':5,'core-stability':1,'mobility-movement-quality':2});
+    assert.deepEqual(Object.fromEntries(out.candidates), {'strength-control':2,'cardio-conditioning':1,'full-body-challenges':1,'athletic-movement':5,'core-stability':1,'mobility-movement-quality':3});
     assert.deepEqual(out.pinned, [1,1,1,1,1,1], 'the released definition is not edited');
     assert.equal(out.unchanged, true);
     const w=p.json(`(()=>{const plan=gfPlan(gfStart(${JSON.stringify(at(0))}),[],${JSON.stringify(at(30))});
@@ -236,7 +236,7 @@ test('recent demanding work, confirmed hard activity and Easy today permit lower
   const workout = p.json(`GarageFitGenerator.generate({catalogue:CATALOGUE,sessionPrescription:${JSON.stringify(plans.mobility.prescription)},random:seeded})`);
   assert.equal(workout.workoutFamilyId, 'mobility-movement-quality'); assert.equal(workout.difficulty, 'easy');
   assert.ok(workout.estimatedSeconds <= 15 * 60);
-  assert.equal(workout.workoutFamilyVersion, 2, 'General Fitness composes the current Mobility version (#264)');
+  assert.equal(workout.workoutFamilyVersion, 3, 'General Fitness composes the current Mobility version (#272)');
   // The Coach route threads existing completed-session evidence to the composer (transient; stored records are untouched).
   const lowerFocus = ['kneeling-ankle-rocks','adductor-rock-backs','ninety-ninety-hip-switches','standing-hip-rotations','heel-toe-rocks','half-kneeling-hip-flexor-rocks-with-reach'];
   const evidence = {'mobility-movement-quality': {workoutFamilyVersion: 2, plannedOccurrences: 6, completedOccurrences: lowerFocus.map(exerciseId => ({exerciseId, blockIndex: 1}))}};
@@ -371,5 +371,23 @@ test('[Full] controller-run 20-session sequences at 2, 3 and 5 sessions/week del
         perWeek+'/week session '+(index+1)+' is recognisably distinct');
     });
     assert.equal(p.json('pilot.snapshot().state').meaningfulSessionsCompleted, 20);
+  }
+});
+
+test('General Fitness released plans deliver current Mobility v3 from ordinary history-ranked candidates (#272)',()=>{
+  for(const version of [1,2]) {
+    const p=context(undefined,version);
+    const out=p.json(`(()=>{const before=JSON.stringify(GF),state=gfStart(${JSON.stringify(at(0))}),results=[];
+      ['strength-control','cardio-conditioning','strength-control','cardio-conditioning','core-stability','athletic-movement','full-body-challenges']
+        .forEach((family,i)=>results.push(gfResult('r'+i,new Date(${T0}+i*86400000).toISOString(),family)));
+      const plan=gfPlan(state,results,new Date(${T0}+9*86400000).toISOString(),{difficulty:'easy',duration:30});
+      const ranked=plan.prescription.workoutFamilyPlan.candidates.map(c=>c.workoutFamilyId);
+      const workout=GarageFitGenerator.generate({catalogue:CATALOGUE,sessionPrescription:plan.prescription,random:seeded});
+      return {family:workout.workoutFamilyId,version:workout.workoutFamilyVersion,ranked,
+        validation:GarageFitGenerator.validateFamilyWorkout(workout,{catalogue:CATALOGUE,equipment:[]}),
+        seconds:workout.estimatedSeconds,unchanged:before===JSON.stringify(GF),anchors:plan.prescription.requiredAnchors||[]};})()`);
+    assert.equal(out.ranked[0],'mobility-movement-quality');assert.deepEqual(out.ranked.slice().sort(),FAMILIES.slice().sort());
+    assert.equal(out.family,'mobility-movement-quality');assert.equal(out.version,3);assert.equal(out.seconds,1800);
+    assert.equal(out.validation.valid,true);assert.equal(out.unchanged,true);assert.deepEqual(out.anchors,[]);
   }
 });

@@ -186,8 +186,11 @@
     ['open-close-gates','body-hoops','standing-hip-rotations'],['leg-swings-forward-back','leg-swings-side'],
     ['thread-the-needle','quadruped-thoracic-rotation'],['shallow-knee-bends','squat-to-stand','supported-squat-rocks','trx-squat-overhead'],
     ['hip-flexor-arm-stretch','runners-stretch','half-kneeling-hip-flexor-rocks-with-reach']];
-  const regionsOf=id=>REGION_MAP[id]||[];
-  const clusterOf=id=>NEAR.findIndex(group=>group.includes(id));
+  // Capture each published revision's relationships in its own closure. Extending v3 must never
+  // reinterpret v2 selection, historical evidence, static holds or quality validation.
+  function policy(regionMap, staticIds, near) {
+  const regionsOf=id=>regionMap[id]||[];
+  const clusterOf=id=>near.findIndex(group=>group.includes(id));
   const REGION_ORDER={prep:['lower','trunk','upper'],focused:['lower','trunk','upper'],flow:['upper','trunk','lower'],finish:['upper','lower','trunk']};
   const DESCEND_FIRST={prep:true,focused:true,flow:false,finish:true};
   const MIN_ITEMS={prep:2,focused:3,flow:3,finish:2},POOL_MIN={prep:2,focused:4,flow:4,finish:2};
@@ -200,7 +203,7 @@
   // Emphasis of a performed Focus stage, or null when the evidence is partial, untagged or ambiguous. Deliberately
   // conservative: only a clear lower-body or shoulder/upper-back skew is named (a balanced session is never labelled).
   function inferEmphasis(focusIds) {
-    if(!Array.isArray(focusIds)||focusIds.length<4||focusIds.some(id=>typeof id!=='string'||!REGION_MAP[id]))return null;
+    if(!Array.isArray(focusIds)||focusIds.length<4||focusIds.some(id=>typeof id!=='string'||!regionMap[id]))return null;
     const totals=regionTotals(focusIds),sum=REGIONS.reduce((total,region)=>total+totals[region],0),share=region=>totals[region]/sum;
     // Joint-focused/integrated-flow never enter this: they are pacing styles recorded separately.
     if(share('lower')>=.5&&share('lower')-Math.max(share('upper'),share('trunk'))>=.2)return 'lower';
@@ -306,8 +309,8 @@
       const bounds=ex=>{
         const entry=F.getMembership(contexts[role],ex.id),type=sides(ex)===2?'unilateral-timed':'timed';
         const target=entry.prescriptions.find(item=>item.type===type);
-        const lo=Math.max(10,target.minValue),hi=Math.max(lo,Math.min(target.maxValue,sides(ex)===2?maxSide:role==='finish'?50:max,STATIC.has(ex.id)?30:Infinity));
-        const base=STATIC.has(ex.id)?25:role==='finish'?40:role==='focused'?(style==='joint-focused'?34:20):role==='flow'?(style==='integrated-flow'?34:20):26;
+        const lo=Math.max(10,target.minValue),hi=Math.max(lo,Math.min(target.maxValue,sides(ex)===2?maxSide:role==='finish'?50:max,staticIds.has(ex.id)?30:Infinity));
+        const base=staticIds.has(ex.id)?25:role==='finish'?40:role==='focused'?(style==='joint-focused'?34:20):role==='flow'?(style==='integrated-flow'?34:20):26;
         return {lo,hi,pref:Math.min(hi,Math.max(lo,base))};
       };
       const bound=new Map(pool.map(ex=>[ex.id,bounds(ex)]));
@@ -366,12 +369,12 @@
         score-=1.1*(recency.get(ex.id)||0);
         score-=(returning?.7:1.4)*(used.get(ex.id)||0);
         const cluster=clusterOf(ex.id);
-        if(cluster>=0)for(const earlier of NEAR[cluster]) {
+        if(cluster>=0)for(const earlier of near[cluster]) {
           if(earlier===ex.id)continue;
           if(picked.some(item=>item.id===earlier))score-=duration>=30?1:2.5;
-          else if(used.has(earlier))score-=NEAR[cluster].indexOf(ex.id)>NEAR[cluster].indexOf(earlier)?.5:2;
+          else if(used.has(earlier))score-=near[cluster].indexOf(ex.id)>near[cluster].indexOf(earlier)?.5:2;
         }
-        if(STATIC.has(ex.id))score-=.8;
+        if(staticIds.has(ex.id))score-=.8;
         const levels=new Set(picked.map(position));
         if(picked.length&&!levels.has(position(ex)))score-=(role==='finish'?1.2:.3)*levels.size;
         if(!picked.length&&previousLevel!==null&&position(ex)!==previousLevel&&role==='finish')score-=.6;
@@ -399,12 +402,12 @@
           if(!best||score>best.score)best={ex,score,trial,returning};
         };
         for(const ex of remaining)
-          if(!(STATIC.has(ex.id)&&picked.filter(item=>STATIC.has(item.id)).length>=staticCap))consider(ex,false);
+          if(!(staticIds.has(ex.id)&&picked.filter(item=>staticIds.has(item.id)).length>=staticCap))consider(ex,false);
         // Tier 0 keeps a movement to two visits in a stage and three in the session; only a pool too small to
         // fill the time (a restricted or Easy session) widens that in two steps, to four visits in a stage and six in the session at most.
         if(duration>=30&&isMain||!remaining.length)
           for(const ex of base)
-            if(!STATIC.has(ex.id)&&inStage(ex.id)<[2,3,4][tier]&&inStage(ex.id)+(used.get(ex.id)||0)<[3,5,6][tier])consider(ex,true);
+            if(!staticIds.has(ex.id)&&inStage(ex.id)<[2,3,4][tier]&&inStage(ex.id)+(used.get(ex.id)||0)<[3,5,6][tier])consider(ex,true);
         if(!best&&tier<2&&current.hi<budget){tier++;continue;}
         if(!best)break;
         // Stop at the closer of the two lists around the budget, unless the shorter one cannot be dosed to fill it.
@@ -481,7 +484,7 @@
         if(!item.timed||!(item.seconds>=10&&item.seconds<=cap))issues.push(role+':dose-out-of-range:'+ex.id);
         if(ex.impact==='high'||difficulty==='easy'&&ex.impact==='medium')issues.push(role+':impact:'+ex.id);
         if(role==='prep'&&standingAllowed&&ex.bodyPosition!=='standing')issues.push('prep:not-standing:'+ex.id);
-        if(STATIC.has(ex.id)&&role!=='focused'&&role!=='finish')issues.push(role+':static-outside-focus-finish:'+ex.id);
+        if(staticIds.has(ex.id)&&role!=='focused'&&role!=='finish')issues.push(role+':static-outside-focus-finish:'+ex.id);
         const next=occurrences[index+1];
         if(next) {
           if(next.exercise.id===ex.id)issues.push(role+':adjacent-repeat:'+ex.id);
@@ -499,8 +502,33 @@
     issues.push(...coverageIssues(sequence,workout.duration));
     return [...new Set(issues)];
   }
-  // Pure helpers only: the region mapping, emphasis inference/draw and static-hold list (no state, no registration).
-  root.GarageFitMobilityComposer=Object.freeze({REGIONS,regionsOf,inferEmphasis,recentEmphasis,chooseEmphasis,isStatic:id=>STATIC.has(id)});
+    return {compose:composeV2,quality:qualityV2,helpers:Object.freeze({REGIONS,regionsOf,inferEmphasis,recentEmphasis,chooseEmphasis,isStatic:id=>staticIds.has(id)})};
+  }
+  const v2=policy(REGION_MAP,STATIC,NEAR);
+  const v3=policy({...REGION_MAP,
+    'standing-calf-stretch':['lower'],'bent-knee-calf-stretch':['lower'],
+    'seated-ninety-ninety-hip-lift-offs':['lower'],'supine-hamstring-stretch':['lower'],'butterfly-stretch':['lower'],
+    'standing-hinge-and-reach':['lower','upper','trunk'],'side-lying-open-books':['upper','trunk'],
+    'seated-thoracic-extension':['upper','trunk'],'standing-wall-slides':['upper'],'standing-lat-stretch':['upper'],
+    'quadruped-wrist-rocks':['upper'],'downward-facing-dog':['upper','lower'],
+    'upward-facing-dog':['trunk','upper'],'low-cobra-pose':['trunk'],'extended-puppy-pose':['upper','trunk'],
+    'kneeling-hamstring':['lower'],'inside-thigh-stretch':['lower'],'frog-stretch':['lower'],
+    'plank-calf-stretch':['lower'],'side-stretch':['trunk'],'arm-across-pull':['upper']},
+    // Active supported holds in Flow (both Dogs and alternating plank-calf) are intentionally
+    // separate from passive STATIC stretches. Their membership doses and difficulty gates still apply.
+    new Set([...STATIC,'standing-calf-stretch','bent-knee-calf-stretch','supine-hamstring-stretch','butterfly-stretch',
+      'standing-lat-stretch','low-cobra-pose','extended-puppy-pose','kneeling-hamstring','inside-thigh-stretch',
+      'frog-stretch','side-stretch','arm-across-pull']),
+    [...NEAR.map(group=>group.includes('thread-the-needle')?group.concat('side-lying-open-books'):group),
+      ['standing-calf-stretch','bent-knee-calf-stretch','plank-calf-stretch'],
+      ['supine-hamstring-stretch','kneeling-hamstring'],['butterfly-stretch','inside-thigh-stretch','frog-stretch'],
+      ['ninety-ninety-hip-switches','seated-ninety-ninety-hip-lift-offs'],
+      ['wall-angel','standing-wall-slides'],['standing-side-bends','side-stretch'],
+      ['standing-lat-stretch','extended-puppy-pose','childs-pose'],
+      ['low-cobra-pose','downward-facing-dog','upward-facing-dog','downward-upward-dog']]);
+  // Public helpers retain their v2 default; callers interpreting v3 evidence choose its local policy explicitly.
+  root.GarageFitMobilityComposer=Object.freeze({...v2.helpers,forVersion:version=>{if(version===2)return v2.helpers;if(version===3)return v3.helpers;throw new RangeError('Unsupported regional Mobility policy: '+version);}});
   G.registerFamilyComposer(FAMILY,1,composeV1,qualityV1,stageSection);
-  G.registerFamilyComposer(FAMILY,2,composeV2,qualityV2,stageSection);
+  G.registerFamilyComposer(FAMILY,2,v2.compose,v2.quality,stageSection);
+  G.registerFamilyComposer(FAMILY,3,v3.compose,v3.quality,stageSection);
 })(typeof window==='undefined'?globalThis:window);

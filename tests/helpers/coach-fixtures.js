@@ -104,8 +104,9 @@ function sessionDraft(overrides) {
 // Fixed 286-entry input for the precise pre-CD1 setup-fitting regression.
 // Live catalogue reachability and broad quality matrices continue to use production.
 function catalogueBeforeCD1(catalogue) {
-  const added=new Set(['power-march','step-jacks','standing-knee-drive-march','alternating-hamstring-curl-steps','side-step-knee-lift','forward-back-aerobic-steps','low-impact-speed-skaters','alternating-straight-punches','boxer-step-and-punches','alternating-hooks','boxing-slip-and-punch','step-back-burpee','squat-to-alternating-knee-drive','high-knee-power-steps','low-pogo-hops','dumbbell-alternating-punch-out','dumbbell-squat-to-calf-raise','kettlebell-deadlift-to-calf-raise']);
+  const added=new Set(['standing-calf-stretch','bent-knee-calf-stretch','seated-ninety-ninety-hip-lift-offs','supine-hamstring-stretch','butterfly-stretch','standing-hinge-and-reach','side-lying-open-books','seated-thoracic-extension','standing-wall-slides','standing-lat-stretch','quadruped-wrist-rocks','downward-facing-dog','upward-facing-dog','low-cobra-pose','extended-puppy-pose','power-march','step-jacks','standing-knee-drive-march','alternating-hamstring-curl-steps','side-step-knee-lift','forward-back-aerobic-steps','low-impact-speed-skaters','alternating-straight-punches','boxer-step-and-punches','alternating-hooks','boxing-slip-and-punch','step-back-burpee','squat-to-alternating-knee-drive','high-knee-power-steps','low-pogo-hops','dumbbell-alternating-punch-out','dumbbell-squat-to-calf-raise','kettlebell-deadlift-to-calf-raise']);
   const copy=JSON.parse(JSON.stringify(Object.fromEntries(Object.entries(catalogue).filter(([id])=>!added.has(id)))));
+  copy['kneeling-hamstring'].family=null;
   Object.assign(copy['walk-plank-push-up'],{warmup:true,warmupPhase:'late',warmupPrescription:{type:'timed',value:20},warmupAreas:['hips','shoulders'],warmupEstimatedSeconds:20});
   return copy;
 }

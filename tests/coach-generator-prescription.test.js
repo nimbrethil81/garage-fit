@@ -359,3 +359,20 @@ test('prescribed generation is deterministic and hard invalid contracts expose s
   assertInfeasible(rx({schemaVersion:9}),'invalid-prescription');
   assertInfeasible(rx({movementPriorities:[{pattern:'push',weight:100000}]}),'invalid-prescription');
 });
+
+test('light Mobility crossover can prepare and recover Coach anchors without entering Main (#272)',()=>{
+  const p=rx({duration:30,equipment:[],requiredAnchors:[anchor({exerciseId:'air-squat'})]});
+  const seen=new Set();
+  // Shared preparation/recovery stays independent of required anchors and Main filler.
+  for(const seed of [1,7,31,42,73]) {
+    const w=generate(p,seed),placements=w.prescriptionOutcome.requiredAnchorPlacements;
+    assert.ok(placements.some(item=>item.exerciseId==='air-squat'));
+    assert.ok(w.estimatedSeconds<=1800);
+    for(const kind of ['warmup','cooldown'])for(const ex of w[kind].exercises)
+      if(['standing-hinge-and-reach','standing-wall-slides','standing-calf-stretch','bent-knee-calf-stretch','supine-hamstring-stretch'].includes(ex.id)) {
+        seen.add(ex.id);assert.equal(ex.generator,false);assert.ok(ex.prescription.value<=40);
+      }
+    assert.ok(mainIds(w).every(id=>!['standing-hinge-and-reach','standing-wall-slides','standing-calf-stretch','bent-knee-calf-stretch','supine-hamstring-stretch'].includes(id)));
+  }
+  assert.ok(seen.size>0,'actual shared Coach preparation/recovery route');
+});

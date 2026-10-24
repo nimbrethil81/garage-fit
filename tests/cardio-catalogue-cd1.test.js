@@ -58,7 +58,8 @@ test('CD1 has eighteen distinct cardio-led entries, fifteen bodyweight, with rev
 
 test('CD1 preserves a complete short Easy Cardio interval with squat and conditioning selection roles',()=>{
   const w=G.generate({catalogue:C,duration:10,focus:'cardio',difficulty:'easy',bodyFocus:'full-body',equipment:[],random:rng(260931851)});
-  assert.equal(w.estimatedSeconds,545);
+  assert.equal(w.estimatedSeconds,540);
+  assert.equal(w.main.estimatedDurationSeconds,390,'catalogue growth changes preparation, not the full Main interval');
   assert.deepEqual(G.validateMain(w.main,C,[],G.BUDGETS[10].main),[]);
   const list=exercises(w);
   assert.ok(new Set(list.map(ex=>ex.id)).size>=3);
