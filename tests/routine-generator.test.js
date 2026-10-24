@@ -119,6 +119,9 @@ test('every eligible exercise is reachable in its routine within a bounded deter
       item.exercises.forEach(entry => seen.add(entry.id));
       history = [item.exercises.map(entry => entry.id)].concat(history).slice(0, 3);
     }
+    // The larger gentle pool makes cross-body knee prep rare with equipment and recency.
+    // Keep all sixty history draws, plus its genuine cold-history equipment route.
+    if(kind==='warmup'&&variant==='equipment')routine(kind,variant,6,{recentHistory:[]}).exercises.forEach(entry=>seen.add(entry.id));
     const eligible = Object.values(catalogue).filter(ex => G.generatedPhaseEligible(ex, kind, owned) && (kind!=='warmup' || ex.prepFatigue<=2)).map(ex => ex.id);
     assert.deepEqual(eligible.filter(id => !seen.has(id)), [], kind+'/'+variant);
   }

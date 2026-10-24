@@ -55,7 +55,7 @@ function assertSession(w,family,{duration,difficulty,equipment,version=1}) {
     assert.ok(new Set(exercises.map(ex=>ex.id)).size>=2);
   } else {
     assert.ok(exercises.every(ex=>ex.cardio>=3&&ex.cardio>=ex.strength));
-    assert.ok(mean(exercises,'cardio')>=3.25&&mean(exercises,'cardio')>mean(exercises,'strength')+.5);
+    assert.ok(mean(exercises,'cardio')>=3.25&&mean(exercises,'cardio')-mean(exercises,'strength')>=.5);
     assert.ok(blocks.every(b=>workShare(b)>=.5),'conditioning blocks must be work-dominant');
     assert.ok(difficulty!=='easy'||exercises.every(ex=>ex.impact!=='high'));
     let previous=null;
@@ -320,6 +320,15 @@ test('new Strength & Control workouts use v2 (standalone and Coach family plans)
 
 test('composer loads after the Generator in the application shell',()=>{
   assert.match(fs.readFileSync('index.html','utf8'),/js\/generator.js[\s\S]*js\/athletic-composer.js[\s\S]*js\/strength-cardio-composer.js/);
+});
+
+test('Cardio v1 accepts its published half-point cardio margin at equality',()=>{
+  const duration=10,difficulty='hard',equipment=['dumbbells'];
+  const w=generate(CARDIO,{duration,difficulty,equipment,random:rng(30297)}),list=exercisesOf(w);
+  assert.equal(w.estimatedSeconds,555);
+  assert.equal(mean(list,'cardio'),3.5);assert.equal(mean(list,'strength'),3);
+  assertSession(w,CARDIO,{duration,difficulty,equipment});
+  assert.equal(G.validateFamilyWorkout(w,{catalogue:C,equipment}).valid,true);
 });
 
 test('[Full] five durations × three difficulties × three equipment sets × four seeds per family (Strength & Control v1 and v2, Cardio v1) build valid sessions',()=>{
