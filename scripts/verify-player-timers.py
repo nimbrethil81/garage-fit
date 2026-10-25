@@ -93,6 +93,7 @@ def native_entry_checks(browser,url):
         print('Entry passed:',name,flush=True)
     for kind in ['warmup','cooldown']:
         page=fresh(browser,url,(390,844))
+        page.evaluate("showLanding('home')")
         page.locator('#tile-'+kind).click()
         for _ in range(3): pulse(page,'state.timer')
         controls(page,'routineRing','state.paused','state.remaining','state.timer','skipPhaseBtn','routinePause')

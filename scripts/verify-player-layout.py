@@ -2,11 +2,13 @@
 
 Serve the checkout, then run:
   python scripts/verify-player-layout.py --url http://127.0.0.1:8000 --output /tmp/player-layout
+Set CHROMIUM_PATH to use a Chromium binary other than /usr/bin/chromium.
 No browser dependency is added to the app or its Node test suite.
 """
 import argparse
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -46,9 +48,29 @@ METRICS = """({optional=false,allowReflow=false}={})=>{
  if(primary.querySelector('.next-preview,#routineNextName,#completeMovementNext')||!preview)failures.push('preview inside primary');
  else if(getComputedStyle(preview).visibility==='visible'&&(box(preview).bottom>pb.y+1||preview.textContent.trim()==='Next:'))failures.push('preview misplaced or empty');
  if(preview&&new Set([preview,...preview.querySelectorAll('*')].map(e=>getComputedStyle(e).color)).size>1)failures.push('preview colour not uniform');
- const previous=controls.querySelector('#previousWorkoutBtn'),sameRow=previous&&visible(previous)&&Math.abs(box(previous).y-pb.y)<1;
- if(!sameRow&&Math.abs(pb.x+pb.width/2-nav.x-nav.width/2)>1)failures.push('primary off centre');
- if(!sameRow&&v.width<540&&Math.abs(pb.width/nav.width-.7)>.02)failures.push('primary not ~70% wide');
+ // GF-R1 (#280): where Previous exists (workout player) Previous is LEFT of the
+ // primary action in ONE row, at every size; only the routine player, which has no
+ // Previous control, centres its primary action.
+ const previous=controls.querySelector('#previousWorkoutBtn');
+ if(previous){
+   const pr=box(previous),portrait=v.width<540&&p.clientHeight>580;
+   if(!visible(previous))failures.push('previous not visible');
+   else{
+     if(Math.abs(pr.y-pb.y)>1||Math.abs(pr.bottom-pb.bottom)>1)failures.push('previous and primary not in one row');
+     if(pr.right>pb.x+1)failures.push('previous not left of primary');
+     if(pr.x<nav.x-1||pb.right>nav.right+1)failures.push('previous/primary outside navigation');
+     if(pr.bottom>pb.y&&pr.y<pb.bottom&&pr.right>pb.x+1)failures.push('previous overlaps primary');
+     if(portrait){
+       if(pr.width<100||pb.width<100)failures.push('portrait row buttons too narrow');
+       if(pr.x+pr.width/2>nav.x+nav.width/2||pb.x+pb.width/2<nav.x+nav.width/2)failures.push('portrait row not left/right');
+       const preview=controls.querySelector('.next-preview');
+       if(box(preview).bottom>Math.min(pr.y,pb.y)+1)failures.push('preview not above navigation row');
+     }
+   }
+ }else{
+   if(Math.abs(pb.x+pb.width/2-nav.x-nav.width/2)>1)failures.push('primary off centre');
+   if(v.width<540&&Math.abs(pb.width/nav.width-.7)>.02)failures.push('primary not ~70% wide');
+ }
  let ring;
  if(!optional&&!allowReflow){
   const items=[...stage.querySelectorAll(':scope > *, .routine-main-column > *, .workout-main-column > *, .workout-timer-column > *')].filter(e=>visible(e)&&e.textContent.trim()&&box(e).height>0);
@@ -224,10 +246,10 @@ def main():
     args=parser.parse_args();args.output.mkdir(parents=True,exist_ok=True)
     report=[];blocks=fixture_blocks()
     with sync_playwright() as p:
-        browser=p.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox'])
+        browser=p.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH','/usr/bin/chromium'),args=['--no-sandbox'])
         instruction_speech_checks(browser,args.url)
         timers.native_entry_checks(browser,args.url)
-        for size in [(375,667),(393,852),(430,932),(375,540),(320,568),(667,375)]:
+        for size in [(375,667),(390,844),(393,852),(430,932),(375,540),(320,568),(360,640),(667,375)]:
             label=f'{size[0]}x{size[1]}'
             page=timers.fresh(browser,args.url,size);page.add_style_tag(content=SAFE_AREAS)
             page.evaluate(timers.ROUTINE)
@@ -243,6 +265,11 @@ def main():
             for workout in ['workout300','cindy']:
                 page.evaluate(f"startFixedWorkout('{workout}')")
                 check(page,report,label+'-'+workout);capture(page,args.output,label+'-'+workout)
+                # Finish workout is the longest primary label; it must stay in the row.
+                page.evaluate("document.getElementById('completeMovementAction').textContent='Finish workout'")
+                check(page,report,label+'-'+workout+'-finish-label')
+                assert page.locator('#completeMovementBtn').text_content().strip()=='Finish workout'
+                page.evaluate("document.getElementById('completeMovementAction').textContent='Next'")
             # Fixed reps accept large explicit targets without ellipsising them.
             page.evaluate("FIXED_WORKOUTS.layoutTarget={...FIXED_WORKOUTS.workout300,id:'layoutTarget',exercises:[{...FIXED_WORKOUTS.workout300.exercises[0],reps:999999}]};startFixedWorkout('layoutTarget')")
             check(page,report,label+'-large-rep-target')
