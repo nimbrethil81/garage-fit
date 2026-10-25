@@ -12,6 +12,13 @@ capabilities:
     enabled: true
   testing_effectiveness:
     enabled: true
+  security_access_control:
+    enabled: true
+
+security_boundaries:
+  - Static GitHub Pages publication of the repository root; no workflow or deploy config in the repo, so publication source and repository permissions are hosted settings (see exclusions).
+  - Frontend trust surface is index.html, which loads only same-origin scripts and styles, plus manifest.webmanifest; there is no service worker.
+  - Browser-local Coach history is persisted only through js/coach-store.js and validated by js/coach-model.js; no import/export path or server exists.
 
 canonical_sources:
   - concern: Agent/development delivery rules
