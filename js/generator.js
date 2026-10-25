@@ -1777,6 +1777,19 @@
   }
   // Family blocks are authorised against the central policy and canonical catalogue,
   // never against edited metadata in the block. No-family validation stays unchanged.
+  // Saved family Main occurrences retain their published execution targets. Shared prep
+  // declarations can evolve independently; they neither authorise family membership nor
+  // change Main execution. All other descriptors still have to match the canonical source.
+  const FAMILY_PREPARATION_FIELDS=new Set(['warmup','warmupPhase','warmupPrescription','warmupEstimatedSeconds',
+    'warmupAreas','kneeMobility','rampup','rampupPrescription','rampupEstimatedSeconds',
+    'prepIntensity','prepFatigue','prepComplexity','cooldown','stretchTargets']);
+  function familyMetadataDiffers(source, exercise) {
+    return Object.keys(source).some(key=>!FAMILY_PREPARATION_FIELDS.has(key) &&
+      // Older catalogue copies can predate an explicit relationship or difficulty.
+      // Eligibility and quality always use today's canonical values for these fields.
+      !(!source.main&&!source.generator&&['family','difficulty'].includes(key)&&exercise[key]==null&&source[key]!=null) &&
+      JSON.stringify(source[key])!==JSON.stringify(exercise[key]));
+  }
   function validateFamilyBlock(block, catalogue, owned) {
     if(block.familyContext==null)return [];
     catalogue=catalogue||root.GarageFitData&&root.GarageFitData.exercises||{};
@@ -1787,7 +1800,7 @@
       try{
         if(!source||!familyExerciseEligible(source,owned,undefined,block.familyContext)
           ||!protocolCompatible(source,block.protocol,block.familyContext))issues.push('family:ineligible:'+(exercise&&exercise.id));
-        if(source&&(exercise.coachAnchor||Object.keys(source).some(key=>JSON.stringify(source[key])!==JSON.stringify(exercise[key]))))issues.push('family:modified-exercise:'+exercise.id);
+        if(source&&(exercise.coachAnchor||familyMetadataDiffers(source,exercise)))issues.push('family:modified-exercise:'+exercise.id);
         if(source&&block.occurrenceTargets===undefined){
           const p=block.prescription||{},targets=block.protocol==='ladder'?(p.repSteps||[]).map(value=>({type:'reps',value}))
             :block.protocol==='pyramid'?(p.steps||[]).map(step=>({type:'reps',value:step.reps}))
@@ -1979,7 +1992,7 @@
     return false;
   }
 
-  function buildSection(catalogue, kind, targetSeconds, owned, random) {
+  function buildSection(catalogue, kind, targetSeconds, owned, random, maximumSeconds=targetSeconds+5) {
     const eligible = Object.values(catalogue).filter(exercise => generatedPhaseEligible(exercise,kind,owned)).map(exercise => {
       if (kind==='warmup' && exercise.warmupPrescription) return Object.assign({},exercise,{prescription:Object.assign({},exercise.warmupPrescription),estimatedSeconds:exercise.warmupEstimatedSeconds || exercise.warmupPrescription.value});
       return exercise;
@@ -1988,7 +2001,7 @@
     const picked = [], restSeconds = 5;
     let total = 0;
     while (candidates.length && total < targetSeconds-10) {
-      const fitting = candidates.filter(exercise => total + exercise.estimatedSeconds + (picked.length?restSeconds:0) <= targetSeconds+5);
+      const fitting = candidates.filter(exercise => total + exercise.estimatedSeconds + (picked.length?restSeconds:0) <= maximumSeconds);
       if (!fitting.length) break;
       const index = Math.floor(random()*fitting.length);
       const exercise = fitting[index];
@@ -3004,7 +3017,11 @@
     const {catalogue,selectionCatalogue,budget}=prepared,random=context.random||Math.random,history=context.history||[];
     const main=composePrescribedMain(prepared,random,history),mainExercises=main.blocks.flatMap(block=>block.exercises);
     const preparation=buildPreparation(selectionCatalogue,budget,context.equipment,main.blocks[0].exercises,context.focus,random,mainExercises,context.difficulty);
-    const cooldown=buildSection(selectionCatalogue,'cooldown',budget.cooldown,context.equipment,random);
+    // Cool-down's usual five-second fitting tolerance must fit the actual remaining
+    // prescription budget too; preparation metadata must not push fixed Coach doses over it.
+    const cooldownMaximum=Math.min(budget.cooldown+5,(rx.maximumDurationSeconds??context.duration*60)
+      -preparation.warmup.estimatedSeconds-preparation.rampup.estimatedSeconds-main.estimatedDurationSeconds);
+    const cooldown=buildSection(selectionCatalogue,'cooldown',budget.cooldown,context.equipment,random,cooldownMaximum);
     const workout={schemaVersion:2,id:'generated-'+Date.now(),duration:context.duration,focus:context.focus,bodyFocus:context.bodyFocus,difficulty:context.difficulty,
       estimatedSeconds:preparation.warmup.estimatedSeconds+preparation.rampup.estimatedSeconds+main.estimatedDurationSeconds+cooldown.estimatedSeconds,
       warmup:{...preparation.warmup,exercises:preparation.warmup.exercises.map(copyExercise)},
@@ -3233,6 +3250,15 @@
     if(!catalogue){technicalIssues.push('catalogue:unavailable');return result();}
     if(!definition.feasibilityRequirements.supportedDurations.includes(duration)||!definition.feasibilityRequirements.supportedDifficulties.includes(difficulty))
       technicalIssues.push('configuration:unsupported');
+    // Use canonical relationship/difficulty enrichment for validation without rewriting
+    // saved occurrences or their prescriptions. Missing old descriptors cannot bypass caps.
+    const sourceBlocks=mainBlocks(workout);
+    const currentBlocks=sourceBlocks.map(block=>({...block,exercises:(block.exercises||[]).map(exercise=>{
+      const source=catalogue[exercise&&exercise.id],enriched={};
+      if(source&&!source.main&&!source.generator)for(const key of ['family','difficulty'])if(exercise[key]==null&&source[key]!=null)enriched[key]=source[key];
+      return Object.keys(enriched).length?{...exercise,...enriched}:exercise;
+    })}));
+    workout={...workout,main:{...workout.main,blocks:currentBlocks},blocks:currentBlocks};
     const allBlocks=mainBlocks(workout),constraints=workout.familyConstraints||{};
     // An embedded benchmark is checked on its own; it never counts towards the family's identity.
     const blocks=allBlocks.filter(block=>block.benchmark==null);
@@ -3245,7 +3271,7 @@
     for(const block of blocks)for(const exercise of block.exercises||[]){
       const source=catalogue[exercise&&exercise.id];
       if(!source)continue; // validateMain reports unknown exercises.
-      if(exercise.coachAnchor||Object.keys(source).some(key=>JSON.stringify(source[key])!==JSON.stringify(exercise[key])))technicalIssues.push(block.id+':modified-exercise:'+source.id);
+      if(exercise.coachAnchor||familyMetadataDiffers(source,exercise))technicalIssues.push(block.id+':modified-exercise:'+source.id);
       if(!generatedPhaseEligible(source,'main',owned,difficulty,block.familyContext))technicalIssues.push(block.id+':ineligible:'+source.id);
       if(Array.isArray(constraints.excludedImpact)&&constraints.excludedImpact.includes(source.impact))technicalIssues.push(block.id+':excluded-impact:'+source.id);
       if(Array.isArray(constraints.bodyPositions)&&!constraints.bodyPositions.includes(source.bodyPosition))technicalIssues.push(block.id+':excluded-position:'+source.id);
@@ -3630,7 +3656,8 @@
       const part={...workout[section],exercises:workout[section].exercises.map((item,index)=>index===exerciseIndex?replacement:item),
         estimatedSeconds:workout[section].estimatedSeconds-current.estimatedSeconds+replacement.estimatedSeconds};
       const candidate=setupBudgetCandidate({...workout,setupEquipment:owned},mainBlocks(workout),section,part);
-      return hasConfiguredEquipment(candidate)?withinSetupBudget(candidate,workout.sessionPrescription):candidate.estimatedSeconds<=workout.sessionPrescription.maximumDurationSeconds;
+      return hasConfiguredEquipment(candidate)?withinSetupBudget(candidate,workout.sessionPrescription):
+        !workout.sessionPrescription || workout.sessionPrescription.maximumDurationSeconds==null || candidate.estimatedSeconds<=workout.sessionPrescription.maximumDurationSeconds;
     });
     if(workout.workoutFamilyId!=null)eligible=eligible.filter(ex=>{
       const candidate=JSON.parse(JSON.stringify(workout));
@@ -3647,15 +3674,16 @@
         eligible=eligible.filter(kneeMobilityQualified); if(!eligible.length) return workout;
       }
       const demand=lowerBodyDemand(mainBlocks(workout).flatMap(block=>block.exercises),workout.focus);
-      if (meaningfulLowerPrep(current) && others.filter(meaningfulLowerPrep).length<lowerPrepTarget(count,demand,workout.focus)) {
-        const lowerEligible=eligible.filter(meaningfulLowerPrep); if(lowerEligible.length) eligible=lowerEligible;
-      }
-      if (upperTrunkPrep(current) && others.filter(upperTrunkPrep).length<upperTrunkTarget(count)) {
-        const upperEligible=eligible.filter(upperTrunkPrep); if(upperEligible.length) eligible=upperEligible;
-      }
-      if (others.filter(ex=>!lowerJointCoverage(ex).length).length>=upperTrunkOnlyCap(count)) {
-        const lowerInvolved=eligible.filter(ex=>lowerJointCoverage(ex).length); if(lowerInvolved.length) eligible=lowerInvolved;
-      }
+      // A qualifying knee movement may also supply lower/upper coverage. Apply these
+      // obligations together: sequential soft filters can keep a knee-only replacement
+      // after discovering it cannot replace the original movement's other coverage.
+      const lowerRequired=Math.min(lowerPrepTarget(count,demand,workout.focus),workout.warmup.exercises.filter(meaningfulLowerPrep).length);
+      const upperRequired=Math.min(upperTrunkTarget(count),workout.warmup.exercises.filter(upperTrunkPrep).length);
+      eligible=eligible.filter(ex=>others.filter(meaningfulLowerPrep).length+(meaningfulLowerPrep(ex)?1:0)>=lowerRequired &&
+        others.filter(upperTrunkPrep).length+(upperTrunkPrep(ex)?1:0)>=upperRequired &&
+        others.filter(item=>!lowerJointCoverage(item).length).length+(!lowerJointCoverage(ex).length?1:0)<=
+          Math.max(upperTrunkOnlyCap(count),workout.warmup.exercises.filter(item=>!lowerJointCoverage(item).length).length));
+      if(!eligible.length) return workout;
     }
     // The replacement inherits the slot's total time, so prefer candidates whose sides can
     // share it evenly in whole 5-second prescription steps.

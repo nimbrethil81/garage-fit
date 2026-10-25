@@ -28,8 +28,8 @@ const ADDED = ['marching-on-the-spot','standing-knee-curls','shallow-knee-bends'
   'side-step-touches','leg-swings-forward-back','leg-swings-side','hamstring-sweeps','shoulder-rolls','standing-side-bends',
   'band-external-rotation','trx-lateral-weight-shift'];
 
-test('the reviewed knee-mobility qualifier is explicit, not inferred from a knees warm-up area', () => {
-  assert.deepEqual(Object.values(catalogue).filter(G.kneeMobilityQualified).map(ex => ex.id), ['standing-knee-curls']);
+test('the reviewed knee-mobility qualifiers are explicit, not inferred from a knees warm-up area', () => {
+  assert.deepEqual(Object.values(catalogue).filter(G.kneeMobilityQualified).map(ex => ex.id).sort(), ['seated-knee-extensions','standing-knee-curls','supine-heel-slides']);
   // Squats, lunges, jogging, jumping, marching and stepping all list the knees but load,
   // bounce or only incidentally bend them.
   for (const id of ['air-squat','shallow-knee-bends','step-back-lunge','trx-lunge-warmup','bum-kicks','jumping-jacks','high-knees',
@@ -66,7 +66,7 @@ test('every generated full-workout warm-up contains a qualifying knee-mobility e
     const workout = G.generate(options);
     const warmup = workout.warmup.exercises;
     const label = `${duration}/${focus}/${equipment.join('+')||'bodyweight'}/${seed}: ${ids(warmup)}`;
-    assert.equal(knee(warmup).length, 1, label);
+    assert.ok(knee(warmup).length>=1, label);
     assert.equal(workout.warmup.diagnostics, undefined, label);
     assert.ok(!G.validatePreparation(workout.warmup, workout.rampup, workout.main.blocks[0].exercises).includes('warmup:missing-knee-mobility'), label);
     checked++;
@@ -88,7 +88,7 @@ test('Coach session prescriptions keep the knee-mobility warm-up', () => {
   for (const duration of [20,30,45]) for (let seed=1;seed<=6;seed++) {
     const rx = fixtures.prescription({duration, equipment:KIT, movementPriorities:[], requiredAnchors:[fixtures.anchor({allowedProtocols:['rounds']})]});
     const workout = G.generate({catalogue, sessionPrescription:rx, random:random(seed)});
-    assert.equal(knee(workout.warmup.exercises).length, 1, ids(workout.warmup.exercises));
+    assert.ok(knee(workout.warmup.exercises).length>=1, ids(workout.warmup.exercises));
   }
 });
 
@@ -96,19 +96,19 @@ test('a warm-up swap never removes the only knee-mobility exercise', () => {
   for (let seed=1;seed<=20;seed++) {
     const workout = G.generate({catalogue, duration:[10,20,30,45][seed%4], focus:'balanced', equipment:[], random:random(seed)});
     for (let index=0;index<workout.warmup.exercises.length;index++) {
-      const before = workout.warmup.exercises[index], estimated = workout.warmup.estimatedSeconds;
+      const before = workout.warmup.exercises[index], estimated = workout.warmup.estimatedSeconds, sole = knee(workout.warmup.exercises).length===1;
       G.swapPreparation(workout, 'warmup', index, {catalogue, equipment:[], random:random(seed+index)});
-      assert.equal(knee(workout.warmup.exercises).length, 1, ids(workout.warmup.exercises));
-      // With a single qualifier in the catalogue its slot is kept rather than emptied of the obligation.
-      if (G.kneeMobilityQualified(before)) assert.equal(workout.warmup.exercises[index].id, before.id);
+      assert.ok(knee(workout.warmup.exercises).length>=1, ids(workout.warmup.exercises));
+      // A sole qualifying slot must retain the obligation even when its identity changes.
+      if (sole && G.kneeMobilityQualified(before)) assert.ok(G.kneeMobilityQualified(workout.warmup.exercises[index]));
       assert.equal(workout.warmup.estimatedSeconds, estimated);
     }
   }
 });
 
-test('a second qualifier can replace the knee-mobility slot in a swap', () => {
+test('a second qualifier with matching coverage can replace the knee-mobility slot in a swap', () => {
   const second = Object.assign({}, catalogue['standing-knee-curls'], {id:'test-knee-extensions', name:'Test knee extensions'});
-  const extended = withExercises({[second.id]:second});
+  const extended = withExercises({[second.id]:second}, ['seated-knee-extensions','supine-heel-slides']);
   assert.deepEqual(G.validateCatalogue(extended), []);
   let sole = 0;
   for (let seed=1;seed<=20;seed++) {
@@ -125,7 +125,7 @@ test('a second qualifier can replace the knee-mobility slot in a swap', () => {
 });
 
 test('a pool without any qualifier yields an explicit diagnostic instead of a valid warm-up', () => {
-  const constrained = withExercises({}, ['standing-knee-curls']);
+  const constrained = withExercises({}, Object.values(catalogue).filter(G.kneeMobilityQualified).map(ex=>ex.id));
   const warmup = G.selectWarmup(constrained, 115, [], [catalogue['goblet-squat']], random(3), {focus:'balanced'});
   assert.ok(warmup.exercises.length>0);
   assert.deepEqual(warmup.diagnostics, ['warmup:knee-mobility-unavailable']);

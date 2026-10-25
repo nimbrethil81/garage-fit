@@ -101,11 +101,36 @@ function sessionDraft(overrides) {
   }, overrides);
 }
 
+// Restore the approved pre-P1 catalogue for historical policy snapshots only.
+// Live-catalogue reachability and coverage tests continue to use production metadata.
+function catalogueBeforePrepP1(catalogue) {
+  const added=new Set(['seated-knee-extensions','wall-ankle-dorsiflexion-rocks','ankle-alphabet',
+    'standing-lateral-weight-shifts','standing-scapular-protraction-retraction','wall-push-up-plus',
+    'wrist-circles','standing-forearm-rotations','standing-thoracic-rotation-with-reach',
+    'standing-cross-body-reaches','alternating-overhead-reach-side-shift',
+    'seated-spinal-rotation-stretch','supine-knees-to-chest-stretch']);
+  const copy=JSON.parse(JSON.stringify(Object.fromEntries(Object.entries(catalogue).filter(([id])=>!added.has(id)))));
+  for(const id of ['ankle-circles','kneeling-ankle-rocks','trx-lateral-weight-shift'])copy[id].family=null;
+  for(const id of ['quadruped-thoracic-rotation','controlled-shoulder-rotations','side-lying-open-books',
+    'seated-thoracic-extension','quadruped-wrist-rocks','four-square-steps']) {
+    Object.assign(copy[id],{warmup:false,warmupPhase:null,warmupAreas:[],warmupPrescription:null,warmupEstimatedSeconds:null,
+      rampup:false,rampupPrescription:null,rampupEstimatedSeconds:null,prepIntensity:null,prepFatigue:null,prepComplexity:null,difficulty:null});
+  }
+  for(const id of ['wall-push-up','ring-scapular-row'])Object.assign(copy[id],{rampup:false,rampupPrescription:null,
+    rampupEstimatedSeconds:null,prepIntensity:null,prepFatigue:null,prepComplexity:null});
+  Object.assign(copy['standing-hinge-and-reach'],{difficulty:null,rampup:false,rampupPrescription:null,rampupEstimatedSeconds:null});
+  for(const id of ['butterfly-stretch','standing-lat-stretch','low-cobra-pose','extended-puppy-pose'])
+    Object.assign(copy[id],{cooldown:false,stretchTargets:[]});
+  Object.assign(copy['supine-heel-slides'],{kneeMobility:false,warmupAreas:['hips','trunk']});
+  Object.assign(copy['star-jumps'],{rampup:true,rampupPrescription:{type:'timed',value:35,minValue:25,maxValue:45},rampupEstimatedSeconds:35});
+  return copy;
+}
+
 // Fixed 286-entry input for the precise pre-CD1 setup-fitting regression.
 // Live catalogue reachability and broad quality matrices continue to use production.
 function catalogueBeforeCD1(catalogue) {
   const added=new Set(['standing-calf-stretch','bent-knee-calf-stretch','seated-ninety-ninety-hip-lift-offs','supine-hamstring-stretch','butterfly-stretch','standing-hinge-and-reach','side-lying-open-books','seated-thoracic-extension','standing-wall-slides','standing-lat-stretch','quadruped-wrist-rocks','downward-facing-dog','upward-facing-dog','low-cobra-pose','extended-puppy-pose','power-march','step-jacks','standing-knee-drive-march','alternating-hamstring-curl-steps','side-step-knee-lift','forward-back-aerobic-steps','low-impact-speed-skaters','alternating-straight-punches','boxer-step-and-punches','alternating-hooks','boxing-slip-and-punch','step-back-burpee','squat-to-alternating-knee-drive','high-knee-power-steps','low-pogo-hops','dumbbell-alternating-punch-out','dumbbell-squat-to-calf-raise','kettlebell-deadlift-to-calf-raise']);
-  const copy=JSON.parse(JSON.stringify(Object.fromEntries(Object.entries(catalogue).filter(([id])=>!added.has(id)))));
+  const copy=JSON.parse(JSON.stringify(Object.fromEntries(Object.entries(catalogueBeforePrepP1(catalogue)).filter(([id])=>!added.has(id)))));
   copy['kneeling-hamstring'].family=null;
   Object.assign(copy['walk-plank-push-up'],{warmup:true,warmupPhase:'late',warmupPrescription:{type:'timed',value:20},warmupAreas:['hips','shoulders'],warmupEstimatedSeconds:20});
   return copy;
@@ -135,4 +160,4 @@ function catalogueBeforeC1(catalogue) {
   return copy;
 }
 
-module.exports = { programmeState, anchor, prescription, sessionResult, sessionDraft, catalogueBeforeCD1, catalogueBeforeC1 };
+module.exports = { programmeState, anchor, prescription, sessionResult, sessionDraft, catalogueBeforeCD1, catalogueBeforeC1, catalogueBeforePrepP1 };
