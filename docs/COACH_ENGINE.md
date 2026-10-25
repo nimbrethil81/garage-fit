@@ -1005,3 +1005,59 @@ Setup grouping and ring-adjustment transitions come from the shared Generator
 (#113/#114); Coach adds no ring rules. `tests/rings-coach-programmes.test.js`
 covers the matrix above, equipment on/off, seeded workouts in all three programmes,
 setup compatibility, timing, recovery and history attribution.
+
+
+### Tennis v9: distinct strength and staged movement (#286)
+
+New starts pin Tennis v9 and capability mapping v5. Normal movement-conditioning,
+movement-power and conditioning-resilience sessions choose the existing Athletic
+Movement v5 family plan, with no required strength anchors. Strength/full-body
+roles retain the same four anchor identities, selecting at most 1/1/2/2/3 for
+10/15/20/30/45 minutes. Strength progression still requires comparable performed
+anchor work. Movement work changes neither anchor identities nor targets.
+
+Athletic owns preparation, footwork, control, integrated effort and recovery;
+its existing family gate, player, timing, swaps and room/impact/difficulty rules
+apply. Home space is the default; movement room must be explicitly confirmed.
+High impact stays excluded by default even on Hard. There is no automatic drill
+intensity progression, extra tracking system, catalogue addition or new composer.
+Mapping v5 reviews only in-place lateral control, balance and light repeated
+stepping. It grants neither court-speed braking nor tennis-skill improvement.
+
+Lighter/readiness, consolidation, feedback and refine/reduced/final event days
+retain the existing constrained Tennis prescription path with zero movement-role
+strength anchors. Explicit caller avoids also use this path, because the family
+contract deliberately cannot carry generic avoids. A visible warning explains the
+controlled alternative. Rest, shortfalls and role fallback remain explicit.
+Family generation failures stay explained failures; no generic strength filler is
+silently substituted. The inexpensive preflight is configuration feasibility,
+not a promise that every constrained family can be composed.
+
+Family role and meaningful-session credit require every planned Main occurrence
+to have completed derived performed evidence, with actual footwork, control and
+integrated membership. This deliberately conservative rule avoids inventing a new
+partial-dose threshold: unfinished Main still contributes its factual exercise
+coverage, but earns no rotation/session count. Previews and skipped work earn
+neither. No sport skill or high-impact clearance is inferred. Existing v1–v8
+instances, drafts, results and mappings remain pinned. There is no in-place
+upgrade route: the existing Finish programme / Start programme workflow retains
+old history but starts a new instance, rather than migrating targets.
+
+Seeded before/after examples: seed 31, Balanced, 2/week, Normal, dumbbells,
+small-space default, 30 minutes, 1 and 4 October 2026. The first strength session
+is explicitly confirmed before planning the movement role. Times below are
+resolved block seconds; whole-session totals also include preparation/recovery
+and transitions. These are simulated confirmations for verification, not user
+performance data.
+
+| Version / role | Whole session | Actual blocks: purpose, protocol, seconds and exercise IDs |
+| --- | --- | --- |
+| v8 / strength-stability | 1729 s | main-1 · rounds · 128 s: `dumbbell-reverse-lunge`<br>main-2 · rounds · 96 s: `dumbbell-romanian-deadlift`<br>main-3 · rounds · 96 s: `dumbbell-floor-press`<br>main-4 · rounds · 96 s: `dumbbell-bent-over-row`<br>main-5 · rounds · 40 s: `dumbbell-plank-pull-through`<br>main-6 · rounds · 40 s: `alternating-lateral-lunge`<br>main-7 · paired_sets · 375 s: `side-plank-reach-through`, `air-squat`<br>main-8 · rounds · 372 s: `tabletop-toe-taps`, `high-knee-power-steps`, `side-plank` |
+| v8 / movement-conditioning | 1748 s | main-1 · rounds · 140 s: `dumbbell-reverse-lunge`<br>main-2 · rounds · 102 s: `dumbbell-romanian-deadlift`<br>main-3 · rounds · 40 s: `cossack-squat`<br>main-4 · rounds · 40 s: `dumbbell-wood-chop`<br>main-5 · rounds · 30 s: `mountain-climbers`<br>main-6 · rounds · 30 s: `dumbbell-push-press`<br>main-7 · rounds · 470 s: `dead-bug`, `side-plank`, `plank`, `dumbbell-thruster`<br>main-8 · paired_sets · 405 s: `dumbbell-plank-pull-through`, `lateral-lunge-to-balance` |
+| v9 / strength-stability | 1737 s | main-1 · rounds · 128 s: `dumbbell-reverse-lunge`<br>main-2 · rounds · 96 s: `dumbbell-romanian-deadlift`<br>main-3 · rounds · 35 s: `dumbbell-lateral-raise`<br>main-4 · rounds · 40 s: `dumbbell-plank-pull-through`<br>main-5 · rounds · 40 s: `alternating-lateral-lunge`<br>main-6 · rounds · 410 s: `squat-to-alternating-knee-drive`, `push-up`, `bear-plank-hold`, `glute-bridge`<br>main-7 · rounds · 500 s: `ski-abs`, `single-arm-dumbbell-row`, `dumbbell-suitcase-march`, `side-step-knee-lift` |
+| v9 / movement-conditioning | 1800 s | athletic-preparation-1 · rounds · 237 s: `knee-to-opposite-elbow`, `forward-back-line-steps`, `quarter-turn-pivot-steps`<br>athletic-footwork-2 · rounds · 291 s: `180-degree-step-turns`, `in-in-out-out-steps`, `forward-back-line-steps`<br>athletic-footwork-3 · rounds · 291 s: `lateral-step-and-stick`, `fast-feet`, `four-square-steps`<br>athletic-control-4 · rounds · 273 s: `clock-step-balance`, `single-leg-balance-reach`, `split-stance-step-switches`<br>athletic-control-5 · rounds · 273 s: `tandem-step-and-hold`, `transverse-lunge-to-balance`, `reverse-lunge-with-rotation`<br>athletic-integrated-6 · rounds · 297 s: `lateral-lunge-to-balance`, `crab-position-alternating-steps`, `reverse-lunge-knee-drive`<br>athletic-finish-7 · rounds · 120 s: `forward-back-line-steps`, `side-step-touches`, `knee-to-opposite-elbow` |
+
+Browser smoke evidence (Chromium, 393 × 852 emulation):
+[movement preview](images/tennis-v9/movement-preview.png) and
+[existing player](images/tennis-v9/movement-player.png), using explicitly simulated
+strength completion to reach the movement role. No browser errors on either route.

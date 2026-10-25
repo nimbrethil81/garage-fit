@@ -836,8 +836,9 @@ family differs, and every skipped or infeasible attempt. `prescriptionOutcome.fa
 repeats it with no anchor placements. No generic `sessionPrescription` is attached, so swaps
 use the family gate rather than Main budgets. If no candidate builds, generation throws
 `SessionPrescriptionError` with hard conflict `family-plan-not-feasible` and the attempts.
-The released General Strength, Build Arms and Tennis programmes never send a family plan;
-General Fitness (see [Coach engine](COACH_ENGINE.md#general-fitness)) is the only caller.
+General Strength, Build Arms and Tennis v1–v8 never send a family plan. General
+Fitness (see [Coach engine](COACH_ENGINE.md#general-fitness)) and normal Tennis v9
+movement roles use this shared route; constrained Tennis days keep the prescribed path.
 
 ### Optional embedded benchmark (#192)
 

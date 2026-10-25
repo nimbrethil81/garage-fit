@@ -299,3 +299,24 @@ test('v6 movement roles respect short/equipment-limited, readiness, tennis, phas
     assert.deepEqual(state.anchors.map(a=>a.currentTarget.targetSets),[2,2,2,2]);
   }
 });
+
+test('v9 constrained movement retains hard caller, impact and pre-event safeguards without strength anchors',async()=>{
+  const {create,seed}=require('./helpers/tennis-pilot');
+  const {p}=await create({version:9,frequency:3,settings:{intent:'event',significantEventDate:'2026-10-10'}});
+  p.run(`pilotNow='2026-10-07T12:00:00Z';`);
+  // Plan every role directly: a calendar adaptation must not force the family route.
+  for(const roleIndex of [1,2]) {
+    seed(p,31);
+    p.run(`v9State=pilot.snapshot().state;v9Today={...pilotOptions,now:pilotNow,prescriptionId:'v9-constrained',allowedImpact:['low']};
+      v9History=GarageFitTrainingHistory.createHistory([],CATALOGUE);
+      v9Priorities=GarageFitCoachTennisPolicy.calculatePriorities({definition:pilotDef,catalogue:CATALOGUE,state:v9State,history:v9History,today:v9Today});
+      v9Priorities.role=pilotDef.sessionRoles[3][${roleIndex}];
+      v9Rx=GarageFitCoachTennisPolicy.buildPrescription({definition:pilotDef,catalogue:CATALOGUE,state:v9State,history:v9History,today:v9Today,priorities:v9Priorities,assessSessionPrescription:GarageFitGenerator.assessSessionPrescription,allowRoleFallback:false});`);
+    const rx=p.json('v9Rx');assert.equal(rx.workoutFamilyPlan,undefined);
+    assert.ok(rx.requiredAnchors.every(a=>!a.requirementId.startsWith('tennis-anchor-')));
+    if(!rx.programmeContext.emptySession) {
+      p.run('v9Workout=GarageFitGenerator.generate({catalogue:CATALOGUE,sessionPrescription:v9Rx})');
+      assert.ok(p.json('v9Workout.main.blocks.flatMap(b=>b.exercises)').every(e=>e.impact==='low'&&!e.conditioning));
+    }
+  }
+});

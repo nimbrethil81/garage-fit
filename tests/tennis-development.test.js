@@ -335,3 +335,12 @@ test('a saved consolidation result is recovered once after its Programme State w
   assert.deepEqual(after.anchors,before.anchors);
   await q.run('pilot.load(true)');assert.deepEqual(q.json('pilot.snapshot().state'),after);
 });
+
+test('v9 remains explicitly version-pinned across reload and needs no automatic upgrade',async()=>{
+  const {create}=require('./helpers/tennis-pilot');
+  const {p}=await create({version:8});
+  const {pilot}=require('./helpers/coach-pilot');
+  const q=pilot(p.storage,'tennis-conditioning',9);await q.run('pilot.load()');
+  assert.equal(q.run('pilot.snapshot().state.programmeDefinitionVersion'),8);
+  assert.equal(q.run('pilot.prepare(pilotOptions).plan.prescription.workoutFamilyPlan'),undefined);
+});

@@ -140,3 +140,11 @@ test('Generator renders all phases through shared rows and retains caller-owned 
 test('a single mini-circuit round is singular',()=>{
   assert.equal(previewOnly().protocolLabel({protocol:'rounds',prescription:{rounds:1}}),'Mini-circuit · 1 round');
 });
+
+test('rounds presentation distinguishes single-exercise sets and Athletic drills',()=>{
+  const ui=previewOnly();
+  assert.equal(ui.protocolLabel({protocol:'rounds',prescription:{rounds:2},exercises:[{}]}),'Exercise sets · 2 rounds');
+  const {loadAppContext}=require('./helpers/app-context');const app=loadAppContext();
+  const w=app.GarageFitGenerator.generate({catalogue:app.GarageFitData.exercises,equipment:[],workoutFamilyId:'athletic-movement',workoutFamilyVersion:5,duration:10,difficulty:'normal'});
+  assert.match(app.GarageFitWorkoutPreview.protocolLabel(w.main.blocks[1]),/^Movement drill/);
+});

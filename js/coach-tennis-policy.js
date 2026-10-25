@@ -201,6 +201,10 @@
   }
   function validateDefinition(definition) {
     strength.validateDefinition(definition);
+    if (definition.movementFamilyPolicy && (definition.movementFamilyPolicy.workoutFamilyId !== 'athletic-movement'
+      || definition.movementFamilyPolicy.workoutFamilyVersion !== 5
+      || Object.values(definition.sessionRoles).flat().some(role => definition.roleCompositionPolicy.roles[role.id]
+        && role.anchorLimits.some(limit => limit !== 0)))) throw new Error('Invalid Tennis movement family policy.');
     validateProgrammeSettings({settings: settings(definition)});
     if (definition.anchorRotationPolicy !== undefined &&
       (definition.anchorRotationPolicy.tieBreak !== 'last-performed' || Object.keys(definition.anchorRotationPolicy).length !== 1))
@@ -290,6 +294,21 @@
     const sides = exercise.sidedness === 'per-side' ? ['left','right'] : [null];
     return sides.every(side => work.filter(item => item.side === side).length >= 2);
   }
+  // Family outcomes have no generic tennis-support requirement ids. Credit the
+  // actual complete Main, including its footwork and control, not its label alone.
+  // Requiring the intended Main avoids inventing a partial-dose threshold.
+  function performedMovement(result, evidence) {
+    if (result.workoutFamilyId !== 'athletic-movement' || !['completed','partial'].includes(result.finalStatus)) return false;
+    const planned = (result.plannedWork || []).filter(item => item.section === 'main');
+    if (!planned.length) return false;
+    const work = evidence.performances.filter(item => item.section === 'main'
+      && item.semanticConfidence === 'derived' && item.status === 'completed' && item.exposure.value >= 1);
+    if (!planned.every(item => work.some(done => done.occurrenceId === item.occurrenceId))) return false;
+    const member = (item, role) => root.GarageFitWorkoutFamilies.getMembership({
+      workoutFamilyId: result.workoutFamilyId, workoutFamilyVersion: result.workoutFamilyVersion, role}, item.exerciseId);
+    return work.some(item => member(item,'footwork')) && work.some(item => member(item,'control'))
+      && work.some(item => member(item,'integrated'));
+  }
   function calculatePriorities({definition, catalogue, state, history, today, forFeasibility = false}) {
     const adaptation = forFeasibility ? null : classifyContext({definition,state,today});
     const event = forFeasibility ? null : eventHorizon({definition,state,today});
@@ -329,7 +348,9 @@
       const supportCredit = work.some(item => item.requirementId && item.requirementId.startsWith('tennis-support-')
         && item.status === 'completed' && item.exposure.value >= 1
         && sport.classifyExercise(item.exerciseId).contributions.some(contribution => role.capabilities.includes(contribution.capabilityId)));
-      if (anchorCredit || supportCredit) earnedRoles[role.id]++;
+      const familyCredit = definition.movementFamilyPolicy && definition.roleCompositionPolicy.roles[role.id]
+        && performedMovement(result, history.sessionEvidence(result.sessionResultId));
+      if (anchorCredit || supportCredit || familyCredit) earnedRoles[role.id]++;
     }
     const role = roles.slice().sort((a,b) => earnedRoles[a.id]-earnedRoles[b.id] || roles.indexOf(a)-roles.indexOf(b))[0];
     const anchors = state.anchors.map((anchor,index) => {
@@ -412,7 +433,7 @@
       ...(Number.isFinite(availableMainSeconds) ? {
         mainTimeLimitSeconds: Math.max(1,availableMainSeconds-definition.preparationTimingReserveSeconds), maximumDurationSeconds: duration*60} : {}),
       prescriptionId: today.prescriptionId, programmeInstanceId: state.programmeInstanceId, sessionRole: role.id,
-      equipment: today.equipment || [], difficulty: today.easyToday ? 'easy' : definition.sessionTemplate.difficulty,
+      equipment: today.equipment || [], difficulty: today.easyToday ? 'easy' : definition.movementFamilyPolicy && today.difficulty || definition.sessionTemplate.difficulty,
       ...(event && event.phase !== 'build' ? {variationPreference: 'familiar'} : {}),
       bodyFocus: today.bodyFocus || definition.sessionTemplate.bodyFocus, requiredAnchors: [], preferredAnchors: [],
       protocolConstraints: [{requirementId: 'tennis-protocols', importance: 'hard',
@@ -460,6 +481,24 @@
       prescription.programmeContext.preflightAvailable = typeof assessSessionPrescription === 'function';
       return prescription;
     }
+    if (definition.movementFamilyPolicy && roleCapabilities && !lighter
+      && (!event || event.phase === 'build') && !(today.avoidConstraints || []).length
+      && (!today.allowedImpact || today.allowedImpact.length)) {
+      // Family plans own Main composition and cannot carry generic anchor intent.
+      const family = copy(prescription);
+      for (const key of ['requiredAnchors','preferredAnchors','movementPriorities','bodyRegionPriorities',
+        'avoidConstraints','protocolConstraints','optionalMainExerciseIds','mainTimeLimitSeconds',
+        'maximumDurationSeconds','variationPreference']) delete family[key];
+      family.workoutFamilyPlan = {candidates: [{...definition.movementFamilyPolicy,
+        rationale: 'Coordinated footwork, single-leg control and integrated athletic effort with preparation and recovery.'}],
+        movementRoom: today.smallSpace === false,
+        excludedImpact: ['low','medium','high'].filter(impact => !(today.allowedImpact || ['low','medium']).includes(impact))};
+      family.programmeContext.deferredAnchorRequirementIds = state.anchors.map(anchor => anchor.requirementId);
+      family.programmeContext.preflightAvailable = typeof assessSessionPrescription === 'function';
+      return Model().createSessionPrescription(family);
+    }
+    if (definition.movementFamilyPolicy && roleCapabilities) warnings.push({code:'tennis-constrained-movement',
+      message:'A lighter controlled alternative replaces staged athletic conditioning today. This movement session has no required strength anchors; preparation and recovery are preserved.'});
     const limit = Math.min(role.anchorLimits[definition.supportedDurations.indexOf(duration)] || 0,
       final ? definition.eventPolicy.finalAnchorLimit : lighter ? definition.contextPolicy.lighterAnchorLimit : 4);
     for (const priority of priorities.anchors) {
@@ -598,7 +637,9 @@
   }
   const policy = {...strength, validateDefinition, validateState, initialiseState, validateProgrammeSettings, validateSettingsChange, eventHorizon, assessFeasibility, calculatePriorities, buildPrescription, classifyContext,
     phaseRecommendation, sportReviewRecommendation, recordSportReview, beginSession, applyPerformedState,
-    interpretDose: input => ['completed','partial'].includes(input.result.finalStatus) ? strength.interpretDose(input)
+    interpretDose: input => input.definition.movementFamilyPolicy && input.result.workoutFamilyId === 'athletic-movement'
+      ? {...strength.interpretDose(input), meaningful: performedMovement(input.result,input.evidence)}
+      : ['completed','partial'].includes(input.result.finalStatus) ? strength.interpretDose(input)
       : {meaningful:false,exposure:{value:0,confidence:'unknown'},patterns:{},bodyRegions:{}},
     interpretProgression: input => ['completed','partial'].includes(input.result.finalStatus)
       && !(input.result.overrides || []).some(item => item.type === 'tennis-phase' && item.value === 'consolidation' || item.type === 'tennis-feedback-review'

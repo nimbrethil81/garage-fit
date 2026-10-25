@@ -309,7 +309,7 @@ test('Tennis entry and player distinguish stable progression anchors from rep an
   p.run("state.ownedEquipment=['dumbbells']"); await p.run('coachUI.open()');
   const element = id => p.app.document.getElementById(id);
   await element('coachContent').children.find(node => node.textContent === 'Tennis').onclick();
-  assert.ok(element('coachContent').children.some(node => /Four stable knee, hinge, push and pull/.test(node.textContent)));
+  assert.ok(element('coachContent').children.some(node => /Strength sessions keep limited comparable knee, hinge, push and pull/.test(node.textContent)));
   await p.run("coachUI.controller.start(pilotDef,['dumbbells'])"); await p.run('coachUI.open()');
   p.run(`function tennisButton(id,text){const visit=node=>node.textContent===text&&node.onclick?node:(node.children||[]).map(visit).find(Boolean);return visit(document.getElementById(id));}`);
   await p.run("tennisButton('coachContent','View today’s workout').onclick()");
@@ -400,9 +400,9 @@ test('#255: Tennis mapping v4 and programme v8 add only the shared single-leg an
   // Released mappings and programmes are untouched; the travelling and landing drills stay unmapped (family-only).
   for(const version of [1,2,3])for(const id of ['lateral-lunge-to-balance','single-leg-hip-hinge-reach'])assert.deepEqual(classify(version,id),[],'v'+version+' '+id);
   for(const id of ['lateral-shuffle-and-stop','forward-back-acceleration-and-stop','forward-hop-and-stick','lateral-bound-and-stick','clock-step-balance'])assert.deepEqual(classify(4,id),[],id);
-  assert.deepEqual(Object.keys(programmes).map(Number).slice(-2),[7,8]);
+  assert.deepEqual(Object.keys(programmes).map(Number).filter(version=>version<=8).slice(-2),[7,8]);
   assert.deepEqual(programmes[8].sportPolicy,{sportId:'tennis',version:4});
-  // New starts use v8, and its home movement roles actually select the mapped lateral drill (mixed kit, three seeds).
+  // Pinned v8 home movement roles actually select the mapped lateral drill (mixed kit, three seeds).
   const chosen=new Set();
   for(const seed of [1,29,95])for(const row of roles({version:8,equipment:['dumbbells','kettlebell','trx','pullup-bar'],duration:30,frequency:3,seed}).rows||[])
     for(const block of row.blocks||[])for(const e of block.exercises)if(e.id==='lateral-lunge-to-balance')chosen.add(row.role+'/'+e.facets.join('+'));
@@ -411,4 +411,56 @@ test('#255: Tennis mapping v4 and programme v8 add only the shared single-leg an
   for(const seed of [1,29,95])for(const row of roles({version:8,equipment:['dumbbells','kettlebell','trx','pullup-bar'],duration:45,frequency:3,seed}).rows||[])
     for(const block of row.blocks||[])for(const e of block.exercises)
       assert.ok(!['lateral-shuffle-and-stop','forward-back-acceleration-and-stop','forward-hop-and-stick','lateral-bound-and-stick','clock-step-balance','lateral-line-steps'].includes(e.id),e.id);
+});
+
+test('v9 chooses shared Athletic v5 only for normal movement roles, preserving version pins and constraints',async()=>{
+  const {create,seed}=require('./helpers/tennis-pilot');
+  const {p}=await create({version:9,equipment:['dumbbells','trx']});
+  p.run(`function movementPlan(duration,difficulty='normal',extra={}) {
+    const state=pilot.snapshot().state,today={...pilotOptions,duration,difficulty,...extra,now:pilotNow,prescriptionId:'v9-sample'};
+    const history=GarageFitTrainingHistory.createHistory([],CATALOGUE);
+    const priorities=GarageFitCoachTennisPolicy.calculatePriorities({definition:pilotDef,catalogue:CATALOGUE,state,history,today});
+    priorities.role=pilotDef.sessionRoles[2][1];
+    return GarageFitCoachTennisPolicy.buildPrescription({definition:pilotDef,catalogue:CATALOGUE,state,history,today,priorities,
+      assessSessionPrescription:GarageFitGenerator.assessSessionPrescription});
+  }`);
+  for(const duration of [10,15,20,30,45])for(const difficulty of ['easy','normal','hard']) {
+    seed(p,31);
+    const rx=p.json(`movementPlan(${duration},'${difficulty}')`);
+    assert.equal((rx.requiredAnchors || []).length,0);assert.equal(rx.workoutFamilyPlan.candidates[0].workoutFamilyVersion,5);
+    p.run(`sampleRx=movementPlan(${duration},'${difficulty}');sample=GarageFitGenerator.generate({catalogue:CATALOGUE,sessionPrescription:sampleRx})`);
+    const w=p.json('sample');
+    assert.equal(w.estimatedSeconds,duration*60);assert.equal(w.workoutFamilyId,'athletic-movement');
+    assert.equal(w.difficulty,difficulty);assert.equal(p.run('GarageFitGenerator.validateFamilyWorkout(sample,{catalogue:CATALOGUE,equipment:sample.setupEquipment}).valid'),true);
+    assert.ok(w.main.blocks.every(b=>b.exercises.length>=2));
+    assert.ok(w.main.blocks.flatMap(b=>b.exercises).every(e=>e.impact!=='high'&&!['jumping-jacks','star-jumps'].includes(e.id)&&(difficulty==='hard'||e.id!=='split-step-preparation')));
+    assert.ok(w.main.blocks.some(b=>b.id.includes('footwork')));assert.ok(w.main.blocks.some(b=>b.id.includes('integrated')));
+    assert.ok(w.main.blocks.every(b=>['rounds','timed_intervals'].includes(b.protocol)));
+    if(duration===30&&difficulty==='normal') {
+      const ids=w.main.blocks.flatMap(b=>b.exercises.map(e=>e.id));
+      for(const id of ['lateral-step-and-stick','four-square-steps','single-leg-balance-reach']) assert.ok(ids.includes(id),id);
+      assert.ok(p.json('pilot.snapshot().state.anchors').every(a=>!ids.includes(a.exerciseId)));
+    }
+    assert.ok(w.main.blocks.every(b=>b.familyContext.movementRoom===false));
+    const work=p.json('GarageFitSessionTracker.plannedWorkFromTimeline(buildGeneratedTimeline(sample))');
+    assert.ok(work.some(w=>w.section==='warmup'));assert.ok(work.some(w=>w.section==='cooldown'));
+  }
+  for(const extra of ["{easyToday:true}","{sessionContext:{readiness:{localDate:'2026-10-01',value:'tired'}}}",
+    "{avoidConstraints:[{requirementId:'no-climbers',importance:'hard',exerciseId:'mountain-climbers'}]}"]) {
+    const rx=p.json(`movementPlan(30,'normal',${extra})`);
+    assert.equal(rx.workoutFamilyPlan,undefined);
+    assert.ok(rx.requiredAnchors.every(a=>!a.requirementId.startsWith('tennis-anchor-')));
+    assert.ok(rx.programmeContext.warnings.some(w=>w.code==='tennis-constrained-movement'));
+  }
+  seed(p,31);
+  assert.throws(()=>p.run("GarageFitGenerator.generate({catalogue:CATALOGUE,sessionPrescription:movementPlan(30,'normal',{allowedImpact:['low']})})"),/family|feasible/i);
+  seed(p,31);
+  p.run("roomSample=GarageFitGenerator.generate({catalogue:CATALOGUE,sessionPrescription:movementPlan(30,'normal',{smallSpace:false,allowedImpact:['low']})})");
+  assert.ok(p.json('roomSample.main.blocks.flatMap(b=>b.exercises)').every(e=>e.impact==='low'));
+  const classify = id => p.json(`GarageFitSportCoverage.createPolicy(GarageFitData.sportCapabilityPolicies.tennis[5],CATALOGUE).classifyExercise('${id}').contributions`);
+  assert.ok(classify('lateral-step-and-stick').some(c=>c.facet==='lateral-control'));
+  assert.ok(!classify('lateral-step-and-stick').some(c=>c.facet==='lateral-braking'));
+  assert.deepEqual(classify('split-step-preparation'),[]);
+  assert.equal(p.run('GarageFitData.programmes["tennis-conditioning"][8].movementFamilyPolicy'),undefined);
+  assert.deepEqual(p.json('pilotDef.sessionRoles[3].slice(1).map(r=>r.anchorLimits)'),[[0,0,0,0,0],[0,0,0,0,0]]);
 });

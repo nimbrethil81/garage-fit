@@ -67,10 +67,22 @@
   const tennisMovementDrills = {...JSON.parse(JSON.stringify(tennisRings)), version: 4};
   tennisMovementDrills.capabilities.find(cap => cap.id === 'lateral-movement').mappings[0].exerciseIds.push('lateral-lunge-to-balance');
   tennisMovementDrills.capabilities.find(cap => cap.id === 'lower-body').mappings[1].exerciseIds.push('single-leg-hip-hinge-reach', 'lateral-lunge-to-balance');
+  // v5: reviewed in-place movement/control, not court-speed braking or skill.
+  // Family membership still owns eligibility; this mapping only describes evidence.
+  const tennisAthletic = {...JSON.parse(JSON.stringify(tennisMovementDrills)), version: 5};
+  tennisAthletic.capabilities.find(cap => cap.id === 'lateral-movement').mappings.push(
+    group(['lateral-step-and-stick','lateral-line-steps','four-square-steps'], 'lateral-control',
+      'In-place lateral stepping and controlled recovery; not demonstrated court-speed braking.'));
+  tennisAthletic.capabilities.find(cap => cap.id === 'lower-body').mappings.push(
+    group(['single-leg-balance-reach','clock-step-balance','tandem-step-and-hold','transverse-lunge-to-balance'], 'strength-stability',
+      'Controlled balance and single-leg loading; no inferred power or sporting improvement.'));
+  tennisAthletic.capabilities.find(cap => cap.id === 'endurance').mappings.push(
+    group(['fast-feet','in-in-out-out-steps'], 'general-conditioning',
+      'Light repeated stepping; no demonstrated match endurance or tennis skill.'));
   function freeze(value) {
     Object.values(value).forEach(item => { if (item && typeof item === 'object') freeze(item); });
     return Object.freeze(value);
   }
   root.GarageFitData = root.GarageFitData || {};
-  root.GarageFitData.sportCapabilityPolicies = freeze({tennis: {1: tennis, 2: tennisHome, 3: tennisRings, 4: tennisMovementDrills}});
+  root.GarageFitData.sportCapabilityPolicies = freeze({tennis: {1: tennis, 2: tennisHome, 3: tennisRings, 4: tennisMovementDrills, 5: tennisAthletic}});
 })(typeof window !== 'undefined' ? window : globalThis);
