@@ -144,3 +144,53 @@ test('[Full] v6 home performed sessions observe lateral control while saved v5 r
   // Existing startup reconciliation finalises interrupted drafts as before.
   assert.equal(await reopened.run('pilotStore.loadSessionDraft()'),null);
 });
+
+test('v9 performed family Main advances Tennis rotation and counts, while previews, skips and tiny partials do not',async()=>{
+  const {p}=await create({version:9});
+  seed(p,31);p.run('pilot.prepare(pilotOptions)');
+  const identities=p.json('pilot.snapshot().state.anchors.map(a=>a.exerciseId)');
+  await p.run('pilot.begin().then(t=>pilotTracker=t)');await confirm(p,{skip:'none'});await p.finish('complete');
+  p.run(`pilotNow=${JSON.stringify(day(3))}`);
+  const strengthState=p.json('pilot.snapshot().state');
+  seed(p,31);let preview=p.run('pilot.prepare(pilotOptions)');
+  assert.equal(preview.plan.prescription.sessionRole,'movement-conditioning');
+  assert.equal(preview.workout.workoutFamilyId,'athletic-movement');
+  assert.deepEqual(p.json('pilot.snapshot().state'),strengthState);
+  await p.run('pilot.begin().then(t=>pilotTracker=t)');
+  await p.run(`(async()=>{for(const w of pilotTracker.plannedWork())await pilotTracker.recordSkip(w.occurrenceId)})()`);
+  await p.finish('complete');
+  assert.equal(p.run('pilot.snapshot().state.meaningfulSessionsCompleted'),1);
+  assert.equal(p.run('pilot.prepare(pilotOptions).plan.prescription.sessionRole'),'movement-conditioning');
+  await p.run('pilot.begin().then(t=>pilotTracker=t)');await confirm(p,{skip:'none',partial:true});await p.finish('exit');
+  assert.equal(p.run('pilot.snapshot().state.meaningfulSessionsCompleted'),1);
+  seed(p,31);preview=p.run('pilot.prepare(pilotOptions)');
+  assert.equal(preview.plan.prescription.sessionRole,'movement-conditioning');
+  await p.run('pilot.begin().then(t=>pilotTracker=t)');await confirm(p,{skip:'none'});await p.finish('complete');
+  assert.equal(p.run('pilot.snapshot().state.meaningfulSessionsCompleted'),2);
+  assert.deepEqual(p.json('pilot.snapshot().state.anchors.map(a=>a.exerciseId)'),identities);
+  assert.deepEqual(p.json('pilot.snapshot().state.anchors.map(a=>a.currentTarget)'),strengthState.anchors.map(a=>a.currentTarget));
+  assert.equal(p.run('pilot.prepare(pilotOptions).plan.prescription.sessionRole'),'strength-stability');
+  await p.run('pilot.begin().then(t=>pilotTracker=t)');await confirm(p,{skip:'none'});await p.finish('complete');
+  assert.equal(p.run('pilot.snapshot().state.meaningfulSessionsCompleted'),3);
+  assert.deepEqual(p.json('pilot.snapshot().state.anchors.map(a=>a.exerciseId)'),identities);
+  assert.ok(p.json('pilot.snapshot().state.anchors').every(a=>a.currentTarget.target.maxReps>6),
+    'both strength turns progress their comparable anchors across the intervening movement turn');
+});
+
+test('v9 one- and three-weekly sessions preserve roles, evidence and bodyweight shortages',async()=>{
+  const unavailable=await create({version:9,equipment:[]});
+  assert.equal(unavailable.started.state,null);
+  assert.ok(unavailable.started.assessment.conflicts.some(c=>c.requirementId==='tennis-anchor-pull'));
+  for(const frequency of [1,3]) {
+    const {p}=await create({version:9,frequency,equipment:kits.mixed});const roles=[];
+    for(let slot=0;slot<frequency;slot++) {
+      p.run(`pilotNow=${JSON.stringify(day(slot*3))}`);seed(p,31+slot);
+      const v=p.run('pilot.prepare(pilotOptions)');assert.ok(v.workout);
+      roles.push(v.plan.prescription.sessionRole);
+      if(slot) {assert.equal(v.workout.workoutFamilyId,'athletic-movement');assert.equal((v.plan.prescription.requiredAnchors || []).length,0);}
+      await p.run('pilot.begin().then(t=>pilotTracker=t)');await confirm(p,{skip:'none'});await p.finish('complete');
+    }
+    assert.equal(p.run('pilot.snapshot().state.meaningfulSessionsCompleted'),frequency);
+    assert.deepEqual(roles,frequency===1?['full-body']:['strength','movement-power','conditioning-resilience']);
+  }
+});

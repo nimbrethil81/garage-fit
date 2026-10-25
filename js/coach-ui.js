@@ -984,7 +984,7 @@
       const wrap=el('coachContent'); wrap.innerHTML='';
       const defaults=Model().createProgrammeSettings(def.defaultProgrammeSettings);
       const form=tennisViews.settingsForm(defaults,{includeEvent:!!def.eventPolicy,localDate:localDay(new Date().toISOString())});
-      wrap.append(overviewHeader(def.name),paragraph('Usually 20–30 minutes. Four stable knee, hinge, push and pull anchors build from 2 × 6 to 2 × 10 reps, about 2 reps in reserve. Each session selects only the targets that fit your time.'),form.wrap);
+      wrap.append(overviewHeader(def.name),paragraph(def.movementFamilyPolicy ? 'Choose 10/15/20/30/45 minutes. Strength sessions keep limited comparable knee, hinge, push and pull work, building from 2 × 6 to 2 × 10 reps. Movement sessions use footwork, balance and integrated athletic drills with recovery, without required strength anchors. Lighter and pre-event days use a controlled alternative. Completed exercise work is not proof of improved tennis skill.' : 'Usually 20–30 minutes. Four stable knee, hinge, push and pull anchors build from 2 × 6 to 2 × 10 reps, about 2 reps in reserve. Each session selects only the targets that fit your time.'),form.wrap);
       const assessment=controller.assess(def,getEquipment(),defaults), feasibility=paragraph('');
       const showAssessment=value=>{feasibility.textContent=value.status==='infeasible'?'Equipment needs attention · '+conflictText(value.conflicts)
         : 'Your equipment supports all four anchor roles. Short-session feasibility is checked for each session.';};

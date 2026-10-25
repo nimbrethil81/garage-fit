@@ -30,11 +30,11 @@ const mainIds = workout => workout.main.blocks.flatMap(block => block.exercises.
 test('released definitions stay unchanged; General Strength v2 and Tennis v7 only append reviewed ring anchors', () => {
   assert.equal(RING_IDS.length, 15); // S1 adds an accessory, with no programme anchor change.
   assert.deepEqual(Object.keys(P[GS]), ['1', '2']);
-  assert.deepEqual(Object.keys(P[TENNIS]), ['1', '2', '3', '4', '5', '6', '7', '8']);
+  assert.deepEqual(Object.keys(P[TENNIS]), ['1', '2', '3', '4', '5', '6', '7', '8', '9']);
   assert.deepEqual(Object.keys(P[ARMS]), ['1'], 'Build Arms already selects ring curls/extensions by intrinsic direct action');
   for (const [id, versions] of Object.entries(P)) for (const [version, definition] of Object.entries(versions)) {
     vm.runInContext(`R7.registry.get(R7.P[${JSON.stringify(id)}][${version}].type).validateDefinition(R7.P[${JSON.stringify(id)}][${version}])`, app);
-    const released = !(id === GS && version === '2' || id === TENNIS && ['7', '8'].includes(version));
+    const released = !(id === GS && version === '2' || id === TENNIS && ['7', '8', '9'].includes(version));
     // Anchor-free General Fitness (#190) has no anchor candidates to check.
     if (released) for (const requirement of definition.anchorSelectionPolicy ? definition.anchorSelectionPolicy.requirements : [])
       assert.ok(!(requirement.exerciseIds || []).some(item => RING_IDS.includes(item)), id + ' v' + version + ' is released and ring-free');

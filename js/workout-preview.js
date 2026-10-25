@@ -84,7 +84,7 @@
       if(recovery.length<work.length-1)recovery.push(0);
       const min=Math.min(...recovery),max=Math.max(...recovery),p=block.prescription;
       const title=block.protocol==='timed_intervals'?'Timed intervals · '+p.cycles+' cycles':block.protocol==='paired_sets'
-        ?'Superset · '+p.sets+' sets · A then B':'Mini-circuit · '+p.rounds+(p.rounds===1?' round':' rounds');
+        ?'Superset · '+p.sets+' sets · A then B':(block.familyContext?.workoutFamilyId==='athletic-movement'?'Movement drill · ':block.exercises?.length===1?'Exercise sets · ':'Mini-circuit · ')+p.rounds+(p.rounds===1?' round':' rounds');
       return title+(recovery.length?' · Recovery '+min+(min===max?'':'–'+max)+' sec between movements/rounds':' · No recovery between movements');
     }
     if(block.protocol==='amrap'){
@@ -111,7 +111,7 @@
     }
     if (block.protocol==='timed_intervals') return 'Timed intervals · '+block.prescription.workSeconds+' sec work / '+block.prescription.transitionSeconds+' sec change · '+block.prescription.cycles+' cycles';
     const rounds=block.prescription.rounds;
-    return 'Mini-circuit · '+rounds+(rounds===1?' round':' rounds');
+    return (block.exercises?.length===1?'Exercise sets · ':'Mini-circuit · ')+rounds+(rounds===1?' round':' rounds');
   }
 
   function emomTargetLabel(block,exerciseIndex){
