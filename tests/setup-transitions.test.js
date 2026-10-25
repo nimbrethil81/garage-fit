@@ -283,7 +283,10 @@ test('explicit EMOM builder fits whole minutes after the actual incoming ring ad
 
 test('setup budget alternative selection preserves trace determinism and reports the final attempt',()=>{
   const equipment=GarageFitData.equipment.map(item=>item.id),events=[];
-  const options={catalogue:C,equipment,duration:10,focus:'strength',difficulty:'hard',bodyFocus:'full-body'};
+  // Freeze the input that triggers this exact setup-budget alternative; other
+  // setup matrices exercise the live catalogue as preparation expands.
+  const catalogue=require('./helpers/coach-fixtures').catalogueBeforePrepP1(C);
+  const options={catalogue,equipment,duration:10,focus:'strength',difficulty:'hard',bodyFocus:'full-body'};
   const traced=G.generate({...options,random:random(2950288821),trace:event=>{if(event.type==='main-result')events.push(event);}});
   const ordinary=G.generate({...options,random:random(2950288821)});
   delete traced.id;delete ordinary.id;

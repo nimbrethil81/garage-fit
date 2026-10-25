@@ -253,8 +253,10 @@ test('temporary ring substitutes keep the stable anchor and attribute history to
   assert.equal(history('ring-row'), 2);
 });
 
-test('Mobility crossover leaves General Strength, Build Arms and Tennis anchors intact on their shared prep/recovery routes (#272)',async()=>{
-  const crossover=['standing-hinge-and-reach','standing-wall-slides','standing-calf-stretch','bent-knee-calf-stretch','supine-hamstring-stretch'];
+test('Mobility and P1 crossover leave General Strength, Build Arms and Tennis anchors intact on their shared prep/recovery routes (#272, #282)',async()=>{
+  const crossover=['standing-hinge-and-reach','standing-wall-slides','standing-calf-stretch','bent-knee-calf-stretch','supine-hamstring-stretch',
+    'quadruped-thoracic-rotation','controlled-shoulder-rotations','side-lying-open-books','seated-thoracic-extension',
+    'quadruped-wrist-rocks','standing-lat-stretch','butterfly-stretch','low-cobra-pose','extended-puppy-pose'];
   for(const [id,version,seed] of [[GS,2,31],[ARMS,1,31],[TENNIS,8,1]]) {
     const p=pilot(new Map(),id,version);seeded(p,seed);await p.start();
     p.run('pilot.prepare({...pilotOptions,duration:30})');

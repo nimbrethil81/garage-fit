@@ -155,3 +155,18 @@ test('swapping a warm-up exercise preserves lower-body coverage and regional bal
     }
   }
 });
+
+test('a sole knee qualifier cannot be swapped at the expense of its other regional coverage', () => {
+  const G=GarageFitGenerator;
+  const workout=G.generate({catalogue,duration:30,focus:'balanced',equipment:[],random:random(1)});
+  // Heel slides cover knee mobility, meaningful lower preparation and trunk together.
+  // Other available knee qualifiers cover knees only, so this slot must remain unchanged.
+  const ids=['supine-heel-slides','side-step-touches','wrist-circles','standing-forearm-rotations',
+    'shoulder-rolls','arm-circles-forwards','body-twists'];
+  workout.warmup.exercises=ids.map(id=>G.phaseExercise(catalogue[id],'warmup',20));
+  const constrained=Object.fromEntries(['standing-knee-curls','seated-knee-extensions'].map(id=>[id,catalogue[id]]));
+  G.swapPreparation(workout,'warmup',0,{catalogue:constrained,equipment:[],random:random(2)});
+  assert.equal(workout.warmup.exercises[0].id,'supine-heel-slides');
+  assert.equal(workout.warmup.exercises.filter(meaningful).length,2);
+  assert.ok(workout.warmup.exercises.some(G.kneeMobilityQualified));
+});

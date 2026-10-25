@@ -338,8 +338,10 @@ Main exercise.
 
 ### `warmupAreas`
 
-One or more of `hips`, `knees`, `ankles`, `shoulders` and `trunk`: the joints or regions the
-movement genuinely mobilises. Covering at least two of hips/knees/ankles makes an exercise
+A list drawn from `hips`, `knees`, `ankles`, `shoulders` and `trunk`: the joints or regions the
+movement genuinely mobilises. Use an empty list for wrist or forearm mobility: the
+current vocabulary has no wrist region, and these movements do not supply shoulder
+or trunk coverage. Covering at least two of hips/knees/ankles makes an exercise
 meaningful lower-body preparation. The Warm-up guarantees a minimum amount of it, a minimum
 of shoulder or trunk preparation (one exercise, two in warm-ups of seven or more) and caps
 upper/trunk-only movements. A `knees` area alone does not make an exercise knee mobility
@@ -349,7 +351,8 @@ upper/trunk-only movements. A `knees` area alone does not make an exercise knee 
 
 Boolean, default `false`. Set it to `true` only for a warm-up movement whose purpose is
 controlled, unloaded flexion and extension of the knee through a comfortable range, such as
-standing knee curls. Squats and shallow knee bends (weight-bearing), lunges, jogging and
+standing knee curls, seated knee extensions or supine heel slides (which also
+retain their core-stability role). Squats and shallow knee bends (weight-bearing), lunges, jogging and
 jumping drills, marching and knee lifts (the knee bends only incidentally) do not qualify,
 even though they list `knees`. Validation requires a qualifying exercise to be a warm-up
 exercise with `impact: 'low'`, no equipment, `knees` in `warmupAreas`, no major pattern, no

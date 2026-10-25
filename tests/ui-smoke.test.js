@@ -89,7 +89,7 @@ test('Generator preview/player and both fixed players initialise without runtime
   context.goHome();
   context.startPreferredRoutine('warmup');
   assert.equal(elements.routineName.textContent,'Warm Up');
-  assert.ok(vm.runInContext('state.list',context).some(item=>item.id==='standing-knee-curls'));
+  assert.ok(vm.runInContext('state.list.some(item=>GarageFitGenerator.kneeMobilityQualified(CATALOGUE[item.id]))',context));
   context.goHome();
   vm.runInContext("state.ownedEquipment=[]",context);
   // Routine plans draw from the shared seeded random source; restart it so the Generator checks below see the same workouts.

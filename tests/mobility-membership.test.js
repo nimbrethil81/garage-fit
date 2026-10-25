@@ -36,7 +36,8 @@ test('exactly eight new unique Mobility entries are family-only, bodyweight and 
     const ex=C[id];assert.ok(ex,id);assert.match(id,/^[a-z0-9]+(-[a-z0-9]+)*$/);
     assert.deepEqual(ex.equipment,[],id);
     assert.equal(ex.generator||ex.main||ex.warmup||ex.rampup||ex.cooldown,false,id+' must not be promoted to any generated phase');
-    assert.equal(ex.impact,'low',id);assert.equal(ex.difficulty,null,id);assert.equal(ex.family,null,id);
+    assert.equal(ex.impact,'low',id);assert.equal(ex.difficulty,null,id);
+    assert.equal(ex.family,null,id);
     assert.ok(ex.prescription.type.includes('timed'),id);
     assert.equal(ex.prescription.type.startsWith('unilateral'),ex.sidedness==='per-side',id);
     assert.ok(ex.instruction.length<=180&&ex.instruction.split(/(?<=\.)\s+/).length===1,id);
@@ -139,7 +140,8 @@ test('position, impact and Easy constraints stay hard gates in Mobility contexts
 
 test('ordinary Generator, warm-up, cool-down and Main eligibility are unchanged outside Mobility',()=>{
   for(const id of NEW)for(const phase of ['main','warmup','rampup','cooldown'])
-    assert.equal(G.generatedPhaseEligible(C[id],phase,['trx','dumbbells','bands','bench','box']),false,id+':'+phase);
+    assert.equal(G.generatedPhaseEligible(C[id],phase,['trx','dumbbells','bands','bench','box']),
+      phase==='warmup'&&['quadruped-thoracic-rotation','controlled-shoulder-rotations'].includes(id),id+':'+phase);
   assert.equal(G.generatedPhaseEligible(C['downward-upward-dog'],'main',[]),false);
   assert.equal(G.generatedPhaseEligible(C['wall-angel'],'main',[]),false);
   assert.equal(G.generatedPhaseEligible(C['hamstring-sweeps'],'main',[]),false);
@@ -174,7 +176,7 @@ const v2=(role,extra={})=>context(role,{workoutFamilyVersion:2,...extra});
 const eligible2=(role,owned,difficulty='normal',extra={})=>Object.values(C)
   .filter(exercise=>G.generatedPhaseEligible(exercise,'main',owned,difficulty,v2(role,extra))).map(exercise=>exercise.id);
 
-test('four new Mobility canonical movements are distinct, family-only, safely prescribed and instructed (#263)',()=>{
+test('four Mobility canonical movements retain family Main, safe doses and reviewed preparation reuse (#263, #282)',()=>{
   assert.deepEqual(G.validateCatalogue(C),[]);
   const expected={'quadruped-thoracic-rotation':['per-side','floor','unilateral-timed',[]],'supported-squat-rocks':['bilateral','standing','timed',[['trx']]],
     'controlled-shoulder-rotations':['per-side','standing','unilateral-timed',[]],'half-kneeling-hip-flexor-rocks-with-reach':['per-side','floor','unilateral-timed',[]]};
@@ -182,7 +184,8 @@ test('four new Mobility canonical movements are distinct, family-only, safely pr
     const ex=C[id],[side,position,type,equipment]=expected[id];
     assert.equal(ex.sidedness,side,id);assert.equal(ex.bodyPosition,position,id);assert.equal(ex.prescription.type,type,id);
     assert.deepEqual(ex.equipment,equipment,id);
-    assert.equal(ex.generator||ex.main||ex.warmup||ex.rampup||ex.cooldown,false,id+' stays family-only');
+    assert.equal(ex.generator||ex.main||ex.rampup||ex.cooldown,false,id+' no ordinary Main or unreviewed phase');
+    assert.equal(ex.warmup,['quadruped-thoracic-rotation','controlled-shoulder-rotations'].includes(id),id+' reviewed P1 preparation reuse');
     assert.equal(ex.impact,'low',id);assert.equal(ex.difficulty,null,id);assert.equal(ex.family,null,id);
     assert.ok(ex.instruction.length<=180&&ex.instruction.split(/(?<=\.)\s+/).length===1,id);
   }
@@ -264,9 +267,10 @@ test('every v2 identity is eligible in at least one suitable context, with valid
   assert.equal(G.protocolCompatible(C['glute-stretch'],'timed_intervals',v2('finish')),false);
 });
 
-test('the new movements and v2 additions are not promoted into ordinary Generator, warm-up or cool-down selection (#263)',()=>{
+test('v2 additions retain family Main and only reviewed P1 identities enter shared preparation (#263, #282)',()=>{
   for(const id of V2_NEW)for(const phase of ['main','warmup','rampup','cooldown'])
-    assert.equal(G.generatedPhaseEligible(C[id],phase,['trx','dumbbells','bands','bench','box']),false,id+':'+phase);
+    assert.equal(G.generatedPhaseEligible(C[id],phase,['trx','dumbbells','bands','bench','box']),
+      phase==='warmup'&&['quadruped-thoracic-rotation','controlled-shoulder-rotations'].includes(id),id+':'+phase);
   for(const id of ['childs-pose','chest-opener'])assert.equal(G.generatedPhaseEligible(C[id],'main',[]),false,id);
   assert.equal(G.generatedPhaseEligible(C['childs-pose'],'cooldown',[]),true);
   assert.equal(G.generatedPhaseEligible(C['shoulder-rolls'],'warmup',[]),true);
@@ -309,7 +313,9 @@ test('Mobility v3 adds exactly 21 reviewed identities, 55 total / 52 no-kit, wit
   for(const id of ['upward-facing-dog','seated-ninety-ninety-hip-lift-offs','plank-calf-stretch']) {
     assert.equal(G.generatedPhaseEligible(C[id],'main',[],'easy',context('focused',{workoutFamilyVersion:3})),false,id+' gated at Easy');
   }
-  // The global generic fitters have different bounds. Short loaded/extension poses stay family-only.
-  for(const id of ['quadruped-wrist-rocks','upward-facing-dog','low-cobra-pose','extended-puppy-pose','butterfly-stretch','standing-lat-stretch'])
-    for(const phase of ['warmup','rampup','cooldown'])assert.equal(G.generatedPhaseEligible(C[id],phase,[]),false,id+':'+phase);
+  // P1 admits only the reviewed gentle phase; the demanding upward-facing variant stays family-only.
+  const prepReuse={'quadruped-wrist-rocks':'warmup','low-cobra-pose':'cooldown',
+    'extended-puppy-pose':'cooldown','butterfly-stretch':'cooldown','standing-lat-stretch':'cooldown'};
+  for(const id of [...Object.keys(prepReuse),'upward-facing-dog'])
+    for(const phase of ['warmup','rampup','cooldown'])assert.equal(G.generatedPhaseEligible(C[id],phase,[]),prepReuse[id]===phase,id+':'+phase);
 });

@@ -69,7 +69,10 @@ test('CD1 preserves a complete short Easy Cardio interval with squat and conditi
 });
 
 test('gentle CD1 Warm-up fits a short session beside essential knee and per-side hip preparation',()=>{
-  const w=G.generate({catalogue:C,equipment:['dumbbells'],duration:10,focus:'strength',random:rng(258)});
+  // This is a dose-fitting regression for these three roles; live-catalogue
+  // selection proofs below remain separate from this deliberately constrained pool.
+  const pool=Object.fromEntries(['standing-knee-curls','alternating-hamstring-curl-steps','bent-knee-fallout'].map(id=>[id,C[id]]));
+  const w={warmup:G.selectWarmup(pool,G.BUDGETS[10].warmup,['dumbbells'],[],rng(258),{focus:'strength'})};
   assert.equal(w.warmup.exercises.length,3);
   assert.ok(Math.abs(w.warmup.estimatedSeconds-G.BUDGETS[10].warmup)<=10);
   const curl=w.warmup.exercises.find(ex=>ex.id==='alternating-hamstring-curl-steps');
@@ -83,7 +86,7 @@ test('walk-to-plank push-up retains specific Ramp-up rehearsal and leaves gentle
   assert.equal(ex.warmup,false);assert.equal(G.generatedPhaseEligible(ex,'warmup',[]),false);
   assert.equal(ex.rampup,true);assert.deepEqual(ex.rampupPrescription,{type:'timed',value:35,minValue:25,maxValue:45});
   assert.deepEqual(ex.prescription,{type:'timed',value:20});
-  const w=G.generate({catalogue:C,equipment:['dumbbells'],duration:30,focus:'strength',bodyFocus:'upper',random:rng(1)});
+  const w=G.generate({catalogue:C,equipment:['dumbbells'],duration:30,focus:'strength',bodyFocus:'upper',random:rng(2)});
   assert.ok(w.rampup.exercises.some(ex=>ex.id==='walk-plank-push-up'));
   assert.ok(!w.warmup.exercises.some(ex=>ex.id==='walk-plank-push-up'));
 });
@@ -108,9 +111,10 @@ test('[Full] CD1 additions are observed across all three Cardio styles and all d
 
 test('[Full] legacy Cardio and Mixed Main, generated Warm-up and Prep & Recover actually select intended additions',()=>{
   const seen=new Set(),warm=new Set(),routines=new Set();
-  // Eleven fixed fixtures cover all eighteen Main additions and all six prep
+  // Fixed fixtures cover all eighteen Main additions and all six prep
   // additions, including the rarer full-body boxing and light loaded routes.
   const fixtures=[
+    {"focus":"balanced","bodyFocus":"full-body","equipment":[],"duration":45,"seed":1},
     {"focus":"cardio","bodyFocus":"upper","equipment":[],"duration":45,"seed":2024},
     {"focus":"cardio","bodyFocus":"full-body","equipment":[],"duration":30,"seed":20186},
     {"focus":"cardio","bodyFocus":"upper","equipment":[],"duration":45,"seed":13123},
@@ -131,7 +135,7 @@ test('[Full] legacy Cardio and Mixed Main, generated Warm-up and Prep & Recover 
       if(PREP.includes(ex.id))assert.ok(ex.prescription.value<=25&&ex.prescription.value<40,ex.id);
     }
   }
-  for(const seed of [7,9,55]){
+  for(const seed of [1,7,9,55]){
     const r=GarageFitRoutineGenerator.generateRoutine({catalogue:C,kind:'warmup',variant:'bodyweight',equipment:[],random:rng(seed)});
     r.exercises.forEach(ex=>routines.add(ex.id));
     // Standalone routines use their own established 20–40 s fitter, not Warm-up maxValue.

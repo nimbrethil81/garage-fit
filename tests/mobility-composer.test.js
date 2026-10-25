@@ -4,6 +4,7 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const {createHash}=require('node:crypto');
 const {loadAppContext}=require('./helpers/app-context');
+const {catalogueBeforePrepP1}=require('./helpers/coach-fixtures');
 global.window=global;
 for(const path of ['data/equipment','data/exercises','data/workout-families','js/workout-families','js/generator','data/mobility-membership','js/mobility-composer'])require('../'+path);
 const G=GarageFitGenerator,F=GarageFitWorkoutFamilies,C=GarageFitData.exercises;
@@ -170,14 +171,50 @@ const emphasisFor=(seed,previous=null)=>{const r=rng(seed);r();return M.chooseEm
 const forced=(draws,seed)=>{const r=rng(seed),queue=draws.slice();return ()=>queue.length?queue.shift():r();};
 const MATRIX=[];for(const duration of [10,15,20,30,45])for(const difficulty of ['easy','normal','hard'])for(const equipment of [[],['trx']])MATRIX.push({duration,difficulty,equipment});
 
+// Compare session composition independently of shared catalogue preparation descriptors.
+const historicalGenerate=(historical,extra)=>{
+  // Normalisation resolves canonical identities through the global catalogue too.
+  const current=GarageFitData.exercises;GarageFitData.exercises=historical;
+  try{return generate({...extra,catalogue:historical});}finally{GarageFitData.exercises=current;}
+};
+const composition=workout=>{
+  const result=copy(workout);delete result.id;
+  for(const section of [result.warmup,result.rampup,result.cooldown,...result.main.blocks,...result.blocks])
+    section.exercises=section.exercises.map(ex=>({id:ex.id,prescription:ex.prescription,estimatedSeconds:ex.estimatedSeconds}));
+  return result;
+};
+
 test('published Mobility v1 seeded output is unchanged by the v2 composition (#264)',()=>{
-  const sessions=[];
+  const sessions=[],historical=catalogueBeforePrepP1(C);
   for(const duration of [10,20,45])for(const difficulty of ['easy','normal','hard'])for(const equipment of [[],['trx']])for(const seed of [1,31,2026]) {
-    const w=generate({workoutFamilyVersion:1,duration,difficulty,equipment,random:rng(seed)});delete w.id;sessions.push(w);
+    const options={workoutFamilyVersion:1,duration,difficulty,equipment};
+    const w=historicalGenerate(historical,{...options,random:rng(seed)});
+    assert.deepEqual(composition(generate({...options,random:rng(seed)})),composition(w),'live catalogue preserves v1 composition');
+    delete w.id;sessions.push(w);
   }
   assert.equal(sessions.length,54);
   assert.equal(createHash('sha256').update(JSON.stringify(sessions)).digest('hex'),'4182e035fa133e021f3eda981f5d580ec959a95674092c60e6c8990581c08525');
   assert.equal(generate().workoutFamilyVersion,1,'an unversioned request is still the published v1');
+});
+
+test('saved Mobility and Athletic family sessions keep their execution contracts after P1 prep reuse',()=>{
+  require('../data/athletic-membership');require('../js/athletic-composer');
+  const historical=catalogueBeforePrepP1(C);
+  for(const [workoutFamilyId,workoutFamilyVersion] of [[FAMILY,1],[FAMILY,2],[FAMILY,3],['athletic-movement',5]]) {
+    for(const seed of [1,31,2026]) {
+      const saved=historicalGenerate(historical,{workoutFamilyId,workoutFamilyVersion,duration:30,random:rng(seed)});
+      assert.deepEqual(copy(G.normaliseWorkout(copy(saved))),copy(saved),'saved '+workoutFamilyId+'/'+workoutFamilyVersion);
+      const original=copy(saved);
+      assert.equal(G.validateFamilyWorkout(saved,{catalogue:C,equipment:[]}).valid,true);
+      assert.deepEqual(copy(saved),original,'validation does not rewrite saved descriptors');
+      for(const field of ['impact','bodyPosition','equipment','prescription','difficulty','family']) {
+        const tampered=copy(saved),exercise=tampered.main.blocks[0].exercises[0];
+        exercise[field]=field==='impact'?'high':field==='bodyPosition'?'hanging':field==='equipment'?[['rings']]:
+          field==='difficulty'?'hard':field==='family'?'forged-family':{type:'timed',value:999};
+        assert.throws(()=>G.normaliseWorkout(tampered),/modified-exercise|Invalid/,'safety field '+field+' remains canonical');
+      }
+    }
+  }
 });
 
 test('Mobility v3 is current for new standalone and Coach selections; v1/v2 stay version-pinned (#272)',()=>{
@@ -434,9 +471,12 @@ test('swaps and edits cannot bypass v2 membership, protocol, timing or quality g
 
 const v3=extra=>generate({workoutFamilyVersion:3,...extra}),M3=M.forVersion(3);
 test('published Mobility v2 seeded composition and saved interpretation are unchanged by v3 (#272)',()=>{
-  const sessions=[];
+  const sessions=[],historical=catalogueBeforePrepP1(C);
   for(const duration of [10,20,45])for(const difficulty of ['easy','normal','hard'])for(const equipment of [[],['trx']])for(const seed of [1,31,2026]) {
-    const w=v2({duration,difficulty,equipment,random:rng(seed)});delete w.id;sessions.push(w);
+    const options={duration,difficulty,equipment};
+    const w=historicalGenerate(historical,{...options,workoutFamilyVersion:2,random:rng(seed)});
+    assert.deepEqual(composition(v2({...options,random:rng(seed)})),composition(w),'live catalogue preserves v2 composition');
+    delete w.id;sessions.push(w);
   }
   assert.equal(createHash('sha256').update(JSON.stringify(sessions)).digest('hex'),'1ec309aaf74c9bc78f70789cae529eb0e33fcd42c363e4b5ad0af63163902981');
   for(const w of [sessions[0],sessions.at(-1)]) {

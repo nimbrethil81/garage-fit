@@ -129,8 +129,8 @@ test('[Full] the warm-up expansion exercises are reachable in Warm-up and never 
     assert.ok(count(pools[pool],id,'warmup')>=3,id+' in '+pool+' warm-ups: '+count(pools[pool],id,'warmup'));
     assert.equal(count(bodyweight.concat(trx,bands),id,'rampup'),0,id+' in Ramp-up');
   }
-  // The essential knee-mobility movement is in every warm-up.
-  for(const workout of bodyweight.concat(trx,bands))assert.ok(workout.warmup.exercises.some(ex=>ex.id==='standing-knee-curls'));
+  // Essential knee mobility is in every warm-up, with reviewed alternatives.
+  for(const workout of bodyweight.concat(trx,bands))assert.ok(workout.warmup.exercises.some(G.kneeMobilityQualified));
 });
 
 // Core C1: explicit examples from the full catalogue keep rare legitimate routes
@@ -161,9 +161,9 @@ test('Core C1 additions and plank taps reach legacy Main; preparation has its ow
     assert.deepEqual(G.validateMain(w.main,catalogue,equipment),[],id);
   }
   for(const [phase,id,duration,difficulty,seed] of [
-    ['warmup','bent-knee-fallout',10,'easy',63],
-    ['warmup','supine-heel-slides',15,'easy',21],
-    ['warmup','tabletop-toe-taps',30,'easy',19],
+    ['warmup','bent-knee-fallout',10,'easy',1],
+    ['warmup','supine-heel-slides',15,'easy',1],
+    ['warmup','tabletop-toe-taps',30,'easy',51],
     ['rampup','tabletop-toe-taps',20,'easy',12]
   ]){
     const w=G.generate({catalogue,equipment:[],duration,difficulty,bodyFocus:'core',focus:'strength',random:random(seed)});
@@ -175,7 +175,7 @@ test('Core C1 additions and plank taps reach legacy Main; preparation has its ow
 });
 
 test('Athletic v5 light tandem placement and split-stance stepping have their own selectable warm-up doses',()=>{
-  for(const [id,seed] of [['tandem-step-and-hold',10],['split-stance-step-switches',23]]) {
+  for(const [id,seed] of [['tandem-step-and-hold',34],['split-stance-step-switches',23]]) {
     const w=G.generate({catalogue,equipment:[],duration:20,focus:'strength',random:random(seed)});
     assert.ok(w.warmup.exercises.some(ex=>ex.id===id),id);
     assert.ok(!w.rampup.exercises.some(ex=>ex.id===id));assert.ok(!w.cooldown.exercises.some(ex=>ex.id===id));
@@ -184,8 +184,8 @@ test('Athletic v5 light tandem placement and split-stance stepping have their ow
 });
 
 test('Mobility v3 crossover reaches only reviewed light preparation and low-load recovery routes (#272)',()=>{
-  const fixtures=[['warmup','standing-wall-slides',15],['warmup','standing-hinge-and-reach',40],
-    ['cooldown','standing-calf-stretch',12],['cooldown','bent-knee-calf-stretch',10],['cooldown','supine-hamstring-stretch',2]];
+  const fixtures=[['warmup','standing-wall-slides',10],['warmup','standing-hinge-and-reach',42],
+    ['cooldown','standing-calf-stretch',31],['cooldown','bent-knee-calf-stretch',4],['cooldown','supine-hamstring-stretch',24]];
   for(const [phase,id,seed] of fixtures) {
     const w=G.generate({catalogue,duration:10,difficulty:'normal',equipment:[],focus:'balanced',random:random(seed)});
     const ex=w[phase].exercises.find(ex=>ex.id===id);assert.ok(ex,id+' actual '+phase);

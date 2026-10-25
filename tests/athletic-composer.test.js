@@ -444,10 +444,11 @@ test('v5 membership keeps earlier policies intact and rejects accidental generic
   const ctx=(version,role,extra={})=>({workoutFamilyId:FAMILY,workoutFamilyVersion:version,role,...extra});
   for(const id of NEW_271){
     const ex=C[id];assert.deepEqual(ex.equipment,[]);assert.equal(ex.load,null);
-    assert.ok(ex.instruction.length<=180);assert.equal(ex.rampup||ex.cooldown,false,id);
+    assert.ok(ex.instruction.length<=180);assert.equal(ex.cooldown,false,id);
+    assert.equal(ex.rampup,id==='four-square-steps',id+' reviewed P1 ramp-up reuse');
     for(const version of [1,2,3,4])for(const role of ['footwork','control','integrated'])assert.equal(F.getMembership(ctx(version,role),id),null,id);
     assert.equal(G.generatedPhaseEligible(ex,'main',[],'hard'),['reverse-lunge-with-rotation','transverse-lunge-to-balance'].includes(id),id);
-    assert.equal(G.generatedPhaseEligible(ex,'warmup',[],'easy'),id==='tandem-step-and-hold',id);
+    assert.equal(G.generatedPhaseEligible(ex,'warmup',[],'easy'),['tandem-step-and-hold','four-square-steps'].includes(id),id);
     for(const role of ['footwork','control','integrated']) {
       const entry=F.getMembership(ctx(5,role),id);if(!entry)continue;
       assert.equal(G.generatedPhaseEligible(ex,'main',[],'easy',ctx(5,role,{difficulty:'easy',movementRoom:true,excludedImpact:[]})),
