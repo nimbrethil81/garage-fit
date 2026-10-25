@@ -219,8 +219,8 @@ test('General Fitness is offered and runs home → preview/edit → player → s
   assert.match(p.text(), /A training goal and sessions adapted to the work you actually do\. Fitness programmes.*General Fitness 4-Week General Strength Build Arms Sport cross-training Tennis/);
   assert.doesNotMatch(p.text(), /stable anchors/);
   await p.click('General Fitness');
-  assert.match(p.text(), /Open-ended: 2–5 sessions per week.*10, 15, 20 or 45 minutes when needed.*Mobility & Movement Quality\) from the training you have actually done\. No fixed targets/);
-  assert.doesNotMatch(p.text(), /stable|anchors start|Strength target/i);
+  assert.match(p.text(), /2–5 sessions per week Recommended, not obligatory\s+30 min default Adjustable for each session/);
+  assert.doesNotMatch(p.text(), /\bstable\b|anchors start|Strength target/i);
   await p.click('Start programme');
   const state = p.state(); assert.equal(state.programmeDefinitionId, 'general-fitness'); assert.deepEqual(state.anchors, []);
   // The same compact hierarchy as every programme, with anchor-free copy.
@@ -283,4 +283,43 @@ test('General Fitness preview reports a replanned family or style fallback; anch
   p.run("coachUI.controller.plan=()=>({prescription:null,conflicts:[{code:'family-plan-unavailable'}],rationale:{priorities:{}}})"); await p.run('coachUI.open()');
   assert.match(p.text(), /Adjust today’s options .*Try more time or restore equipment\./);
   assert.equal(p.json("nodes('coachContent').filter(node=>/^Substitute /.test(node.textContent)).length"), 0);
+});
+
+
+test('General Fitness setup uses accessible family disclosures and preserves equipment, back and blocked routes', async () => {
+  const p=await ui(); await p.click('General Fitness');
+  const labels=['Strength & Control','Cardio & Conditioning','Full-Body Challenges','Athletic Movement','Core & Stability','Mobility & Movement Quality'];
+  assert.deepEqual(p.json("nodes('coachContent').filter(n=>n.attributes?.['aria-expanded']!==undefined).map(n=>n.children[0].textContent)"),labels);
+  for (const label of labels) {
+    const query=`nodes('coachContent').find(n=>n.onclick&&n.children[0]?.textContent===${JSON.stringify(label)})`;
+    assert.equal(p.run(`${query}.type`),'button');
+    assert.equal(p.run(`${query}.attributes['aria-expanded']`),'false');
+    p.run(`${query}.onclick()`);
+    assert.equal(p.run(`${query}.attributes['aria-expanded']`),'true');
+    assert.equal(p.run(`nodes('coachContent').find(n=>n.id===${query}.attributes['aria-controls']).hidden`),false);
+    p.run(`${query}.onclick()`);
+    assert.equal(p.run(`${query}.attributes['aria-expanded']`),'false');
+  }
+  const families=p.json("GarageFitData.programmes['general-fitness'][2].familyBalancePolicy.families");
+  for (const family of families) assert.ok(p.text().includes(p.run(`GarageFitData.workoutFamilies[${JSON.stringify(family.workoutFamilyId)}][${family.workoutFamilyVersion}].purpose`)));
+  assert.match(p.text(),/Optional progress checks Around every four weeks.*may be offered.*Take it or skip it/);
+  assert.doesNotMatch(p.text(),/anchors|open-ended|catch-up|external activit|equipment you choose|family-selection/i);
+  await p.click('Set up usual equipment');
+  assert.equal(p.run("document.getElementById('equipment').classList.contains('hidden')"),false);
+  p.run("closeEquipment()");
+  await p.run("field('Back to Coach programmes').onclick()");
+  assert.ok(p.has('General Fitness'));
+  p.run("coachUI.controller.assess=()=>({status:'infeasible',conflicts:[{code:'missing-pattern',pattern:'push'}]})");
+  await p.click('General Fitness');
+  assert.match(p.text(),/Blocked · Add equipment for push work/);
+  assert.equal(p.has('Start programme'),false); assert.ok(p.has('Set up usual equipment'));
+});
+
+test('General Fitness v1 overview omits benchmark panel', async () => {
+  const p=await ui();
+  p.run(`GarageFitData.programmes={...GarageFitData.programmes,'general-fitness':{1:GarageFitData.programmes['general-fitness'][1]}};
+    coachUI=GarageFitCoachUI.mount({catalogue:CATALOGUE,equipment:EQUIPMENT,getEquipment:()=>state.ownedEquipment,setEquipment:()=>{},buildTimeline:buildGeneratedTimeline,play:()=>{},showScreen,stopPlayer:()=>{}});`);
+  await p.run('coachUI.open()'); await p.click('General Fitness');
+  assert.doesNotMatch(p.text(),/benchmark|progress checks/i);
+  assert.ok(p.has('Start programme'));
 });

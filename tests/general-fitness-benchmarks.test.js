@@ -524,7 +524,7 @@ async function uiUntilOffered(p) {
 test('the start screen describes benchmarks as occasional and optional', async () => {
   const p = await ui();
   await p.click('General Fitness');
-  assert.match(p.text().replace(/\s+/g, ' '), /Every four weeks or so, a short optional benchmark may be offered first in a suitable Strength & Control session.*Skip it any time; nothing is owed/);
+  assert.match(p.text().replace(/\s+/g, ' '), /Optional progress checks Around every four weeks, a short benchmark may be offered in a suitable Strength & Control session.*Take it or skip it — your choice/);
 });
 
 test('the preview and player offer an optional benchmark that records exactly what the user enters', async () => {

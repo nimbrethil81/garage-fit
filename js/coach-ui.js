@@ -950,17 +950,40 @@
       if (isTennis()) { tennisOverview(); return; }
       const assessment=controller.assess(def,getEquipment()), wrap=el('coachContent'); wrap.innerHTML='';
       if (!def.anchorSelectionPolicy) {
-        // An anchor-free programme: no stable targets, each session is built for the day.
-        const list=values=>values.length>1 ? values.slice(0,-1).join(', ')+' or '+values.at(-1) : values.join('');
-        const frequency=def.recommendedFrequency, families=def.familyBalancePolicy.families.map(item=>familyDefinition(item.workoutFamilyId,item.workoutFamilyVersion).name);
-        wrap.append(overviewHeader(def.name),
-          paragraph(def.objective+'. Open-ended: '+frequency.minSessionsPerWeek+'–'+frequency.maxSessionsPerWeek+' sessions per week. Pause or finish whenever you choose.'),
-          paragraph(def.sessionTemplate.duration+' minutes by default; '+list(def.supportedDurations.filter(duration=>duration!==def.sessionTemplate.duration))+' minutes when needed. Each session chooses one workout type ('
-            +list(families)+') from the training you have actually done. No fixed targets or catch-up debt.'),
-          paragraph(assessment.status==='infeasible'?'Blocked · '+conflictText(assessment.conflicts):'Each session is built from the equipment you choose that day.'),
-          ...(def.benchmarkPolicy ? [paragraph('Every four weeks or so, a short optional benchmark may be offered first in a suitable Strength & Control session so you can compare like with like. Skip it any time; nothing is owed.')] : []),
-          ...(def.externalActivityPolicy ? [paragraph('Optional: add activities you usually do outside GarageFit later in Programme settings.')] : []),
-          button('Set up usual equipment',() => root.openEquipment('coach')));
+        const frequency=def.recommendedFrequency;
+        const facts=document.createElement('div'); facts.className='coach-progress-grid';
+        function fact(value,label) {
+          const tile=document.createElement('div'); tile.className='coach-progress-tile';
+          const title=document.createElement('strong'); title.className='coach-progress-card-title'; title.textContent=value;
+          tile.append(title,paragraph(label)); return tile;
+        }
+        facts.append(fact(frequency.minSessionsPerWeek+'–'+frequency.maxSessionsPerWeek+' sessions per week','Recommended, not obligatory'),
+          fact(def.sessionTemplate.duration+' min default','Adjustable for each session'));
+        const families=document.createElement('section'); families.className='coach-progress-section';
+        const heading=document.createElement('h2'); heading.textContent='Six ways to move';
+        const grid=document.createElement('div'); grid.className='coach-progress-grid';
+        def.familyBalancePolicy.families.forEach(item=>{
+          const family=familyDefinition(item.workoutFamilyId,item.workoutFamilyVersion);
+          const tile=document.createElement('div'); tile.className='coach-progress-card';
+          const control=document.createElement('button'); control.type='button'; control.className='coach-progress-card-button';
+          const label=document.createElement('span'); label.className='coach-progress-card-title'; label.textContent=family.name;
+          const detail=document.createElement('div'); detail.className='coach-progress-detail'; detail.id='coach-family-'+family.id;
+          detail.hidden=true; detail.append(paragraph(family.purpose));
+          control.setAttribute('aria-controls',detail.id); control.setAttribute('aria-expanded','false');
+          control.onclick=()=>{detail.hidden=!detail.hidden;control.setAttribute('aria-expanded',String(!detail.hidden));};
+          control.append(label); tile.append(control,detail); grid.append(tile);
+        });
+        families.append(heading,grid);
+        wrap.append(overviewHeader(def.name),paragraph('Build strength, fitness and confidence with a varied mix of workouts.'),facts,families);
+        if (def.benchmarkPolicy) {
+          const panel=document.createElement('section'); panel.className='coach-progress-tile';
+          const heading=document.createElement('strong'); heading.textContent='Optional progress checks';
+          panel.append(heading,paragraph('Around every four weeks, a short benchmark may be offered in a suitable Strength & Control session. Take it or skip it — your choice.'));
+          wrap.append(panel);
+        }
+        wrap.append(paragraph('Train at your pace. Pause or finish whenever you choose.'));
+        if (assessment.status==='infeasible') wrap.append(paragraph('Blocked · '+conflictText(assessment.conflicts)));
+        wrap.append(button('Set up usual equipment',() => root.openEquipment('coach')));
         if (assessment.status!=='infeasible') wrap.append(button('Start programme',async () => {
           const started=await controller.start(def,getEquipment());
           if (!started.state) { wrap.append(paragraph(conflictText(started.assessment.conflicts))); return; }
