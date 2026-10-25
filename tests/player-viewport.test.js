@@ -50,3 +50,11 @@ test('both players reserve the viewport and remove the bottom nav; landing scree
     assert.equal(el('bottomNav').classList.contains('hidden'),false);
   }
 });
+
+// GF-R1 (#280): geometry is asserted in scripts/verify-player-layout.py; this guards
+// the CSS contract cheaply so the superseded stacked portrait layout cannot return.
+test('workout player portrait navigation places Previous left of the primary action in one row',()=>{
+  const css=fs.readFileSync('css/player-layout.css','utf8');
+  assert.match(css,/\.workout-secondary-controls\{[^}]*grid-template-areas:"previous primary"/);
+  assert.doesNotMatch(css,/grid-template-areas:"primary primary"/);
+});

@@ -51,20 +51,22 @@
 .workout-stat-label{margin:0 0 2px}.workout-stat-value{font-size:17px}
 :is(#player,#workoutPlayer) .overall-progress{margin:0;flex:none}
 .progress-label{margin-bottom:4px}.progress-track{height:6px}
-/* The reserved action footer: the immediate-next preview, then the centred primary
-   action. Previous and Coach Skip work follow it at the same width in the workout
-   player; DOM and focus order stay Previous, primary, Skip work. */
+/* The reserved action footer: the immediate-next preview, then the navigation row.
+   GF-R1 (#280): in the workout player Previous (left) and the primary Next/Finish
+   action (right) share one row; Coach Skip work follows centred. DOM and focus order
+   stay Previous, primary, Skip work. The routine player has no Previous, so its
+   primary action stays centred. */
 .workout-actions,.controls{flex:none;margin:0;width:100%;display:flex;flex-direction:column;align-items:center;gap:4px}
 .workout-actions>.coach-error{align-self:stretch}
 .next-preview{flex:none;margin:0;max-width:100%;min-height:1.3em;color:var(--text-muted);font-size:14px;font-weight:650;line-height:1.3;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .next-preview:has(>.hidden){visibility:hidden}
 .controls>.complete-btn{flex:none;width:var(--player-primary-width)}
 .controls>.next-preview{margin-top:4px}
-.workout-secondary-controls{display:grid;width:var(--player-primary-width);grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"primary primary" "previous skip";gap:6px;min-width:0}
-.workout-secondary-controls:has(>#coachSkipBtn.hidden){grid-template-areas:"primary primary" "previous previous"}
-#completeMovementBtn{grid-area:primary}#previousWorkoutBtn{grid-area:previous}#coachSkipBtn{grid-area:skip;margin:0;white-space:nowrap}
+.workout-secondary-controls{display:grid;width:100%;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"previous primary" "skip skip";gap:6px 8px;min-width:0;align-items:stretch}
+.workout-secondary-controls:has(>#coachSkipBtn.hidden){grid-template-areas:"previous primary"}
+#completeMovementBtn{grid-area:primary}#previousWorkoutBtn{grid-area:previous}#coachSkipBtn{grid-area:skip;justify-self:center;width:var(--player-primary-width);margin:0;white-space:nowrap}
 :is(#player,#workoutPlayer) :is(.ctrl-btn,.previous-btn){min-height:54px;padding:8px 10px}
-:is(#player,#workoutPlayer) .workout-secondary-controls>:is(#previousWorkoutBtn,#coachSkipBtn){min-height:44px;padding:4px 10px}
+:is(#player,#workoutPlayer) .workout-secondary-controls>#coachSkipBtn{min-height:44px;padding:4px 10px}
 .previous-copy{min-width:0}.previous-copy strong{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* Disclosures keep their native summary and keyboard behaviour. Their expanded
    contents occupy a reading/editing surface bounded above the navigation row. */
@@ -153,6 +155,7 @@
   .workout-actions:has(#coachSkipBtn.hidden){grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"error error" ". preview" "previous primary"}
   .workout-actions>.coach-error{grid-area:error}.workout-actions>.next-preview{grid-area:preview}
   .workout-secondary-controls{display:contents}
+  #coachSkipBtn{width:auto;justify-self:stretch}
   :is(#player,#workoutPlayer) .workout-secondary-controls>:is(#previousWorkoutBtn,#coachSkipBtn){min-height:54px}
   .next-preview{font-size:12px;line-height:15px;min-height:15px}
 }

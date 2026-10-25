@@ -60,7 +60,8 @@ browser chrome, keyboard animation, audio and wake-lock checks remain manual.
 
 ```sh
 python -m http.server 8000 --bind 127.0.0.1
-# In a second terminal (requires developer-installed Playwright and Chromium):
+# In a second terminal (requires developer-installed Playwright and Chromium;
+# set CHROMIUM_PATH if Chromium is not at /usr/bin/chromium):
 python scripts/verify-player-layout.py --url http://127.0.0.1:8000 --output /tmp/player-layout
 node --test tests/*.test.js
 ```
@@ -119,18 +120,23 @@ line-height's sub-pixel text overflow, which otherwise pushed one rest state int
 `player-reflow` in current Chromium.
 
 The immediate-next preview (`updateRoutineControls()` / `renderUpNext()`, unchanged)
-is a muted `Next: …` line above the primary button and is invisible, with its line
-reserved, when no next activity applies. On normal portrait phones the primary
-button is centred at 70% of the content width (capped at 340px). In the workout
-player, Previous (and Coach Skip work) follows at the same width, while DOM and
-focus order stay Previous, primary, Skip work. When the usable height is 580px or
-less, the workout player keeps one reserved row with Previous, the primary action
-and Skip work, the preview above the primary action. Wide landscape rows centre
+is a muted `Next: …` line above the navigation. In the workout player
+(generated, fixed and Coach) **Previous sits on the left and the primary Next/Finish
+workout action on the right, in one row** at every size (GF-R1 Option B, #280). On
+normal portrait phones the two share the full content width in equal columns;
+Coach Skip work follows centred beneath the row. DOM and focus order stay Previous,
+primary, Skip work. This supersedes #235 Decision 1B's stacked, centred 70% portrait
+primary layout. The routine player has no Previous control, so its primary action
+stays centred at 70% of the content width (capped at 340px). When the usable height
+is 580px or less, the workout player keeps one reserved row with Previous, the primary
+action and Skip work, the preview above the primary action. Wide landscape rows centre
 the primary action.
 
 The verifier now also checks that the preview is above and outside the primary
-action in one colour, the primary action is centred at ~70% wherever Previous is
-not in its row, and the divider is present inside the timer space. The Python
+action in one colour, Previous and the primary action share one row with Previous on
+the left (also with the Finish workout label) and contained in the navigation, the
+routine player's lone primary action is centred at ~70%, and the divider is present
+inside the timer space. The matrix includes 390×844 and 360×640. The Python
 script needs a developer-installed Playwright. For this change the same matrix,
 native entry checks and assertions were run through a Node Playwright port with
 Chromium 141. All 444 measured states passed with no page or normal-stage overflow.
