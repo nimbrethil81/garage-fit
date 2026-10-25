@@ -20,6 +20,17 @@ GarageFit is a dependency-free browser PWA for fixed and generated workouts.
 - New primary tabs must reuse the shared masthead (`js/masthead.js`, `data-masthead` host) and the existing `showScreen()` / `#bottomNav` behaviour, and extend `tests/primary-masthead.test.js`. Inspect existing components and styles before creating new patterns.
 - When adding or editing exercises, follow the catalogue and editorial rules in data/EXERCISE_METADATA.md, including the exercise-instruction standard.
 
+## Screen presentation
+
+For new or materially revised Coach, Generator, Prep & Recover and relevant More information screens, apply these principles proportionately; not everything needs a card.
+
+- Visualise quantities, schedules, categories and choices when useful.
+- Prefer user-facing benefits and actions over technical terminology.
+- Disclose secondary detail contextually.
+- Keep content quickly scannable with concise headings and labels.
+- Reuse GarageFit layout, spacing, navigation and UI patterns.
+- Explain meaningful decisions rather than automatic implementation behaviour.
+
 ## Testing and reachability
 
 - Fast: `node --test --test-skip-pattern='\[Full\]' tests/*.test.js`; Full: `node --test tests/*.test.js` (all tests).
