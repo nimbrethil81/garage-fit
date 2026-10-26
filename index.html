@@ -177,6 +177,27 @@
   .coach-fields #coachResistanceSetup label{flex-direction:row;align-items:center}.coach-fields input[type=checkbox]{width:20px;min-height:20px;flex-shrink:0}
   .coach-error{color:var(--danger);font-size:14px;line-height:1.4}.coach-error:empty{display:none}
   #coachSkipBtn{margin-top:10px}#coach .choice-row button{font-size:13px;padding:10px}
+  /* C-V2–V5: local hierarchy only; shared Generator previews and setup keep their styles. */
+  #coachContent [data-coach-next]{border-left:3px solid var(--work);gap:14px}
+  #coachContent [data-coach-next]>h2{margin:0;font-size:23px;line-height:1.25}
+  #coachContent [data-coach-next]>p:first-of-type{color:var(--text);font-weight:700}
+  #coachContent .coach-review>h2,#coachContent .coach-milestone{color:var(--work)}
+  #coachPreviewContent .coach-preview-header{display:flex;flex-direction:column;gap:8px}
+  #coachPreviewContent .preview-kicker{margin:0;color:var(--rest)}
+  #coachPreviewContent .preview-rounds{font-size:23px;line-height:1.25}
+  #coachPreviewContent .coach-preview-section{margin-top:6px}
+  #coachPreviewContent .preview-section-title{font-size:16px;line-height:1.4;color:var(--rest);margin-bottom:10px}
+  #coachPreviewContent .coach-why summary{font-size:14px;min-height:44px}
+  #coachPreviewContent .coach-why p{margin-top:10px;font-size:13px}
+  #coachPreviewContent summary:focus-visible{outline:2px solid var(--rest);outline-offset:2px}
+  #coachProgressContent .coach-progress-section>h2{color:var(--rest);line-height:1.35;margin-top:10px}
+  #coachProgressContent .coach-progress-phase>h2{color:var(--text);margin-top:0}
+  #coachProgressContent .coach-progress-phase>p:first-of-type{color:var(--text);font-weight:700}
+  #coachProgressContent .coach-progress-detail h2{color:var(--text)}
+  #coachContent .coach-save-status{border-left:3px solid var(--surface-2);padding:8px 12px;color:var(--text)}
+  #coachContent .coach-save-complete{border-left-color:var(--rest);color:var(--rest)}
+  #coachResult>h1{margin-bottom:0;line-height:1.2}
+  #coachResultSummary{margin:0;color:var(--text-muted);font-size:15px;line-height:1.5}
   #coachResult .coach-feedback{display:flex;flex-direction:column;gap:12px}
   @media(max-width:380px){.nav-btn{min-width:0;padding:8px 2px;font-size:9px;letter-spacing:0}}
 </style>

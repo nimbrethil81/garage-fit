@@ -404,7 +404,7 @@
     const programmes = Object.values(root.GarageFitData.programmes).map(versions => versions[Math.max(...Object.keys(versions).map(Number))]);
     let def = programmes[0], activeResistance = null, sessionSetups = {};
     const el = id => document.getElementById(id);
-    let options = null, busy = false, sessionActive = false, endKind = null, endSeconds = null, lastSaved = '', initialisation = Promise.resolve(), adjustmentOpen = false, previewEditing = false, disclosureOpen = {}, overviewOpen = false;
+    let options = null, busy = false, sessionActive = false, endKind = null, endSeconds = null, lastSaved = '', lastSavedStatus = null, initialisation = Promise.resolve(), adjustmentOpen = false, previewEditing = false, disclosureOpen = {}, overviewOpen = false;
     function button(text, action, primary = false) {
       const node = document.createElement('button'); node.type = 'button'; node.textContent = text;
       node.className = primary ? 'generator-primary' : 'ctrl-btn ctrl-secondary'; node.onclick = () => run(action); return node;
@@ -566,7 +566,7 @@
         programmes.filter(programme => programme.type !== 'tennis-conditioning').forEach(programme => wrap.append(button(programme.name, () => { def=programme; overview(); }, true)));
         wrap.append(heading('Sport cross-training'));
         programmes.filter(programme => programme.type === 'tennis-conditioning').forEach(programme => wrap.append(button('Tennis', () => { def=programme; overview(); }, true)));
-        if (state) wrap.append(paragraph('Previous programme finished · '+state.meaningfulSessionsCompleted+' meaningful sessions. Your history is saved.'));
+        if (state) { const finished=paragraph('Previous programme finished · '+state.meaningfulSessionsCompleted+' meaningful sessions. Your history is saved.'); finished.className='coach-milestone'; wrap.append(finished); }
         return;
       }
       def = root.GarageFitData.programmes[state.programmeDefinitionId][state.programmeDefinitionVersion];
@@ -628,6 +628,7 @@
       else {
         renderAdjust(wrap);
         const card=document.createElement('section'); card.className='coach-card';
+        card.setAttribute('data-coach-next','');
         const role=plan.prescription?.programmeContext.roleLabel;
         const rest=plan.conflicts.some(item=>item.code==='tennis-rest-recommended');
         const expired=plan.rationale.priorities.event?.phase==='expired';
@@ -654,7 +655,14 @@
         wrap.append(card);
         if (state.status==='active') renderVariationProgressions(wrap);
       }
-      if (lastSaved) wrap.append(paragraph(lastSaved));
+      if (lastSaved) {
+        const notice=paragraph(lastSaved);
+        if (lastSaved.startsWith('Session saved')) {
+          notice.className='coach-save-status'+(lastSavedStatus==='completed'?' coach-save-complete':'');
+          notice.setAttribute('role','status');
+        }
+        wrap.append(notice);
+      }
       if (def.sportReviewPolicy && controller.sportReview()?.due) wrap.append(paragraph('An optional tennis check-in is ready in Your progress.'));
       wrap.append(progressLink(),settingsLink());
     }
@@ -1260,6 +1268,7 @@
         const recorded=result.anchorResults.filter(item=>item.status!=='skipped' && !item.requirementId.startsWith('benchmark:') && (!isTennis() || stableIds.has(item.requirementId))).length;
         const measured=result.anchorResults.filter(item=>item.requirementId.startsWith('benchmark:') && item.status==='completed' && item.sets && item.sets.some(set=>set.reps!==null && set.reps!==undefined)).length;
         const identity=root.GarageFitCoachProgressUI.workoutIdentity(result);
+        lastSavedStatus=result.finalStatus;
         lastSaved=result.finalStatus==='abandoned'?'Session saved · no meaningful main work recorded.'
           : stableIds.size ? 'Session saved · '+result.finalStatus+' · '+recorded+' anchors recorded'
           : ['Session saved',result.finalStatus,identity?.label,measured ? plural(measured,'benchmark')+' recorded' : null].filter(Boolean).join(' · ');
