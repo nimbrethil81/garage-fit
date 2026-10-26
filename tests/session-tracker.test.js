@@ -473,6 +473,8 @@ test('timer ticks never write the draft; the timed outcome is one checkpoint', a
 async function playToEnd(harness) {
   const {app, run} = harness;
   for (let guard = 0; run('workoutState.running') && guard < 2000; guard++) {
+    // Separate deliberate actions without adding performed timed work.
+    app.toggleWorkoutPause();run('timerNow+=400');app.toggleWorkoutPause();
     const emom=run('isEmomPhase()');
     await app.completeWorkoutMovement();
     // EMOM Done ends work, then the original minute boundary advances playback.

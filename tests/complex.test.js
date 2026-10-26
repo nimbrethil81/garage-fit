@@ -27,7 +27,9 @@ function harness(b=fixture()){
   const workout=savedWorkoutV2(C);workout.main.blocks=[b];
   run(`generatorState.workout=JSON.parse(${JSON.stringify(JSON.stringify(workout))})`);
   const spoken=[];app.announceExercise=(exercise,parts)=>spoken.push([].concat(parts).join(' '));
-  return {app,run,el,spoken,phase:()=>run('currentGeneratedPhase()'),
+  return {app,run,el,spoken,
+    waitForIntent(){app.toggleWorkoutPause();now+=400;app.toggleWorkoutPause()},
+    phase:()=>run('currentGeneratedPhase()'),
     main:()=>run("generatorState.timeline.map((phase,index)=>({phase,index})).filter(({phase})=>phase.kind==='exercise'&&phase.section==='main')")};
 }
 
@@ -129,26 +131,26 @@ test('shared preview, voice and player label every movement, changeover and reco
   assert.equal(h.el('workoutMovementProgress').textContent,'Round 1 of 3');
   assert.equal(h.el('workoutTarget').textContent,'8 reps');assert.match(h.spoken.at(-1),/^Complex movement 1 of 3\. Dumbbell hammer curl\. 8 reps/);
   assert.equal(h.el('coachSkipBtn').classList.contains('hidden'),false);assert.equal(h.el('completeMovementNext').textContent,'Change over');
-  h.app.generatedPrimaryAction();await tracker.flush();
+  h.waitForIntent();h.app.generatedPrimaryAction();await tracker.flush();
   assert.equal(h.phase().kind,'complex-change');assert.equal(h.run('generatorState.remaining'),10);
   assert.match(h.el('workoutMovementProgress').textContent,/^Round 1 of 3$/);
   assert.equal(h.el('completeMovementAction').textContent,'Next');assert.equal(h.el('completeMovementNext').textContent,'Dumbbell shoulder press');
-  h.app.generatedPrimaryAction();h.app.generatedPrimaryAction();h.app.generatedPrimaryAction();
+  h.waitForIntent();h.app.generatedPrimaryAction();h.waitForIntent();h.app.generatedPrimaryAction();h.waitForIntent();h.app.generatedPrimaryAction();
   // The timed movement: measured, not credited beyond what elapsed.
   assert.equal(h.phase().occurrenceId,main[2].phase.occurrenceId);assert.equal(h.phase().timed,true);
   assert.equal(h.el('completeMovementAction').textContent,'Next');assert.equal(h.el('coachSkipBtn').classList.contains('hidden'),true);
   assert.equal(h.el('completeMovementNext').textContent,'Rest');
-  h.run('generatorState.remaining=18');h.app.generatedPrimaryAction();await tracker.flush();
+  h.run('generatorState.remaining=18');h.waitForIntent();h.app.generatedPrimaryAction();await tracker.flush();
   assert.equal(tracker.outcome(main[2].phase.occurrenceId).status,'partial');
   assert.equal(h.phase().kind,'complex-rest');assert.equal(h.el('workoutExercise').textContent,'Sequence 1 complete');
   assert.match(h.el('workoutMovementProgress').textContent,/^Round 1 of 3$/);assert.equal(h.run('generatorState.remaining'),75);
   // Previous redoes the same occurrence and replaces its outcome.
   h.app.previousGeneratedPhase();assert.equal(h.phase().occurrenceId,main[2].phase.occurrenceId);
-  h.run('generatorState.remaining=0');h.app.generatedPrimaryAction();await tracker.flush();
+  h.run('generatorState.remaining=0');h.waitForIntent();h.app.generatedPrimaryAction();await tracker.flush();
   assert.equal(tracker.outcome(main[2].phase.occurrenceId).status,'completed');
-  h.app.generatedPrimaryAction();assert.equal(h.phase().occurrenceId,main[3].phase.occurrenceId);
+  h.waitForIntent();h.app.generatedPrimaryAction();assert.equal(h.phase().occurrenceId,main[3].phase.occurrenceId);
   assert.match(h.el('workoutMovementProgress').textContent,/^Round 2 of 3$/);
-  h.app.generatedSkipWork();await tracker.flush();assert.equal(tracker.outcome(main[3].phase.occurrenceId).status,'skipped');
+  h.waitForIntent();h.app.generatedSkipWork();await tracker.flush();assert.equal(tracker.outcome(main[3].phase.occurrenceId).status,'skipped');
   const planned=tracker.plannedWork().filter(p=>p.section==='main');
   assert.equal(planned.length,9);assert.equal(new Set(planned.map(p=>p.occurrenceId)).size,9);
   assert.ok(planned.every(p=>p.requirementId===null&&p.prescription.protocol==='complex'&&p.prescription.variableTarget&&p.prescription.complexSequence>=1));
