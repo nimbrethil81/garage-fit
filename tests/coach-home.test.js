@@ -323,3 +323,21 @@ test('General Fitness v1 overview omits benchmark panel', async () => {
   assert.doesNotMatch(p.text(),/benchmark|progress checks/i);
   assert.ok(p.has('Start programme'));
 });
+
+test('programme setups share accurate facts and concise, optional progression help', async () => {
+  for (const [key, frequency, focus] of [
+    ['strength','2–3 sessions per week',/Squat · Push · Pull.*whole-body/],
+    ['arms','2–3 sessions per week',/Curl and extension.*whole-body/],
+    ['tennis','2 sessions per week default',/Strength · Movement · Conditioning · Stability/]
+  ]) {
+    const p=await ui(); await p.click(names[key]);
+    assert.match(p.text(),new RegExp(frequency)); assert.match(p.text(),/30 min default/); assert.match(p.text(),focus);
+    const help=p.json("nodes('coachContent').filter(n=>n.className==='coach-help coach-setup-help').map(n=>({tag:n.tagName,summary:n.children[0].textContent,open:!!n.open}))");
+    assert.equal(help.length,1); assert.equal(help[0].open,false);
+    assert.ok(p.has('Set up usual equipment')); assert.ok(p.has('Start programme'));
+    if(key==='arms') assert.match(p.text(),/Aim for 3; 2 is acceptable/);
+    if(key==='tennis') assert.ok(p.run("field('GarageFit sessions per week')"));
+    await p.run("field('Back to Coach programmes').onclick()"); assert.ok(p.has(names[key]));
+    await p.click(names[key]); await p.click('Start programme'); assert.ok(p.state());
+  }
+});

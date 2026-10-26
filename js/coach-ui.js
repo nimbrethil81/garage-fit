@@ -946,19 +946,25 @@
       back.onclick = () => run(backFromOverview); name.textContent = title; spacer.className = 'header-spacer'; header.append(back, name, spacer); return header;
     }
     function backFromOverview() { render(); }
+    // Setup-only facts reuse the existing neutral tiles; labels carry the meaning.
+    function setupFacts(frequency, frequencyHelp) {
+      const grid=document.createElement('div'); grid.className='coach-progress-grid coach-setup-facts';
+      [[frequency,frequencyHelp],[def.sessionTemplate.duration+' min default','Adjustable for each session']].forEach(([value,label])=>{
+        const tile=document.createElement('div'); tile.className='coach-progress-tile';
+        tile.append(text('strong','coach-progress-card-title',value),paragraph(label)); grid.append(tile);
+      });
+      return grid;
+    }
+    function setupHelp(label, copy) {
+      const details=document.createElement('details'); details.className='coach-help coach-setup-help';
+      details.append(text('summary','',label),paragraph(copy)); return details;
+    }
     function overviewView() {
       if (isTennis()) { tennisOverview(); return; }
       const assessment=controller.assess(def,getEquipment()), wrap=el('coachContent'); wrap.innerHTML='';
       if (!def.anchorSelectionPolicy) {
         const frequency=def.recommendedFrequency;
-        const facts=document.createElement('div'); facts.className='coach-progress-grid';
-        function fact(value,label) {
-          const tile=document.createElement('div'); tile.className='coach-progress-tile';
-          const title=document.createElement('strong'); title.className='coach-progress-card-title'; title.textContent=value;
-          tile.append(title,paragraph(label)); return tile;
-        }
-        facts.append(fact(frequency.minSessionsPerWeek+'–'+frequency.maxSessionsPerWeek+' sessions per week','Recommended, not obligatory'),
-          fact(def.sessionTemplate.duration+' min default','Adjustable for each session'));
+        const facts=setupFacts(frequency.minSessionsPerWeek+'–'+frequency.maxSessionsPerWeek+' sessions per week','Recommended, not obligatory');
         const families=document.createElement('section'); families.className='coach-progress-section';
         const heading=document.createElement('h2'); heading.textContent='Six ways to move';
         const grid=document.createElement('div'); grid.className='coach-progress-grid';
@@ -970,13 +976,14 @@
           const detail=document.createElement('div'); detail.className='coach-progress-detail'; detail.id='coach-family-'+family.id;
           detail.hidden=true; detail.append(paragraph(family.purpose));
           control.setAttribute('aria-controls',detail.id); control.setAttribute('aria-expanded','false');
-          control.onclick=()=>{detail.hidden=!detail.hidden;control.setAttribute('aria-expanded',String(!detail.hidden));};
-          control.append(label); tile.append(control,detail); grid.append(tile);
+          control.append(label,text('span','coach-progress-card-line','Show details'));
+          control.onclick=()=>{detail.hidden=!detail.hidden;control.setAttribute('aria-expanded',String(!detail.hidden));control.children[1].textContent=detail.hidden?'Show details':'Hide details';};
+          tile.append(control,detail); grid.append(tile);
         });
         families.append(heading,grid);
         wrap.append(overviewHeader(def.name),paragraph('Build strength, fitness and confidence with a varied mix of workouts.'),facts,families);
         if (def.benchmarkPolicy) {
-          const panel=document.createElement('section'); panel.className='coach-progress-tile';
+          const panel=document.createElement('section'); panel.className='coach-progress-tile coach-setup-benchmark';
           const heading=document.createElement('strong'); heading.textContent='Optional progress checks';
           panel.append(heading,paragraph('Around every four weeks, a short benchmark may be offered in a suitable Strength & Control session. Take it or skip it — your choice.'));
           wrap.append(panel);
@@ -991,12 +998,17 @@
         },true));
         return;
       }
+      const arms=!!def.doseTargets.directElbowActions;
       const anchor=def.anchorSelectionPolicy.requirements[0];
-      wrap.append(overviewHeader(def.name),paragraph(def.type==='tennis-conditioning' ? def.objective+'. Balanced by default, with 2 Coach sessions per week; 1–3 sessions are supported. Pause or finish whenever you choose.' : def.openEnded ? def.objective+'. An open-ended objective: aim for '+def.recommendedFrequency.aimSessionsPerWeek+' sessions per week; two is acceptable. Pause or finish whenever you choose.' : def.objective+' over a nominal four-week block. Aim for '+def.completionCriteria.blockMeaningfulSessionTarget+' meaningful sessions, at '+def.recommendedFrequency.minSessionsPerWeek+'–'+def.recommendedFrequency.maxSessionsPerWeek+' per week.'),
-        paragraph(def.type==='tennis-conditioning' ? 'Usually 20–30 minutes. Four stable knee, hinge, push and pull anchors build from 2 × 6 to 2 × 10 reps, about 2 reps in reserve. Each session selects the targets that fit your available 10/15/20/30/45 minutes; both sides are required where applicable. Supporting work rotates from performed history, with no catch-up debt.' : def.sessionTemplate.duration+' minutes by default; '+def.supportedDurations.filter(duration=>duration!==def.sessionTemplate.duration).join(' or ')+' minutes when needed. '+def.anchorSelectionPolicy.requirements.length+' stable '+(def.doseTargets.directElbowActions?'direct curl and extension':'squat, push and pull')+' anchors start at '+anchor.targetSets+' × '+anchor.target.maxReps+' reps.'),
+      wrap.append(overviewHeader(def.name),paragraph(arms ? def.objective+'. Keep building at your own pace.' : def.objective+' in a four-week block.'),
+        setupFacts(def.recommendedFrequency.minSessionsPerWeek+'–'+def.recommendedFrequency.maxSessionsPerWeek+' sessions per week',arms ? 'Aim for 3; 2 is acceptable' : 'Recommended weekly rhythm'),
+        paragraph(arms ? 'Curl and extension work comes first, alongside whole-body training.' : 'Squat · Push · Pull — core strength work, supported by whole-body training.'),
+        setupHelp('How progression works',arms
+          ? 'Build from 3 × 8 to 3 × 12 reps, then confirm more resistance. Aim for 9 performed curl and 9 extension set exposures in each rolling 7 days. Supporting work maintains squat, hinge, lunge, compound push/pull, core and carry.'
+          : 'Keep familiar strength exercises, starting at '+anchor.targetSets+' × '+anchor.target.maxReps+' reps. Build reps, then confirm more resistance. Aim for '+def.completionCriteria.blockMeaningfulSessionTarget+' meaningful sessions across the four-week block.'),
+        paragraph('Pause or finish whenever you choose.'),
         paragraph(assessment.status==='infeasible'?'Blocked · '+conflictText(assessment.conflicts):assessment.status==='partially-feasible'?'Partially feasible · required anchors fit; supporting choices may be adjusted.':'Feasible · your equipment supports this programme.'),
         button('Set up usual equipment',() => root.openEquipment('coach')));
-      if (def.doseTargets.directElbowActions) wrap.append(paragraph('Build from 3 × 8 to 3 × 12, then confirm more resistance. Aim for 9 performed curl and 9 extension set exposures in each rolling 7 days, plus squat, hinge, lunge, compound push/pull, core and carry maintenance. Short sessions keep the direct anchors first.'));
       if (assessment.status!=='infeasible') wrap.append(button('Start programme',async () => {
         const started=await controller.start(def,getEquipment());
         if (!started.state) { wrap.append(paragraph(conflictText(started.assessment.conflicts))); return; }
@@ -1007,7 +1019,12 @@
       const wrap=el('coachContent'); wrap.innerHTML='';
       const defaults=Model().createProgrammeSettings(def.defaultProgrammeSettings);
       const form=tennisViews.settingsForm(defaults,{includeEvent:!!def.eventPolicy,localDate:localDay(new Date().toISOString())});
-      wrap.append(overviewHeader(def.name),paragraph(def.movementFamilyPolicy ? 'Choose 10/15/20/30/45 minutes. Strength sessions keep limited comparable knee, hinge, push and pull work, building from 2 × 6 to 2 × 10 reps. Movement sessions use footwork, balance and integrated athletic drills with recovery, without required strength anchors. Lighter and pre-event days use a controlled alternative. Completed exercise work is not proof of improved tennis skill.' : 'Usually 20–30 minutes. Four stable knee, hinge, push and pull anchors build from 2 × 6 to 2 × 10 reps, about 2 reps in reserve. Each session selects only the targets that fit your time.'),form.wrap);
+      wrap.append(overviewHeader(def.name),paragraph('Build balanced conditioning for tennis, around your time on court.'),
+        setupFacts(defaults.weeklyCoachFrequency+' sessions per week default','Choose 1–3 in the settings below'),
+        paragraph('Strength · Movement · Conditioning · Stability'),
+        setupHelp('How training fits your tennis',def.movementFamilyPolicy
+          ? 'Strength sessions build familiar knee, hinge, push and pull work from 2 × 6 to 2 × 10 reps. Movement sessions use footwork, balance and athletic drills with recovery. Lighter and pre-event days use a controlled alternative. Completed exercise work is not proof of improved tennis skill.'
+          : 'Strength work builds from 2 × 6 to 2 × 10 reps. Each session selects the targets that fit your time.'),form.wrap);
       const assessment=controller.assess(def,getEquipment(),defaults), feasibility=paragraph('');
       const showAssessment=value=>{feasibility.textContent=value.status==='infeasible'?'Equipment needs attention · '+conflictText(value.conflicts)
         : 'Your equipment supports all four anchor roles. Short-session feasibility is checked for each session.';};
