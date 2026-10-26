@@ -179,13 +179,13 @@ function loadApp() {
   };
   context.window = context; context.globalThis = context;
   vm.createContext(context);
-  for (const file of ['data/equipment.js','data/exercises.js','data/workouts.js','data/workout-families.js','js/workout-families.js','js/generator.js','js/routine-generator.js','js/timed-cues.js','js/speech-voices.js','js/completion-signal.js','js/coach-model.js','js/coach-store.js','js/session-tracker.js','js/workout-preview.js','js/masthead.js','js/back-navigation.js']) {
+  for (const file of ['data/equipment.js','data/exercises.js','data/workouts.js','data/workout-families.js','js/workout-families.js','js/generator.js','js/routine-generator.js','js/desk-break.js','js/timed-cues.js','js/speech-voices.js','js/completion-signal.js','js/coach-model.js','js/coach-store.js','js/session-tracker.js','js/workout-preview.js','js/masthead.js','js/back-navigation.js']) {
     vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), context, { filename:file });
   }
   const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].at(-1)[1];
   vm.runInContext(inline, context, { filename:'index-inline.js' });
   vm.runInContext(fs.readFileSync(path.join(root, 'js/workouts-ui.js'), 'utf8'), context, { filename:'js/workouts-ui.js' });
-  return { context, elements, intervals, spoken };
+  return { context, elements, intervals, spoken, storage };
 }
 
 function tick(intervals, timerId, times) {
@@ -219,4 +219,91 @@ test('playback can complete Evening Full-Body Reset via the existing fixed-worko
   assert.equal(vm.runInContext('state.running', context), false);
   assert.equal(elements.doneTitle.textContent, 'Evening Full-Body Reset Complete');
   assert.equal(elements.doneSub.textContent, 'Reset complete. Nice and easy.');
+});
+
+
+test('Desk Break automatically plays exactly 180 seconds with changeovers and no reps', () => {
+  const {context:c,elements:e,intervals,storage,spoken}=loadApp();
+  c.GarageFitWorkoutUI.startDeskBreak();
+  const run=code=>vm.runInContext(code,c);
+  assert.equal(run('state.key'),'deskBreak');
+  assert.equal(storage.size,1);
+  assert.equal(run('state.list.length'),6);
+  assert.equal(e.routineName.textContent,'Desk Break');
+  tick(intervals,run('state.timer'),3);
+  let seconds=0;
+  for(let i=0;i<6;i++){
+    assert.equal(run('state.phase'),'work');
+    assert.equal(run('state.remaining'),25);
+    assert.equal(e.repsNum.classList.contains('hidden'),true);
+    assert.equal(e.routineTarget.textContent,'');
+    tick(intervals,run('state.timer'),25);seconds+=25;
+    if(i<5){
+      assert.equal(e.phaseLabel.textContent,'CHANGEOVER');
+      assert.equal(spoken.at(-1),run('state.list[state.idx+1].name'));
+      tick(intervals,run('state.timer'),6);seconds+=6;
+    }
+  }
+  assert.equal(seconds,180);
+  assert.equal(run('state.running'),false);
+  assert.equal(e.doneTitle.textContent,'Desk Break Complete');
+  assert.equal(e.doneBtn.textContent,'Back to workouts');
+  assert.equal(intervals.size,0);
+  c.goWorkouts();assert.equal(e.workouts.classList.contains('hidden'),false);
+});
+
+test('Desk Break fences stale timers, rapid Next bursts, pause and exit/restart',()=>{
+  const {context:c,elements:e,intervals,storage}=loadApp();
+  const run=code=>vm.runInContext(code,c);
+  let now=1000;c.Date={now:()=>now};
+  c.skipPhase=c.GarageFitWorkoutUI.skipTimedPhase;
+  c.GarageFitWorkoutUI.startDeskBreak();
+  const firstPlan=run('state.list');
+  c.GarageFitWorkoutUI.startDeskBreak();assert.equal(run('state.list'),firstPlan);
+  const readyTick=intervals.get(run('state.timer'));
+  for(let i=0;i<10;i++)c.skipPhase();
+  assert.equal(run('state.phase'),'work');assert.equal(run('state.idx'),0);
+  const workTick=intervals.get(run('state.timer'));
+  readyTick();assert.equal(run('state.remaining'),25);
+  c.togglePause();workTick();c.skipPhase();assert.equal(run('state.remaining'),25);
+  c.togglePause();tick(intervals,run('state.timer'),25);
+  assert.equal(e.phaseLabel.textContent,'CHANGEOVER');
+  c.skipPhase();assert.equal(run('state.phase'),'rest','expiry/Next overlap advances only once');
+  now+=400;c.skipPhase();assert.equal(run('state.idx'),1);
+  workTick();assert.equal(run('state.remaining'),25,'stale expiry cannot touch next movement');
+  now+=400;c.openExitDialog('routine');c.skipPhase();assert.equal(run('state.idx'),1);
+  c.cancelExit();assert.equal(run('state.paused'),false);
+  c.openExitDialog('routine');c.confirmExitChoice();assert.equal(run('state.running'),false);
+  const oldTick=intervals.get(run('state.timer'));
+  c.GarageFitWorkoutUI.startDeskBreak();workTick();if(oldTick)oldTick();
+  assert.equal(run('state.phase'),'ready');assert.equal(run('state.remaining'),3);
+  assert.equal(JSON.parse(storage.get('gf_desk_break_recent_v1')).length,2);
+  assert.notDeepEqual(run('state.list'),firstPlan);
+});
+
+test('Desk Break failure stays in Workouts without recording a candidate session',()=>{
+  const {context:c,elements:e,storage}=loadApp();
+  c.goWorkouts();c.GarageFitDeskBreak.generate=()=>{throw new Error('No balanced break available');};
+  c.GarageFitWorkoutUI.startDeskBreak();
+  assert.equal(e.deskBreakError.textContent,'No balanced break available');
+  assert.equal(vm.runInContext('state.running',c),false);assert.equal(storage.size,0);
+});
+
+test('Desk Break manual completion boundaries are bounded and abandoned timers cannot change other routines',()=>{
+  const {context:c,elements:e,intervals}=loadApp();const run=code=>vm.runInContext(code,c);
+  let now=1000;c.Date={now:()=>now};c.skipPhase=c.GarageFitWorkoutUI.skipTimedPhase;
+  c.GarageFitWorkoutUI.startDeskBreak();
+  const abandoned=intervals.get(run('state.timer'));
+  c.goHome();run("state.running=true;state.key='warmup';state.remaining=77");
+  abandoned();assert.equal(run('state.remaining'),77);
+  c.goWorkouts();c.GarageFitWorkoutUI.startDeskBreak();
+  c.skipPhase();
+  for(let i=0;i<6;i++){
+    assert.equal(run('state.idx'),i);assert.equal(run('state.phase'),'work');
+    const oldTick=intervals.get(run('state.timer'));
+    now+=400;for(let j=0;j<10;j++)c.skipPhase();oldTick();
+    if(i<5){assert.equal(run('state.phase'),'rest');now+=400;c.skipPhase();}
+    else {assert.equal(run('state.running'),false);assert.equal(e.doneTitle.textContent,'Desk Break Complete');}
+  }
+  assert.equal(intervals.size,0);
 });

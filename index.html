@@ -555,6 +555,7 @@
 <script src="js/equipment-icons.js"></script>
 <script src="data/exercises.js"></script>
 <script src="data/workouts.js"></script>
+<script src="js/desk-break.js"></script>
 <script src="data/workout-families.js"></script>
 <script src="js/workout-families.js"></script>
 <script src="js/generator.js"></script>
@@ -908,7 +909,7 @@ function updateRoutineControls(){
   const ring=document.getElementById('routineRing');ring.classList.toggle('hidden',untimed);ring.setAttribute('aria-pressed',String(paused));ring.setAttribute('aria-label',paused?'Paused — resume timer':'Pause timer');ring.disabled=!state.running;
   const pause=document.getElementById('routinePause');pause.classList.toggle('hidden',!untimed);pause.textContent=paused?'Paused — tap to resume':'Pause';pause.setAttribute('aria-pressed',String(paused));pause.disabled=!state.running;
   const target=document.getElementById('routineTarget');target.classList.toggle('hidden',!untimed);target.textContent=untimed?ex.reps+' reps':'';
-  const label=state.phase==='ready'?activityName(state.list[0]):state.phase==='rest'?activityName(state.list[state.idx+1]):last?'':ex.rest?'Rest':activityName(state.list[state.idx+1]);
+  const label=state.phase==='ready'?activityName(state.list[0]):state.phase==='rest'?activityName(state.list[state.idx+1]):last?'':ex.rest?(state.key==='deskBreak'?'Changeover · '+activityName(state.list[state.idx+1]):'Rest'):activityName(state.list[state.idx+1]);
   document.getElementById('routineNextAction').textContent=untimed&&last?'Finish workout':'Next';
   const next=document.getElementById('routineNextName');next.textContent=label;next.classList.toggle('hidden',!label);document.getElementById('skipPhaseBtn').disabled=!state.running||paused;
 }

@@ -97,3 +97,13 @@ test('Ab Blast uses reusable continuous timed-sequence playback', () => {
   assert.match(source, /function advanceTimedSequence\(\)/);
   assert.doesNotMatch(source, /setTimeout\([^\n]*transition/i);
 });
+
+test('Desk Break card is generated and launches directly; fixed detail/start flows remain separate',()=>{
+  const source=fs.readFileSync(path.join(root,'js/workouts-ui.js'),'utf8');
+  const card=source.slice(source.indexOf('function addDeskBreakCard'),source.indexOf('function cleanCatalogue'));
+  assert.match(card,/Generated/);assert.match(card,/Moderate · No equipment/);
+  assert.match(card,/addEventListener\('click',startDeskBreak\)/);
+  assert.doesNotMatch(card,/openWorkoutDetail/);
+  const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
+  assert.match(html,/<script src="js\/desk-break.js"><\/script>/);
+});
