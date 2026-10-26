@@ -1241,7 +1241,7 @@ function emomWork(phase=currentGeneratedPhase()){const run=emomRun(phase);return
 // A second tap must not act on the new meaning of the same button (Done -> Skip rest,
 // or Skip rest -> a new minute/block). Automatic timer/visibility updates remain live.
 function guardEmomAction(){generatorState.emomActionAfterMs=workoutNow()+350}
-function emomActionLocked(){return generatorState.emomActionAfterMs!=null&&workoutNow()<generatorState.emomActionAfterMs}
+function emomActionLocked(){if(generatorState.emomActionAfterMs==null||workoutNow()>=generatorState.emomActionAfterMs)return false;guardEmomAction();return true}
 function observeEmomMinute(){
   const phase=currentGeneratedPhase(),run=emomRun(phase);if(!run)return;
   let work=emomWork(phase);
@@ -1406,7 +1406,7 @@ async function endDensityBlock(reason){
 async function updateDensityBlock(action){
   if(workoutState.mode!=='generated'||!workoutState.running||workoutState.paused||coachAdvancing||!isDensityPhase())return;
   const phase=currentGeneratedPhase(),run=densityRun(),timeline=generatorState.timeline;
-  if(run.ended){if(action==='done')enterGeneratedPhase(run.lastIndex+1);return}
+  if(run.ended){if(action==='done'){enterGeneratedPhase(run.lastIndex+1);guardGeneratedAction()}return}
   if(run.retry&&!action)return;
   const expired=densityRemaining()<=0;
   if(!expired&&!action&&(phase.kind==='exercise'||currentWorkoutElapsedMs()-run.phaseStartedMs<phase.seconds*1000))return;
@@ -1430,7 +1430,7 @@ async function updateDensityBlock(action){
     }else if(generatorState.timelineIndex>=run.lastIndex)await endDensityBlock('work-ended');
     else enterGeneratedPhase(generatorState.timelineIndex+1);
   }finally{
-    if(generatorState.densityOperation===operation){generatorState.densityOperation=null;coachAdvancing=false;if(workoutState.running&&generatorState.timeline===timeline){renderGeneratedPhase();updateWorkoutPauseUI()}}
+    if(generatorState.densityOperation===operation){generatorState.densityOperation=null;coachAdvancing=false;if(workoutState.running&&generatorState.timeline===timeline){if(action&&action!=='previous'&&(currentGeneratedPhase()!==phase||run.ended))guardGeneratedAction();renderGeneratedPhase();updateWorkoutPauseUI()}}
   }
 }
 function renderDensityPhase(phase){
@@ -1561,6 +1561,7 @@ function renderAmrapBlockPhase(phase){
 }
 
 function enterGeneratedPhase(index){
+  generatorState.actionAfterMs=null;
   stopGeneratedPhaseTimer();generatorState.cueTracker=null;clearTimedCue('workoutTimedCue');const previousIndex=generatorState.timelineIndex,previous=currentGeneratedPhase();if(!isEmomPhase(previous)&&!isEmomPhase(generatorState.timeline[index])&&GarageFitCompletionSignal.shouldSignalUnitComplete(previousIndex,index))playCompletionChime();generatorState.timelineIndex=index;if(index>=generatorState.timeline.length){finishGeneratedWorkout();return}const phase=currentGeneratedPhase();if(isEmomPhase(phase)){enterEmomMinute();return}if(isDensityPhase(phase)){enterDensityPhase();return}if(isAmrapBlockPhase(phase)){enterAmrapBlockPhase();return}generatorState.remaining=phase.seconds||0;renderGeneratedPhase();if(phase.seconds!==null&&phase.seconds!==undefined)startGeneratedCountdown(phase.seconds);
   if(phase.kind==='exercise')announceExercise(phase.exercise,(phase.protocol==='pyramid'?[generatedPhaseLabel(phase)+'.']:[]).concat(exerciseCueParts(phase.exercise.name,phase.timed?phase.seconds+' seconds':generatedPhasePrescription(phase).value+' reps',phase.side).map((part,index)=>index||phase.protocol!=='complex'?part:'Complex movement '+(phase.exerciseIndex+1)+' of '+generatorState.workout.main.blocks[phase.blockIndex||0].exercises.length+'. '+part)).concat(phase.plannedLoad?[generatedLoadText(phase.exercise,phase.plannedLoad)]:[]),phase.timed?phase.seconds:null);
   else if(phase.kind==='setup-transition')speak(phase.label+'. '+phase.note);
@@ -1640,9 +1641,16 @@ function renderGeneratedPhase(){
   if(isEmomPhase(phase))document.getElementById('coachSkipBtn').classList.toggle('hidden',phase.timed||emomWork(phase).settled||!!emomWork(phase).pending);
   if(['ladder','pyramid'].includes(phase.protocol)&&phase.kind==='exercise'||phase.protocol==='complex'&&phase.kind==='exercise'&&!phase.timed)document.getElementById('coachSkipBtn').classList.remove('hidden');
 }
-function generatedPrimaryAction(){if(!workoutState.running||workoutState.paused||coachAdvancing||emomActionLocked())return;if(isAmrapBlockPhase())return advanceAmrapBlock('done');if(isDensityPhase())return updateDensityBlock('done');if(isEmomPhase())return updateEmomMinute(emomWork()?.settled?'skip-rest':currentGeneratedPhase().timed?'skip':'done');if(isCoachPlayer())return coachAdvance(currentGeneratedPhase()&&currentGeneratedPhase().timed?'skip':'done');stopGeneratedPhaseTimer();recordGeneratedOutcome(currentGeneratedPhase()&&currentGeneratedPhase().timed?'skip':'done');advanceGeneratedPhase()}
-function generatedSkipWork(){if(!workoutState.running||workoutState.paused||coachAdvancing||emomActionLocked())return;if(isAmrapBlockPhase())return advanceAmrapBlock('skip');if(isDensityPhase())return updateDensityBlock('skip');if(isEmomPhase())return updateEmomMinute('skip');if(['ladder','pyramid','complex'].includes(currentGeneratedPhase().protocol)&&!isCoachPlayer()){stopGeneratedPhaseTimer();recordGeneratedOutcome('skip');advanceGeneratedPhase();return}return coachAdvance('skip')}
-function advanceGeneratedPhase(){const phase=currentGeneratedPhase();if(phase&&phase.kind==='exercise'&&phase.section==='main')generatorState.completedMain++;enterGeneratedPhase(generatorState.timelineIndex+1)}
+// Consume a burst as one intent, including taps queued just after a timer transition.
+// A rejected tap extends the quiet period, so a longer burst cannot walk the timeline.
+function generatedActionLocked(){
+  if(generatorState.actionAfterMs==null||workoutNow()>=generatorState.actionAfterMs)return false;
+  generatorState.actionAfterMs=workoutNow()+350;return true;
+}
+function guardGeneratedAction(){generatorState.actionAfterMs=workoutNow()+350}
+function generatedPrimaryAction(){if(generatedActionLocked())return;if(!workoutState.running||workoutState.paused||coachAdvancing||emomActionLocked())return;if(isAmrapBlockPhase())return advanceAmrapBlock('done');if(isDensityPhase())return updateDensityBlock('done');if(isEmomPhase())return updateEmomMinute(emomWork()?.settled?'skip-rest':currentGeneratedPhase().timed?'skip':'done');if(isCoachPlayer())return coachAdvance(currentGeneratedPhase()&&currentGeneratedPhase().timed?'skip':'done');stopGeneratedPhaseTimer();recordGeneratedOutcome(currentGeneratedPhase()&&currentGeneratedPhase().timed?'skip':'done');advanceGeneratedPhase()}
+function generatedSkipWork(){if(generatedActionLocked())return;if(!workoutState.running||workoutState.paused||coachAdvancing||emomActionLocked())return;if(isAmrapBlockPhase())return advanceAmrapBlock('skip');if(isDensityPhase())return updateDensityBlock('skip');if(isEmomPhase())return updateEmomMinute('skip');if(['ladder','pyramid','complex'].includes(currentGeneratedPhase().protocol)&&!isCoachPlayer()){stopGeneratedPhaseTimer();recordGeneratedOutcome('skip');advanceGeneratedPhase();return}return coachAdvance('skip')}
+function advanceGeneratedPhase(){const phase=currentGeneratedPhase();if(phase&&phase.kind==='exercise'&&phase.section==='main')generatorState.completedMain++;enterGeneratedPhase(generatorState.timelineIndex+1);guardGeneratedAction()}
 function previousGeneratedPhase(){if(!workoutState.running||workoutState.paused||coachAdvancing||isEmomPhase())return;const index=previousGeneratedExerciseIndex();if(index<0)return;if(isAmrapBlockPhase()){if(emomActionLocked())return;guardEmomAction();enterGeneratedPhase(index);return}if(isDensityPhase()){if(index<densityRun().firstIndex)return;return updateDensityBlock('previous')}if(isCoachPlayer())return coachPrevious(index);enterGeneratedPhase(index)}
 function finishGeneratedWorkout(){
   if(isCoachPlayer()){coachUI.showEnd('complete',Math.floor(currentWorkoutElapsedMs()/1000));return}
@@ -1668,7 +1676,7 @@ async function coachAdvance(action){
   if(isAmrapBlockPhase())return advanceAmrapBlock(action==='done'?'done':'skip');
   if(coachAdvancing||!isCoachPlayer()||!workoutState.running||workoutState.paused)return;
   coachAdvancing=true;updateWorkoutPauseUI();
-  try{const phase=currentGeneratedPhase();stopGeneratedPhaseTimer();if(await coachUI.record(phase,generatorState.tracker,action,phase&&phase.seconds-Math.max(0,generatorState.remaining)))advanceGeneratedPhase()}
+  try{const phase=currentGeneratedPhase(),timeline=generatorState.timeline;stopGeneratedPhaseTimer();if(await coachUI.record(phase,generatorState.tracker,action,phase&&phase.seconds-Math.max(0,generatorState.remaining))&&workoutState.running&&generatorState.timeline===timeline&&currentGeneratedPhase()===phase)advanceGeneratedPhase()}
   finally{coachAdvancing=false;if(workoutState.running){if(generatorState.phaseTimer===null&&generatorState.remaining>0)resumeGeneratedCountdown();updateWorkoutPauseUI()}}
 }
 async function coachPrevious(index){

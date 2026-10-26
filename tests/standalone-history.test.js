@@ -30,12 +30,15 @@ function harness(options = {}) {
       run(`generatorState.workout=GarageFitGenerator.generate({catalogue:CATALOGUE,duration:${duration},focus:'balanced',equipment:state.ownedEquipment,history:getGeneratedHistory(),random:${seeded(seed)}})`);
     },
     tick() { const callback = intervals.get(run('generatorState.phaseTimer')); assert.ok(callback, 'phase timer is running'); callback(); },
+    timerCallback: () => intervals.get(run('generatorState.phaseTimer')),
     phase: () => run('currentGeneratedPhase()'),
     indexWhere: predicate => run('generatorState.timeline').findIndex(predicate),
     coachKeys: () => [...storage.keys()].filter(key => key.startsWith('gf_coach_')),
     results: async () => plain((await run('testStore.listSessionResults()')).results),
     async playToEnd() {
       for (let guard = 0; run('workoutState.running') && guard < 2000; guard++) {
+        // Separate deliberate actions without adding performed timed work.
+        this.app.toggleWorkoutPause();run('timerNow+=400');this.app.toggleWorkoutPause();
         const emom=run('isEmomPhase()');
         await app.completeWorkoutMovement();
         if(emom&&run('isEmomPhase()')){run('timerNow+=generatorState.remaining*1000');await app.updateEmomMinute();}
@@ -351,4 +354,89 @@ test('completed family workout records actual edited identity despite a reset pi
   assert.equal(evidence.sessions[0].familyStyleId,workout.familyStyleId);
   assert.equal(evidence.families[0].workoutFamilyId,'strength-control');
   assert.ok(!h.storage.has('gf_coach_session_draft'));
+});
+
+test('a sustained Next burst consumes one transition; Previous, pause and exit remain usable', async () => {
+  const h=harness();h.generate();h.app.startStandaloneGeneratedWorkout();
+  const index=h.indexWhere(p=>p.kind==='exercise'&&p.section==='main'&&!p.timed);
+  h.app.enterGeneratedPhase(index);
+  const id=h.phase().occurrenceId;
+  h.app.completeWorkoutMovement();
+  const display=()=>['workoutExercise','completeMovementNext','workoutRingNum'].map(id=>h.app.document.getElementById(id).textContent);
+  const expectedDisplay=display();
+  for(let tap=0;tap<10;tap++){
+    h.run('timerNow+=100');h.app.completeWorkoutMovement();h.app.generatedSkipWork();
+    assert.equal(h.run('generatorState.timelineIndex'),index+1);
+    assert.deepEqual(display(),expectedDisplay,'exercise, timer and next preview stay consistent');
+  }
+  assert.ok(h.run('generatorState.tracker').outcome(id));
+  h.app.toggleWorkoutPause();assert.equal(h.run('workoutState.paused'),true);
+  h.app.toggleWorkoutPause();assert.equal(h.run('workoutState.paused'),false);
+  h.app.previousWorkoutMovement();assert.equal(h.run('generatorState.timelineIndex'),index);
+  h.app.openExitDialog('workout');h.app.cancelExit();
+  assert.equal(h.run('workoutState.paused'),false);
+  h.run('timerNow+=400');h.app.completeWorkoutMovement();
+  assert.equal(h.run('generatorState.timelineIndex'),index+1);
+  h.app.openExitDialog('workout');h.app.confirmExitChoice();
+  assert.equal(h.run('workoutState.running'),false);
+});
+
+test('timer completion and a simultaneous Next burst cannot consume two phases', () => {
+  const h=harness();h.generate();h.app.startStandaloneGeneratedWorkout();
+  const index=h.indexWhere(p=>p.kind==='exercise'&&p.timed&&p.section==='warmup');
+  h.app.enterGeneratedPhase(index);
+  const seconds=h.phase().seconds;
+  for(let i=0;i<seconds;i++)h.tick();
+  for(let i=0;i<10;i++)h.app.completeWorkoutMovement();
+  assert.equal(h.run('generatorState.timelineIndex'),index+1);
+  assert.equal(h.run('generatorState.remaining'),h.phase().seconds||0);
+  h.run('timerNow+=400');h.app.completeWorkoutMovement();
+  assert.equal(h.run('generatorState.timelineIndex'),index+2);
+});
+
+test('rapid Next stays bounded across rest, round and completion boundaries', async () => {
+  const h=harness();h.generate();h.app.startStandaloneGeneratedWorkout();
+  const timeline=h.run('generatorState.timeline');
+  const rest=timeline.find(p=>p.kind==='rest');rest.kind='round-rest';rest.round=1;
+  for(const kind of ['round-rest','transition']){
+    const index=timeline.findIndex(p=>p.kind===kind);assert.ok(index>=0,kind);
+    h.app.enterGeneratedPhase(index);
+    for(let i=0;i<10;i++)h.app.completeWorkoutMovement();
+    assert.equal(h.run('generatorState.timelineIndex'),index+1,kind);
+  }
+  h.app.enterGeneratedPhase(timeline.length-1);
+  for(let i=0;i<10;i++)h.app.completeWorkoutMovement();
+  assert.equal(h.run('workoutState.running'),false);
+  assert.equal(h.run('generatorState.timelineIndex'),timeline.length);
+  await h.run('generatorState.trackedResult');
+  assert.equal(h.run('generatorState.tracker.finalised'),true);
+});
+
+
+test('manual Next invalidates a queued callback from the old phase', () => {
+  const h=harness();h.generate();h.app.startStandaloneGeneratedWorkout();
+  const index=h.indexWhere(p=>p.kind==='exercise'&&p.timed);
+  h.app.enterGeneratedPhase(index);const staleTick=h.timerCallback();
+  h.app.completeWorkoutMovement();staleTick();
+  assert.equal(h.run('generatorState.timelineIndex'),index+1);
+  assert.equal(h.run('generatorState.remaining'),h.phase().seconds||0);
+});
+
+test('Coach serialises rapid actions and rejects a save continuation for an obsolete phase', async () => {
+  const h=harness();h.generate();h.app.startStandaloneGeneratedWorkout();
+  const index=h.indexWhere(p=>p.kind==='exercise'&&p.section==='main'&&!p.timed);
+  h.app.enterGeneratedPhase(index);
+  let settle,calls=0;
+  h.app.deferredRecord=()=>{calls++;return new Promise(resolve=>{settle=resolve})};
+  h.run('generatorState.standaloneTracking=false;coachUI.isActive=()=>true;coachUI.record=deferredRecord');
+  const pending=h.app.completeWorkoutMovement();
+  for(let i=0;i<10;i++)h.app.completeWorkoutMovement();
+  assert.equal(calls,1);assert.equal(h.run('generatorState.timelineIndex'),index);
+  settle(true);await pending;
+  assert.equal(h.run('generatorState.timelineIndex'),index+1);
+  h.app.enterGeneratedPhase(index);
+  const obsolete=h.app.completeWorkoutMovement();
+  h.app.enterGeneratedPhase(index+2);settle(true);await obsolete;
+  assert.equal(h.run('generatorState.timelineIndex'),index+2);
+  assert.equal(h.run('coachAdvancing'),false);
 });

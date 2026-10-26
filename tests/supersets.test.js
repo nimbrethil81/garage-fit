@@ -109,7 +109,8 @@ test('Done and Skip rest record only performed superset work', async () => {
   const [a1, change1, b1] = p.mainIndexes();
   p.app.enterGeneratedPhase(a1); p.app.generatedPrimaryAction();
   assert.equal(p.index(), change1);
-  p.app.generatedPrimaryAction();
+  p.app.generatedPrimaryAction();assert.equal(p.index(),change1,'repeat tap cannot skip the new changeover');
+  p.run('testNow+=400');p.app.generatedPrimaryAction();
   assert.equal(p.index(), b1, 'Skip rest moves straight to B without recording anything');
   await p.run('generatorState.tracker.flush()');
   const outcomes = plain(p.run('generatorState.tracker.performedWork()'));

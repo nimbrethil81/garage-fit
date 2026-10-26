@@ -80,7 +80,8 @@ test('early target completion stops the block, preserves unknown actual load and
   assert.equal(h.el('completeMovementAction').textContent,'Continue');assert.equal(h.el('workoutRingWrap').classList.contains('hidden'),true);
   assert.equal(h.tracker().performedWork().length,6);assert.ok(h.tracker().performedWork().every(p=>!p.sets));
   assert.match(h.tracker().outcome(phases[5].occurrenceId).note,/completed before/);
-  await h.app.generatedPrimaryAction();assert.equal(h.phase().kind,'transition');
+  await h.app.generatedPrimaryAction();assert.equal(h.phase().protocol,'density','repeat tap cannot also Continue');
+  h.time(400);await h.app.generatedPrimaryAction();assert.equal(h.phase().kind,'transition');
   h.app.previousGeneratedPhase();assert.notEqual(h.phase().protocol,'density','completed density cannot be replayed');
   assert.equal(h.tracker().performedWork().length,6);
 });
@@ -94,7 +95,8 @@ test('time cap refuses late Done, offers optional partial reps and never awards 
   assert.equal(h.el('densityPartial').classList.contains('hidden'),false);h.el('densityPartialReps').value='3';await h.app.saveDensityPartial({preventDefault(){}});
   const partial=h.tracker().outcome(phases[1].occurrenceId);assert.equal(partial.status,'partial');assert.deepEqual(copy(partial.sets),[{reps:3}]);
   assert.equal(partial.sets[0].load,undefined);assert.match(h.el('workoutDensityStatus').textContent,/37 reps remaining/);
-  await h.app.generatedPrimaryAction();assert.equal(h.phase().kind,'transition');
+  await h.app.generatedPrimaryAction();assert.equal(h.phase().protocol,'density','repeat tap cannot also Continue');
+  h.time(400);await h.app.generatedPrimaryAction();assert.equal(h.phase().kind,'transition');
   h.app.enterGeneratedPhase(h.run('generatorState.timeline.length-1'));h.run('generatorState.remaining=0');await h.app.generatedPrimaryAction();await h.run('generatorState.trackedResult');
   const result=copy(h.tracker().result);assert.equal(GarageFitCoachModel.validate('session-result',result).valid,true);
   const history=H.createHistory([result,result],C),density=history.performances.filter(p=>p.protocol==='density');assert.equal(density.length,2);
