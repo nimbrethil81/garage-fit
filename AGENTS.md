@@ -29,6 +29,8 @@ For new or materially revised Coach, Generator, Prep & Recover and relevant More
 - Disclose secondary detail contextually.
 - Keep content quickly scannable with concise headings and labels.
 - Reuse GarageFit layout, spacing, navigation and UI patterns.
+- Use purposeful, restrained colour with existing theme tokens to emphasise meaningful information; preserve the calm appearance and never rely on colour alone.
+- Make interaction affordances clear: distinguish static information from controls, and provide accessible disclosure state, keyboard access and visible focus.
 - Explain meaningful decisions rather than automatic implementation behaviour.
 
 ## Testing and reachability

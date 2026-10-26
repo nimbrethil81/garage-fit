@@ -306,10 +306,10 @@ test('unknown partial coverage and an interrupted session recover once, with loc
   assert.equal((await q.run('pilotStore.listSessionResults()')).results.length,1);
 });
 
-test('General Strength and Build Arms keep overview copy, durations and the common session flow',async()=>{
+test('General Strength and Build Arms keep setup goals, default durations and the common session flow',async()=>{
   for(const [name,id] of [['4-Week General Strength','general-strength-4w'],['Build Arms','build-arms']]) {
     const p=await ui();await p.click(name);
-    assert.match(p.run('copyText()'),id==='build-arms'?/3 × 8 to 3 × 12/:/3 stable squat, push and pull anchors/);
+    assert.match(p.run('copyText()'),id==='build-arms'?/3 × 8 to 3 × 12/:/Squat · Push · Pull — core strength work, supported by whole-body training/);
     assert.equal(p.run("field('Training focus')"),undefined);
     await p.click('Start programme');assert.equal(p.state().programmeDefinitionId,id);
     assert.ok(p.run("action('20 min')"));assert.equal(p.run("action('10 min')"),undefined);

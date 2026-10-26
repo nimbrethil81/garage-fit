@@ -309,7 +309,10 @@ test('Tennis entry and player distinguish stable progression anchors from rep an
   p.run("state.ownedEquipment=['dumbbells']"); await p.run('coachUI.open()');
   const element = id => p.app.document.getElementById(id);
   await element('coachContent').children.find(node => node.textContent === 'Tennis').onclick();
-  assert.ok(element('coachContent').children.some(node => /Strength sessions keep limited comparable knee, hinge, push and pull/.test(node.textContent)));
+  const help=element('coachContent').children.find(node=>node.className==='coach-help coach-setup-help');
+  assert.ok(help); assert.equal(!!help.open,false);
+  assert.equal(help.children[0].textContent,'How training fits your tennis');
+  assert.match(help.children[1].textContent,/Strength sessions build familiar knee, hinge, push and pull work from 2 × 6 to 2 × 10 reps/);
   await p.run("coachUI.controller.start(pilotDef,['dumbbells'])"); await p.run('coachUI.open()');
   p.run(`function tennisButton(id,text){const visit=node=>node.textContent===text&&node.onclick?node:(node.children||[]).map(visit).find(Boolean);return visit(document.getElementById(id));}`);
   await p.run("tennisButton('coachContent','View today’s workout').onclick()");
