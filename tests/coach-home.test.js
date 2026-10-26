@@ -106,14 +106,23 @@ test('a saved session updates the home count; abandoned work and previews earn n
   assert.deepEqual(p.state(), before); assert.deepEqual([...p.storage.entries()], durable, 'a preview writes nothing');
   assert.equal(await p.run('pilotStore.loadSessionDraft()'), null);
   await p.click('Start workout', 'coachPreviewContent');
+  await p.run("coachUI.showEnd('exit',60)");
+  p.run("const originalFinish=coachUI.controller.finish;coachUI.controller.finish=async()=>{throw new Error('Save failed; retry');}");
+  await p.run("coachUI.saveFeedback('easy')");
+  assert.equal(p.run('currentScreen'), 'coachResult', 'failed saves retain feedback and retry');
+  assert.match(p.run("document.getElementById('coachResultError').textContent"), /Save failed/);
+  assert.equal(p.run("nodes('coachContent').some(node=>node.className.includes('coach-save-status'))"), false, 'no confirmation before successful save');
+  p.run('coachUI.controller.finish=originalFinish');
   await p.run("coachUI.showEnd('exit',60)"); await p.run("coachUI.saveFeedback('easy')");
   assert.equal(p.weekly().text, '0 sessions this week', 'ended early without main work');
+  assert.equal(p.run("nodes('coachContent').find(node=>node.attributes.role==='status').className"), 'coach-save-status');
   await p.click('View today’s workout'); await p.click('Start workout', 'coachPreviewContent');
   await p.run(`(async()=>{const tracker=coachPlayerTracker();const work=tracker.plannedWork().find(item=>item.requirementId==='anchor-squat');
     await tracker.recordAnchor(work.occurrenceId,{status:'completed',sets:[{reps:6,load:12,loadUnit:'kg',loadInterpretation:'total'}]});})()`);
   await p.run("coachUI.showEnd('exit',600)"); await p.run("coachUI.saveFeedback('about-right')");
   assert.equal(p.weekly().text, '1 session this week'); assert.deepEqual(p.weekly().segments, ['filled minimum','minimum','']);
   assert.match(p.text(), /Session saved · partial · 1 anchors recorded/);
+  assert.equal(p.run("nodes('coachContent').find(node=>node.attributes.role==='status').className"), 'coach-save-status');
 });
 
 test('non-Tennis Adjust today summarises real choices, saves shared inventory and offers no Tennis readiness', async () => {
@@ -258,6 +267,7 @@ test('General Fitness is offered and runs home → preview/edit → player → s
   assert.equal(p.weekly().text, '1 session this week');
   assert.deepEqual(p.json("nodes('coachContent').find(node=>node.className==='coach-weekly-roles').children.map(node=>node.textContent)"), ['✓ '+label]);
   assert.match(p.text(), new RegExp('Session saved · completed · '+label));
+  assert.equal(p.run("nodes('coachContent').find(node=>node.attributes.role==='status').className"), 'coach-save-status coach-save-complete');
   const result = (await p.run('pilotStore.listSessionResults()')).results[0];
   assert.equal(result.workoutFamilyId, workout.workoutFamilyId); assert.equal(result.familyStyleId, workout.familyStyleId);
   await p.click('Your progress');
