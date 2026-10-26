@@ -29,6 +29,10 @@
   .brand-mark{width:43px;height:30px;flex:none}.brand-name{font-size:21px;font-weight:850;letter-spacing:-.035em}.brand-name strong{color:var(--work-text);font-weight:850}
 
   #home,#workouts,#generator,#coach,#equipment,#generatedPreview,#more,#settings,#spokenCues,#workoutPatterns,#exerciseLibrary,.info-detail{padding:20px 20px 14px;overflow-y:auto}
+  /* The shell extends below the viewport by one bottom inset. Reserve that
+     extension, then keep the preview actions above the home-indicator area. */
+  #generatedPreview{margin-bottom:env(safe-area-inset-bottom);padding-bottom:calc(14px + env(safe-area-inset-bottom))}
+  #generatedPreview>*{flex-shrink:0}
   .info-detail .page-header h1{min-width:0;overflow-wrap:anywhere;font-size:clamp(22px,7vw,32px);line-height:1.15}.library-entry{width:100%;min-height:58px;border:0;border-radius:14px;background:var(--card);color:var(--card-text);padding:16px;text-align:left;font-weight:850;font-size:16px}
   #more>.library-entry+.library-entry{margin-top:10px}#spokenCues .library-controls{grid-template-columns:minmax(0,1fr)}#spokenCues .ctrl-btn{flex:none;width:100%;min-height:54px;margin-top:12px}
   .library-controls{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-bottom:16px}.library-controls label{display:flex;flex-direction:column;gap:6px;color:var(--text-muted);font-size:12px;font-weight:750}.library-controls input,.library-controls select{width:100%;min-width:0;border:1px solid var(--surface-2);border-radius:10px;background:var(--surface);color:var(--text);padding:12px;font:inherit;font-size:16px}
