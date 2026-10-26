@@ -25,7 +25,8 @@ with sync_playwright() as p:
   ('preview-bottom',"document.getElementById('generatedPreview').scrollTop=10000"),
   ('player-work',"startStandaloneGeneratedWorkout();enterGeneratedPhase(generatorState.timeline.findIndex(p=>p.kind==='exercise'&&p.timed));generatorState.remaining=17;renderWorkoutRing()"),
   ('player-rest',"enterGeneratedPhase(generatorState.timeline.findIndex(p=>p.kind==='rest'))"),
-  ('settings',"showScreen('settings')")]:shot(name,code)
+  ('exit-dialog',"openExitDialog('workout')"),
+  ('settings',"cancelExit();showScreen('settings')")]:shot(name,code)
  for name in ['General Fitness','4-Week General Strength','Build Arms','Tennis']:
   page.reload();page.wait_for_function('coachUI');page.evaluate("state.ownedEquipment=['dumbbells','bench','pullup-bar','kettlebell'];coachUI.open()");page.get_by_role('button',name=name,exact=True).click();shot(name+'-setup','void 0');page.get_by_role('button',name='Start programme',exact=True).click();shot(name+'-active','void 0');page.get_by_role('button',name='Your progress',exact=True).click();shot(name+'-progress','void 0');page.evaluate("state.ownedEquipment=['dumbbells','bench','pullup-bar','kettlebell'];coachUI.open()");page.get_by_role('button',name='View today’s workout',exact=True).click();shot(name+'-preview','void 0')
   page.evaluate('localStorage.clear()')
