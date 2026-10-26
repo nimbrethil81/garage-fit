@@ -20,7 +20,7 @@ function harness(b=block()){
   const workout=savedWorkoutV2(C);workout.main.blocks=[b];
   run(`generatorState.workout=JSON.parse(${JSON.stringify(JSON.stringify(workout))})`);
   const spoken=[];app.announceExercise=(exercise,parts)=>spoken.push([].concat(parts).join(' '));
-  return {app,run,el,spoken,time:ms=>{now+=ms},phase:()=>run('currentGeneratedPhase()'),
+  return {app,run,el,spoken,waitForIntent(){app.toggleWorkoutPause();now+=400;app.toggleWorkoutPause()},time:ms=>{now+=ms},phase:()=>run('currentGeneratedPhase()'),
     main:()=>run("generatorState.timeline.map((phase,index)=>({phase,index})).filter(({phase})=>phase.kind==='exercise'&&phase.section==='main')")};
 }
 
@@ -89,14 +89,14 @@ test('shared player/voice/preview/tracker follow each step through rest, pause, 
     const preview=h.app.GarageFitWorkoutPreview;assert.match(preview.protocolLabel(block(reps)),/Ladder/);
     assert.equal(preview.occurrenceTargetLabel(block(reps),0),reps.map(n=>n+' reps').join(' → '));
     assert.equal(h.el('completeMovementNext').textContent,'Rest');
-    h.app.generatedPrimaryAction();await tracker.flush();assert.equal(h.phase().kind,'rest');
-    h.app.generatedPrimaryAction();assert.equal(h.el('workoutTarget').textContent,reps[0]+' reps');
-    h.app.generatedPrimaryAction();await tracker.flush();assert.equal(h.phase().kind,'ladder-rest');
+    h.waitForIntent();h.app.generatedPrimaryAction();await tracker.flush();assert.equal(h.phase().kind,'rest');
+    h.waitForIntent();h.app.generatedPrimaryAction();assert.equal(h.el('workoutTarget').textContent,reps[0]+' reps');
+    h.waitForIntent();h.app.generatedPrimaryAction();await tracker.flush();assert.equal(h.phase().kind,'ladder-rest');
     assert.equal(h.el('completeMovementNext').textContent,block(reps).exercises[0].name);
     h.app.toggleWorkoutPause();assert.equal(h.el('completeMovementBtn').disabled,true);h.app.toggleWorkoutPause();
-    h.app.generatedPrimaryAction();assert.equal(h.el('workoutTarget').textContent,reps[1]+' reps');
+    h.waitForIntent();h.app.generatedPrimaryAction();assert.equal(h.el('workoutTarget').textContent,reps[1]+' reps');
     h.app.previousGeneratedPhase();assert.equal(h.phase().occurrenceId,main[1].phase.occurrenceId);
-    h.app.generatedPrimaryAction();await tracker.flush();assert.equal(tracker.performedWork().length,2,'redo replaces keyed outcome');
+    h.waitForIntent();h.app.generatedPrimaryAction();await tracker.flush();assert.equal(tracker.performedWork().length,2,'redo replaces keyed outcome');
     const planned=tracker.plannedWork().filter(p=>p.section==='main');
     assert.deepEqual(copy(planned.map(p=>p.prescription.reps)),reps.flatMap(n=>[n,n]));
     assert.ok(planned.every(p=>p.requirementId===null&&p.prescription.ladderStep>=1));
@@ -106,7 +106,7 @@ test('shared player/voice/preview/tracker follow each step through rest, pause, 
 });
 
 test('Coach optional ladder Done, Skip and early exit save truthful evidence without advancing anchors',async()=>{
-  const p=pilot();p.run("state.ownedEquipment=['dumbbells']");
+  const p=pilot();p.run('var intentNow=Date.now();Date.now=()=>intentNow');p.run("state.ownedEquipment=['dumbbells']");
   await p.run("coachUI.controller.start(pilotDef,['dumbbells'])");await p.run('coachUI.open()');
   p.run(`function ladderButton(id,text){const visit=node=>node.textContent===text&&node.onclick?node:(node.children||[]).map(visit).find(Boolean);return visit(document.getElementById(id)).onclick();}`);
   await p.run("ladderButton('coachContent','View today’s workout')");
@@ -114,8 +114,8 @@ test('Coach optional ladder Done, Skip and early exit save truthful evidence wit
   await p.run("ladderButton('coachPreviewContent','Start workout')");
   p.run("enterGeneratedPhase(generatorState.timeline.findIndex(phase=>phase.protocol==='ladder'&&phase.kind==='exercise'))");
   assert.equal(p.run("document.getElementById('coachAnchorLog').classList.contains('hidden')"),true);
-  const first=p.run('currentGeneratedPhase().occurrenceId');await p.run('completeWorkoutMovement()');await p.run('completeWorkoutMovement()');
-  const second=p.run('currentGeneratedPhase().occurrenceId');await p.run('generatedSkipWork()');
+  const first=p.run('currentGeneratedPhase().occurrenceId');await p.run('intentNow+=400;completeWorkoutMovement()');await p.run('intentNow+=400;completeWorkoutMovement()');
+  const second=p.run('currentGeneratedPhase().occurrenceId');await p.run('intentNow+=400;generatedSkipWork()');
   const tracker=p.run('generatorState.tracker');assert.equal(tracker.outcome(first).status,'completed');assert.equal(tracker.outcome(second).status,'skipped');
   p.run("openExitDialog('workout')");await p.run('confirmExitChoice()');await p.run("coachUI.saveFeedback('about-right')");
   const result=p.json('coachUI.controller.snapshot().results[0]');assert.equal(result.finalStatus,'partial');
@@ -162,11 +162,11 @@ test('standalone ladder skip stays skipped, completion persists once and unconfi
   const h=harness(b);h.app.startStandaloneGeneratedWorkout();const tracker=h.run('generatorState.tracker');await tracker.flush();
   const first=h.main()[0];h.app.enterGeneratedPhase(first.index);
   assert.equal(h.el('coachSkipBtn').classList.contains('hidden'),false);
-  h.app.generatedSkipWork();await tracker.flush();assert.equal(tracker.outcome(first.phase.occurrenceId).status,'skipped');
-  h.app.generatedPrimaryAction();assert.equal(h.el('workoutTarget').textContent,'4 reps');
-  h.app.generatedPrimaryAction();await tracker.flush();
+  h.waitForIntent();h.app.generatedSkipWork();await tracker.flush();assert.equal(tracker.outcome(first.phase.occurrenceId).status,'skipped');
+  h.waitForIntent();h.app.generatedPrimaryAction();assert.equal(h.el('workoutTarget').textContent,'4 reps');
+  h.waitForIntent();h.app.generatedPrimaryAction();await tracker.flush();
   h.app.enterGeneratedPhase(h.run('generatorState.timeline.length-1'));h.run('generatorState.remaining=0');
-  h.app.generatedPrimaryAction();await h.run('generatorState.trackedResult');
+  h.waitForIntent();h.app.generatedPrimaryAction();await h.run('generatorState.trackedResult');
   const results=await h.run('GarageFitCoachStore.createStore(localStorage).listSessionResults({source:"generator"})');
   assert.equal(results.results.length,1);
   const result=results.results[0],ladder=result.performedWork.filter(w=>w.occurrenceId.includes(':l'));

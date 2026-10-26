@@ -26,7 +26,7 @@ function appFor(b,{rampup=false}={}){
   const workout=savedWorkoutV2(C);workout.main.blocks=[b];
   run(`generatorState.workout=JSON.parse(${JSON.stringify(JSON.stringify(workout))});`);
   const spoken=[];app.announceExercise=(exercise,parts)=>spoken.push([].concat(parts).join(' '));
-  return {app,run,el,spoken,time:ms=>{now+=ms},phase:()=>run('currentGeneratedPhase()'),
+  return {app,run,el,spoken,waitForIntent(){app.toggleWorkoutPause();now+=400;app.toggleWorkoutPause()},time:ms=>{now+=ms},phase:()=>run('currentGeneratedPhase()'),
     main:()=>run("generatorState.timeline.map((phase,index)=>({phase,index})).filter(({phase})=>phase.kind==='exercise'&&phase.section==='main')")};
 }
 
@@ -114,9 +114,9 @@ test('player, voice, preview and next hints follow each occurrence through Previ
     const main=h.main();h.app.enterGeneratedPhase(main[0].index);
     assert.equal(h.el('workoutTarget').textContent,'4 reps');assert.match(h.el('workoutSideNote').textContent,/8 kg each/);assert.match(h.spoken.at(-1),/4 reps.*8 kg each/);
     assert.equal(h.app.GarageFitWorkoutPreview.occurrenceTargetLabel(h.run('generatorState.workout.main.blocks[0]'),0),'4 reps · 8 kg each → 8 reps → 10 reps');
-    h.app.generatedPrimaryAction();await h.run('generatorState.tracker.flush()');
+    h.waitForIntent();h.app.generatedPrimaryAction();await h.run('generatorState.tracker.flush()');
     assert.equal(h.el('completeMovementNext').textContent,C['push-up'].name);
-    h.app.generatedPrimaryAction();assert.equal(h.el('workoutTarget').textContent,'8 reps');assert.doesNotMatch(h.el('workoutSideNote').textContent,/8 kg/);
+    h.waitForIntent();h.app.generatedPrimaryAction();assert.equal(h.el('workoutTarget').textContent,'8 reps');assert.doesNotMatch(h.el('workoutSideNote').textContent,/8 kg/);
     h.app.toggleWorkoutPause();assert.equal(h.el('completeMovementBtn').disabled,true);assert.equal(h.el('workoutTarget').textContent,'8 reps');h.app.toggleWorkoutPause();
     h.app.previousGeneratedPhase();assert.equal(h.el('workoutTarget').textContent,'4 reps');assert.match(h.el('workoutSideNote').textContent,/8 kg/);
     h.app.enterGeneratedPhase(main[2].index);assert.equal(h.el('workoutTarget').textContent,'10 reps');assert.doesNotMatch(h.el('workoutSideNote').textContent,/8 kg/);
@@ -132,7 +132,7 @@ test('per-side timed targets track measured seconds, cap overruns, survive recov
   h.app.startGeneratedWorkout({store:h.run('GarageFitCoachStore.createStore(localStorage)'),source:'generator',draftId:'variable-time',recordResults:true,meaningful:()=>true});
   const tracker=h.run('generatorState.tracker');await tracker.flush();
   const main=h.main();assert.deepEqual(copy(main.map(({phase})=>phase.seconds)),[7,7,13,13]);
-  h.app.enterGeneratedPhase(main[0].index);h.run('generatorState.remaining=4');h.app.generatedPrimaryAction();await tracker.flush();
+  h.app.enterGeneratedPhase(main[0].index);h.run('generatorState.remaining=4');h.waitForIntent();h.app.generatedPrimaryAction();await tracker.flush();
   assert.equal(tracker.outcome(main[0].phase.occurrenceId).sets[0].seconds,3);
   assert.equal(h.el('workoutRingNum').textContent,'7');
   await tracker.recordTimed(main[1].phase.occurrenceId,{plannedSeconds:999,elapsedSeconds:999});
@@ -185,10 +185,10 @@ test('Coach player hides anchor actuals for variable work and saves Done, Skip a
   p.run("enterGeneratedPhase(generatorState.timeline.findIndex(phase=>phase.variableTarget&&generatorState.workout.main.blocks[phase.blockIndex]?.id==='variable-support'))");
   assert.equal(p.run("document.getElementById('coachAnchorLog').classList.contains('hidden')"),true);
   assert.equal(p.run("document.getElementById('workoutTarget').textContent"),'4 reps');
-  const first=p.run('currentGeneratedPhase().occurrenceId');await p.run('completeWorkoutMovement()');
+  const first=p.run('currentGeneratedPhase().occurrenceId');await p.run('targetNow+=400;completeWorkoutMovement()');
   assert.equal(p.run(`generatorState.tracker.outcome(${JSON.stringify(first)}).sets`),undefined);
-  await p.run('completeWorkoutMovement()');assert.equal(p.run("document.getElementById('workoutTarget').textContent"),'8 reps');
-  const second=p.run('currentGeneratedPhase().occurrenceId');await p.run('generatedSkipWork()');
+  await p.run('targetNow+=400;completeWorkoutMovement()');assert.equal(p.run("document.getElementById('workoutTarget').textContent"),'8 reps');
+  const second=p.run('currentGeneratedPhase().occurrenceId');await p.run('targetNow+=400;generatedSkipWork()');
   assert.equal(p.run(`generatorState.tracker.outcome(${JSON.stringify(second)}).status`),'skipped');
   p.run("openExitDialog('workout')");await p.run('confirmExitChoice()');await p.run("coachUI.saveFeedback('about-right')");
   const result=p.json('coachUI.controller.snapshot().results[0]');assert.equal(result.finalStatus,'partial');

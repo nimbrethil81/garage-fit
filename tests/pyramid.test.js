@@ -25,7 +25,7 @@ function harness(b=block()){
   const workout=savedWorkoutV2(C);workout.main.blocks=[b];
   run(`generatorState.workout=JSON.parse(${JSON.stringify(JSON.stringify(workout))})`);
   const spoken=[];app.announceExercise=(exercise,parts)=>spoken.push([].concat(parts).join(' '));
-  return {app,run,el,spoken,time:ms=>{now+=ms},phase:()=>run('currentGeneratedPhase()'),
+  return {app,run,el,spoken,waitForIntent(){app.toggleWorkoutPause();now+=400;app.toggleWorkoutPause()},time:ms=>{now+=ms},phase:()=>run('currentGeneratedPhase()'),
     main:()=>run("generatorState.timeline.map((phase,index)=>({phase,index})).filter(({phase})=>phase.kind==='exercise'&&phase.section==='main')")};
 }
 
@@ -111,15 +111,15 @@ test('shared preview, voice, next hints and player follow changing reps and plan
       assert.match(h.spoken.at(-1),/Planned .* resistance/);
       assert.match(preview.occurrenceTargetLabel(b,0),/Planned .* resistance/);
     }
-    h.app.generatedPrimaryAction();await tracker.flush();assert.equal(h.phase().kind,'pyramid-rest');
+    h.waitForIntent();h.app.generatedPrimaryAction();await tracker.flush();assert.equal(h.phase().kind,'pyramid-rest');
     assert.equal(h.run('generatorState.remaining'),b.prescription.stepRestSeconds);
     assert.equal(h.el('completeMovementNext').textContent,b.exercises[0].name);
     h.app.toggleWorkoutPause();assert.equal(h.el('completeMovementBtn').disabled,true);h.time(30000);h.app.toggleWorkoutPause();
     assert.equal(h.run('generatorState.remaining'),b.prescription.stepRestSeconds);
-    h.app.generatedPrimaryAction();assert.equal(h.el('workoutTarget').textContent,b.prescription.steps[1].reps+' reps');
+    h.waitForIntent();h.app.generatedPrimaryAction();assert.equal(h.el('workoutTarget').textContent,b.prescription.steps[1].reps+' reps');
     h.app.previousGeneratedPhase();assert.equal(h.phase().occurrenceId,main[0].phase.occurrenceId);
-    h.app.generatedPrimaryAction();await tracker.flush();assert.equal(tracker.performedWork().length,1);
-    h.app.generatedPrimaryAction();h.app.generatedSkipWork();await tracker.flush();assert.equal(tracker.outcome(main[1].phase.occurrenceId).status,'skipped');
+    h.waitForIntent();h.app.generatedPrimaryAction();await tracker.flush();assert.equal(tracker.performedWork().length,1);
+    h.waitForIntent();h.app.generatedPrimaryAction();h.waitForIntent();h.app.generatedSkipWork();await tracker.flush();assert.equal(tracker.outcome(main[1].phase.occurrenceId).status,'skipped');
     const planned=tracker.plannedWork().filter(p=>p.section==='main');
     assert.deepEqual(copy(planned.map(p=>p.prescription.reps)),b.prescription.steps.map(s=>s.reps));
     assert.ok(planned.every(p=>p.requirementId===null&&p.prescription.pyramidStep>=1));
@@ -132,7 +132,7 @@ test('unknown actual loads stay unknown; partial/redo and duplicate session hist
   const main=h.main(),ids=main.map(({phase})=>phase.occurrenceId);
   await tracker.recordDone(ids[0]);await tracker.recordDone(ids[0]);
   await tracker.recordPartial(ids[1],{sets:[{reps:3}]});await tracker.recordSkip(ids[2]);
-  h.app.enterGeneratedPhase(h.run('generatorState.timeline.length-1'));h.run('generatorState.remaining=0');h.app.generatedPrimaryAction();await h.run('generatorState.trackedResult');
+  h.app.enterGeneratedPhase(h.run('generatorState.timeline.length-1'));h.run('generatorState.remaining=0');h.waitForIntent();h.app.generatedPrimaryAction();await h.run('generatorState.trackedResult');
   const results=await h.run('GarageFitCoachStore.createStore(localStorage).listSessionResults({source:"generator"})');
   assert.equal(results.results.length,1);const result=copy(results.results[0]);
   assert.equal(GarageFitCoachModel.validate('session-result',result).valid,true);
@@ -148,7 +148,7 @@ test('unknown actual loads stay unknown; partial/redo and duplicate session hist
 });
 
 test('Coach optional pyramids save early exit truthfully and never advance required anchors',async()=>{
-  const p=pilot();p.run("state.ownedEquipment=['dumbbells','trx']");
+  const p=pilot();p.run('var intentNow=Date.now();Date.now=()=>intentNow');p.run("state.ownedEquipment=['dumbbells','trx']");
   await p.run("coachUI.controller.start(pilotDef,['dumbbells','trx'])");await p.run('coachUI.open()');
   p.run(`function pyramidButton(id,text){const visit=node=>node.textContent===text&&node.onclick?node:(node.children||[]).map(visit).find(Boolean);return visit(document.getElementById(id)).onclick();}`);
   await p.run("pyramidButton('coachContent','View today’s workout')");
@@ -156,7 +156,7 @@ test('Coach optional pyramids save early exit truthfully and never advance requi
   await p.run("pyramidButton('coachPreviewContent','Start workout')");
   p.run("enterGeneratedPhase(generatorState.timeline.findIndex(phase=>phase.protocol==='pyramid'&&phase.kind==='exercise'))");
   assert.equal(p.run("document.getElementById('coachAnchorLog').classList.contains('hidden')"),true);
-  await p.run('completeWorkoutMovement()');await p.run('completeWorkoutMovement()');await p.run('generatedSkipWork()');
+  await p.run('intentNow+=400;completeWorkoutMovement()');await p.run('intentNow+=400;completeWorkoutMovement()');await p.run('intentNow+=400;generatedSkipWork()');
   p.run("openExitDialog('workout')");await p.run('confirmExitChoice()');await p.run("coachUI.saveFeedback('about-right')");
   const result=p.json('coachUI.controller.snapshot().results[0]');assert.equal(result.finalStatus,'partial');
   assert.equal(result.performedWork.length,1);assert.equal(result.performedWork[0].sets,undefined);
