@@ -1,0 +1,26 @@
+/* Dark values are the established GarageFit palette. Keep changes to Light scoped. */
+:root{
+    --ink:#263238;--surface:#39474d;--surface-2:#516067;--work:#d96b36;--work-dark:#b94f22;--work-light:#f19a72;
+    --rest:#6fa49e;--rest-strong:#4f8a83;--rest-card:#39766f;--card:#f3f5f3;--card-2:#e8ece9;
+    --text:#f3f5f3;--text-muted:#b8c3c1;--card-text:#182328;--card-muted:#627075;--danger:#df6b61;
+  --work-text:var(--work);--nav:#202b30;--nav-text:#899694;--secondary-border:var(--card);--modal-secondary:var(--ink);
+}
+
+:root[data-appearance="light"]{
+  color-scheme:light;
+  --ink:#f7f3ec;--surface:#eee8df;--surface-2:#7d8782;
+  --card:#fffdf8;--card-2:#f0ece4;--text:#263238;--text-muted:#55635f;
+  --card-text:#182328;--card-muted:#57645f;
+  --work-text:#a94318;--work-dark:#a94318;--work-light:#a94318;
+  --rest:#2e655f;--rest-strong:#346e68;--rest-card:#346e68;--danger:#ba3e35;
+  --nav:#eee8df;--nav-text:#55635f;--secondary-border:#7d8782;--modal-secondary:var(--card-text);
+}
+/* Native controls follow the selected appearance. Dark retains its original
+   browser control rendering; explicitly themed fields already use shared tokens. */
+:root[data-appearance="light"] :is(.generator-card,.routine-card,.workout-launch,.library-entry,.library-row,.preview-list,.done-stat,.workout-stat,.snack-card){box-shadow:inset 0 0 0 1px #ddd7cd}
+:root[data-appearance="light"] .danger-btn{color:#fffdf8}
+.appearance-controls{grid-template-columns:minmax(0,1fr)}
+.appearance-help{margin:0 0 16px;color:var(--text-muted);font-size:14px;line-height:1.45}
+.appearance-help:empty{display:none}
+:root[data-appearance="light"] .brand-mark path{stroke:var(--text)}
+:root[data-appearance="light"] #tile-cooldown .routine-cta{color:var(--ink)}
