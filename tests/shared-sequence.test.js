@@ -13,10 +13,10 @@ function rounds(ids,rounds=1){return {id:'sequence',protocol:'rounds',intent:'co
 const empty=()=>({exercises:[],restSeconds:0,estimatedSeconds:0});
 function session(blocks,duration=10){return {id:'shared-sequence',schemaVersion:2,focus:'balanced',duration,difficulty:'normal',warmup:empty(),rampup:empty(),cooldown:empty(),main:{blocks}};}
 function appFor(workout,{rampup=false}={}){
-  const app=loadAppContext(new Map(),{ownIntrinsics:true});const run=s=>vm.runInContext(s,app);run('Date.now=()=>1792569600000');
+  const app=loadAppContext(new Map(),{ownIntrinsics:true});const run=s=>vm.runInContext(s,app);run('var sequenceNow=1792569600000;Date.now=()=>sequenceNow');
   if(rampup)vm.runInContext(fs.readFileSync('js/rampup-ui.js','utf8'),app);
   app.input=copy(workout);run('generatorState.workout=JSON.parse(JSON.stringify(input))');
-  return {app,run,el:id=>app.document.getElementById(id)};
+  return {app,run,waitForIntent(){app.toggleWorkoutPause();run('sequenceNow+=400');app.toggleWorkoutPause()},el:id=>app.document.getElementById(id)};
 }
 const elapsed=phases=>phases.reduce((sum,phase)=>sum+(phase.kind==='exercise'?(phase.timed?phase.seconds:(phase.estimatedSeconds??phase.exercise.estimatedSeconds)/G.sideCount(phase.exercise)):phase.seconds),0);
 
@@ -121,14 +121,14 @@ test('Previous, pause, skip recovery and durable interrupted evidence keep occur
   const h=appFor(session([b]));h.run("startGeneratedWorkout({store:GarageFitCoachStore.createStore(localStorage),source:'generator',draftId:'sequence-draft',recordResults:true,meaningful:()=>true})");
   const tracker=h.run('generatorState.tracker');await tracker.flush();
   const timeline=h.run('generatorState.timeline'),first=timeline.findIndex(p=>p.kind==='exercise');
-  h.app.enterGeneratedPhase(first);h.run('generatorState.remaining=6');h.app.generatedPrimaryAction();await tracker.flush();
+  h.app.enterGeneratedPhase(first);h.run('generatorState.remaining=6');h.waitForIntent();h.app.generatedPrimaryAction();await tracker.flush();
   assert.equal(tracker.outcome(timeline[first].occurrenceId).sets[0].seconds,4);
   assert.equal(h.run('currentGeneratedPhase().side'),'left');
   h.app.toggleWorkoutPause();const paused=h.run('generatorState.timelineIndex');h.app.generatedPrimaryAction();assert.equal(h.run('generatorState.timelineIndex'),paused);h.app.toggleWorkoutPause();
-  h.app.generatedPrimaryAction();await tracker.flush();assert.equal(h.run('currentGeneratedPhase().seconds'),17);
-  const count=tracker.plannedWork().length;h.app.generatedPrimaryAction();await tracker.flush();assert.equal(tracker.plannedWork().length,count);
-  assert.equal(h.el('workoutTarget').textContent,'4 reps');h.app.generatedPrimaryAction();await tracker.flush();
-  h.app.previousGeneratedPhase();assert.equal(h.el('workoutTarget').textContent,'4 reps');h.app.generatedPrimaryAction();await tracker.flush();
+  h.waitForIntent();h.app.generatedPrimaryAction();await tracker.flush();assert.equal(h.run('currentGeneratedPhase().seconds'),17);
+  const count=tracker.plannedWork().length;h.waitForIntent();h.app.generatedPrimaryAction();await tracker.flush();assert.equal(tracker.plannedWork().length,count);
+  assert.equal(h.el('workoutTarget').textContent,'4 reps');h.waitForIntent();h.app.generatedPrimaryAction();await tracker.flush();
+  h.app.previousGeneratedPhase();assert.equal(h.el('workoutTarget').textContent,'4 reps');h.waitForIntent();h.app.generatedPrimaryAction();await tracker.flush();
   const resumed=await h.app.GarageFitSessionTracker.resumeTracker({store:h.run('GarageFitCoachStore.createStore(localStorage)'),recordResults:true,meaningful:()=>true});
   const result=await resumed.exitEarly();
   assert.equal(result.finalStatus,'partial');assert.equal(result.performedWork.length,2);

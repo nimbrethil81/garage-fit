@@ -211,7 +211,8 @@ test('setup playback has visible and spoken cues, uses the existing pause clock 
   assert.equal(run('currentGeneratedPhase().exercise.id'),'ring-fallout');
   assert.equal(run('generatorState.completedMain'),0);
   assert.deepEqual(copy(run('generatorState.tracker.performedWork()')),[]);
-  await app.generatedPrimaryAction();await run('generatorState.tracker.flush()');
+  await app.generatedPrimaryAction();assert.deepEqual(copy(run('generatorState.tracker.performedWork()')),[],'tap at automatic setup expiry cannot consume the exercise');
+  wall+=400;await app.generatedPrimaryAction();await run('generatorState.tracker.flush()');
   assert.deepEqual(copy(run('generatorState.tracker.performedWork()')).map(item=>item.exerciseId),['ring-fallout']);
 });
 
