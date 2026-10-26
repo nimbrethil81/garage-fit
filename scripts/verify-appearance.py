@@ -68,6 +68,8 @@ with sync_playwright() as p:
   for scheme in ['dark','light','dark']:
    page.emulate_media(color_scheme=scheme)
    page.wait_for_function('(scheme)=>document.documentElement.dataset.appearance===scheme',arg=scheme)
+   # The ready/rest ring must recolour too, catching cached resolved colours.
+   page.wait_for_function("""()=>{const probe=document.createElement('span');probe.style.color='var(--rest)';document.body.append(probe);const expected=getComputedStyle(probe).color;probe.remove();return getComputedStyle(document.getElementById('workoutRingFg')).stroke===expected}""")
    assert page.evaluate("JSON.stringify([generatorState.timeline,generatorState.timelineIndex,generatorState.remaining,workoutState.paused,workoutState.running,generatorState.tracker?.draft])")==before
   # Switching a paused timer must preserve both pause state and remaining time.
   page.locator('#workoutRing').click()
