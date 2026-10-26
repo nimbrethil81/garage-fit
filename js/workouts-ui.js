@@ -114,6 +114,9 @@
 
   function styleUi(){var style=document.createElement('style');style.textContent=[
     '#workoutDetail{padding:20px 20px calc(20px + env(safe-area-inset-bottom));overflow-y:auto}',
+    // Keep the list's full height: flex shrinking plus its rounded-corner overflow
+    // clips rows inside the list instead of adding them to the screen's scroll area.
+    '#workoutDetail>*{flex-shrink:0}',
     '.workout-list{gap:12px}',
     '.workout-launch{min-height:205px!important;padding:20px!important;display:grid!important;grid-template-columns:auto 1fr!important;grid-template-rows:auto 1fr auto!important;column-gap:18px!important;align-items:initial!important}',
     '.workout-launch .workout-kicker{grid-column:1/-1}',
