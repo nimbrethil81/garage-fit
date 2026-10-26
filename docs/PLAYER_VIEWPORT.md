@@ -159,3 +159,28 @@ and additional captures.
 | 375×540 density with a long exercise name | [Reduced height](images/player-viewport/375x540-density.png) |
 | Coach editor with a 300px usable keyboard viewport | [Keyboard](images/player-viewport/375x540-keyboard.png) |
 | 667×375 landscape EMOM | [Landscape](images/player-viewport/667x375-emom.png) |
+
+### Workout journey progress (#292, WP-V1–V4)
+
+The workout player's existing overall progress slot now contains one duration-weighted
+journey bar and its concise current-phase label. Only real Warm-up, Ramp-up,
+individual Main blocks and Cool-down appear. Short segments retain an 8px minimum.
+Completed segments fill teal, the current segment fills orange, and upcoming
+segments remain muted. The former dense movement counter shows only relevant
+round context; its responsive space is retained to preserve timer/exercise geometry.
+
+This is a read-only view of the resolved timeline and existing clocks. Timed work,
+recoveries and transitions advance within their owning segment. EMOM includes the
+whole minute; AMRAP and density count their block cap once. Rep estimates weight
+planned work but never fabricate elapsed rep completion: confirmation/navigation
+moves that portion, and the accessible progress description identifies estimates.
+Pause excludes inactive time, Previous reflects the revisited position, and skipped
+work advances the journey without becoming performed evidence. Fixed workouts and
+Coach use the same presentation; the routine player is unchanged.
+
+The viewport capture helper settles CSS transitions and disclosure/viewport layout
+before screenshots, and emits `progress-regions.json` for comparison against the
+same fixtures on main. Compare both versions' region bounds, because the removed
+counter can be wider than the new round text. Images outside these regions must
+remain unchanged; native input focus/scroll state must also match when comparing
+open editors. Chromium emulation is not physical iPhone/Safari validation.

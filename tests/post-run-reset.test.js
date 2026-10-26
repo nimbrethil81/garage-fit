@@ -170,6 +170,7 @@ class ClassList {
 class Element {
   constructor(id='') { this.id=id;this.classList=new ClassList();this.style={};this.children=[];this.attributes={};this.disabled=false;this.textContent='';this.innerHTML='';this.value=''; }
   setAttribute(key,value) { this.attributes[key]=String(value); }
+  getAttribute(key) { return this.attributes[key] ?? null; }
   removeAttribute(key) { delete this.attributes[key]; }
   append(...children) { this.children.push(...children); }
   appendChild(child) { this.children.push(child);return child; }

@@ -110,7 +110,15 @@ def check(page, report, label, optional=False, allow_reflow=False):
 
 
 def capture(page, output, label):
-    page.screenshot(path=str(output/(label+'.png')))
+    settle(page)
+    page.mouse.move(0,0)
+    page.screenshot(path=str(output/(label+'.png')),animations='disabled')
+    # Record the only two visual regions approved for WP-V1–V4 comparisons.
+    regions=page.locator('#workoutPlayer:not(.hidden) #workoutMovementProgress, #workoutPlayer:not(.hidden) .overall-progress').evaluate_all('nodes=>nodes.map(e=>{const r=e.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height}})')
+    region_file=output/'progress-regions.json'
+    saved=json.loads(region_file.read_text()) if region_file.exists() else {}
+    saved[label+'.png']=regions
+    region_file.write_text(json.dumps(saved,indent=2)+'\n')
 
 
 def fixture_blocks():
@@ -158,12 +166,14 @@ def optional_checks(page, report, output, label):
               Object.defineProperty(visualViewport,'height',{configurable:true,value:300});
               Object.defineProperty(visualViewport,'offsetTop',{configurable:true,value:32});
               visualViewport.dispatchEvent(new Event('resize'));visualViewport.dispatchEvent(new Event('scroll'));}""")
-            page.locator('#coachActualLoad').focus()
+            page.locator('#coachActualLoad').focus();settle(page)
+            page.locator('#coachAnchorEdit .player-detail-content').evaluate('e=>e.scrollTop=0')
             page.locator('#coachActualLoad').evaluate("e=>e.scrollIntoView({block:'nearest'})")
             check(page,report,label+'-keyboard',optional=True,allow_reflow=True)
             assert page.locator('#coachActualLoad').evaluate("e=>{const r=e.getBoundingClientRect(),c=e.closest('.player-detail-content').getBoundingClientRect();return r.top>=c.top-1&&r.bottom<=c.bottom+1}")
             capture(page,output,label+'-keyboard')
             page.evaluate("delete visualViewport.height;delete visualViewport.offsetTop;visualViewport.dispatchEvent(new Event('resize'));visualViewport.dispatchEvent(new Event('scroll'))")
+        check(page,report,label+'-'+selector[1:]+'-restored',optional=True)
         capture(page,output,label+'-'+selector[1:])
         close.focus();page.keyboard.press('Escape');settle(page)
         assert not page.locator(selector).evaluate('e=>e.open')
@@ -251,7 +261,7 @@ def main():
         timers.native_entry_checks(browser,args.url)
         for size in [(375,667),(390,844),(393,852),(430,932),(375,540),(320,568),(360,640),(667,375)]:
             label=f'{size[0]}x{size[1]}'
-            page=timers.fresh(browser,args.url,size);page.add_style_tag(content=SAFE_AREAS)
+            page=timers.fresh(browser,args.url,size);page.add_style_tag(content=SAFE_AREAS+'\n*,*::before,*::after{transition:none!important;animation:none!important}')
             page.evaluate(timers.ROUTINE)
             check(page,report,label+'-routine');capture(page,args.output,label+'-routine')
             page.evaluate("document.getElementById('exerciseName').textContent='Kneeling hamstring stretch - Right';state.remaining=137;renderTick(137,300)")

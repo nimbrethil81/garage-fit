@@ -99,7 +99,8 @@ test('shared preview, voice, next hints and player follow changing reps and plan
   for(const kind of ['reps','intensity','reverse']){
     const b=block(kind),h=harness(b);h.app.startStandaloneGeneratedWorkout();const tracker=h.run('generatorState.tracker');await tracker.flush();
     const main=h.main();h.app.enterGeneratedPhase(main[0].index);
-    assert.match(h.el('workoutMovementProgress').textContent,/Pyramid|pyramid/);assert.match(h.el('workoutMovementProgress').textContent,/Step 1 of 3/);
+    assert.equal(h.el('workoutPhaseLabel').textContent,'Main workout');
+    assert.equal(h.el('workoutMovementProgress').textContent,'');
     assert.equal(h.el('workoutTarget').textContent,b.prescription.steps[0].reps+' reps');
     assert.match(h.spoken.at(-1),new RegExp(b.prescription.steps[0].reps+' reps'));
     const preview=h.app.GarageFitWorkoutPreview;

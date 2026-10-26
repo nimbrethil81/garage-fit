@@ -52,7 +52,8 @@ function harness({ids=['push-up','plank'],targets=[6,20],minutes=3,storage=new M
 
 test('EMOM uses the resolved targets, minute identity and the shared accessible player',async()=>{
   const h=harness();await h.start();
-  assert.match(h.el('workoutMovementProgress').textContent,/EMOM · Minute 1 of 3/);
+  assert.equal(h.el('workoutMovementProgress').textContent,'');
+  assert.equal(h.el('workoutPhaseLabel').textContent,'Main workout');
   assert.equal(h.el('workoutTarget').textContent,'6 reps');
   assert.equal(h.el('workoutTarget').classList.contains('hidden'),false);
   assert.equal(h.el('workoutRingNum').textContent,'60');
