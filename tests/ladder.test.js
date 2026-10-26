@@ -83,7 +83,8 @@ test('shared player/voice/preview/tracker follow each step through rest, pause, 
   for(const reps of [[2,4,6,8],[8,6,4,2]]){
     const h=harness(block(reps));h.app.startStandaloneGeneratedWorkout();const tracker=h.run('generatorState.tracker');await tracker.flush();
     const main=h.main();h.app.enterGeneratedPhase(main[0].index);
-    assert.match(h.el('workoutMovementProgress').textContent,/Ladder · Step 1 of 4/);
+    assert.equal(h.el('workoutPhaseLabel').textContent,'Main workout');
+    assert.equal(h.el('workoutMovementProgress').textContent,'');
     assert.equal(h.el('workoutTarget').textContent,reps[0]+' reps');assert.match(h.spoken.at(-1),new RegExp(reps[0]+' reps'));
     const preview=h.app.GarageFitWorkoutPreview;assert.match(preview.protocolLabel(block(reps)),/Ladder/);
     assert.equal(preview.occurrenceTargetLabel(block(reps),0),reps.map(n=>n+' reps').join(' → '));

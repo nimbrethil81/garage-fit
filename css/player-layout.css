@@ -163,3 +163,9 @@
 @container player-viewport (max-height:480px) and (min-width:540px){
   .workout-actions,.workout-actions:has(#coachSkipBtn.hidden){grid-template-columns:minmax(0,1fr) minmax(0,1.4fr) minmax(0,1fr);grid-template-areas:"error error error" ". preview ." "previous primary skip"}
 }
+/* WP-V1–V4 reuse the existing progress slots, keeping the timer/stage geometry. */
+#workoutMovementProgress{min-height:1.3em}
+#workoutProgressTrack{display:flex;gap:3px;background:transparent;overflow:visible;border-radius:0}
+#workoutProgressTrack .journey-segment{display:block;flex-basis:0;min-width:8px;height:100%;overflow:hidden;border-radius:999px;background:var(--surface-2)}
+.journey-segment>span{display:block;height:100%;background:var(--work)}
+.journey-segment.is-complete>span{background:var(--rest)}

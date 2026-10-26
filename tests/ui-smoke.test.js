@@ -24,6 +24,7 @@ class Element {
     this.id=id;
   }
   setAttribute(key,value) { this.attributes[key]=String(value); }
+  getAttribute(key) { return this.attributes[key] ?? null; }
   removeAttribute(key) { delete this.attributes[key]; }
   append(...children) { children.forEach(child=>{child.parentNode=this;this.children.push(child);}); }
   appendChild(child) { child.parentNode=this;this.children.push(child);return child; }

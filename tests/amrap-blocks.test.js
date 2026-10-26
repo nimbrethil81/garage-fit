@@ -175,14 +175,14 @@ test('one continuous countdown repeats the sequence by Next, crediting each move
   assert.deepEqual(ids,['main:b0:a1:e0','main:b0:a1:e1','main:b0:a1:e2']);
   assert.equal(h.el('workoutRingNum').textContent,'300');assert.equal(h.el('workoutRingPhase').textContent,'AMRAP');
   assert.equal(h.el('workoutRingWrap').classList.contains('hidden'),false);assert.equal(h.el('workoutTarget').textContent,'8 reps');
-  assert.equal(h.el('workoutTarget').classList.contains('hidden'),false);assert.match(h.el('workoutMovementProgress').textContent,/AMRAP · Round 1 · Exercise 1 of 3/);
+  assert.equal(h.el('workoutTarget').classList.contains('hidden'),false);assert.match(h.el('workoutMovementProgress').textContent,/^Round 1$/);
   assert.equal(h.el('workoutAmrapStatus').classList.contains('hidden'),false);assert.equal(h.el('completeMovementAction').textContent,'Next');
   assert.equal(h.el('completeMovementNext').textContent,'TRX row');assert.match(h.spoken.join(' '),/AMRAP\. Round 1\..*steady, comfortable pace/);
   const deadline=h.run('amrapBlockRun().deadlineMs');
   for(let n=0;n<2;n++)await h.next();
   assert.equal(h.el('completeMovementNext').textContent,'TRX squat','the last movement previews the next round');
   await h.next();
-  assert.equal(h.phase().occurrenceId,ids[0]);assert.match(h.el('workoutMovementProgress').textContent,/Round 2 · Exercise 1 of 3/);
+  assert.equal(h.phase().occurrenceId,ids[0]);assert.match(h.el('workoutMovementProgress').textContent,/^Round 2$/);
   assert.equal(h.tracker().performedWork().length,3);const writes=h.tracker().writeCount;
   for(let n=0;n<6;n++)await h.next();
   assert.match(h.el('workoutMovementProgress').textContent,/Round 4/);assert.equal(h.run('amrapBlockRun().deadlineMs'),deadline);
@@ -242,7 +242,7 @@ test('double taps, Previous and visibility return keep one position and the orig
   h.time(400);h.app.previousGeneratedPhase();assert.equal(h.phase().occurrenceId,ids[0]);assert.equal(h.tracker().outcome(ids[1]),null,'moving back records nothing');
   assert.equal(h.el('previousWorkoutBtn').disabled,true,'Previous never leaves the block or the round');
   for(let n=0;n<3;n++)await h.next();
-  assert.match(h.el('workoutMovementProgress').textContent,/Round 2 · Exercise 1/);assert.equal(h.el('previousWorkoutBtn').disabled,true);
+  assert.match(h.el('workoutMovementProgress').textContent,/^Round 2$/);assert.equal(h.el('previousWorkoutBtn').disabled,true);
   const deadline=h.run('amrapBlockRun().deadlineMs');
   h.run("document.visibilityState='hidden'");h.time(400000);h.run("document.visibilityState='visible'");await h.event('visibilitychange');
   assert.equal(h.run('amrapBlockRun().expired'),true);assert.equal(h.run('amrapBlockRun().deadlineMs'),deadline);assert.equal(h.phase().occurrenceId,ids[0]);

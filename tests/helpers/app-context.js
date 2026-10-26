@@ -13,6 +13,7 @@ class Element {
     Object.defineProperty(this,'innerHTML',{get:()=>this._innerHTML,set:value=>{this._innerHTML=String(value);if(value==='')this.children=[];}});
   }
   setAttribute(key, value) { this.attributes[key] = String(value); }
+  getAttribute(key) { return this.attributes[key] ?? null; }
   removeAttribute(key) { delete this.attributes[key]; }
   append(...children) { this.children.push(...children); }
   appendChild(child) { this.children.push(child); return child; }

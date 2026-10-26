@@ -126,12 +126,12 @@ test('shared preview, voice and player label every movement, changeover and reco
   assert.equal(preview.protocolLabel(b),'Complex · 3 sequences · 3 movements in order on one setup · 10 sec changeover · 75 sec rest between sequences');
   assert.deepEqual([0,1,2].map(i=>preview.occurrenceTargetLabel(b,i)),['8 reps · Medium','8 reps · Medium','30 sec · Medium']);
   const main=h.main();assert.equal(main.length,9);h.app.enterGeneratedPhase(main[0].index);
-  assert.equal(h.el('workoutMovementProgress').textContent,'Block 1 of 1 · Complex · Sequence 1 of 3 · Movement 1 of 3');
+  assert.equal(h.el('workoutMovementProgress').textContent,'Round 1 of 3');
   assert.equal(h.el('workoutTarget').textContent,'8 reps');assert.match(h.spoken.at(-1),/^Complex movement 1 of 3\. Dumbbell hammer curl\. 8 reps/);
   assert.equal(h.el('coachSkipBtn').classList.contains('hidden'),false);assert.equal(h.el('completeMovementNext').textContent,'Change over');
   h.app.generatedPrimaryAction();await tracker.flush();
   assert.equal(h.phase().kind,'complex-change');assert.equal(h.run('generatorState.remaining'),10);
-  assert.match(h.el('workoutMovementProgress').textContent,/Sequence 1 of 3 · Change over$/);
+  assert.match(h.el('workoutMovementProgress').textContent,/^Round 1 of 3$/);
   assert.equal(h.el('completeMovementAction').textContent,'Next');assert.equal(h.el('completeMovementNext').textContent,'Dumbbell shoulder press');
   h.app.generatedPrimaryAction();h.app.generatedPrimaryAction();h.app.generatedPrimaryAction();
   // The timed movement: measured, not credited beyond what elapsed.
@@ -141,13 +141,13 @@ test('shared preview, voice and player label every movement, changeover and reco
   h.run('generatorState.remaining=18');h.app.generatedPrimaryAction();await tracker.flush();
   assert.equal(tracker.outcome(main[2].phase.occurrenceId).status,'partial');
   assert.equal(h.phase().kind,'complex-rest');assert.equal(h.el('workoutExercise').textContent,'Sequence 1 complete');
-  assert.match(h.el('workoutMovementProgress').textContent,/Sequence 1 of 3 complete$/);assert.equal(h.run('generatorState.remaining'),75);
+  assert.match(h.el('workoutMovementProgress').textContent,/^Round 1 of 3$/);assert.equal(h.run('generatorState.remaining'),75);
   // Previous redoes the same occurrence and replaces its outcome.
   h.app.previousGeneratedPhase();assert.equal(h.phase().occurrenceId,main[2].phase.occurrenceId);
   h.run('generatorState.remaining=0');h.app.generatedPrimaryAction();await tracker.flush();
   assert.equal(tracker.outcome(main[2].phase.occurrenceId).status,'completed');
   h.app.generatedPrimaryAction();assert.equal(h.phase().occurrenceId,main[3].phase.occurrenceId);
-  assert.match(h.el('workoutMovementProgress').textContent,/Sequence 2 of 3 · Movement 1 of 3$/);
+  assert.match(h.el('workoutMovementProgress').textContent,/^Round 2 of 3$/);
   h.app.generatedSkipWork();await tracker.flush();assert.equal(tracker.outcome(main[3].phase.occurrenceId).status,'skipped');
   const planned=tracker.plannedWork().filter(p=>p.section==='main');
   assert.equal(planned.length,9);assert.equal(new Set(planned.map(p=>p.occurrenceId)).size,9);
