@@ -350,12 +350,13 @@ def standalone_root_checks(browser, url):
                 result=page.evaluate("""()=>{
                   const app=document.getElementById('app'),nav=document.getElementById('bottomNav');
                   return {position:getComputedStyle(app).position,height:app.getBoundingClientRect().height,
-                    bottom:nav.getBoundingClientRect().bottom,
-                    targets:[...nav.querySelectorAll('button')].map(b=>{const r=b.getBoundingClientRect();return {bottom:r.bottom,hit:b.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))}})};
+                    bottom:nav.getBoundingClientRect().bottom,navHeight:nav.getBoundingClientRect().height,
+                    targets:[...nav.querySelectorAll('button')].map(b=>{const r=b.getBoundingClientRect();return {bottom:r.bottom,height:r.height,width:r.width,hit:b.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))}})};
                 }""")
                 assert result['position']=='relative' and abs(result['height']-expected)<1,(tab,height,result)
                 assert abs(result['bottom']-expected)<1,(tab,height,result)
-                assert all(b['bottom']<=expected-34 and b['hit'] for b in result['targets']),(tab,height,result)
+                assert result['navHeight']<=84,(tab,height,result)
+                assert all(b['height']>=44 and b['width']>=44 and b['bottom']<=expected-34 and b['hit'] for b in result['targets']),(tab,height,result)
         for player in ['player','workoutPlayer']:
             page.evaluate('(id)=>showScreen(id)',player);settle(page)
             assert page.locator('#app').evaluate("e=>getComputedStyle(e).position==='fixed' && e.getBoundingClientRect().height===793")

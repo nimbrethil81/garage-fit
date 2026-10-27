@@ -18,7 +18,9 @@ and non-player screens use a normal-flow, full-height shell with the navigation
 safe area inside it. A keyboard-sized visual-viewport reduction (>150px at scale
 1) uses the measured menu height instead. Safari and player sizing retain the
 existing path. Chromium validates these rules, not the native iOS compositor;
-physical-device confirmation remains required.
+The user confirmed that this removes the physical-device gap. Build
+2026.10.27.3 then compacts only the installed-iOS tab controls while retaining the
+full home-indicator inset, existing fonts/icons and at least 44px tap height.
 
 `css/player-layout.css` gives the stage the remaining height. The circular timer
 uses that space through a size container, equal width/height and the original
