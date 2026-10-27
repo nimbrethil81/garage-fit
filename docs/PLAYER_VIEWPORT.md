@@ -21,6 +21,10 @@ existing path. Chromium validates these rules, not the native iOS compositor;
 The user confirmed that this removes the physical-device gap. Build
 2026.10.27.3 then compacts only the installed-iOS tab controls while retaining the
 full home-indicator inset, existing fonts/icons and at least 44px tap height.
+Subsequent physical review requests centring the controls in the full coloured
+bar: the installed-iOS bar now splits that inset equally between top and bottom
+padding. Its total height is unchanged, with equal breathing room around the
+buttons (21px below them for a 34px inset).
 
 `css/player-layout.css` gives the stage the remaining height. The circular timer
 uses that space through a size container, equal width/height and the original
