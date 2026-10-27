@@ -32,15 +32,11 @@
   "skater-jumps": {
     "webp": {
       "path": "assets/exercises/skater-jumps.webp",
-      "sha256": "fe7c47bcbda7176b02b69fe8236a98808b3776eaaa6d153c09ab0a6c7ad265f5"
+      "sha256": "07599b5a801a779a1a8b8b6abe1fa70633c75a6bd36299a69aa6d34a668af8c8"
     },
     "png": {
       "path": "docs/exercise-artwork/references/skater-jumps.png",
-      "sha256": "48aa066cac9da0f3c401feca0c7749074d676ca4a005bbf6d0bc2b38b1ed3820"
-    },
-    "source": {
-      "path": "docs/exercise-artwork/references/skater-jumps-source.jpg",
-      "sha256": "8dede24b19b35541f3101f2fae324ff47af15deab619c48102133372138cebbf"
+      "sha256": "b13cc28f3ac5e0dcd47720811075744e94c4aef3539adb5467d2cafeea5f40ea"
     }
   },
   "trx-reverse-lunge": {
@@ -56,15 +52,11 @@
   "trx-row": {
     "webp": {
       "path": "assets/exercises/trx-row.webp",
-      "sha256": "dbcb71213982d85200e399694c1c67fc5b35d83dedaaefcf0ce01ab49c5eb158"
+      "sha256": "b801ece2d7365e9fb04691f194a858f8e693b46c5a1c1a54fcdfa177e810908c"
     },
     "png": {
       "path": "docs/exercise-artwork/references/trx-row.png",
-      "sha256": "ac3d2df518bd6b6e42159d1b26421a23a7d1bdc193c6f26e3390cb9f46cf61b8"
-    },
-    "source": {
-      "path": "docs/exercise-artwork/references/trx-row-source.jpg",
-      "sha256": "90189c049480f520106e2917097fa740c93074e715e512dfbc04a247aa658c5a"
+      "sha256": "222a89a77e79fa562db666747dec9fd1c6bcdd3da6e8ed4b31645f350b09913c"
     }
   }
 }
