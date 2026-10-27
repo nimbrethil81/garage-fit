@@ -80,7 +80,7 @@ When implementing an approved GitHub issue, complete the delivery workflow rathe
    - Do not introduce unapproved scope or product decisions.
 
 2. **Commit and create PR**
-   - When publishing application changes, update the matching page build in `#aboutBuild` (`index.html`) and layout build marker (`--gf-layout-build` in `css/player-layout.css`) to a new unique date/sequence code. These identify loaded files, not a fetched latest-server version.
+   - Build references in `index.html` and `css/player-layout.css` are rendered automatically from `site.github.build_revision` by the existing GitHub Pages Jekyll build. Preserve the front matter and Liquid expressions; do not manually stamp date/counter codes or fetch the newest server revision to identify a loaded page. Use `python3 scripts/preview_server.py` for local browser previews so these two templates render with the checkout Git SHA.
    - Commit and push the completed changes.
    - Create a pull request targeting `main`, referencing the GitHub issue.
    - Summarise the changes, validation performed and any relevant limitations.

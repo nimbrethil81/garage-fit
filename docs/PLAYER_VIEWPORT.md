@@ -74,7 +74,7 @@ browser chrome, keyboard animation, audio and wake-lock checks remain manual.
 ## Reproduce
 
 ```sh
-python -m http.server 8000 --bind 127.0.0.1
+python3 scripts/preview_server.py --port 8000
 # In a second terminal (requires developer-installed Playwright and Chromium;
 # set CHROMIUM_PATH if Chromium is not at /usr/bin/chromium):
 python scripts/verify-player-layout.py --url http://127.0.0.1:8000 --output /tmp/player-layout

@@ -3,6 +3,7 @@ Run: python scripts/verify-library-illustrations.py (requires developer Playwrig
 """
 import functools
 import http.server
+from preview_server import PreviewHandler
 from pathlib import Path
 import threading
 import json
@@ -15,7 +16,7 @@ OUTPUT = Path('/tmp/library-illustrations')
 IDS = ['dumbbell-romanian-deadlift', 'dumbbell-lateral-raise', 'trx-reverse-lunge',
        'trx-row', 'skater-jumps', 'side-plank']
 
-class QuietHandler(http.server.SimpleHTTPRequestHandler):
+class QuietHandler(PreviewHandler):
     def log_message(self, *args):
         pass
 

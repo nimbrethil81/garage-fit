@@ -157,3 +157,24 @@ reduce the icon-to-label gap to 2px, preserving fonts, icon sizes and at least
 44px button height. Keep the full bottom safe inset inside the bar. At the
 393px iPhone width this targets an approximately 81px total bar instead of 115px,
 including the 34px home-indicator region. Safari retains its existing styling.
+
+## Comfortable control spacing and enduring Git build references
+
+The user reports the compact bar leaves buttons against its top edge. Keep the
+successful full-height root and 16px header adjustment; give the installed-iOS
+bar 4px top padding, 4px above its bottom safe inset, and 4px vertical button
+padding, centring icon/label stacks inside each target. Equal two-line label
+slots preserve the common icon alignment. At 393px with a 34px
+inset the total is 97px, between the previous 81px compact and 115px padded bars.
+Fonts, icons, horizontal spacing and home-indicator clearance are preserved.
+
+Replace manual date/sequence identifiers with GitHub Pages/Jekyll's
+`site.github.build_revision`, embedded at build time in HTML and layout CSS.
+About shows seven characters and copies the full hash; the CSS URL carries the
+revision to keep the page and its diagnostic stylesheet together. No latest-API
+lookup or manual bump is used. The existing Pages Jekyll pipeline is unchanged.
+Local previews use the standard-library Python preview handler, which renders
+only these revision expressions with the checkout SHA; self-hosted browser
+checks reuse it. Production rendering must be checked after deployment.
+
+Reference: https://jekyll.github.io/github-metadata/configuration/

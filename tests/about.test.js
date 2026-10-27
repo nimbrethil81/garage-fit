@@ -5,11 +5,15 @@ const {loadAppContext}=require('./helpers/app-context');
 
 test('About identifies loaded HTML and CSS separately and does not fetch a latest-server version',()=>{
   const html=fs.readFileSync('index.html','utf8'),css=fs.readFileSync('css/player-layout.css','utf8');
-  const build=html.match(/id="aboutBuild">([^<]+)</)[1];
-  assert.match(build,/^\d{4}\.\d{2}\.\d{2}\.\d+$/);
-  assert.equal(css.match(/--gf-layout-build:"([^"]+)"/)[1],build);
+  assert.ok(html.startsWith('---\nlayout: null\n---\n'));
+  assert.ok(css.startsWith('---\nlayout: null\n---\n'));
+  assert.match(html,/id="aboutBuild" data-commit="\{\{ site.github.build_revision \}\}"/);
+  assert.match(html,/\{\{ site.github.build_revision \| slice: 0, 7 \}\}/);
+  assert.equal(css.match(/--gf-layout-build:"([^"]+)"/)[1],'{{ site.github.build_revision }}');
+  const build='25e9bb2abcdef01234567890123456789012345678';
   const storage=new Map(),app=loadAppContext(storage),el=id=>app.document.getElementById(id);
-  el('aboutBuild').textContent=build;
+  el('aboutBuild').textContent=build.slice(0,7);
+  el('aboutBuild').setAttribute('data-commit',build);
   el('app').getBoundingClientRect=()=>({top:0,bottom:852,height:852});
   app.screen={width:393,height:852};app.innerWidth=393;app.innerHeight=852;
   app.navigator.standalone=true;
