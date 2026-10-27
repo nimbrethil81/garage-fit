@@ -80,6 +80,7 @@ When implementing an approved GitHub issue, complete the delivery workflow rathe
    - Do not introduce unapproved scope or product decisions.
 
 2. **Commit and create PR**
+   - When publishing application changes, update the matching page build in `#aboutBuild` (`index.html`) and layout build marker (`--gf-layout-build` in `css/player-layout.css`) to a new unique date/sequence code. These identify loaded files, not a fetched latest-server version.
    - Commit and push the completed changes.
    - Create a pull request targeting `main`, referencing the GitHub issue.
    - Summarise the changes, validation performed and any relevant limitations.

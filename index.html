@@ -35,7 +35,7 @@
   #generatedPreview{margin-bottom:env(safe-area-inset-bottom);padding-bottom:calc(14px + env(safe-area-inset-bottom))}
   #generatedPreview>*{flex-shrink:0}
   .info-detail .page-header h1{min-width:0;overflow-wrap:anywhere;font-size:clamp(22px,7vw,32px);line-height:1.15}.library-entry{width:100%;min-height:58px;border:0;border-radius:14px;background:var(--card);color:var(--card-text);padding:16px;text-align:left;font-weight:850;font-size:16px}
-  #more>.library-entry+.library-entry{margin-top:10px}#spokenCues .library-controls{grid-template-columns:minmax(0,1fr)}#spokenCues .ctrl-btn{flex:none;width:100%;min-height:54px;margin-top:12px}
+  #more>.library-entry+.library-entry,#settings>.library-entry+.library-entry{margin-top:10px}#spokenCues .library-controls{grid-template-columns:minmax(0,1fr)}#spokenCues .ctrl-btn{flex:none;width:100%;min-height:54px;margin-top:12px}
   .library-controls{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-bottom:16px}.library-controls label{display:flex;flex-direction:column;gap:6px;color:var(--text-muted);font-size:12px;font-weight:750}.library-controls input,.library-controls select{width:100%;min-width:0;border:1px solid var(--surface-2);border-radius:10px;background:var(--surface);color:var(--text);padding:12px;font:inherit;font-size:16px}
   .library-illustration{width:100%;aspect-ratio:4/3;max-height:min(36vh,320px);margin-top:12px;background:#263238;border-radius:12px;overflow:hidden}.library-illustration img{display:block;width:100%;height:100%;object-fit:contain;padding:12px;box-sizing:border-box}
   .library-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}.library-row{width:100%;min-height:58px;border:0;border-radius:12px;background:var(--card);color:var(--card-text);padding:12px 15px;text-align:left;display:flex;flex-direction:row;align-items:center;gap:12px}.library-row strong{font-size:15px;line-height:1.3;min-width:0;overflow-wrap:anywhere}.equipment-icon{flex:0 0 32px;width:32px;display:inline-flex;align-items:center;justify-content:center}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.library-empty{color:var(--text-muted)}.library-detail-section{margin:0 0 22px}.library-detail-section h2{font-size:14px;color:var(--rest);margin:0 0 7px}.library-detail-section p{line-height:1.5;margin:0;overflow-wrap:anywhere}
@@ -504,6 +504,12 @@
     <p class="appearance-help" id="appearanceHelp">Automatic follows your device’s appearance. Your choice is saved on this device.</p>
     <p class="appearance-help" id="appearanceStatus" role="status"></p>
     <button class="library-entry" type="button" onclick="showScreen('spokenCues')">Spoken Cues →</button>
+    <button class="library-entry" type="button" onclick="openAbout()">About</button>
+  </main>
+  <main id="about" class="screen info-detail hidden">
+    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Settings" onclick="appBack()">←</button><h1>About</h1><span class="header-spacer"></span></header>
+    <section class="library-detail-section"><h2>GarageFit</h2><p>Build <strong id="aboutBuild">2026.10.27.1</strong></p><p>This identifies the page loaded on this device.</p></section>
+    <details><summary>Display details</summary><pre id="aboutDiagnostics" style="white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;font:inherit;font-size:13px;line-height:1.5"></pre><button class="library-entry" type="button" onclick="copyAboutDetails()">Copy display details</button><p id="aboutCopyStatus" role="status"></p></details>
   </main>
   <main id="spokenCues" class="screen hidden">
     <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Settings" onclick="appBack()">←</button><h1>Spoken Cues</h1><span class="header-spacer"></span></header>
@@ -804,6 +810,31 @@ function previewSpokenVoice(){
   if(currentScreen!=='spokenCues'||state.running||workoutState.running||!speechVoices.supported())return;
   voicePreviewPlaying=true;speak('Get ready. Squats. Keep your chest up and move steadily.');
 }
+function openAbout(){
+  showScreen('about');
+  const viewport=window.visualViewport,app=document.getElementById('app'),box=app.getBoundingClientRect();
+  const mode=navigator.standalone||window.matchMedia('(display-mode: standalone)').matches?'Installed app':'Browser tab';
+  const layoutBuild=getComputedStyle(document.documentElement).getPropertyValue('--gf-layout-build').trim().replace(/^["']|["']$/g,'')||'Unknown (possibly older CSS)';
+  const px=value=>Number.isFinite(value)?Math.round(value*100)/100:'unavailable';
+  document.getElementById('aboutDiagnostics').textContent=[
+    'Page build: '+document.getElementById('aboutBuild').textContent,
+    'Layout build: '+layoutBuild,
+    'Mode: '+mode,
+    'Screen: '+screen.width+' × '+screen.height,
+    'Window: '+window.innerWidth+' × '+window.innerHeight,
+    'Visual viewport: '+(viewport?px(viewport.width)+' × '+px(viewport.height):'unavailable'),
+    'Viewport top / scale: '+(viewport?px(viewport.offsetTop)+' / '+px(viewport.scale):'unavailable'),
+    'App top / bottom / height: '+[box.top,box.bottom,box.height].map(px).join(' / '),
+    'Top padding: '+getComputedStyle(app).paddingTop,
+    'Menu bottom padding: '+getComputedStyle(document.getElementById('bottomNav')).paddingBottom
+  ].join('\n');
+  document.getElementById('aboutCopyStatus').textContent='';
+}
+async function copyAboutDetails(){
+  const status=document.getElementById('aboutCopyStatus');
+  try{await navigator.clipboard.writeText(document.getElementById('aboutDiagnostics').textContent);status.textContent='Display details copied.'}
+  catch(error){status.textContent='Copy is unavailable. You can select and copy the display details above.'}
+}
 function showScreen(id){
   if(manualInstructionSpeech&&id!==currentScreen)cancelSpeech();
   if(currentScreen==='spokenCues'&&id!=='spokenCues')stopVoicePreview();
@@ -811,7 +842,7 @@ function showScreen(id){
   currentScreen=id;
   if(id==='spokenCues')speechVoices.refresh();
   document.getElementById('app').classList.toggle('active-player',id==='player'||id==='workoutPlayer');
-  ['home','workouts','generator','equipment','generatedPreview','snackpick','player','workoutPlayer','done','more','settings','spokenCues','workoutPatterns','workoutPatternDetail','exerciseLibrary','exerciseDetail','coach','coachPreview','coachProgress','coachSettings','coachSubstitute','coachResult'].forEach(s=>document.getElementById(s).classList.toggle('hidden',s!==id));
+  ['home','workouts','generator','equipment','generatedPreview','snackpick','player','workoutPlayer','done','more','settings','about','spokenCues','workoutPatterns','workoutPatternDetail','exerciseLibrary','exerciseDetail','coach','coachPreview','coachProgress','coachSettings','coachSubstitute','coachResult'].forEach(s=>document.getElementById(s).classList.toggle('hidden',s!==id));
   const landing=['home','workouts','generator','more','coach'].includes(id),nav=document.getElementById('bottomNav');nav.classList.toggle('hidden',!landing);
   [['home','routinesNav'],['workouts','workoutsNav'],['coach','coachNav'],['generator','generatorNav'],['more','moreNav']].forEach(pair=>{const active=id===pair[0],button=document.getElementById(pair[1]);button.classList.toggle('active',active);active?button.setAttribute('aria-current','page'):button.removeAttribute('aria-current')});
   if(typeof backNav!=='undefined'&&backNav)backNav.sync();
@@ -1748,7 +1779,7 @@ backNav=GarageFitBackNav.create({
   getView:()=>currentScreen==='coach'?(coachUI&&coachUI.inOverview()?'coachOverview':null):currentScreen,
   routes:{
     equipment:()=>closeEquipment(),generatedPreview:()=>showLanding('generator'),
-    settings:()=>showScreen('more'),spokenCues:()=>showScreen('settings'),workoutPatterns:()=>showScreen('more'),workoutPatternDetail:backToWorkoutPatterns,
+    settings:()=>showScreen('more'),about:()=>showScreen('settings'),spokenCues:()=>showScreen('settings'),workoutPatterns:()=>showScreen('more'),workoutPatternDetail:backToWorkoutPatterns,
     exerciseLibrary:()=>showScreen('more'),exerciseDetail:()=>showScreen('exerciseLibrary'),
     coachOverview:()=>coachUI.backFromOverview(),coachPreview:()=>coachUI.back(),coachProgress:()=>coachUI.back(),
     coachSettings:()=>coachUI.back(),coachSubstitute:()=>coachUI.backFromSubstitute()

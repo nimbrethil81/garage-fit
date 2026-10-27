@@ -1,3 +1,4 @@
+:root{--gf-layout-build:"2026.10.27.1"}
 /* The active player owns the visual viewport. The tab bar is already removed by
    showScreen; safe areas are paid inside this box, never by extending its bottom. */
 #app.active-player{
