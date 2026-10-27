@@ -66,7 +66,8 @@
     function cue(){exerciseCountdownTick(countdown,state.remaining,state.phase==='work'&&!state.paused&&state.running);}
     cue();updateRoutineControls();clearInterval(state.timer);renderTick(seconds,seconds);
     state.timer=setInterval(function(){
-      if(!current()||state.paused)return;
+      if(!current())return;
+      if(state.paused){countdown.observedAt=Date.now();return;}
       state.remaining--;cue();renderTick(state.remaining,seconds);
       if(tick)tick(seconds-state.remaining);
       if(state.remaining<=0){clearInterval(state.timer);session.lastAdvance=Date.now();complete();}
@@ -109,7 +110,8 @@
     function cue(){exerciseCountdownTick(countdown,state.remaining,state.phase==='work'&&!state.paused&&state.running);}
     cue();updateRoutineControls();clearInterval(state.timer);renderTick(seconds,seconds);
     state.timer=setInterval(function(){
-      if(fixedSequence!==session||session.epoch!==epoch||!state.running||state.key!=='fixedSequence'||state.paused)return;
+      if(fixedSequence!==session||session.epoch!==epoch||!state.running||state.key!=='fixedSequence')return;
+      if(state.paused){countdown.observedAt=Date.now();return;}
       state.remaining--;cue();renderTick(state.remaining,seconds);
       if(tick)tick(seconds-state.remaining);
       if(state.remaining<=0){clearInterval(state.timer);session.lastAdvance=Date.now();complete();}

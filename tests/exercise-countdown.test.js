@@ -67,7 +67,10 @@ test('mixed fixed and Desk Break exercise timers share countdown cues without ch
     h.run('state.list[0].reps=null;state.list[0].work=5');
     h.pulse();h.pulse();h.pulse(); // preparation ends
     const duration=h.run('state.remaining');
-    for(let i=0;i<duration;i++)h.pulse();
+    for(let i=0;i<duration;i++){
+      if(i===duration-2){h.run('state.paused=true');h.pulse(10000);h.run('state.paused=false');}
+      h.pulse();
+    }
     assert.equal(h.ticks.length,3,start);
     if(h.run("state.phase==='rest'")){
       const rest=h.run('state.remaining');
