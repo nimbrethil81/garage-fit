@@ -490,3 +490,11 @@ different major patterns. More distant repetition receives a small score penalty
 a global ban. A constrained catalogue may repeat a pattern to complete the phase;
 swaps leave an already suitable slot alone if every replacement would introduce an
 avoidable adjacency. This is generator policy, not another metadata relationship.
+
+## Optional illustration
+
+`GarageFitData.exerciseIllustration(id)` resolves a catalogue-backed, optional
+same-origin WebP path or null. The small opt-in set lives beside the canonical
+catalogue; paths derive from IDs. No exercise fields or workout contracts change.
+Future consumers must hide failed images without interrupting instructions or
+playback. See `docs/exercise-artwork/README.md` for sources and verification.

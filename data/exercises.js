@@ -1727,4 +1727,12 @@
   root.GarageFitData.exerciseAliases = EXERCISE_ALIASES;
   root.GarageFitData.canonicalExerciseId = id => EXERCISE_ALIASES[id] || id;
   root.GarageFitData.exercises = exercises;
+  const ILLUSTRATED_EXERCISES = new Set(['dumbbell-romanian-deadlift','dumbbell-lateral-raise',
+    'trx-reverse-lunge','trx-row','skater-jumps','side-plank']);
+  // Optional presentation only. Consumers must hide failed images and keep text usable.
+  root.GarageFitData.exerciseIllustration = id => {
+    const exercise = Object.prototype.hasOwnProperty.call(exercises, id) ? exercises[id] : null;
+    return exercise && ILLUSTRATED_EXERCISES.has(exercise.id) && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(exercise.id)
+      ? 'assets/exercises/'+exercise.id+'.webp' : null;
+  };
 })(window);
