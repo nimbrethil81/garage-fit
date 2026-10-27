@@ -42,6 +42,7 @@
     mainProtocols: null,
     timedCues: [],
     voiceInstruction: false,
+    illustration: false,
     warmup: false,
     warmupPhase: null,
     warmupPrescription: null,
@@ -145,7 +146,7 @@
       prescription:{type:'timed',value:30}, generator:true, main:true, mainProtocols:WITH_TIMED_INTERVALS,
       rampup:true, rampupPrescription:{type:'timed',value:30,minValue:20,maxValue:40}, prepIntensity:2, prepFatigue:2, prepComplexity:1,
       instruction:'Rest on your forearms and toes with elbows under shoulders, hold your body in a straight line and tighten your stomach without holding your breath.' },
-    { id:'side-plank', name:'Side plank', repetitionClass:'side-plank',
+    { id:'side-plank', illustration:true, name:'Side plank', repetitionClass:'side-plank',
       patterns:['core'], conditioning:false, strength:3, cardio:1, difficulty:'easy', bodyFocus:'core', sidedness:'per-side', bodyPosition:'floor', movementPlanes:['frontal'],
       prescription:{type:'unilateral-timed',value:20}, generator:true, main:true,
       instruction:'Lie on one side with your elbow under your shoulder, lift your hips and hold a straight line from head to feet; repeat on the other side.' },
@@ -192,7 +193,7 @@
       prescription:{type:'reps',value:10}, estimatedSeconds:30, generator:true, main:true, mainProtocols:WITH_TIMED_INTERVALS,
       rampup:true, rampupPrescription:{type:'timed',value:30,minValue:20,maxValue:35}, prepIntensity:5, prepFatigue:3, prepComplexity:2,
       instruction:'Stand with feet shoulder-width apart, lower into a squat and jump upwards, then land softly with bent knees before the next jump.' },
-    { id:'skater-jumps', name:'Skater jumps',
+    { id:'skater-jumps', illustration:true, name:'Skater jumps',
       patterns:['lunge'], conditioning:true, strength:2, cardio:5, difficulty:'hard', bodyFocus:'lower', impact:'high', sidedness:'alternating', movementPlanes:['frontal'],
       prescription:{type:'timed',value:30}, generator:true, main:true, mainProtocols:WITH_TIMED_INTERVALS,
       rampup:true, rampupPrescription:{type:'timed',value:30,minValue:20,maxValue:35}, prepIntensity:5, prepFatigue:3, prepComplexity:2,
@@ -315,7 +316,7 @@
       patterns:['lunge'], conditioning:false, strength:5, cardio:2, difficulty:'moderate', bodyFocus:'lower', impact:'medium', load:'Medium', sidedness:'per-side',
       prescription:{type:'unilateral-reps',value:8}, estimatedSeconds:45, generator:true, main:true,
       instruction:'Stand with dumbbells at your sides, step back and bend both knees, then return, keeping your front knee over your foot; repeat on the other side.' },
-    { id:'dumbbell-romanian-deadlift', name:'Dumbbell Romanian deadlift', equipment:[['dumbbells']], family:'romanian-deadlift',
+    { id:'dumbbell-romanian-deadlift', illustration:true, name:'Dumbbell Romanian deadlift', equipment:[['dumbbells']], family:'romanian-deadlift',
       patterns:['hinge'], conditioning:false, strength:5, cardio:1, difficulty:'moderate', bodyFocus:'lower', load:'Heavy',
       prescription:{type:'reps',value:10}, estimatedSeconds:30, generator:true, main:true,
       rampup:true, rampupPrescription:{type:'timed',value:30,minValue:20,maxValue:35}, prepIntensity:3, prepFatigue:2, prepComplexity:2,
@@ -499,7 +500,7 @@
       instruction:'Kneel holding low rings with straight arms, reach forwards as your body leans, then draw back, keeping ribs down and limiting the reach to avoid arching.', voiceInstruction:true },
 
     // ---- TRX ----
-    { id:'trx-row', name:'TRX row', equipment:[['trx']], family:'trx-row',
+    { id:'trx-row', illustration:true, name:'TRX row', equipment:[['trx']], family:'trx-row',
       patterns:['pull'], conditioning:false, strength:5, cardio:2, difficulty:'easy', bodyFocus:'upper',
       prescription:{type:'reps',value:10}, estimatedSeconds:30, generator:true, main:true, mainProtocols:WITH_TIMED_INTERVALS,
       rampup:true, rampupPrescription:{type:'timed',value:30,minValue:20,maxValue:40}, prepIntensity:3, prepFatigue:2, prepComplexity:2,
@@ -509,7 +510,7 @@
       prescription:{type:'reps',value:12}, estimatedSeconds:30, generator:true, main:true, mainProtocols:WITH_TIMED_INTERVALS,
       rampup:true, rampupPrescription:{type:'timed',value:35,minValue:25,maxValue:45}, prepIntensity:3, prepFatigue:2, prepComplexity:1,
       instruction:'Face the anchor holding the TRX handles, squat and stand using the straps for balance, keeping knees in line with toes.' },
-    { id:'trx-reverse-lunge', name:'TRX reverse lunge', equipment:[['trx']], family:'reverse-lunge',
+    { id:'trx-reverse-lunge', illustration:true, name:'TRX reverse lunge', equipment:[['trx']], family:'reverse-lunge',
       patterns:['lunge'], conditioning:false, strength:4, cardio:3, difficulty:'easy', bodyFocus:'lower', sidedness:'alternating',
       prescription:{type:'timed',value:40}, generator:true, main:true, mainProtocols:WITH_TIMED_INTERVALS,
       instruction:'Face the anchor holding the handles, step back into alternating lunges and return, keeping the front knee over your foot and using the TRX for balance.' },
@@ -1062,7 +1063,7 @@
       patterns:['core'], conditioning:true, strength:3, cardio:4, difficulty:'moderate', bodyFocus:'core', impact:'medium', sidedness:'alternating', bodyPosition:'floor', movementPlanes:['transverse'],
       prescription:{type:'timed',value:30}, generator:true, main:true, mainRole:'supporting', mainProtocols:WITH_TIMED_INTERVALS,
       instruction:'Start on hands and toes with knees hovering, lift one hand and extend the opposite leg underneath to the side, then return and alternate, keeping the supporting arm steady.', voiceInstruction:true },
-    { id:'dumbbell-lateral-raise', name:'Dumbbell lateral raise', equipment:[['dumbbells']],
+    { id:'dumbbell-lateral-raise', illustration:true, name:'Dumbbell lateral raise', equipment:[['dumbbells']],
       patterns:[], conditioning:false, strength:3, cardio:1, difficulty:'easy', bodyFocus:'upper', impact:'low', load:'Light', movementPlanes:['frontal'],
       prescription:{type:'reps',value:12}, estimatedSeconds:35, generator:true, main:true, mainRole:'supporting',
       instruction:'Stand holding light dumbbells at your sides, raise both arms out to shoulder height with soft elbows, then lower under control.', voiceInstruction:true },
@@ -1727,4 +1728,10 @@
   root.GarageFitData.exerciseAliases = EXERCISE_ALIASES;
   root.GarageFitData.canonicalExerciseId = id => EXERCISE_ALIASES[id] || id;
   root.GarageFitData.exercises = exercises;
+  // Optional presentation only. Consumers must hide failed images and keep text usable.
+  root.GarageFitData.exerciseIllustration = id => {
+    const exercise = Object.prototype.hasOwnProperty.call(exercises, id) ? exercises[id] : null;
+    return exercise && exercise.illustration===true && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(exercise.id)
+      ? 'assets/exercises/'+exercise.id+'.webp' : null;
+  };
 })(window);

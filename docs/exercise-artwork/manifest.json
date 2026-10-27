@@ -1,0 +1,70 @@
+{
+  "dumbbell-lateral-raise": {
+    "webp": {
+      "path": "assets/exercises/dumbbell-lateral-raise.webp",
+      "sha256": "bc5135ce0a4cea29c89b5f6b8b7f3014992aa46ceb4efce549690417db413418"
+    },
+    "png": {
+      "path": "docs/exercise-artwork/references/dumbbell-lateral-raise.png",
+      "sha256": "f235b6fbdbb0d3d3c9720de815137db020037a9be465c2140b7727d3036b5755"
+    }
+  },
+  "dumbbell-romanian-deadlift": {
+    "webp": {
+      "path": "assets/exercises/dumbbell-romanian-deadlift.webp",
+      "sha256": "188be4250cd192954cb7e9547bdcb9293546c43077b412d1cdc03aecb1d34514"
+    },
+    "png": {
+      "path": "docs/exercise-artwork/references/dumbbell-romanian-deadlift.png",
+      "sha256": "3755e3bbf1139dc81da8bfb48362f3316a1016b2b1b13c4bff660d352dc13a12"
+    }
+  },
+  "side-plank": {
+    "webp": {
+      "path": "assets/exercises/side-plank.webp",
+      "sha256": "170e77864c9231f8f11cdd4308075669d98b1e3836309c93af69806d6dd0100e"
+    },
+    "png": {
+      "path": "docs/exercise-artwork/references/side-plank.png",
+      "sha256": "32a4c2e925c4f0a5c2a1de2953159ca4d618d44b383e15f032d6222261df94a6"
+    }
+  },
+  "skater-jumps": {
+    "webp": {
+      "path": "assets/exercises/skater-jumps.webp",
+      "sha256": "fe7c47bcbda7176b02b69fe8236a98808b3776eaaa6d153c09ab0a6c7ad265f5"
+    },
+    "png": {
+      "path": "docs/exercise-artwork/references/skater-jumps.png",
+      "sha256": "48aa066cac9da0f3c401feca0c7749074d676ca4a005bbf6d0bc2b38b1ed3820"
+    },
+    "source": {
+      "path": "docs/exercise-artwork/references/skater-jumps-source.jpg",
+      "sha256": "8dede24b19b35541f3101f2fae324ff47af15deab619c48102133372138cebbf"
+    }
+  },
+  "trx-reverse-lunge": {
+    "webp": {
+      "path": "assets/exercises/trx-reverse-lunge.webp",
+      "sha256": "ca500978bef4e3a131116f563646d53510d5b770e9d98bac9daf996e6254ebf9"
+    },
+    "png": {
+      "path": "docs/exercise-artwork/references/trx-reverse-lunge.png",
+      "sha256": "0b7faa6f0ad8e2365d34fc8664640b101c328c203a3a711ecfee6f57336dade1"
+    }
+  },
+  "trx-row": {
+    "webp": {
+      "path": "assets/exercises/trx-row.webp",
+      "sha256": "dbcb71213982d85200e399694c1c67fc5b35d83dedaaefcf0ce01ab49c5eb158"
+    },
+    "png": {
+      "path": "docs/exercise-artwork/references/trx-row.png",
+      "sha256": "ac3d2df518bd6b6e42159d1b26421a23a7d1bdc193c6f26e3390cb9f46cf61b8"
+    },
+    "source": {
+      "path": "docs/exercise-artwork/references/trx-row-source.jpg",
+      "sha256": "90189c049480f520106e2917097fa740c93074e715e512dfbc04a247aa658c5a"
+    }
+  }
+}
