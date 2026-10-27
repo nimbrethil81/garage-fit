@@ -1,7 +1,9 @@
 # iPhone player header sharpness (#316)
 
 Investigation on 27 October 2026 against `37bbbc8` (main at checkout).
-Status: **not reproduced; physical iPhone validation remains outstanding**.
+Current status: **the user reports that 16px routine-header padding improved
+sharpness on iPhone 15; the bottom-navigation follow-up awaits device confirmation**.
+The initial desktop investigation did not reproduce the original softness.
 The initial investigation made no application changes. A subsequent user-requested
 experiment adds 8px of top layout padding to the Prep & Recover header row. Fonts, colours,
 sizes and tap targets remain unchanged. This experiment must stay unmerged until
