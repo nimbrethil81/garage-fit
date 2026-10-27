@@ -167,8 +167,7 @@ test('ordinary Generator, warm-up and Main eligibility and no-family output are 
   const w=G.generate({duration:10,focus:'strength',bodyFocus:'upper',difficulty:'easy',equipment:[],catalogue:snapshotCatalogue,
     random:()=>{draws++;seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;}});delete w.id;
   assert.equal(draws,68);
-  // Presentation-only artwork metadata is outside this workout-policy snapshot.
-  assert.equal(createHash('sha256').update(JSON.stringify(w,(key,value)=>key==='illustration'?undefined:value)).digest('hex'),'f6b2266805a3e7bd97e2e733105240fcdb9ccdaa5ee43c611a04a79d7d183c5f');
+  assert.equal(createHash('sha256').update(JSON.stringify(w)).digest('hex'),'f6b2266805a3e7bd97e2e733105240fcdb9ccdaa5ee43c611a04a79d7d183c5f');
   const ids=new Set();
   for(let i=0;i<60;i++){
     let s=i+1;const workout=G.generate({duration:[10,20,30,45][i%4],equipment:['trx','dumbbells'],catalogue:C,random:()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296;}});

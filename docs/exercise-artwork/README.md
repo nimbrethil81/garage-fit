@@ -1,7 +1,6 @@
 # Exercise artwork
 
-Runtime assets live in `assets/exercises/<canonical-id>.webp`. Set the optional
-`illustration: true` catalogue field and use `GarageFitData.exerciseIllustration(id)`;
+Runtime assets live in `assets/exercises/<canonical-id>.webp`. Extend the opt-in ID set beside the canonical catalogue and use `GarageFitData.exerciseIllustration(id)`;
 unillustrated or unknown IDs return null. Future consumers must handle image errors
 by hiding the image and keeping instructions/playback usable. No images are loaded
 by this foundation, and no cache or service worker is required.

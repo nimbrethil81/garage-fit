@@ -11,21 +11,16 @@ const ids = ['dumbbell-lateral-raise','dumbbell-romanian-deadlift','side-plank',
 const base = path.join(__dirname, '..');
 const manifest = require('../docs/exercise-artwork/manifest.json');
 test('only the six pilot exercises resolve to safe canonical WebP paths', () => {
-  assert.deepEqual(Object.values(GarageFitData.exercises).filter(e => e.illustration).map(e => e.id).sort(), ids);
+  assert.deepEqual(Object.values(GarageFitData.exercises).filter(e => GarageFitData.exerciseIllustration(e.id)).map(e => e.id).sort(), ids);
   for (const e of Object.values(GarageFitData.exercises)) {
     assert.equal(GarageFitData.exerciseIllustration(e.id), ids.includes(e.id) ? `assets/exercises/${e.id}.webp` : null);
   }
   for (const id of ['unknown','../trx-row','https://example.com','__proto__',null]) assert.equal(GarageFitData.exerciseIllustration(id), null);
 });
-test('illustrations remain optional and reject malformed authoring and runtime values', () => {
-  const copy = JSON.parse(JSON.stringify(GarageFitData.exercises));
-  delete copy['air-squat'].illustration;
-  assert.deepEqual(GarageFitGenerator.validateCatalogue(copy), []);
-  for (const value of ['external.webp',{},1,null]) {
-    copy['air-squat'].illustration = value;
-    assert.ok(GarageFitGenerator.validateCatalogue(copy).some(e => /illustration must be boolean/.test(e)));
-  }
+test('illustrations do not add authored fields or alter catalogue contracts', () => {
+  assert.deepEqual(GarageFitGenerator.validateCatalogue(GarageFitData.exercises), []);
   assert.throws(() => GarageFitData.buildExerciseCatalogue([{id:'x',illustrationUrl:'x'}]), /unknown exercise field/);
+  for (const exercise of Object.values(GarageFitData.exercises)) assert.equal('illustration' in exercise, false);
 });
 test('all expected binaries retain verified integrity, format, alpha flag and bounded sizes', () => {
   assert.deepEqual(fs.readdirSync(path.join(base,'assets/exercises')).sort(), ids.map(id => id+'.webp'));

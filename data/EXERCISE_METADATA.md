@@ -493,9 +493,8 @@ avoidable adjacency. This is generator policy, not another metadata relationship
 
 ## Optional illustration
 
-`illustration` defaults to `false`; `true` opts into a same-origin WebP at
-`assets/exercises/<canonical-id>.webp`. It is presentation metadata only, with no
-selection or prescription effect. `GarageFitData.exerciseIllustration(id)` resolves
-the optional path or null; future image consumers must hide failed images without
-interrupting instructions or playback. See `docs/exercise-artwork/README.md` for
-reference assets and verification.
+`GarageFitData.exerciseIllustration(id)` resolves a catalogue-backed, optional
+same-origin WebP path or null. The small opt-in set lives beside the canonical
+catalogue; paths derive from IDs. No exercise fields or workout contracts change.
+Future consumers must hide failed images without interrupting instructions or
+playback. See `docs/exercise-artwork/README.md` for sources and verification.
