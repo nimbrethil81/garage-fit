@@ -146,3 +146,14 @@ it clips navigation or fails to improve the gap.
 Sources: https://bugs.webkit.org/show_bug.cgi?id=313800 and
 https://bugs.webkit.org/show_bug.cgi?id=317153; first-party workaround report:
 https://github.com/cjnova/piclaw-monaco/blob/main/docs/PWA.md
+
+## Compact menu after successful iOS root trial
+
+The user confirms build 2026.10.27.2 removes the gap on the physical iPhone, but
+the menu appears taller. Its formerly clipped 34px home-indicator padding is now
+visible. Build 2026.10.27.3 keeps the accepted root layout and 16px player-header
+offset. On installed iOS only, remove surplus vertical button/bar padding and
+reduce the icon-to-label gap to 2px, preserving fonts, icon sizes and at least
+44px button height. Keep the full bottom safe inset inside the bar. At the
+393px iPhone width this targets an approximately 81px total bar instead of 115px,
+including the 34px home-indicator region. Safari retains its existing styling.

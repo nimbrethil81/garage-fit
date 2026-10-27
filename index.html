@@ -81,6 +81,9 @@
   .bottom-nav{flex:0 0 auto;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;padding:8px 12px calc(8px + env(safe-area-inset-bottom));background:var(--nav);border-top:1px solid var(--surface)}
   .nav-btn{border:0;border-radius:12px;background:transparent;color:var(--nav-text);padding:8px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;font-weight:850;letter-spacing:.05em;text-transform:uppercase}.nav-btn .icon{width:21px;height:21px}
   #about summary{min-height:44px;padding:12px 0;cursor:pointer}
+  /* Keep the installed iOS menu compact while reserving the home-indicator area. */
+  .ios-standalone .bottom-nav{padding-top:0;padding-bottom:env(safe-area-inset-bottom)}
+  .ios-standalone .nav-btn{padding-block:0;gap:2px;min-height:44px}
   .nav-btn.active{color:var(--rest);background:rgba(79,138,131,.12)}.nav-btn span:last-child{text-align:center;line-height:1.15}
 
   #player{align-items:center;justify-content:space-between;padding:20px 20px calc(28px + env(safe-area-inset-bottom));overflow:hidden}
@@ -515,7 +518,7 @@
   </main>
   <main id="about" class="screen info-detail hidden">
     <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Settings" onclick="appBack()">←</button><h1>About</h1><span class="header-spacer"></span></header>
-    <section class="library-detail-section"><h2>GarageFit</h2><p>Build <strong id="aboutBuild">2026.10.27.2</strong></p><p>This identifies the page loaded on this device.</p></section>
+    <section class="library-detail-section"><h2>GarageFit</h2><p>Build <strong id="aboutBuild">2026.10.27.3</strong></p><p>This identifies the page loaded on this device.</p></section>
     <details><summary>Display details</summary><pre id="aboutDiagnostics" style="white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;font:inherit;font-size:13px;line-height:1.5"></pre><button class="library-entry" type="button" onclick="copyAboutDetails()">Copy display details</button><p id="aboutCopyStatus" role="status"></p></details>
   </main>
   <main id="spokenCues" class="screen hidden">
