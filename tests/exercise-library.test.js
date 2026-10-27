@@ -114,3 +114,41 @@ test('the retired kettlebell farmer carry is absent from the library, search and
   filter.value='kettlebell';app.renderExerciseLibrary();
   assert.equal(list.children.length,0);
 });
+
+test('all six illustrations accompany canonical instructions and remain passive accessible artwork',()=>{
+  const app=loadAppContext(),region=app.document.getElementById('libraryDetailIllustration');
+  for(const id of ['dumbbell-romanian-deadlift','dumbbell-lateral-raise','trx-reverse-lunge','trx-row','skater-jumps','side-plank']){
+    app.openExerciseDetail(id);
+    assert.equal(region.classList.contains('hidden'),false,id);
+    assert.equal(region.children.length,1);
+    const image=region.children[0];
+    assert.equal(image.getAttribute('src'),app.GarageFitData.exerciseIllustration(id));
+    assert.equal(image.getAttribute('alt'),'');
+    assert.equal(image.getAttribute('aria-hidden'),'true');
+    assert.equal(image.onclick,undefined);
+    assert.equal(image.style.visibility,'hidden');
+    image.onload();assert.equal(image.style.visibility,'visible');
+    assert.equal(app.document.getElementById('libraryDetailInstruction').textContent,app.GarageFitData.exercises[id].instruction);
+    assert.equal(app.document.getElementById('libraryDetailEquipment').textContent,app.libraryEquipmentLabel(app.GarageFitData.exercises[id]));
+  }
+});
+
+test('no-image, failed loads and stale callbacks never retain artwork or disrupt details and navigation',()=>{
+  const app=loadAppContext(),region=app.document.getElementById('libraryDetailIllustration');
+  app.openExerciseLibrary();app.openExerciseDetail('trx-row');
+  const old=region.children[0];
+  app.openExerciseDetail('side-plank');const current=region.children[0];
+  assert.notEqual(current,old);
+  old.onload();old.onerror();
+  assert.equal(region.children[0],current);assert.equal(current.style.visibility,'hidden');
+  current.onerror();current.onload();
+  assert.equal(region.classList.contains('hidden'),true);assert.equal(region.children.length,0);
+  assert.equal(app.document.getElementById('libraryDetailInstruction').textContent,app.GarageFitData.exercises['side-plank'].instruction);
+  app.openExerciseDetail('trx-row');const pending=region.children[0];
+  app.openExerciseDetail('air-squat');pending.onload();pending.onerror();
+  assert.equal(region.classList.contains('hidden'),true);assert.equal(region.children.length,0);
+  assert.equal(app.document.getElementById('libraryDetailEquipment').textContent,'Bodyweight');
+  app.appBack();assert.equal(app.document.getElementById('exerciseLibrary').classList.contains('hidden'),false);
+  app.openExerciseDetail('trx-row');const retry=region.children[0];retry.onload();
+  assert.equal(region.classList.contains('hidden'),false);assert.equal(retry.style.visibility,'visible');
+});
