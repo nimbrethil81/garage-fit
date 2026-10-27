@@ -34,5 +34,19 @@
     return due;
   }
 
-  root.GarageFitTimedCues = { cueOffsetSeconds, createTracker, takeDueCues };
+
+  // One tracker per exercise occurrence. Consume skipped positions without replaying
+  // them, including after suspension; callers retain this tracker across pause.
+  function createCountdown() { return { lowest: Infinity, observedAt: null }; }
+  function takeCountdownTick(tracker, remaining, active, now) {
+    if (!tracker || !Number.isFinite(remaining)) return false;
+    const position = Math.ceil(remaining);
+    const fresh = tracker.observedAt === null || now - tracker.observedAt <= 1250;
+    tracker.observedAt = now;
+    if (position >= tracker.lowest) return false;
+    tracker.lowest = position;
+    return active && fresh && position >= 1 && position <= 3;
+  }
+
+  root.GarageFitTimedCues = { cueOffsetSeconds, createTracker, takeDueCues, createCountdown, takeCountdownTick };
 })(typeof window !== 'undefined' ? window : globalThis);

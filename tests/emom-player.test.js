@@ -508,3 +508,12 @@ test('final Skip rest previews and enters the actual phase, block or finish exac
     assert.deepEqual(plain(h.tracker().outcome(first.occurrenceId)),outcome);
   }
 });
+
+test('timed EMOM ticks use actual work seconds, never the minute rest window',async()=>{
+  const h=harness({ids:['plank'],targets:[5],minutes:2});await h.start();
+  const ticks=[];h.app.beep=(freq)=>{if(freq===520)ticks.push(h.now)};
+  for(let i=0;i<20;i++)await h.pulse(250);
+  assert.equal(ticks.length,3);
+  for(let i=0;i<220;i++)await h.pulse(250);
+  assert.equal(ticks.length,3);
+});
