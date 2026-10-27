@@ -58,3 +58,21 @@ test('generated countdown gates semantic type, deduplicates 250ms updates and re
   h.run("generatorState.timeline=[{kind:'exercise',timed:false,seconds:3,exercise:{}}];startGeneratedCountdown(3)");
   h.pulse();assert.equal(h.ticks.length,1);
 });
+
+test('mixed fixed and Desk Break exercise timers share countdown cues without changeover ticks',()=>{
+  for(const start of ["GarageFitWorkoutUI.startFixedSequenceWorkout('postRunReset')","GarageFitWorkoutUI.startDeskBreak()"]){
+    const h=harness();
+    for(const file of ['js/desk-break.js','js/workouts-ui.js'])vm.runInContext(require('node:fs').readFileSync(file,'utf8'),h.app);
+    h.run(start);
+    h.run('state.list[0].reps=null;state.list[0].work=5');
+    h.pulse();h.pulse();h.pulse(); // preparation ends
+    const duration=h.run('state.remaining');
+    for(let i=0;i<duration;i++)h.pulse();
+    assert.equal(h.ticks.length,3,start);
+    if(h.run("state.phase==='rest'")){
+      const rest=h.run('state.remaining');
+      for(let i=0;i<rest;i++)h.pulse();
+      assert.equal(h.ticks.length,3,start);
+    }
+  }
+});
