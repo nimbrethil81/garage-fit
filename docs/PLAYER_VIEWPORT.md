@@ -196,7 +196,7 @@ instruction content all use the existing single narration handler. Opening and
 image loading stay silent.
 
 An open exercise instruction surface keeps the live timer visible. Portrait
-uses a compact 120px circular timer above the panel; landscape keeps the timer
+uses a compact 120–128px circular timer above the panel; landscape keeps the timer
 in the left column and instruction content in the right. Circle proportions,
 countdown centring and pause activation remain unchanged. Other editors keep
 their existing bounded overlay. Navigation stays reserved below every panel.
