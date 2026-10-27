@@ -71,7 +71,7 @@ def controls(page, ring_id, state, remaining, timer, next_id, pause_id):
 
 def native_entry_checks(browser,url):
     # Real catalogue detail/Start clicks exercise the installed Workouts UI wrapper.
-    for name in ['7 Minute Workout','5-Minute Ab Blast','Evening Full-Body Reset','Post-Run Reset','Cindy','300 Workout']:
+    for name in ['7 Minute Workout','5-Minute Ab Blast','Evening Full-Body Reset','Post Run Stretch','Cindy','300 Workout']:
         page=fresh(browser,url,(390,844))
         page.evaluate("showLanding('workouts')")
         page.get_by_role('button',name='View '+name+' details',exact=True).click()

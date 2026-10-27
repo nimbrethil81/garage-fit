@@ -169,3 +169,13 @@
 #workoutProgressTrack .journey-segment{display:block;flex-basis:0;min-width:8px;height:100%;overflow:hidden;border-radius:999px;background:var(--surface-2)}
 .journey-segment>span{display:block;height:100%;background:var(--work)}
 .journey-segment.is-complete>span{background:var(--rest)}
+/* Exercise help keeps the live ring visible; the optional image never sets stage size. */
+.player-instruction-content{flex:1}
+.player-instruction-image{aspect-ratio:4/3;margin:8px auto 0;background:#263238;border-radius:8px}
+.player-instruction-image img{display:block;width:100%;height:100%;object-fit:contain;padding:6px;box-sizing:border-box}
+:is(.routine-stage,.workout-stage):has(:is(#routineInstruction,#workoutInstruction)[open]){justify-content:flex-start}
+:is(.routine-stage,.workout-stage):has(:is(#routineInstruction,#workoutInstruction)[open]) :is(.routine-ring-host,.workout-ring-host){flex:none;height:138px;min-height:138px}
+@container player-viewport (max-height:480px) and (min-width:540px){
+  :is(.routine-stage,.workout-stage):has(:is(#routineInstruction,#workoutInstruction)[open]) :is(.routine-ring-host,.workout-ring-host){height:100%;min-height:0;flex:1 1 0}
+  :is(#routineInstruction,#workoutInstruction) .player-detail-surface{left:calc(50% + 8px);top:var(--player-detail-top,54px)}
+}

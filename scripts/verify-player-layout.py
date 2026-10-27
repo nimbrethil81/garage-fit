@@ -6,6 +6,7 @@ Set CHROMIUM_PATH to use a Chromium binary other than /usr/bin/chromium.
 No browser dependency is added to the app or its Node test suite.
 """
 import argparse
+from datetime import datetime, timezone
 import importlib.util
 import json
 import os
@@ -185,7 +186,7 @@ def instruction_speech_checks(browser, url):
     # Stub the browser speech boundary, retaining the app's real shared speaker,
     # selected-voice path and native disclosure/keyboard/touch interactions.
     for unsupported in [False, True]:
-        page=browser.new_page(viewport={'width':375,'height':540},has_touch=True)
+        page=browser.new_page(viewport={'width':393,'height':852},has_touch=True)
         page.add_init_script(timers.CLOCK)
         page.add_init_script("""window.__spoken=[];window.__speechQueue=[];window.__cancels=0;
           Object.defineProperty(window,'speechSynthesis',{configurable:true,value:{
@@ -202,6 +203,8 @@ def instruction_speech_checks(browser, url):
             ('workoutPlayer','workoutInstruction',"startFixedWorkout('workout300')")
         ]:
             page.evaluate(start)
+            page.evaluate("id=>setInstructionDisclosure(id,CATALOGUE['trx-row'])",details)
+            page.wait_for_function("id=>document.getElementById(id+'Image').datasetReady",arg=details)
             summary=page.locator('#'+details+' > summary')
             content=page.locator('#'+details+' .player-detail-content')
             close=page.locator('#'+details+' .player-detail-close')
@@ -220,9 +223,13 @@ def instruction_speech_checks(browser, url):
             assert 'Read exercise instruction aloud' in content.get_attribute('aria-label')
             snapshot=page.evaluate('JSON.stringify({state,workoutState,generatorState})')
             expected=page.locator('#'+details+'Text').text_content()
-            for action in ['tap','tap','Enter','Space']:
+            for action in ['image','text','tap','tap','Enter','Space']:
                 cancellations=page.evaluate('__cancels')
-                if action=='tap':
+                if action=='image':
+                    page.locator('#'+details+'Image img').tap()
+                elif action=='text':
+                    page.locator('#'+details+'Text').tap()
+                elif action=='tap':
                     # Hit blank space at the bottom of the expanded content.
                     content.tap(position={'x':12,'y':content.bounding_box()['height']-12})
                 else:
@@ -249,6 +256,31 @@ def instruction_speech_checks(browser, url):
         page.close()
 
 
+def illustrated_checks(page, report, output, label):
+    for player, details, start in [('player','routineInstruction',timers.ROUTINE),
+                                    ('workoutPlayer','workoutInstruction',"startFixedWorkout('workout300')")]:
+        page.evaluate(start)
+        for exercise_id in ['trx-row','skater-jumps','side-plank','air-squat']:
+            page.evaluate("args=>setInstructionDisclosure(args[0],CATALOGUE[args[1]])", [details,exercise_id])
+            if exercise_id!='air-squat':
+                page.wait_for_function("id=>document.getElementById(id+'Image').datasetReady", arg=details)
+            page.locator('#'+details+' > summary').click();settle(page)
+            check(page,report,label+'-'+player+'-'+exercise_id,optional=True)
+            image=page.locator('#'+details+'Image')
+            report[-1]['artwork']='visible' if image.is_visible() else 'text-only'
+            if exercise_id=='air-squat':assert image.is_hidden()
+            if image.is_visible():
+                assert image.bounding_box()['width']>=160
+                assert image.locator('img').evaluate('e=>e.naturalWidth>0&&getComputedStyle(e).objectFit==="contain"')
+            ring=page.locator('#'+player+' .ring-wrap:visible')
+            surface=page.locator('#'+details+' .player-detail-surface')
+            if ring.count():
+                r,d=ring.bounding_box(),surface.bounding_box()
+                assert r['y']+r['height']<=d['y']+1 or r['x']+r['width']<=d['x']+1, (label,r,d)
+            if exercise_id=='trx-row':capture(page,output,label+'-'+player+'-illustrated')
+            page.locator('#'+details+' .player-detail-close').click();settle(page)
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--url',default='http://127.0.0.1:8000')
@@ -262,6 +294,7 @@ def main():
         for size in [(375,667),(390,844),(393,852),(430,932),(375,540),(320,568),(360,640),(667,375)]:
             label=f'{size[0]}x{size[1]}'
             page=timers.fresh(browser,args.url,size);page.add_style_tag(content=SAFE_AREAS+'\n*,*::before,*::after{transition:none!important;animation:none!important}')
+            illustrated_checks(page,report,args.output,label)
             page.evaluate(timers.ROUTINE)
             check(page,report,label+'-routine');capture(page,args.output,label+'-routine')
             page.evaluate("document.getElementById('exerciseName').textContent='Kneeling hamstring stretch - Right';state.remaining=137;renderTick(137,300)")
@@ -354,6 +387,14 @@ def main():
             page.close();print('Viewport passed:',label,flush=True)
         browser.close()
     (args.output/'report.json').write_text(json.dumps(report,indent=2)+'\n')
+    (args.output/'manifest.json').write_text(json.dumps({
+        'app':'GarageFit','scope':'player-instructions','captured_at':datetime.now(timezone.utc).isoformat(),
+        'source_commit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
+        'source_reference':subprocess.check_output(['git','branch','--show-current'],text=True).strip(),
+        'working_tree_dirty':bool(subprocess.check_output(['git','status','--porcelain'],text=True).strip()),
+        'screenshots':sorted(f.name for f in args.output.glob('*.png')),'result':'passed',
+        'note':'Chromium emulation, not physical iPhone/Safari validation.'
+    },indent=2)+'\n')
     print(f'Passed {len(report)} measured layouts, native entry points and Coach actual recording. Evidence: {args.output}',flush=True)
 
 
