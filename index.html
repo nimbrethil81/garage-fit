@@ -1,3 +1,6 @@
+---
+layout: null
+---
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -82,8 +85,10 @@
   .nav-btn{border:0;border-radius:12px;background:transparent;color:var(--nav-text);padding:8px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;font-weight:850;letter-spacing:.05em;text-transform:uppercase}.nav-btn .icon{width:21px;height:21px}
   #about summary{min-height:44px;padding:12px 0;cursor:pointer}
   /* Keep the installed iOS menu compact while reserving the home-indicator area. */
-  .ios-standalone .bottom-nav{padding-top:0;padding-bottom:env(safe-area-inset-bottom)}
-  .ios-standalone .nav-btn{padding-block:0;gap:2px;min-height:44px}
+  .ios-standalone .bottom-nav{padding-top:4px;padding-bottom:calc(4px + env(safe-area-inset-bottom))}
+  .ios-standalone .nav-btn{padding-block:4px;gap:2px;min-height:44px;justify-content:center}
+  .ios-standalone .nav-btn>span:last-child{min-height:2.3em;display:grid;place-items:center}
+  .ios-standalone .nav-btn>span:last-child{min-height:2.3em;display:grid;place-items:center}
   .nav-btn.active{color:var(--rest);background:rgba(79,138,131,.12)}.nav-btn span:last-child{text-align:center;line-height:1.15}
 
   #player{align-items:center;justify-content:space-between;padding:20px 20px calc(28px + env(safe-area-inset-bottom));overflow:hidden}
@@ -214,7 +219,7 @@
   #coachResult .coach-feedback{display:flex;flex-direction:column;gap:12px}
   @media(max-width:380px){.nav-btn{min-width:0;padding:8px 2px;font-size:9px;letter-spacing:0}}
 </style>
-<link rel="stylesheet" href="css/player-layout.css">
+<link rel="stylesheet" href="css/player-layout.css?rev={{ site.github.build_revision }}">
 </head>
 <body>
 <svg class="svg-sprite" aria-hidden="true">
@@ -518,7 +523,7 @@
   </main>
   <main id="about" class="screen info-detail hidden">
     <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Settings" onclick="appBack()">←</button><h1>About</h1><span class="header-spacer"></span></header>
-    <section class="library-detail-section"><h2>GarageFit</h2><p>Build <strong id="aboutBuild">2026.10.27.3</strong></p><p>This identifies the page loaded on this device.</p></section>
+    <section class="library-detail-section"><h2>GarageFit</h2><p>Build <strong id="aboutBuild" data-commit="{{ site.github.build_revision }}">{{ site.github.build_revision | slice: 0, 7 }}</strong></p><p>This identifies the page loaded on this device.</p></section>
     <details><summary>Display details</summary><pre id="aboutDiagnostics" style="white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;font:inherit;font-size:13px;line-height:1.5"></pre><button class="library-entry" type="button" onclick="copyAboutDetails()">Copy display details</button><p id="aboutCopyStatus" role="status"></p></details>
   </main>
   <main id="spokenCues" class="screen hidden">
@@ -827,7 +832,7 @@ function openAbout(){
   const layoutBuild=getComputedStyle(document.documentElement).getPropertyValue('--gf-layout-build').trim().replace(/^["']|["']$/g,'')||'Unknown (possibly older CSS)';
   const px=value=>Number.isFinite(value)?Math.round(value*100)/100:'unavailable';
   document.getElementById('aboutDiagnostics').textContent=[
-    'Page build: '+document.getElementById('aboutBuild').textContent,
+    'Page build: '+(document.getElementById('aboutBuild').getAttribute('data-commit')||document.getElementById('aboutBuild').textContent),
     'Layout build: '+layoutBuild,
     'Mode: '+mode,
     'Screen: '+screen.width+' × '+screen.height,

@@ -7,6 +7,7 @@ Real iPhone Safari still requires a manual check.
 """
 import functools
 import http.server
+from preview_server import PreviewHandler
 import json
 from pathlib import Path
 import threading
@@ -18,7 +19,7 @@ WORKOUTS = ['sevenMinute', 'abBlast', 'cindy', 'workout300',
             'eveningFullBodyReset', 'postRunReset']
 
 
-class QuietHandler(http.server.SimpleHTTPRequestHandler):
+class QuietHandler(PreviewHandler):
     def log_message(self, *args):
         pass
 

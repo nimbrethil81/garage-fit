@@ -15,13 +15,13 @@ and cross-device continuity are deferred.
 
 ## Run locally
 
-Serve the repository as static files, for example with Python 3:
+Run the dependency-free Python preview server:
 
 ```sh
-python3 -m http.server 8000 --bind 127.0.0.1
+python3 scripts/preview_server.py --port 8000
 ```
 
-Open http://127.0.0.1:8000/ in a browser. There is no build or dependency-install step.
+Open http://127.0.0.1:8000/ in a browser. No application dependencies need installing. The preview server renders the two Git-revision template fields from the checkout SHA. Production GitHub Pages renders them through its existing Jekyll build.
 
 ## Structure
 

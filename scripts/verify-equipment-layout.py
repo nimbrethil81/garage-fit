@@ -6,13 +6,14 @@ Uses locally installed Playwright/Chromium; adds no application dependencies.
 import argparse
 import functools
 import http.server
+from preview_server import PreviewHandler
 import json
 from pathlib import Path
 import threading
 from playwright.sync_api import sync_playwright
 
 
-class QuietHandler(http.server.SimpleHTTPRequestHandler):
+class QuietHandler(PreviewHandler):
     def log_message(self, *args):
         pass
 
