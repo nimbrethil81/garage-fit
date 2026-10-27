@@ -283,6 +283,51 @@ def illustrated_checks(page, report, output, label):
             page.locator('#'+details+' .player-detail-close').click();settle(page)
 
 
+def shell_navigation_checks(browser, url):
+    """The tab bar follows the visual viewport, including after player exit.
+
+    Chromium cannot reproduce iOS fixed-position containing-block quirks. Supply
+    differing visual/layout viewport heights explicitly, then check real geometry.
+    Substitute safe-area env values in served styles without overriding app sizing.
+    """
+    for theme,safe_bottom in [('light',0),('light',34),('dark',0),('dark',34)]:
+        page=browser.new_page(viewport={'width':393,'height':852},device_scale_factor=3,has_touch=True)
+        def safe_areas(route):
+            response=route.fetch()
+            body=response.text().replace('env(safe-area-inset-top)','59px').replace('env(safe-area-inset-bottom)',str(safe_bottom)+'px')
+            route.fulfill(response=response,body=body)
+        page.route('**/index.html',safe_areas)
+        page.route('**/css/*.css',safe_areas)
+        page.add_init_script("""window.__shellHeight=852;window.__shellTop=0;
+          Object.defineProperty(visualViewport,'height',{get:()=>__shellHeight});
+          Object.defineProperty(visualViewport,'offsetTop',{get:()=>__shellTop});""")
+        page.goto(url.rstrip('/')+'/index.html')
+        page.wait_for_function("typeof coachUI!=='undefined' && coachUI")
+        page.evaluate('(theme)=>document.documentElement.dataset.appearance=theme',theme)
+        for height,top in [(852,0),(700,0),(760,24),(852,0)]:
+            page.evaluate("""([h,t])=>{__shellHeight=h;__shellTop=t;visualViewport.dispatchEvent(new Event('resize'))}""",[height,top])
+            for tab in ['home','workouts','generator','coach','more']:
+                page.evaluate('(tab)=>showLanding(tab)',tab)
+                settle(page)
+                metrics=page.evaluate("""()=>{
+                  const nav=document.getElementById('bottomNav'),r=nav.getBoundingClientRect();
+                  const buttons=[...nav.querySelectorAll('button')];
+                  return {bottom:r.bottom,targets:buttons.map(b=>{
+                    const r=b.getBoundingClientRect();return {bottom:r.bottom,hit:b.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))};
+                  })};
+                }""")
+                assert abs(metrics['bottom']-(top+height+safe_bottom))<1,(theme,tab,height,metrics)
+                assert all(b['bottom']<=top+height and b['hit'] for b in metrics['targets']),(theme,tab,height,metrics)
+            for player in ['player','workoutPlayer']:
+                page.evaluate('(id)=>showScreen(id)',player)
+                assert not page.locator('#bottomNav').is_visible()
+                page.evaluate("showLanding('workouts')")
+                settle(page)
+                assert abs(page.locator('#bottomNav').bounding_box()['y']+page.locator('#bottomNav').bounding_box()['height']-(top+height+safe_bottom))<1
+        page.close()
+    print('Shell navigation passed: both themes, zero/34px bottom safe areas, five tabs, visual viewport changes and both player returns',flush=True)
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--url',default='http://127.0.0.1:8000')
@@ -291,6 +336,7 @@ def main():
     report=[];blocks=fixture_blocks()
     with sync_playwright() as p:
         browser=p.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH','/usr/bin/chromium'),args=['--no-sandbox'])
+        shell_navigation_checks(browser,args.url)
         instruction_speech_checks(browser,args.url)
         timers.native_entry_checks(browser,args.url)
         for size in [(375,667),(390,844),(393,852),(430,932),(375,540),(320,568),(360,640),(667,375)]:
