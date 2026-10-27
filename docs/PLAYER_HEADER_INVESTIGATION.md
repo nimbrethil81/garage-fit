@@ -178,3 +178,15 @@ only these revision expressions with the checkout SHA; self-hosted browser
 checks reuse it. Production rendering must be checked after deployment.
 
 Reference: https://jekyll.github.io/github-metadata/configuration/
+
+## Centre controls in the full installed menu
+
+The physical-device screenshot after PR #329 still shows the controls above the
+bar's centre. Internal button centring did not balance the full bar because its
+entire 34px bottom inset remained below the buttons. The user explicitly requests
+vertical centring. Split that inset equally between the bar's top and bottom
+padding, preserving the 97px height, button dimensions, label alignment and root
+gap fix. At 393px with a 34px inset, this moves the controls down 17px through
+layout padding and leaves 21px below the targets. Safari and players are unchanged.
+The browser check now requires equal top/bottom spacing; physical iPhone review
+must confirm the resulting balance and home-indicator separation.
