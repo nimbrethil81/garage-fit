@@ -6,152 +6,46 @@ const path = require('node:path');
 
 const root = path.join(__dirname, '..');
 
-// ---- Data-level tests (catalogue + fixed-workout structure) ----
-
 global.window = global;
-require('../js/timed-cues.js');
-require('../data/equipment.js');
 require('../data/exercises.js');
-require('../js/generator.js');
 require('../data/workouts.js');
-
 const catalogue = GarageFitData.exercises;
 const workout = GarageFitData.fixedWorkouts.postRunReset;
 
-test('Post-Run Reset appears in the fixed workouts catalogue', () => {
-  assert.ok(workout, 'postRunReset is missing from GarageFitData.fixedWorkouts');
-  assert.equal(workout.name, 'Post-Run Reset');
-});
-
-test('Post-Run Reset is a fixed workout, not a generated workout', () => {
-  assert.ok(GarageFitData.fixedWorkouts.postRunReset, 'postRunReset must live in the fixed-workout catalogue');
-  assert.equal(workout.termination.type, 'fixed-sequence');
-  assert.notEqual(workout.termination.type, 'amrap');
-  assert.equal(workout.termination.rounds, undefined, 'a fixed-sequence workout must not declare rounds');
-});
-
-test('the routine is a single linear pass: upper-body/core block, then downshift, then cooldown', () => {
-  const ids = workout.exercises.map(exercise => exercise.id);
-  const upperBodyEnd = ids.indexOf('dead-bug');
-  const downshiftIndex = ids.indexOf('easy-recovery-walk');
-  const firstStretchIndex = ids.indexOf('runners-stretch');
-  assert.ok(upperBodyEnd >= 0 && downshiftIndex > upperBodyEnd, 'downshift must follow the upper-body/core block');
-  assert.ok(firstStretchIndex > downshiftIndex, 'cooldown stretches must follow the downshift');
-  assert.deepEqual(ids.slice(0, 4), ['push-up', 'pike-push-up', 'plank-shoulder-taps', 'dead-bug']);
-});
-
-test('the upper-body/core block occurs exactly once (no repeated round)', () => {
-  const upperBodyIds = ['push-up', 'pike-push-up', 'plank-shoulder-taps', 'dead-bug'];
-  for (const id of upperBodyIds) {
-    assert.equal(workout.exercises.filter(exercise => exercise.id === id).length, 1, id + ' should appear exactly once');
-  }
-});
-
-test('every Post-Run Reset step runs for time, including the upper-body top-up', () => {
-  for (const exercise of workout.exercises) {
-    assert.ok(exercise.durationSeconds > 0, exercise.name + ' needs a duration');
-    assert.equal(exercise.reps, undefined, exercise.name + ' should have no rep target');
-  }
-  assert.deepEqual(workout.exercises.slice(0, 4).map(exercise => exercise.durationSeconds), [30, 25, 30, 25]);
-});
-
-test('the core movement is a single bodyweight, no-equipment, timed hold distinct from the other upper-body movements', () => {
-  const core = workout.exercises.find(exercise => exercise.id === 'dead-bug');
-  assert.ok(core, 'expected a core movement in the upper-body block');
-  assert.ok(core.durationSeconds >= 20 && core.durationSeconds <= 30, 'core movement should be 20-30 seconds');
-  assert.equal(core.equipment, undefined, 'core movement should not declare equipment on the fixed-workout entry');
-});
-
-test('the downshift is a brief timed recovery step of roughly 30-60 seconds', () => {
-  const downshift = workout.exercises.find(exercise => exercise.id === 'easy-recovery-walk');
-  assert.ok(downshift, 'expected a downshift/recovery step between the top-up and the cooldown');
-  assert.ok(downshift.durationSeconds >= 30 && downshift.durationSeconds <= 60);
-});
-
-const EXPECTED_STRETCH_PAIRS = [
-  ['runners-stretch', "Runner's stretch"],
-  ['standing-quads', 'Standing quad stretch'],
-  ['hip-flexor-arm-stretch', 'Hip-flexor lunge stretch'],
-  ['kneeling-hamstring', 'Hamstring stretch'],
-  ['glute-stretch', 'Figure-four / glute stretch']
-];
-
-test('runner, quad, hip-flexor, hamstring and glute stretches are all included for both sides, once each', () => {
-  for (const [id] of EXPECTED_STRETCH_PAIRS) {
-    const entries = workout.exercises.filter(exercise => exercise.id === id);
-    assert.equal(entries.length, 2, id + ' should appear exactly twice (left and right)');
-    const sides = entries.map(exercise => exercise.side).sort();
-    assert.deepEqual(sides, ['left', 'right']);
-    for (const entry of entries) {
-      assert.ok(entry.durationSeconds >= 25 && entry.durationSeconds <= 30, id + ' side hold should be around 30 seconds');
-      assert.match(entry.name, entry.side === 'left' ? /- Left$/ : /- Right$/);
+test('curated plans preserve coverage, sides, timing, eligibility and standing to floor order', () => {
+  let recent=[];
+  for (const seed of [0, 0.3, 0.7, 0.99]) {
+    const plan=GarageFitPostRunStretch.generate({random:()=>seed,recent});
+    assert.equal(plan.name,'Post Run Stretch');
+    assert.equal(plan.termination.type,'fixed-sequence');
+    assert.equal(plan.exercises.reduce((sum,ex)=>sum+ex.durationSeconds+ex.transitionAfter,0),360);
+    const ids=[...new Set(plan.exercises.map(ex=>ex.id))];
+    for(const region of ['calves','quadriceps','hamstrings','hip-flexors','glutes'])
+      assert.ok(ids.some(id=>catalogue[id].stretchTargets.includes(region)),region);
+    let floor=false;
+    for(const id of ids){
+      const ex=catalogue[id];
+      assert.deepEqual(ex.equipment,[]);
+      assert.equal(ex.cooldown,true);
+      if(ex.bodyPosition==='floor')floor=true;
+      else assert.equal(floor,false);
+      const pair=plan.exercises.filter(step=>step.id===id);
+      assert.deepEqual(pair.map(step=>step.side),['right','left']);
+      assert.equal(pair[0].durationSeconds,pair[1].durationSeconds);
+      assert.ok(pair[0].durationSeconds>=30&&pair[0].durationSeconds<=40);
     }
+    if(recent.length){
+      assert.notEqual(ids[0],recent[0]);
+      assert.notEqual(ids[3],recent[3]);
+    }
+    recent=ids;
   }
 });
 
-test('the chest/shoulder opener appears once, at the end of the cooldown, with no side split', () => {
-  const chest = workout.exercises[workout.exercises.length - 1];
-  assert.equal(chest.id, 'chest-opener');
-  assert.equal(chest.side, undefined);
-  assert.equal(workout.exercises.filter(exercise => exercise.id === 'chest-opener').length, 1);
-  assert.ok(chest.durationSeconds >= 30 && chest.durationSeconds <= 45);
-});
-
-test('the workout requires no equipment', () => {
-  for (const exercise of workout.exercises) {
-    assert.equal(exercise.equipment, undefined, exercise.name + ' should not declare equipment on the fixed-workout entry');
-    const catalogueEntry = catalogue[exercise.id];
-    if (catalogueEntry) assert.deepEqual(catalogueEntry.equipment, [], exercise.id + ' should require no equipment');
-  }
-});
-
-test('no leg-strengthening movement precedes the cooldown', () => {
-  const stretchStart = workout.exercises.findIndex(exercise => exercise.id === 'runners-stretch');
-  const beforeStretches = workout.exercises.slice(0, stretchStart);
-  const legStrengthIds = ['air-squat', 'reverse-lunge', 'walking-lunge', 'bodyweight-squat', 'squat-jumps'];
-  for (const exercise of beforeStretches) assert.ok(!legStrengthIds.includes(exercise.id), exercise.id + ' should not appear before the cooldown');
-});
-
-test('the estimated duration is roughly 7-8 minutes', () => {
-  const timedTotal = workout.exercises.reduce((sum, exercise) => sum + (exercise.durationSeconds || 0), 0);
-  const transitionTotal = workout.exercises.reduce((sum, exercise, index) => {
-    if (index === workout.exercises.length - 1) return sum;
-    const gap = exercise.transitionAfter != null ? exercise.transitionAfter : (workout.transitionSeconds || 0);
-    return sum + gap;
-  }, 0);
-  const estimatedSeconds = timedTotal + transitionTotal;
-  assert.ok(estimatedSeconds >= 300 && estimatedSeconds <= 560, 'expected roughly 7-8 minutes, got ' + Math.round(estimatedSeconds) + 's');
-});
-
-// ---- Fixed-workout UI/detail-model tests ----
-
-test('detail model presents Post-Run Reset via the reusable fixed-sequence UI', () => {
-  const source = fs.readFileSync(path.join(root, 'js/workouts-ui.js'), 'utf8');
-  const context = {
-    console,
-    document: { readyState:'loading' },
-    addEventListener() {},
-    FIXED_WORKOUTS: GarageFitData.fixedWorkouts,
-    SEVEN_MINUTE_WORKOUT: [{ name:'Jumping jacks', work:30 }],
-    fixedWorkoutExercises(w) { return w.exercises; }
-  };
-  context.window = context;
-  vm.createContext(context);
-  vm.runInContext(source, context, { filename:'js/workouts-ui.js' });
-
-  const ui = context.GarageFitWorkoutUI;
-  const definition = ui.detailDefinition('postRunReset');
-  assert.equal(definition.name, 'Post-Run Reset');
-  assert.equal(definition.exercises.length, workout.exercises.length);
-  assert.equal(definition.exercises[0].target, '30 sec');
-  assert.equal(definition.exercises[3].target, '25 sec');
-  assert.ok(ui.cardMeta.postRunReset, 'expected a Workouts-catalogue card for Post-Run Reset');
-  // Every fixed-workout card shares one renderer, which always emits .workout-number from this value.
-  assert.equal(ui.cardMeta.postRunReset.number, '9');
-  for (const [id, meta] of Object.entries(ui.cardMeta)) assert.notEqual(meta.number, '', id+' needs a prominent number');
-  assert.deepEqual(Object.fromEntries(Object.entries(ui.cardMeta).filter(([id])=>id!=='postRunReset').map(([id,meta])=>[id,meta.number])), {sevenMinute:'7',abBlast:'5',cindy:'20',workout300:'300',eveningFullBodyReset:'7'});
-  assert.match(source, /className='workout-launch'/);
-  assert.doesNotMatch(source, /postRunReset[^;\n]*workout-number/);
+test('recency tolerates blocked or malformed storage',()=>{
+  assert.deepEqual(GarageFitPostRunStretch.readRecent({getItem(){throw Error();}}),[]);
+  assert.deepEqual(GarageFitPostRunStretch.readRecent({getItem(){return '{}';}}),[]);
+  GarageFitPostRunStretch.recordStarted(null,workout);
 });
 
 // ---- Full playback simulation (mirrors the harness used by tests/evening-full-body-reset.test.js) ----
@@ -215,62 +109,34 @@ function tick(intervals, timerId, times) {
   for (let i=0;i<times;i++) intervals.get(timerId)();
 }
 
-test('playback moves through the timed sequence linearly with no looping or rounds', () => {
-  const { context, elements, intervals } = loadApp();
-  context.GarageFitWorkoutUI.startFixedSequenceWorkout('postRunReset');
-
-  assert.equal(vm.runInContext('state.key', context), 'fixedSequence');
-  assert.equal(vm.runInContext('state.list.length', context), workout.exercises.length);
-  assert.equal(elements.routineName.textContent, 'Post-Run Reset');
-
-  // "Get ready" (3s)
-  tick(intervals, vm.runInContext('state.timer', context), 3);
-  assert.equal(elements.exerciseName.textContent, 'Press-ups');
-  assert.equal(vm.runInContext('state.phase', context), 'work');
-  assert.equal(elements.routineNextAction.textContent, 'Next');
-
-  // Upper-body steps auto-advance on their timers.
-  tick(intervals, vm.runInContext('state.timer', context), 30);
-  assert.equal(elements.exerciseName.textContent, 'Pike press-ups');
-  tick(intervals, vm.runInContext('state.timer', context), 25);
-  assert.equal(elements.exerciseName.textContent, 'Plank shoulder taps');
-  tick(intervals, vm.runInContext('state.timer', context), 30);
-
-  // Dead bug is timed and must count down automatically.
-  assert.equal(elements.exerciseName.textContent, 'Dead bug');
-  assert.equal(vm.runInContext('state.phase', context), 'work');
-  tick(intervals, vm.runInContext('state.timer', context), 25);
-  tick(intervals, vm.runInContext('state.timer', context), 8); // transition into the downshift
-
-  assert.equal(elements.exerciseName.textContent, 'Walk slowly and breathe');
-  assert.equal(vm.runInContext('state.phase', context), 'work');
-  tick(intervals, vm.runInContext('state.timer', context), 45);
-  tick(intervals, vm.runInContext('state.timer', context), 8);
-
-  assert.equal(elements.exerciseName.textContent, "Runner's stretch - Left");
-  tick(intervals, vm.runInContext('state.timer', context), 30); // no transition delay between left/right sides
-  assert.equal(elements.exerciseName.textContent, "Runner's stretch - Right");
-
-  // Verify the whole sequence visits each remaining name exactly once, ending on the chest opener.
-  const remainingNames = [
-    'Standing quadriceps stretch - Left','Standing quadriceps stretch - Right',
-    'Hip-flexor lunge stretch - Left','Hip-flexor lunge stretch - Right',
-    'Kneeling hamstring stretch - Left','Kneeling hamstring stretch - Right',
-    'Figure-four / glute stretch - Left','Figure-four / glute stretch - Right',
-    'Chest / shoulder opener'
-  ];
-  tick(intervals, vm.runInContext('state.timer', context), 30); tick(intervals, vm.runInContext('state.timer', context), 8);
-  for (let i=0;i<remainingNames.length;i++) {
-    assert.equal(elements.exerciseName.textContent, remainingNames[i], 'step '+i);
-    const duration = remainingNames[i]==='Chest / shoulder opener' ? 35 : 30;
-    tick(intervals, vm.runInContext('state.timer', context), duration);
-    const isLast = i===remainingNames.length-1;
-    if (!isLast && vm.runInContext('state.phase', context)==='rest') tick(intervals, vm.runInContext('state.timer', context), 8);
+test('preview launches the same plan and completes every timed step exactly once', () => {
+  const {context,elements,intervals}=loadApp();
+  const ui=context.GarageFitWorkoutUI;
+  ui.openWorkoutDetail('postRunReset');
+  const preview=ui.detailDefinition('postRunReset');
+  ui.startSelectedWorkout();
+  const launched=vm.runInContext('state.list',context);
+  assert.deepEqual(Array.from(launched,ex=>[ex.name,ex.work+' sec']),Array.from(preview.exercises,ex=>[ex.name,ex.target]));
+  tick(intervals,vm.runInContext('state.timer',context),3);
+  for(let i=0;i<launched.length;i++){
+    assert.equal(elements.exerciseName.textContent,launched[i].name);
+    tick(intervals,vm.runInContext('state.timer',context),launched[i].work);
+    if(launched[i].rest)tick(intervals,vm.runInContext('state.timer',context),launched[i].rest);
   }
+  assert.equal(vm.runInContext('state.running',context),false);
+  assert.equal(elements.doneTitle.textContent,'Post Run Stretch Complete');
+});
 
-  assert.equal(vm.runInContext('state.running', context), false);
-  assert.equal(elements.doneTitle.textContent, 'Post-Run Reset Complete');
-  assert.equal(elements.doneSub.textContent, 'Reset complete. Nice run.');
+test('fixed stretch timer ignores queued callbacks and rapid Next at boundaries',()=>{
+  const {context,intervals}=loadApp();
+  const ui=context.GarageFitWorkoutUI;
+  ui.startFixedSequenceWorkout('postRunReset');
+  const stale=intervals.get(vm.runInContext('state.timer',context));
+  ui.skipFixedSequence();
+  const remaining=vm.runInContext('state.remaining',context);
+  stale();ui.skipFixedSequence();
+  assert.equal(vm.runInContext('state.remaining',context),remaining);
+  assert.equal(vm.runInContext('state.phase',context),'work');
 });
 
 test('a rep-based fixed sequence shows its target and advances with Next', () => {
@@ -297,4 +163,31 @@ test('existing fixed workouts remain unaffected by the new fixed-sequence engine
   assert.equal(abBlast.termination.type, 'timed-sequence');
   assert.equal(workout300.termination.type, 'fixed-rounds');
   assert.equal(evening.termination.type, 'timed-sequence');
+});
+
+test('stretch pause preserves time, resume advances and exit invalidates old ticks',()=>{
+  const {context,intervals}=loadApp();
+  context.GarageFitWorkoutUI.startFixedSequenceWorkout('postRunReset');
+  tick(intervals,vm.runInContext('state.timer',context),3);
+  const timer=vm.runInContext('state.timer',context), callback=intervals.get(timer);
+  const before=vm.runInContext('state.remaining',context);
+  context.togglePause();callback();
+  assert.equal(vm.runInContext('state.remaining',context),before);
+  context.togglePause();callback();
+  assert.equal(vm.runInContext('state.remaining',context),before-1);
+  vm.runInContext('state.running=false',context);callback();
+  assert.equal(vm.runInContext('state.remaining',context),before-1);
+});
+
+test('re-entry chooses fresh alternatives and callbacks from the abandoned session cannot affect it',()=>{
+  const {context,intervals}=loadApp();
+  const ui=context.GarageFitWorkoutUI;
+  ui.openWorkoutDetail('postRunReset');ui.startSelectedWorkout();
+  const first=vm.runInContext('state.list[0].id',context);
+  const stale=intervals.get(vm.runInContext('state.timer',context));
+  vm.runInContext('state.running=false',context);
+  ui.openWorkoutDetail('postRunReset');ui.startSelectedWorkout();
+  assert.notEqual(vm.runInContext('state.list[0].id',context),first);
+  stale();
+  assert.equal(vm.runInContext('state.remaining',context),3);
 });

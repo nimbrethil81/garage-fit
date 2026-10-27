@@ -79,10 +79,11 @@ test('Dead bug has one canonical definition shared with the fixed routines, whos
   const uses=Object.values(fixed).flatMap(workout=>(workout.exercises||[]).filter(item=>item.id==='dead-bug').map(item=>[workout.id,item]));
   assert.deepEqual(uses.map(([id,item])=>[id,item]),[
     ['abBlast',{id:'dead-bug',name:'Dead bug',durationSeconds:40}],
-    ['eveningFullBodyReset',{id:'dead-bug',name:'Dead bug',durationSeconds:40}],
-    ['postRunReset',{id:'dead-bug',name:'Dead bug',durationSeconds:25}]
+    ['eveningFullBodyReset',{id:'dead-bug',name:'Dead bug',durationSeconds:40}]
   ].filter(([id])=>fixed[id]));
   assert.ok(uses.length>=2);
+  // #311 replaces the old post-run core top-up with stretching only.
+  assert.ok(!fixed.postRunReset.exercises.some(ex=>ex.id==='dead-bug'));
   assert.equal(catalogue['dead-bug'].name,'Dead bug');
 });
 

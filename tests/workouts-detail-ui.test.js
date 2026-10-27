@@ -107,3 +107,16 @@ test('Desk Break card is generated and launches directly; fixed detail/start flo
   const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
   assert.match(html,/<script src="js\/desk-break.js"><\/script>/);
 });
+
+test('generated cards share the exact decorative shuffle symbol and accessible description',()=>{
+  const source=fs.readFileSync(path.join(root,'js/workouts-ui.js'),'utf8');
+  const context={document:{readyState:'loading'},addEventListener(){}};
+  context.window=context;vm.createContext(context);vm.runInContext(source,context);
+  assert.deepEqual(Object.keys(context.GarageFitWorkoutUI.cardMeta).filter(id=>context.GarageFitWorkoutUI.cardMeta[id].generated),['postRunReset']);
+  assert.equal(context.GarageFitWorkoutUI.cardMeta.postRunReset.number,'6');
+  assert.deepEqual(Object.fromEntries(Object.entries(context.GarageFitWorkoutUI.cardMeta).filter(([id])=>id!=='postRunReset').map(([id,meta])=>[id,meta.number])),{sevenMinute:'7',abBlast:'5',cindy:'20',workout300:'300',eveningFullBodyReset:'7'});
+  assert.match(source,/setAttribute\('aria-description','Generated workout'\)/);
+  assert.match(source,/class="icon workout-generated-icon" aria-hidden="true"><use href="#icon-shuffle"/);
+  const desk=source.slice(source.indexOf('function addDeskBreakCard'),source.indexOf('function cleanCatalogue'));
+  assert.match(desk,/markGeneratedCard\(button\)/);
+});
