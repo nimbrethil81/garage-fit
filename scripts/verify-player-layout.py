@@ -276,6 +276,8 @@ def illustrated_checks(page, report, output, label):
             surface=page.locator('#'+details+' .player-detail-surface')
             if ring.count():
                 r,d=ring.bounding_box(),surface.bounding_box()
+                assert abs(r['width']-r['height'])<.1 and r['width']>=100
+                assert ring.evaluate('e=>{const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))}')
                 assert r['y']+r['height']<=d['y']+1 or r['x']+r['width']<=d['x']+1, (label,r,d)
             if exercise_id=='trx-row':capture(page,output,label+'-'+player+'-illustrated')
             page.locator('#'+details+' .player-detail-close').click();settle(page)
