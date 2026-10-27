@@ -109,3 +109,14 @@ All 720 measured player layouts pass (the existing stale Post-Run Reset native
 entry selector was omitted, as in prior runs). An emulated Workouts light capture
 was inspected: the nav background reaches the bottom edge. These checks establish
 the viewport-sizing contract, not reproduction of the physical iOS artefact.
+
+## Persistent gap and build identification
+
+The user confirmed the blank strip remains in the installed PWA after restarting
+the iPhone. Safari shows its own bottom controls, so browser screenshots are not
+equivalent to the installed display mode. Add Settings → About with loaded page
+build `2026.10.27.1` and an independent CSS layout marker, plus optional copyable
+display details. These values come from loaded files, not the newest GitHub commit.
+Use the device's page/layout build, standalone mode, viewport and shell bounds to
+distinguish stale files from incorrect iOS measurements before another layout
+change. No further positioning change is included in this diagnostic release.
