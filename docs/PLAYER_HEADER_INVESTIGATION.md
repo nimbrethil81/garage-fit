@@ -86,3 +86,24 @@ standard workout header, typography, colours, sizes or using a transform.
 Temporary live publication remains authorised for the next device comparison;
 this is still an experiment and #316 stays open. Retain it only if the user
 reports visible improvement; otherwise restore the original zero header padding.
+
+## Device result and bottom navigation follow-up
+
+The user reports that the 16px routine-header padding appears to resolve the
+softness on their iPhone 15. Retain that padding. Their subsequent Workouts
+screenshot shows a background-coloured gap below the bottom navigation.
+
+Menu screens previously sized the fixed shell through bottom insets, whereas
+players followed the measured visual viewport. Size menu screens from the same
+viewport measurement, retaining their existing extra bottom safe inset and nav
+padding. This addresses the differing shell-sizing paths; the exact iOS
+rasterisation/viewport behaviour cannot be reproduced in Chromium and the phone
+result remains to be confirmed.
+
+Supplementary checks: the original shell fails a synthetic differing-viewport
+geometry case; the corrected shell passes light/dark, all five tabs, zero/34px
+bottom safe insets, viewport resize/offset changes and returns from both players.
+All 720 measured player layouts pass (the existing stale Post-Run Reset native
+entry selector was omitted, as in prior runs). An emulated Workouts light capture
+was inspected: the nav background reaches the bottom edge. These checks establish
+the viewport-sizing contract, not reproduction of the physical iOS artefact.

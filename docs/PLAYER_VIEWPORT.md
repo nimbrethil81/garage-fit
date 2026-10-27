@@ -4,8 +4,12 @@ Both active players reserve a navigation row inside the usable visual viewport.
 `showScreen()` removes the tab bar and marks the app as an active player.
 `js/player-layout.js` follows `visualViewport.height` and `offsetTop`, including
 browser chrome, orientation and keyboard changes; `innerHeight` is the fallback.
-Safe areas are included inside this height, replacing the shell's previous
-negative bottom inset while a player is active. Other screens retain their layout.
+The shared shell also follows these measurements on menu screens so returning
+from a player cannot fall back to a different fixed-layout viewport height. The
+shell extends by one bottom safe inset, matching the tab bar's existing padding;
+its background reaches the screen edge and its buttons stay above the home
+indicator. Active players omit that extension and pay safe areas inside their
+measured height.
 
 `css/player-layout.css` gives the stage the remaining height. The circular timer
 uses that space through a size container, equal width/height and the original
