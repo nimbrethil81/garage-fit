@@ -34,6 +34,7 @@
       content.className = 'player-detail-content';
       [...details.children].filter(child => child !== summary).forEach(child => content.appendChild(child));
       heading.append(title, close); surface.append(heading, content); details.appendChild(surface);
+      if (['routineInstruction','workoutInstruction'].includes(details.id)) content.classList.add('player-instruction-content');
       if (['routineInstruction','workoutInstruction'].includes(details.id) && instructionSpeechAvailable()) {
         content.classList.add('player-instruction-speech');
         content.setAttribute('role', 'button');
@@ -94,11 +95,26 @@
         disclosures.forEach(details => {
           if (details.closest('.hidden') && details.open) details.open = false;
         });
+        // Exercise help shares the stage with a visible timer. Other editors keep their contract.
+        const instruction=disclosures.find(d=>d.open && ['routineInstruction','workoutInstruction'].includes(d.id));
+        if(instruction){
+          const surface=instruction.querySelector('.player-detail-surface');
+          const landscape=player.clientWidth>=540 && player.clientHeight<=480;
+          surface.style.top=landscape?'':((ringSize>0 && !ring.closest('.hidden')?ring.getBoundingClientRect().bottom:header.getBoundingClientRect().bottom)-player.getBoundingClientRect().top+10)+'px';
+          const content=instruction.querySelector('.player-detail-content');
+          const region=instruction.querySelector('.player-instruction-image');
+          const text=instruction.querySelector('p');
+          const available=content.clientHeight-text.getBoundingClientRect().height-32;
+          const width=Math.min(content.clientWidth-8,320,available*4/3);
+          const show=region.datasetReady && width>=160;
+          region.style.width=Math.max(0,width)+'px';
+          region.classList.toggle('hidden',!show);
+        }
         observeMutations();
       });
     }
     const sizes = new ResizeObserver(schedule);
-    [player, header, actions, stage.querySelector('.exercise-name,.workout-exercise')].forEach(element => sizes.observe(element));
+    [...player.querySelectorAll('.player-detail-content'), player, header, actions, stage.querySelector('.exercise-name,.workout-exercise')].forEach(element => sizes.observe(element));
     const mutations = new MutationObserver(schedule);
     function observeMutations() {
       mutations.observe(player, {childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['class','open']});

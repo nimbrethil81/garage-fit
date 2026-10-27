@@ -88,3 +88,24 @@ test('unsupported speech keeps instructions readable and manual activation inert
     assert.equal(h.spoken.length, 0);
   }
 });
+
+for(const [player,id] of [['player','routineInstruction'],['workoutPlayer','workoutInstruction']]){
+  test(`${player}: artwork uses shared canonical paths, loads silently and ignores stale callbacks`,()=>{
+    const h=setup();h.app.showScreen(player);
+    for(const exerciseId of ['trx-row','skater-jumps','side-plank','trx-reverse-lunge','dumbbell-lateral-raise','dumbbell-romanian-deadlift']){
+      h.app.setInstructionDisclosure(id,{id:exerciseId});
+      const region=h.el(id+'Image'),image=region.children[0];
+      assert.equal(image.getAttribute('src'),h.app.GarageFitData.exerciseIllustration(exerciseId));
+      assert.equal(image.getAttribute('alt'),'');assert.equal(image.onclick,undefined);
+      const before=h.spoken.length;h.el(id).open=true;image.onload();assert.equal(region.datasetReady,true);assert.equal(h.spoken.length,before);
+      h.app.speakDisplayedInstruction(id);assert.equal(h.queue[0].text,h.app.GarageFitData.exercises[exerciseId].instruction);
+      h.app.setInstructionDisclosure(id,{id:'air-squat'});image.onload();image.onerror();
+      assert.equal(region.children.length,0);assert.equal(region.datasetReady,false);
+    }
+    h.app.setInstructionDisclosure(id,{id:'trx-row'});const image=h.el(id+'Image').children[0];
+    image.onerror();assert.equal(h.el(id+'Image').classList.contains('hidden'),true);
+    h.el(id).open=true;h.app.speakDisplayedInstruction(id);
+    assert.equal(h.queue[0].text,h.app.GarageFitData.exercises['trx-row'].instruction);
+    h.app.setInstructionDisclosure(id,null);assert.equal(h.el(id+'Image').children.length,0);
+  });
+}

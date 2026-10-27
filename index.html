@@ -358,7 +358,7 @@
       <div class="routine-main-column">
         <div class="routine-target hidden" id="routineTarget"></div>
         <div class="exercise-name" id="exerciseName" aria-live="polite">Get ready</div>
-        <details class="exercise-instruction hidden" id="routineInstruction"><summary>How to do it</summary><p id="routineInstructionText"></p></details>
+        <details class="exercise-instruction hidden" id="routineInstruction"><summary>How to do it</summary><p id="routineInstructionText"></p><div id="routineInstructionImage" class="player-instruction-image hidden"></div></details>
         <div class="timed-cue hidden" id="routineTimedCue" aria-live="assertive"></div>
         <button class="workout-paused hidden" id="routinePause" type="button" aria-pressed="false" onclick="togglePause()">Pause</button>
       </div>
@@ -421,7 +421,7 @@
         </div>
         <div class="workout-detail-controls">
           <div class="workout-target" id="workoutTarget">25 reps</div>
-          <details class="exercise-instruction hidden" id="workoutInstruction"><summary>How to do it</summary><p id="workoutInstructionText"></p></details>
+          <details class="exercise-instruction hidden" id="workoutInstruction"><summary>How to do it</summary><p id="workoutInstructionText"></p><div id="workoutInstructionImage" class="player-instruction-image hidden"></div></details>
           <details class="exercise-instruction hidden" id="densityPartial">
             <summary>Record partial reps (optional)</summary>
             <form class="coach-fields" onsubmit="saveDensityPartial(event)">
@@ -625,7 +625,20 @@ let manualInstructionSpeech=null;
 function beginInstructionSession(){instructionSeen=new Set()}
 function instructionFor(exercise){return exercise&&exercise.id&&CATALOGUE[exercise.id]&&CATALOGUE[exercise.id].instruction}
 function createInstructionDisclosure(exercise){return GarageFitWorkoutPreview.instructionDisclosure(instructionFor(exercise))}
-function setInstructionDisclosure(id,exercise){if(manualInstructionSpeech===id)cancelSpeech();const details=document.getElementById(id),instruction=instructionFor(exercise);details.classList.toggle('hidden',!instruction);details.open=false;document.getElementById(id+'Text').textContent=instruction||''}
+function setInstructionDisclosure(id,exercise){if(manualInstructionSpeech===id)cancelSpeech();const details=document.getElementById(id),instruction=instructionFor(exercise);details.classList.toggle('hidden',!instruction);details.open=false;document.getElementById(id+'Text').textContent=instruction||'';setInstructionImage(id,instruction&&exercise)}
+// Loading the current phase's artwork also warms the browser cache, without awaiting it.
+function setInstructionImage(id,exercise){
+  const region=document.getElementById(id+'Image');
+  region.innerHTML='';region.classList.add('hidden');region.classList.remove('image-ready');region.datasetReady=false;
+  const source=exercise&&GarageFitData.exerciseIllustration(exercise.id);
+  if(!source)return;
+  const image=document.createElement('img');
+  image.setAttribute('alt','');image.setAttribute('aria-hidden','true');
+  image.onload=()=>{if(region.children[0]===image){region.datasetReady=true;region.classList.add('image-ready')}};
+  image.onerror=()=>{if(region.children[0]===image){region.datasetReady=false;region.classList.remove('image-ready');region.classList.add('hidden');region.innerHTML=''}};
+  region.classList.remove('image-ready');region.appendChild(image);
+  image.setAttribute('src',source);
+}
 function instructionSpeechAvailable(){try{return speechVoices.supported()&&typeof SpeechSynthesisUtterance==='function'&&typeof window.speechSynthesis.cancel==='function'}catch(e){return false}}
 function speakDisplayedInstruction(id){
   if(!['routineInstruction','workoutInstruction'].includes(id)||!instructionSpeechAvailable())return;

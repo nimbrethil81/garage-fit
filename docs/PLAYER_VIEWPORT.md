@@ -184,3 +184,26 @@ same fixtures on main. Compare both versions' region bounds, because the removed
 counter can be wider than the new round text. Images outside these regions must
 remain unchanged; native input focus/scroll state must also match when comparing
 open editors. Chromium emulation is not physical iPhone/Safari validation.
+
+### Illustrated exercise instructions (#203)
+
+Both players resolve artwork through the shared canonical illustration lookup.
+Preparing the current phase starts a best-effort browser image load without
+waiting or preloading the whole catalogue. Phase reset removes the previous
+image; late callbacks are ignored and failures leave the text/speech path intact.
+Images have no separate activation handler or focus stop: image, text and blank
+instruction content all use the existing single narration handler. Opening and
+image loading stay silent.
+
+An open exercise instruction surface keeps the live timer visible. Portrait
+uses a compact 120–128px circular timer above the panel; landscape keeps the timer
+in the left column and instruction content in the right. Circle proportions,
+countdown centring and pause activation remain unchanged. Other editors keep
+their existing bounded overlay. Navigation stays reserved below every panel.
+
+Artwork is contained against the dark artwork background, at its native 4:3
+composition. It appears only when at least 160×120 CSS pixels remain after the
+instruction text and panel heading; otherwise the panel deterministically keeps
+text only. Resizing re-evaluates this without shrinking artwork below that floor.
+Long text can still scroll within the panel under the existing accessibility
+contract. This does not alter clocks, progression, narration or saved outcomes.
