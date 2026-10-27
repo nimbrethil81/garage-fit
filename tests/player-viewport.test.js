@@ -58,3 +58,17 @@ test('workout player portrait navigation places Previous left of the primary act
   assert.match(css,/\.workout-secondary-controls\{[^}]*grid-template-areas:"previous primary"/);
   assert.doesNotMatch(css,/grid-template-areas:"primary primary"/);
 });
+
+// Device evidence: iPhone 15 / iOS 27.0.1 reports 793px on an 852px screen.
+test('standalone menu keeps CSS full height for the status-bar delta, fits the keyboard, and does not treat zoom as keyboard',()=>{
+  const h=viewportHarness({height:793,offsetTop:0,scale:1});
+  h.context.innerHeight=793;h.listeners.resize();
+  assert.equal(h.styles['--standalone-menu-height'],'100vh');
+  h.context.visualViewport.height=380;h.viewportListeners.resize();
+  assert.equal(h.styles['--standalone-menu-height'],'380px');
+  assert.equal(h.styles['--player-viewport-height'],'380px');
+  h.context.visualViewport.scale=2;h.viewportListeners.resize();
+  assert.equal(h.styles['--standalone-menu-height'],'100vh');
+  h.context.visualViewport.scale=1;h.context.visualViewport.height=793;h.viewportListeners.resize();
+  assert.equal(h.styles['--standalone-menu-height'],'100vh');
+});

@@ -13,6 +13,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <title>Garage Fit</title>
 <script src="js/appearance.js"></script>
+<script>if(navigator.standalone===true)document.documentElement.classList.add('ios-standalone');</script>
 <link rel="stylesheet" href="css/appearance.css">
 <link rel="stylesheet" href="css/workout-preview.css">
 <style>
@@ -23,6 +24,11 @@
   svg{display:block}
   /* Menu screens follow the measured viewport too; retain their bottom safe-area extension. */
   #app{position:fixed;inset:var(--player-viewport-top,0px) 0 auto 0;height:calc(var(--player-viewport-height,100dvh) + env(safe-area-inset-bottom));display:flex;flex-direction:column;padding-top:env(safe-area-inset-top);background:var(--ink)}
+  /* iOS standalone can under-report the viewport by the status-bar inset.
+     Normal-flow roots avoid the fixed-root clipping reported on iOS 26/27.
+     The menu pays the bottom safe area inside its height, rather than extending it. */
+  html.ios-standalone,html.ios-standalone body{height:100vh;overflow:hidden}
+  .ios-standalone #app:not(.active-player){position:relative;inset:var(--player-viewport-top,0px) auto auto;height:var(--standalone-menu-height,100vh)}
   .screen{flex:1;min-height:0;display:flex;flex-direction:column}
   .hidden{display:none!important}.svg-sprite{position:absolute;width:0;height:0;overflow:hidden}
   .icon{width:1.5em;height:1.5em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -509,7 +515,7 @@
   </main>
   <main id="about" class="screen info-detail hidden">
     <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Settings" onclick="appBack()">←</button><h1>About</h1><span class="header-spacer"></span></header>
-    <section class="library-detail-section"><h2>GarageFit</h2><p>Build <strong id="aboutBuild">2026.10.27.1</strong></p><p>This identifies the page loaded on this device.</p></section>
+    <section class="library-detail-section"><h2>GarageFit</h2><p>Build <strong id="aboutBuild">2026.10.27.2</strong></p><p>This identifies the page loaded on this device.</p></section>
     <details><summary>Display details</summary><pre id="aboutDiagnostics" style="white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;font:inherit;font-size:13px;line-height:1.5"></pre><button class="library-entry" type="button" onclick="copyAboutDetails()">Copy display details</button><p id="aboutCopyStatus" role="status"></p></details>
   </main>
   <main id="spokenCues" class="screen hidden">
@@ -826,6 +832,8 @@ function openAbout(){
     'Visual viewport: '+(viewport?px(viewport.width)+' × '+px(viewport.height):'unavailable'),
     'Viewport top / scale: '+(viewport?px(viewport.offsetTop)+' / '+px(viewport.scale):'unavailable'),
     'App top / bottom / height: '+[box.top,box.bottom,box.height].map(px).join(' / '),
+    'Root height: '+getComputedStyle(document.documentElement).height,
+    'App positioning: '+getComputedStyle(app).position,
     'Top padding: '+getComputedStyle(app).paddingTop,
     'Menu bottom padding: '+getComputedStyle(document.getElementById('bottomNav')).paddingBottom
   ].join('\n');

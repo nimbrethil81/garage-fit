@@ -7,6 +7,10 @@
   function syncViewport() {
     app.style.setProperty('--player-viewport-height', (viewport ? viewport.height : window.innerHeight) + 'px');
     app.style.setProperty('--player-viewport-top', (viewport ? viewport.offsetTop : 0) + 'px');
+    // Keep the full-height standalone menu during the status-bar discrepancy,
+    // but continue fitting above a software keyboard. Zoom is not a keyboard.
+    const keyboard=viewport && (viewport.scale??1)===1 && window.innerHeight-viewport.height>150;
+    app.style.setProperty('--standalone-menu-height', keyboard ? viewport.height+'px' : '100vh');
   }
   syncViewport();
   window.addEventListener('resize', syncViewport);

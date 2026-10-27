@@ -120,3 +120,29 @@ display details. These values come from loaded files, not the newest GitHub comm
 Use the device's page/layout build, standalone mode, viewport and shell bounds to
 distinguish stale files from incorrect iOS measurements before another layout
 change. No further positioning change is included in this diagnostic release.
+
+## iOS 27.0.1 physical-device evidence and root-layout trial
+
+Builds 2026.10.27.1 match on device. iPhone 15 screen 393×852; window and visual
+viewport 393×793, offset 0, scale 1; app bounds 0–827; top padding 59px; menu
+bottom padding 42px. The missing 59px equals the top inset. The user reports iOS
+27.0.1, so this is not a stale-file diagnosis. WebKit reports 313800 and 317153
+describe closely matching standalone geometry, but do not establish a guaranteed
+CSS fix for this particular device.
+
+Build 2026.10.27.2 trials 100vh html/body and a normal-flow app on iOS standalone
+menu/detail screens. It retains menu safe-area padding inside that full height
+and removes the old menu extension in this mode. Safari and active player sizing
+are unchanged, including the accepted 16px routine-header offset. The menu still
+uses the visual viewport during a keyboard-sized reduction (more than 150px, at
+scale 1); zoom and the 59px status-bar delta do not trigger that branch.
+
+About adds root height and app positioning for device validation. Chromium can
+verify the layout contract with a synthetic 793px report on an 852px viewport; it
+cannot establish that iOS permits painting or hit-testing in the reported strip.
+Physical-device confirmation is required. Roll back the standalone root trial if
+it clips navigation or fails to improve the gap.
+
+Sources: https://bugs.webkit.org/show_bug.cgi?id=313800 and
+https://bugs.webkit.org/show_bug.cgi?id=317153; first-party workaround report:
+https://github.com/cjnova/piclaw-monaco/blob/main/docs/PWA.md
