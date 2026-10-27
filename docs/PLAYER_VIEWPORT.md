@@ -11,6 +11,15 @@ its background reaches the screen edge and its buttons stay above the home
 indicator. Active players omit that extension and pay safe areas inside their
 measured height.
 
+The iOS installed-app trial (build 2026.10.27.2) is a scoped exception: iOS
+27.0.1 device evidence shows a 793px reported viewport on an 852px screen with a
+59px top inset. `navigator.standalone` adds a pre-paint class. html/body use 100vh,
+and non-player screens use a normal-flow, full-height shell with the navigation
+safe area inside it. A keyboard-sized visual-viewport reduction (>150px at scale
+1) uses the measured menu height instead. Safari and player sizing retain the
+existing path. Chromium validates these rules, not the native iOS compositor;
+physical-device confirmation remains required.
+
 `css/player-layout.css` gives the stage the remaining height. The circular timer
 uses that space through a size container, equal width/height and the original
 200-unit SVG, radius 90, 12-unit stroke and round caps. Countdown, phase label,

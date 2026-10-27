@@ -328,6 +328,43 @@ def shell_navigation_checks(browser, url):
     print('Shell navigation passed: both themes, zero/34px bottom safe areas, five tabs, visual viewport changes and both player returns',flush=True)
 
 
+def standalone_root_checks(browser, url):
+    """Contract check for the measured iPhone 15 discrepancy, not an iOS compositor reproduction."""
+    for theme in ['light','dark']:
+        page=browser.new_page(viewport={'width':393,'height':852},device_scale_factor=3,has_touch=True)
+        def safe_areas(route):
+            response=route.fetch()
+            route.fulfill(response=response,body=response.text().replace('env(safe-area-inset-top)','59px').replace('env(safe-area-inset-bottom)','34px'))
+        page.route('**/index.html',safe_areas);page.route('**/css/*.css',safe_areas)
+        page.add_init_script("""Object.defineProperty(navigator,'standalone',{value:true});
+          window.__rootHeight=793;
+          Object.defineProperty(window,'innerHeight',{get:()=>793});
+          Object.defineProperty(visualViewport,'height',{get:()=>__rootHeight});""")
+        page.goto(url.rstrip('/')+'/index.html')
+        page.wait_for_function("typeof coachUI!=='undefined' && coachUI")
+        page.evaluate('(theme)=>document.documentElement.dataset.appearance=theme',theme)
+        for height,expected in [(793,852),(380,380),(793,852)]:
+            page.evaluate("h=>{__rootHeight=h;visualViewport.dispatchEvent(new Event('resize'))}",height)
+            for tab in ['home','workouts','generator','coach','more']:
+                page.evaluate('(tab)=>showLanding(tab)',tab);settle(page)
+                result=page.evaluate("""()=>{
+                  const app=document.getElementById('app'),nav=document.getElementById('bottomNav');
+                  return {position:getComputedStyle(app).position,height:app.getBoundingClientRect().height,
+                    bottom:nav.getBoundingClientRect().bottom,
+                    targets:[...nav.querySelectorAll('button')].map(b=>{const r=b.getBoundingClientRect();return {bottom:r.bottom,hit:b.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))}})};
+                }""")
+                assert result['position']=='relative' and abs(result['height']-expected)<1,(tab,height,result)
+                assert abs(result['bottom']-expected)<1,(tab,height,result)
+                assert all(b['bottom']<=expected-34 and b['hit'] for b in result['targets']),(tab,height,result)
+        for player in ['player','workoutPlayer']:
+            page.evaluate('(id)=>showScreen(id)',player);settle(page)
+            assert page.locator('#app').evaluate("e=>getComputedStyle(e).position==='fixed' && e.getBoundingClientRect().height===793")
+            page.evaluate("showLanding('workouts')");settle(page)
+            assert page.locator('#app').evaluate('e=>e.getBoundingClientRect().height===852')
+        page.close()
+    print('Standalone root passed: 793/852 discrepancy, keyboard/recovery, safe menu targets and unchanged players, both themes',flush=True)
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--url',default='http://127.0.0.1:8000')
@@ -336,6 +373,7 @@ def main():
     report=[];blocks=fixture_blocks()
     with sync_playwright() as p:
         browser=p.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH','/usr/bin/chromium'),args=['--no-sandbox'])
+        standalone_root_checks(browser,args.url)
         shell_navigation_checks(browser,args.url)
         instruction_speech_checks(browser,args.url)
         timers.native_entry_checks(browser,args.url)
