@@ -76,3 +76,13 @@ browser script passed.
 
 Physical-device comparison remains pending. Do not treat the experiment as an
 accepted sharpness fix until the user reports visible improvement.
+
+## iPhone 15 follow-up: 16px trial
+
+The user reported that the 8px trial did not improve the softness on their iPhone
+15 and requested a slightly lower position. Increase routine-header top padding
+to 16px total (another 8px). This supersedes the first trial, without changing the
+standard workout header, typography, colours, sizes or using a transform.
+Temporary live publication remains authorised for the next device comparison;
+this is still an experiment and #316 stays open. Retain it only if the user
+reports visible improvement; otherwise restore the original zero header padding.
