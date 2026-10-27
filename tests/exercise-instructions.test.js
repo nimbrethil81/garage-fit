@@ -160,8 +160,12 @@ test('fixed timed and mixed sequences retain exercise ids for the shared player'
   assert.equal(el('routineInstruction').classList.contains('hidden'),false);
   assert.match(el('routineInstructionText').textContent,/back against a wall/);
   context.GarageFitWorkoutUI.startFixedSequenceWorkout('postRunReset');
-  assert.equal(vm.runInContext('state.list[0].id',context),'push-up');
-  assert.equal(vm.runInContext('state.list[0].work',context),30);
+  assert.ok(['standing-calf-stretch','bent-knee-calf-stretch'].includes(vm.runInContext('state.list[0].id',context)));
+  assert.equal(vm.runInContext('state.list[0].work',context),35);
+  const stretchReady=vm.runInContext('state.timer',context);
+  for(let second=0;second<3;second++) intervals.get(stretchReady)();
+  const firstId=vm.runInContext('state.list[0].id',context);
+  assert.equal(el('routineInstructionText').textContent,context.GarageFitData.exercises[firstId].instruction);
 });
 
 test('every Prep & Recover warm-up and cool-down variant displays instructions on every player step', () => {
