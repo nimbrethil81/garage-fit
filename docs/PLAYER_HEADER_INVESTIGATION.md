@@ -2,7 +2,11 @@
 
 Investigation on 27 October 2026 against `37bbbc8` (main at checkout).
 Status: **not reproduced; physical iPhone validation remains outstanding**.
-No application styling or behaviour has changed.
+The initial investigation made no application changes. A subsequent user-requested
+experiment adds 8px of top layout padding to both header rows. Fonts, colours,
+sizes and tap targets remain unchanged. This experiment must stay unmerged until
+the user confirms a visible improvement on their physical iPhone; otherwise revert
+the padding. Browser checks cannot make that judgement.
 
 ## Findings
 
