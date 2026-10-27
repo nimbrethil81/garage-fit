@@ -3,10 +3,12 @@
 Investigation on 27 October 2026 against `37bbbc8` (main at checkout).
 Status: **not reproduced; physical iPhone validation remains outstanding**.
 The initial investigation made no application changes. A subsequent user-requested
-experiment adds 8px of top layout padding to both header rows. Fonts, colours,
+experiment adds 8px of top layout padding to the Prep & Recover header row. Fonts, colours,
 sizes and tap targets remain unchanged. This experiment must stay unmerged until
 the user confirms a visible improvement on their physical iPhone; otherwise revert
 the padding. Browser checks cannot make that judgement.
+An initial trial on both headers caused reduced-height density-workout overflow;
+the standard workout header therefore retains its original padding.
 
 ## Findings
 
@@ -56,3 +58,21 @@ header/ancestor styles and VisualViewport offsets while affected. Confirm the
 cause before making a minimal correction, then capture the same state before and
 after and verify exit, progression and timer controls. Keep #316 open until its
 physical-device acceptance criteria are met.
+
+## 8px routine-header experiment
+
+The final trial uses `.player-top{padding-top:8px}` in
+`css/player-layout.css`. The existing player padding and safe-area handling remain
+in place. No transforms, font rules, colours or sizes change. The initial
+both-header trial moved all three contents down exactly 8px in 32 measured
+cases; the final trial limits that rule to the routine header.
+
+The existing layout script passed 656 measured layouts with the final rule,
+including reduced heights and landscape, plus its instruction-speech and Coach
+actual-recording checks. Its native-entry check was omitted for this run because
+an existing `View Post-Run Reset details` selector timed out (the test uses an old
+routine name). This is a qualified layout pass, not a claim that the unmodified
+browser script passed.
+
+Physical-device comparison remains pending. Do not treat the experiment as an
+accepted sharpness fix until the user reports visible improvement.

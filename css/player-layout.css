@@ -10,8 +10,9 @@
   position:relative;overflow:hidden;gap:6px;
   padding:6px max(14px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left));
 }
-/* #316 experiment: add space above the header contents without transforming text. */
-.player-top,.workout-player-top{flex:none;min-height:44px;padding-top:8px}
+.player-top,.workout-player-top{flex:none;min-height:44px}
+/* #316 experiment: move the routine header contents down without transforming text. */
+.player-top{padding-top:8px}
 .routine-name{overflow-wrap:anywhere;line-height:1.2}
 .routine-stage,.workout-stage{
   flex:1;min-height:0;width:100%;padding:0 0 2px;display:flex;
