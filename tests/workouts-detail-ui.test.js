@@ -114,6 +114,7 @@ test('generated cards share the exact decorative shuffle symbol and accessible d
   context.window=context;vm.createContext(context);vm.runInContext(source,context);
   assert.deepEqual(Object.keys(context.GarageFitWorkoutUI.cardMeta).filter(id=>context.GarageFitWorkoutUI.cardMeta[id].generated),['postRunReset']);
   assert.equal(context.GarageFitWorkoutUI.cardMeta.postRunReset.number,'6');
+  assert.deepEqual(Object.fromEntries(Object.entries(context.GarageFitWorkoutUI.cardMeta).filter(([id])=>id!=='postRunReset').map(([id,meta])=>[id,meta.number])),{sevenMinute:'7',abBlast:'5',cindy:'20',workout300:'300',eveningFullBodyReset:'7'});
   assert.match(source,/setAttribute\('aria-description','Generated workout'\)/);
   assert.match(source,/class="icon workout-generated-icon" aria-hidden="true"><use href="#icon-shuffle"/);
   const desk=source.slice(source.indexOf('function addDeskBreakCard'),source.indexOf('function cleanCatalogue'));
