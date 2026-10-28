@@ -541,7 +541,8 @@ layout: null
   <main id="about" class="screen info-detail hidden">
     <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Settings" onclick="appBack()">←</button><h1>About</h1><span class="header-spacer"></span></header>
     <section class="library-detail-section"><h2>GarageFit</h2><p>Build <strong id="aboutBuild" data-commit="{{ site.github.build_revision }}">{{ site.github.build_revision | slice: 0, 7 }}</strong></p><p id="aboutMode"></p><p>This identifies the page loaded on this device.</p></section>
-    <details><summary>Diagnostics</summary><pre id="aboutDiagnostics" style="white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;font:inherit;font-size:13px;line-height:1.5"></pre><button class="library-entry" type="button" onclick="copyAboutDetails()">Copy diagnostics</button><p id="aboutCopyStatus" role="status"></p></details>
+    <details><summary>App diagnostics</summary><pre id="aboutDiagnostics" style="white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;font:inherit;font-size:13px;line-height:1.5"></pre><button class="library-entry" type="button" onclick="copyAboutDetails()">Copy app diagnostics</button><p id="aboutCopyStatus" role="status"></p></details>
+    <details><summary>Workout diagnostics</summary><pre id="workoutDiagnostics" style="white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;font:inherit;font-size:13px;line-height:1.5"></pre><button class="library-entry" type="button" onclick="copyWorkoutDiagnostics()">Copy workout diagnostics</button><p id="workoutCopyStatus" role="status"></p></details>
   </main>
   <main id="spokenCues" class="screen hidden">
     <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Settings" onclick="appBack()">←</button><h1>Spoken Cues</h1><span class="header-spacer"></span></header>
@@ -627,6 +628,7 @@ layout: null
 <script src="js/coach-engine.js"></script>
 <script src="js/coach-recovery.js"></script>
 <script src="js/workout-preview.js"></script>
+<script src="js/workout-diagnostics.js"></script>
 <script src="js/coach-tennis-ui.js"></script>
 <script src="js/coach-progress-ui.js"></script>
 <script src="js/coach-ui.js"></script>
@@ -845,6 +847,8 @@ function previewSpokenVoice(){
 function openAbout(){
   showScreen('about');
   refreshAboutDetails();
+  refreshWorkoutDiagnostics();
+  document.getElementById('workoutCopyStatus').textContent='';
   document.getElementById('aboutCopyStatus').textContent='';
 }
 function refreshAboutDetails(){
@@ -859,6 +863,7 @@ function refreshAboutDetails(){
     'Build',
     'Page build: '+(document.getElementById('aboutBuild').getAttribute('data-commit')||document.getElementById('aboutBuild').textContent),
     'Layout build: '+layoutBuild,
+    'Report time: '+new Date().toISOString(),
     '',
     'Device',
     'Mode: '+mode,
@@ -885,6 +890,14 @@ async function copyAboutDetails(){
   try{await navigator.clipboard.writeText(document.getElementById('aboutDiagnostics').textContent);status.textContent='Diagnostics copied.'}
   catch(error){status.textContent='Copy is unavailable. You can select and copy the diagnostics above.'}
 }
+function refreshWorkoutDiagnostics(){document.getElementById('workoutDiagnostics').textContent=garageFitWorkoutDiagnostics.report()}
+async function copyWorkoutDiagnostics(){
+  refreshWorkoutDiagnostics();
+  const status=document.getElementById('workoutCopyStatus');
+  try{await navigator.clipboard.writeText(document.getElementById('workoutDiagnostics').textContent);status.textContent='Workout diagnostics copied.'}
+  catch(error){status.textContent='Copy is unavailable. You can select and copy the workout diagnostics above.'}
+}
+function captureGeneratorDiagnostics(){window.garageFitWorkoutDiagnostics?.capture(generatorState.workout,{source:'Generator',equipment:state.ownedEquipment})}
 function showScreen(id){
   if(manualInstructionSpeech&&id!==currentScreen)cancelSpeech();
   if(currentScreen==='spokenCues'&&id!=='spokenCues')stopVoicePreview();
@@ -896,6 +909,7 @@ function showScreen(id){
   const landing=['home','workouts','generator','more','coach'].includes(id),nav=document.getElementById('bottomNav');nav.classList.toggle('hidden',!landing);
   [['home','routinesNav'],['workouts','workoutsNav'],['coach','coachNav'],['generator','generatorNav'],['more','moreNav']].forEach(pair=>{const active=id===pair[0],button=document.getElementById(pair[1]);button.classList.toggle('active',active);active?button.setAttribute('aria-current','page'):button.removeAttribute('aria-current')});
   if(typeof backNav!=='undefined'&&backNav)backNav.sync();
+  if(id==='generatedPreview')captureGeneratorDiagnostics();
 }
 function showLanding(id){if(id==='coach'&&coachUI)return coachUI.open();if(id==='workouts')renderPersonalBest();if(id==='generator')renderGenerator();showScreen(id)}
 function goHome(){stopTimer();stopGeneratedPhaseTimer();stopWorkoutClock();state.running=false;workoutState.running=false;state.paused=false;releaseWake();cancelSpeech();showScreen('home')}
