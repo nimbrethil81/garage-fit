@@ -15,16 +15,18 @@ The iOS installed-app trial (build 2026.10.27.2) is a scoped exception: iOS
 27.0.1 device evidence shows a 793px reported viewport on an 852px screen with a
 59px top inset. `navigator.standalone` adds a pre-paint class. html/body use 100vh,
 and non-player screens use a normal-flow, full-height shell with the navigation
-safe area inside it. A keyboard-sized visual-viewport reduction (>150px at scale
+compensation inside it. A keyboard-sized visual-viewport reduction (>150px at scale
 1) uses the measured menu height instead. Safari and player sizing retain the
 existing path. Chromium validates these rules, not the native iOS compositor;
-The user confirmed that this removes the physical-device gap. Build
-2026.10.27.3 then compacts only the installed-iOS tab controls while retaining the
-full home-indicator inset, existing fonts/icons and at least 44px tap height.
-Subsequent physical review requests centring the controls in the full coloured
-bar: the installed-iOS bar now splits that inset equally between top and bottom
-padding. Its total height is unchanged, with equal breathing room around the
-buttons (21px below them for a 34px inset).
+The user confirmed that this removes the physical-device gap. The subsequent
+compact/centred control overrides are superseded by restoration of the original
+navigation from `40521292f`: 8px button padding, 4px gap and natural label flow.
+The original fixed shell's bottom safe-area extension cancelled the extra inset
+in the bar's padding, leaving 8px visible below its buttons. The full-height iOS
+root retains that visible padding directly, without moving individual controls.
+At 393×852 the visible bar is 81px with 64px targets, matching the historical
+render. See [bottom-navigation evidence](BOTTOM_NAV_RESTORATION.md). Native iPhone
+confirmation remains required; the shell workaround and player code are unchanged.
 
 `css/player-layout.css` gives the stage the remaining height. The circular timer
 uses that space through a size container, equal width/height and the original

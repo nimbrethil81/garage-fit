@@ -190,3 +190,19 @@ gap fix. At 393px with a 34px inset, this moves the controls down 17px through
 layout padding and leaves 21px below the targets. Safari and players are unchanged.
 The browser check now requires equal top/bottom spacing; physical iPhone review
 must confirm the resulting balance and home-indicator separation.
+
+## Restore the historical navigation instead of further centring
+
+The user reports that the result still differs from the original navigation and
+provides `40521292f` as the authoritative baseline. Identical before-edit captures
+show the historical bar's visible top at y=771, compared with y=755 on main
+`abd8862` at 393×852. Its original 64px targets became 54px, and natural labels
+became equal-height grids. Mathematical centring is superseded by the explicit
+restoration requirement.
+
+Remove those control overrides and compensate only for the old shell's
+off-screen safe-area extension. Historical and corrected visible navigation
+then match pixel-for-pixel on all five tabs in both themes; the successful root
+workaround and player header remain intact. Detailed measurements, PR disposition
+and native-validation limits are in [the restoration report](BOTTOM_NAV_RESTORATION.md).
+This browser result does not close #316 or establish physical-device acceptance.
