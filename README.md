@@ -83,6 +83,15 @@ See [AGENTS.md](AGENTS.md) for contribution, validation and delivery instruction
 
 ## Contracts and diagnostics
 
+More → Settings → About offers independent App and Workout diagnostic reports.
+Workout diagnostics retains only the latest visible Generator or Coach composition,
+including preview edits, in `gf_workout_diagnostics_v1` (version 1, at most 96,000
+characters). It stores readable, allowlisted text rather than a playable workout.
+An unchanged preview keeps its capture time and composition build; each copy adds
+the currently loaded build and report time. Storage failures leave the latest
+capture available for the current session. Neither report is uploaded automatically.
+Fixed Workouts and standalone Prep & Recover are excluded.
+
 - [Exercise metadata and catalogue authoring](data/EXERCISE_METADATA.md)
 - [Coach API, Session Prescription, programme policies and recovery](docs/COACH_ENGINE.md)
 - [Workout protocols, occurrence targets, playback and tracking](docs/WORKOUT_PROTOCOLS.md)

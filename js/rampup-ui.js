@@ -72,6 +72,7 @@
     document.getElementById('previewRampup').textContent=GarageFitWorkoutPreview.sectionDurationLabel(plan.seconds.rampup);
     document.getElementById('previewCooldown').textContent=GarageFitWorkoutPreview.sectionDurationLabel(plan.seconds.cooldown);
     document.getElementById('previewEstimate').textContent='≈'+Math.round(workout.estimatedSeconds/60)+' min total';
+    if(currentScreen==='generatedPreview')captureGeneratorDiagnostics();
   };
 
   window.buildGeneratedTimeline=function(workout){

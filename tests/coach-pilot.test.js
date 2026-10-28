@@ -115,9 +115,12 @@ test('Coach preview edit mode gates actions and keeps the revised workout for pl
   p.run(`function previewButtons(id='coachPreviewContent') { const visit=node=>[node,...(node.children||[]).flatMap(visit)]; return visit(document.getElementById(id)).filter(node=>node.onclick).map(node=>node.textContent); }
     function clickPreview(label,id='coachPreviewContent') { const visit=node=>node.textContent===label&&node.onclick?node:(node.children||[]).map(visit).find(Boolean);return visit(document.getElementById(id)).onclick(); }`);
   await p.run("clickPreview('View today’s workout','coachContent')");
+  const captured=p.run('garageFitWorkoutDiagnostics.report()');
+  assert.match(captured,/Source: Coach/);
   assert.equal(p.json('previewButtons()').filter(label=>label==='Edit Workout').length,1);
   assert.ok(!p.json('previewButtons()').some(label=>['Swap','Substitute'].includes(label)));
   await p.run("clickPreview('Edit Workout')");
+  assert.equal(p.run('garageFitWorkoutDiagnostics.report()').split('Captured at: ')[1].split('\n')[0],captured.split('Captured at: ')[1].split('\n')[0]);
   assert.ok(p.json('previewButtons()').includes('Substitute'));
   assert.ok(p.json('previewButtons()').includes('Swap'));
   assert.match(p.run("(function visit(node){return [node.textContent,...(node.children||[]).map(visit)].join(' ')})(document.getElementById('coachPreviewContent'))"),/just for today.*supporting exercises/);
@@ -127,10 +130,12 @@ test('Coach preview edit mode gates actions and keeps the revised workout for pl
   assert.ok(p.json('previewButtons()').includes('Done Editing'));
   await p.run("clickPreview('Substitute')");
   await p.run("clickPreview('Dumbbell front squat','coachSubstituteContent')");
+  assert.match(p.run('garageFitWorkoutDiagnostics.report()'),/\[dumbbell-front-squat\]/);
   assert.ok(p.json('previewButtons()').includes('Restore'));
   assert.equal(p.run('coachUI.controller.snapshot().preview.plan.prescription.requiredAnchors[0].exerciseId'),'dumbbell-front-squat');
   await p.run("clickPreview('Restore')");
   assert.equal(p.run('coachUI.controller.snapshot().preview.plan.prescription.requiredAnchors[0].exerciseId'),'goblet-squat');
+  assert.match(p.run('garageFitWorkoutDiagnostics.report()'),/\[goblet-squat\]/);
   await p.run("clickPreview('Swap')");
   const revised=p.json('coachUI.controller.snapshot().preview.workout.main.blocks');
   await p.run("clickPreview('Done Editing')");

@@ -99,7 +99,17 @@ test('diagnostics groups technical fields, labels reported platform and handles 
 test('About keeps diagnostics in a native collapsed disclosure with concise copy',()=>{
   const html=fs.readFileSync('index.html','utf8');
   const about=html.match(/<main id="about"[\s\S]*?<\/main>/)[0];
-  assert.match(about,/<details><summary>Diagnostics<\/summary>/);
-  assert.match(about,/>Copy diagnostics<\/button>/);
+  assert.match(about,/<details><summary>App diagnostics<\/summary>/);
+  assert.match(about,/>Copy app diagnostics<\/button>/);
   assert.match(about,/id="aboutMode"/);
+});
+
+test('Workout report has its own empty state, clipboard status and selectable fallback',async()=>{
+  const app=loadAppContext(),el=id=>app.document.getElementById(id);
+  app.refreshWorkoutDiagnostics();assert.match(el('workoutDiagnostics').textContent,/No captured workout/);
+  el('aboutCopyStatus').textContent='existing app status';let copied;
+  app.navigator.clipboard={writeText:async text=>{copied=text}};
+  await app.copyWorkoutDiagnostics();assert.match(copied,/Currently loaded build:/);assert.match(copied,/Report time:/);
+  assert.match(el('workoutCopyStatus').textContent,/copied/);assert.equal(el('aboutCopyStatus').textContent,'existing app status');
+  delete app.navigator.clipboard;await app.copyWorkoutDiagnostics();assert.match(el('workoutCopyStatus').textContent,/select and copy/);
 });

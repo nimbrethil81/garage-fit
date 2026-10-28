@@ -35,7 +35,7 @@ test('compact Tennis home orders the weekly progress, collapsed adjustments and 
   assert.ok(p.run("action('Programme settings')"),'shared settings destination is live');
   const before=p.state(), durable=[...p.storage.entries()];
   await p.click('View today’s workout');
-  assert.deepEqual(p.state(),before);assert.deepEqual([...p.storage.entries()],durable);
+  assert.deepEqual(p.state(),before);assert.deepEqual([...p.storage.entries()].filter(([key])=>key!==p.app.GarageFitWorkoutDiagnostics.KEY),durable,'previews retain only diagnostics, never Coach/training records');
   assert.ok(p.run('coachUI.controller.snapshot().preview.workout'));
   assert.equal(await p.run('pilotStore.loadSessionDraft()'),null);
   assert.equal((await p.run('pilotStore.listSessionResults()')).results.length,0);
@@ -377,15 +377,17 @@ test('reopening an unchanged Coach preview keeps the same session; real changes 
   const first=p.json('coachUI.controller.snapshot().preview.plan.prescription.prescriptionId');
   await p.click('Edit Workout','coachPreviewContent');await p.click('Swap','coachPreviewContent');
   const edited=p.json('coachUI.controller.snapshot().preview.workout.main.blocks');
+  const diagnostic=p.storage.get(p.app.GarageFitWorkoutDiagnostics.KEY);
   p.run("nodes('coachPreviewContent').find(node=>node.className==='generator-options coach-why').open=true;nodes('coachPreviewContent').find(node=>node.className==='generator-options coach-why').ontoggle()");
   p.run('appBack()');await p.click('View today’s workout');
   assert.equal(p.json('coachUI.controller.snapshot().preview.plan.prescription.prescriptionId'),first);
   assert.deepEqual(p.json('coachUI.controller.snapshot().preview.workout.main.blocks'),edited,'edits are kept, not regenerated');
+  assert.equal(p.storage.get(p.app.GarageFitWorkoutDiagnostics.KEY),diagnostic,'unchanged navigation keeps composition and capture time');
   assert.equal(p.run("action('Edit Workout','coachPreviewContent')")!==undefined,true,'reopening leaves edit mode');
   assert.equal(p.run("!!nodes('coachPreviewContent').find(node=>node.className==='generator-options coach-why').open"),false,'Why this workout? starts collapsed');
   await p.run('coachUI.back()');await p.run('coachUI.open()');await p.click('View today’s workout');
   assert.equal(p.json('coachUI.controller.snapshot().preview.plan.prescription.prescriptionId'),first,'revisiting Coach reuses an unchanged preview');
-  assert.deepEqual(p.state(),before);assert.deepEqual([...p.storage.entries()],durable);
+  assert.deepEqual(p.state(),before);assert.deepEqual([...p.storage.entries()].filter(([key])=>key!==p.app.GarageFitWorkoutDiagnostics.KEY),durable,'previews retain only diagnostics, never Coach/training records');
   assert.equal(await p.run('pilotStore.loadSessionDraft()'),null);
   assert.equal((await p.run('pilotStore.listSessionResults()')).results.length,0);
   await p.run('coachUI.back()');await p.change('Readiness today (optional)','tired');await p.click('View today’s workout');

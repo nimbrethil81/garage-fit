@@ -1160,6 +1160,7 @@
       start.className='preview-start';
       actions.append(edit,start);
       wrap.append(actions); showScreen('coachPreview');
+      root.garageFitWorkoutDiagnostics?.capture(workout,{source:'Coach',programme:def.name,programmeVersion:def.version,sessionRole:prescription.sessionRole,variationPreference:prescription.variationPreference,equipment:preview.today.equipment});
     }
     function showSubstitutes(requirementId, context) {
       const wrap=el('coachSubstituteContent'); wrap.innerHTML='';

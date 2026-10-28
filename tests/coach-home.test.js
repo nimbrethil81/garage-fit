@@ -103,7 +103,8 @@ test('a saved session updates the home count; abandoned work and previews earn n
   const p = await ui(new Map(), ['dumbbells']); await start(p, 'strength');
   const before = p.state(), durable = [...p.storage.entries()];
   await p.click('View today’s workout');
-  assert.deepEqual(p.state(), before); assert.deepEqual([...p.storage.entries()], durable, 'a preview writes nothing');
+  assert.deepEqual(p.state(), before); assert.deepEqual([...p.storage.entries()].filter(([key])=>key!==p.app.GarageFitWorkoutDiagnostics.KEY), durable, 'a preview writes no Coach or training records');
+  assert.ok(p.storage.has(p.app.GarageFitWorkoutDiagnostics.KEY), 'the visible composition alone is retained for diagnostics');
   assert.equal(await p.run('pilotStore.loadSessionDraft()'), null);
   await p.click('Start workout', 'coachPreviewContent');
   await p.run("coachUI.showEnd('exit',60)");
