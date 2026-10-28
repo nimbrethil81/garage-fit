@@ -522,8 +522,8 @@ layout: null
   </main>
   <main id="about" class="screen info-detail hidden">
     <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Settings" onclick="appBack()">←</button><h1>About</h1><span class="header-spacer"></span></header>
-    <section class="library-detail-section"><h2>GarageFit</h2><p>Build <strong id="aboutBuild" data-commit="{{ site.github.build_revision }}">{{ site.github.build_revision | slice: 0, 7 }}</strong></p><p>This identifies the page loaded on this device.</p></section>
-    <details><summary>Display details</summary><pre id="aboutDiagnostics" style="white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;font:inherit;font-size:13px;line-height:1.5"></pre><button class="library-entry" type="button" onclick="copyAboutDetails()">Copy display details</button><p id="aboutCopyStatus" role="status"></p></details>
+    <section class="library-detail-section"><h2>GarageFit</h2><p>Build <strong id="aboutBuild" data-commit="{{ site.github.build_revision }}">{{ site.github.build_revision | slice: 0, 7 }}</strong></p><p id="aboutMode"></p><p>This identifies the page loaded on this device.</p></section>
+    <details><summary>Diagnostics</summary><pre id="aboutDiagnostics" style="white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;font:inherit;font-size:13px;line-height:1.5"></pre><button class="library-entry" type="button" onclick="copyAboutDetails()">Copy diagnostics</button><p id="aboutCopyStatus" role="status"></p></details>
   </main>
   <main id="spokenCues" class="screen hidden">
     <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Settings" onclick="appBack()">←</button><h1>Spoken Cues</h1><span class="header-spacer"></span></header>
@@ -826,14 +826,30 @@ function previewSpokenVoice(){
 }
 function openAbout(){
   showScreen('about');
+  refreshAboutDetails();
+  document.getElementById('aboutCopyStatus').textContent='';
+}
+function refreshAboutDetails(){
   const viewport=window.visualViewport,app=document.getElementById('app'),box=app.getBoundingClientRect();
   const mode=navigator.standalone||window.matchMedia('(display-mode: standalone)').matches?'Installed app':'Browser tab';
   const layoutBuild=getComputedStyle(document.documentElement).getPropertyValue('--gf-layout-build').trim().replace(/^["']|["']$/g,'')||'Unknown (possibly older CSS)';
   const px=value=>Number.isFinite(value)?Math.round(value*100)/100:'unavailable';
+  document.getElementById('aboutMode').textContent=mode;
+  const preference=document.getElementById('appearance').value;
+  const label=value=>value?value.charAt(0).toUpperCase()+value.slice(1):'unavailable';
   document.getElementById('aboutDiagnostics').textContent=[
+    'Build',
     'Page build: '+(document.getElementById('aboutBuild').getAttribute('data-commit')||document.getElementById('aboutBuild').textContent),
     'Layout build: '+layoutBuild,
+    '',
+    'Device',
     'Mode: '+mode,
+    'Reported OS/platform: '+(navigator.userAgentData?.platform||navigator.platform||'unavailable'),
+    'User agent: '+(navigator.userAgent||'unavailable'),
+    'Appearance preference: '+label(preference),
+    'Resolved theme: '+label(document.documentElement.getAttribute('data-appearance')),
+    '',
+    'Display',
     'Screen: '+screen.width+' × '+screen.height,
     'Window: '+window.innerWidth+' × '+window.innerHeight,
     'Visual viewport: '+(viewport?px(viewport.width)+' × '+px(viewport.height):'unavailable'),
@@ -844,12 +860,12 @@ function openAbout(){
     'Top padding: '+getComputedStyle(app).paddingTop,
     'Menu bottom padding: '+getComputedStyle(document.getElementById('bottomNav')).paddingBottom
   ].join('\n');
-  document.getElementById('aboutCopyStatus').textContent='';
 }
 async function copyAboutDetails(){
+  refreshAboutDetails();
   const status=document.getElementById('aboutCopyStatus');
-  try{await navigator.clipboard.writeText(document.getElementById('aboutDiagnostics').textContent);status.textContent='Display details copied.'}
-  catch(error){status.textContent='Copy is unavailable. You can select and copy the display details above.'}
+  try{await navigator.clipboard.writeText(document.getElementById('aboutDiagnostics').textContent);status.textContent='Diagnostics copied.'}
+  catch(error){status.textContent='Copy is unavailable. You can select and copy the diagnostics above.'}
 }
 function showScreen(id){
   if(manualInstructionSpeech&&id!==currentScreen)cancelSpeech();
