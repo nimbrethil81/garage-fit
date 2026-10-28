@@ -330,6 +330,7 @@ def shell_navigation_checks(browser, url):
 
 def standalone_root_checks(browser, url):
     """Contract check for the measured iPhone 15 discrepancy, not an iOS compositor reproduction."""
+    report=[]
     for theme in ['light','dark']:
         page=browser.new_page(viewport={'width':393,'height':852},device_scale_factor=3,has_touch=True)
         def safe_areas(route):
@@ -351,15 +352,19 @@ def standalone_root_checks(browser, url):
                   const app=document.getElementById('app'),nav=document.getElementById('bottomNav');
                   return {position:getComputedStyle(app).position,height:app.getBoundingClientRect().height,
                     top:nav.getBoundingClientRect().top,bottom:nav.getBoundingClientRect().bottom,navHeight:nav.getBoundingClientRect().height,
-                    targets:[...nav.querySelectorAll('button')].map(b=>{const r=b.getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:r.height,width:r.width,iconTop:b.firstElementChild.getBoundingClientRect().top,hit:b.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))}})};
+                    targets:[...nav.querySelectorAll('button')].map(b=>{const r=b.getBoundingClientRect(),icon=b.firstElementChild.getBoundingClientRect(),label=b.lastElementChild.getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:r.height,width:r.width,iconTop:icon.top,iconHeight:icon.height,labelTop:label.top,labelBottom:label.bottom,labelHeight:label.height,hit:b.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))}})};
                 }""")
                 assert result['position']=='relative' and abs(result['height']-expected)<1,(tab,height,result)
                 assert abs(result['bottom']-expected)<1,(tab,height,result)
-                assert result['navHeight']<=100,(tab,height,result)
+                # Measured visible layout from 40521292f at 393px: 81px bar,
+                # 64px targets, 21px icons and natural 23px/11.5px labels.
+                # Its shell extended 34px off-screen; this root does not.
+                assert abs(result['navHeight']-81)<1,(tab,height,result)
                 assert max(b['iconTop'] for b in result['targets'])-min(b['iconTop'] for b in result['targets'])<1,(tab,height,result)
-                # User requested centring in the whole coloured bar. Half the inset
-                # plus 4px now sits on each side, with 21px below each target.
-                assert all(abs((b['top']-result['top'])-(result['bottom']-b['bottom']))<=1 and b['height']>=44 and b['width']>=44 and b['bottom']<=expected-21 and b['hit'] for b in result['targets']),(tab,height,result)
+                assert all(abs(b['top']-result['top']-9)<1 and abs(b['height']-64)<1 and b['width']>=44 and abs(b['bottom']-(expected-8))<1 and b['hit'] for b in result['targets']),(tab,height,result)
+                assert all(abs(b['iconTop']-result['top']-17)<1 and b['iconHeight']==21 and abs(b['labelTop']-result['top']-42)<1 and b['labelBottom']<=expected-16 for b in result['targets']),(tab,height,result)
+                assert [b['labelHeight'] for b in result['targets']]==[23,11.5,11.5,11.5,11.5],(tab,height,result)
+                report.append(dict(theme=theme,tab=tab,reportedHeight=height,**result))
         for player in ['player','workoutPlayer']:
             page.evaluate('(id)=>showScreen(id)',player);settle(page)
             assert page.locator('#app').evaluate("e=>getComputedStyle(e).position==='fixed' && e.getBoundingClientRect().height===793")
@@ -367,18 +372,25 @@ def standalone_root_checks(browser, url):
             assert page.locator('#app').evaluate('e=>e.getBoundingClientRect().height===852')
         page.close()
     print('Standalone root passed: 793/852 discrepancy, keyboard/recovery, safe menu targets and unchanged players, both themes',flush=True)
+    return report
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--url',default='http://127.0.0.1:8000')
     parser.add_argument('--output',type=Path,default=Path('/tmp/player-layout'))
+    parser.add_argument('--navigation-only',action='store_true',help='Check the primary tab shell without running player fixtures')
     args=parser.parse_args();args.output.mkdir(parents=True,exist_ok=True)
-    report=[];blocks=fixture_blocks()
+    report=[]
     with sync_playwright() as p:
         browser=p.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH','/usr/bin/chromium'),args=['--no-sandbox'])
-        standalone_root_checks(browser,args.url)
+        navigation=standalone_root_checks(browser,args.url)
         shell_navigation_checks(browser,args.url)
+        (args.output/'navigation-report.json').write_text(json.dumps(navigation,indent=2))
+        if args.navigation_only:
+            browser.close()
+            return
+        blocks=fixture_blocks()
         instruction_speech_checks(browser,args.url)
         timers.native_entry_checks(browser,args.url)
         for size in [(375,667),(390,844),(393,852),(430,932),(375,540),(320,568),(360,640),(667,375)]:

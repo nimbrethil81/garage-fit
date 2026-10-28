@@ -29,7 +29,8 @@ layout: null
   #app{position:fixed;inset:var(--player-viewport-top,0px) 0 auto 0;height:calc(var(--player-viewport-height,100dvh) + env(safe-area-inset-bottom));display:flex;flex-direction:column;padding-top:env(safe-area-inset-top);background:var(--ink)}
   /* iOS standalone can under-report the viewport by the status-bar inset.
      Normal-flow roots avoid the fixed-root clipping reported on iOS 26/27.
-     The menu pays the bottom safe area inside its height, rather than extending it. */
+     This shell ends at the visible bottom; the tab bar compensates separately
+     for the historical shell's off-screen safe-area extension. */
   html.ios-standalone,html.ios-standalone body{height:100vh;overflow:hidden}
   .ios-standalone #app:not(.active-player){position:relative;inset:var(--player-viewport-top,0px) auto auto;height:var(--standalone-menu-height,100vh)}
   .screen{flex:1;min-height:0;display:flex;flex-direction:column}
@@ -84,10 +85,10 @@ layout: null
   .bottom-nav{flex:0 0 auto;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;padding:8px 12px calc(8px + env(safe-area-inset-bottom));background:var(--nav);border-top:1px solid var(--surface)}
   .nav-btn{border:0;border-radius:12px;background:transparent;color:var(--nav-text);padding:8px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;font-weight:850;letter-spacing:.05em;text-transform:uppercase}.nav-btn .icon{width:21px;height:21px}
   #about summary{min-height:44px;padding:12px 0;cursor:pointer}
-  /* Centre controls in the full installed-iOS bar without increasing its height. */
-  .ios-standalone .bottom-nav{padding-block:calc(4px + env(safe-area-inset-bottom)/2)}
-  .ios-standalone .nav-btn{padding-block:4px;gap:2px;min-height:44px;justify-content:center}
-  .ios-standalone .nav-btn>span:last-child{min-height:2.3em;display:grid;place-items:center}
+  /* The original shell extended one safe inset below the viewport, cancelling
+     that part of the bar's bottom padding. The full-height iOS root has no such
+     extension: retain the original visible 8px, without changing its controls. */
+  .ios-standalone .bottom-nav{padding-bottom:8px}
   .nav-btn.active{color:var(--rest);background:rgba(79,138,131,.12)}.nav-btn span:last-child{text-align:center;line-height:1.15}
 
   #player{align-items:center;justify-content:space-between;padding:20px 20px calc(28px + env(safe-area-inset-bottom));overflow:hidden}

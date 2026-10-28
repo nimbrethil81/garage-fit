@@ -7,9 +7,11 @@ an actual iPhone Safari/PWA check. No application dependencies are added.
 import argparse
 import functools
 import http.server
-from preview_server import PreviewHandler
+from preview_server import PreviewHandler, render_revision
 import json
+from itertools import product
 from pathlib import Path
+import subprocess
 import threading
 from playwright.sync_api import sync_playwright
 
@@ -26,6 +28,7 @@ def main():
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     root = Path(__file__).resolve().parents[1]
+    revision = subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip()
     server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), functools.partial(QuietHandler, directory=str(root)))
     threading.Thread(target=server.serve_forever, daemon=True).start()
     report = []
@@ -33,13 +36,16 @@ def main():
         with sync_playwright() as p:
             browser = p.chromium.launch(executable_path=args.chromium, args=['--no-sandbox'])
             for width, height, top, bottom in [(390,844,47,34), (375,667,20,0), (320,568,20,34), (390,700,47,34)]:
-                for duration in [10,45]:
-                    label = f'{width}x{height}-{duration}min'
+                for duration,standalone in product([10,45],[False,True]):
+                    label = f'{width}x{height}-{duration}min-'+('installed' if standalone else 'browser')
                     page = browser.new_page(viewport={'width':width, 'height':height}, is_mobile=True, has_touch=True, color_scheme='dark')
+                    if standalone:
+                        page.add_init_script("Object.defineProperty(navigator,'standalone',{value:true})")
                     page.add_init_script('let seed=297;Math.random=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296}')
-                    html = (root/'index.html').read_text().replace('env(safe-area-inset-top)', f'{top}px').replace('env(safe-area-inset-bottom)', f'{bottom}px')
+                    html = render_revision((root/'index.html').read_text(),revision).replace('env(safe-area-inset-top)', f'{top}px').replace('env(safe-area-inset-bottom)', f'{bottom}px')
                     page.route('**/index.html', lambda route: route.fulfill(body=html, content_type='text/html'))
                     page.goto(f'http://127.0.0.1:{server.server_port}/index.html')
+                    assert page.evaluate('document.compatMode')=='CSS1Compat',label
                     page.evaluate('(duration)=>{selectGeneratorDuration(duration);generateWorkout()}', duration)
                     screen = page.locator('#generatedPreview')
                     # Every section/row must be reachable within the scrollport,
