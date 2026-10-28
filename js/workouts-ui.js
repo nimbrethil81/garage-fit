@@ -41,6 +41,43 @@
   function renderExercises(definition){var list=document.getElementById('fixedWorkoutDetailExercises');list.innerHTML='';definition.exercises.forEach(function(exercise){var item=document.createElement('li'),copy=document.createElement('div'),target=document.createElement('strong');copy.className='fixed-detail-exercise-name';copy.textContent=exercise.name;if(exercise.note){var note=document.createElement('small');note.textContent=exercise.note;copy.appendChild(note);}var instruction=createInstructionDisclosure(exercise);if(instruction)copy.appendChild(instruction);target.textContent=exercise.target;item.append(copy,target);list.appendChild(item);});}
   function openWorkoutDetail(workoutId){if(workoutId==='postRunReset')selectedPostRunPlan=root.GarageFitPostRunStretch.generate({recent:root.GarageFitPostRunStretch.readRecent(postRunStorage())});var definition=detailDefinition(workoutId);if(!definition)return;selectedWorkoutId=workoutId;document.getElementById('fixedWorkoutDetailTitle').textContent=definition.name;document.getElementById('fixedWorkoutDetailFormat').textContent=definition.format;document.getElementById('fixedWorkoutDetailDescription').textContent=definition.description;renderExercises(definition);var best=document.getElementById('fixedWorkoutDetailBest');best.classList.toggle('hidden',!definition.personalBest);if(definition.personalBest){var pb=getPersonalBest();document.getElementById('fixedWorkoutDetailBestValue').textContent=pb===null?'No time yet':formatTime(pb);}var provenance=document.getElementById('fixedWorkoutDetailProvenance');provenance.classList.toggle('hidden',!definition.provenance);provenance.textContent=definition.provenance||'';showScreen('workoutDetail');}
 
+  // Specialist runs use the shared result contract, but never persist a live draft.
+  var specialistRunNumber = 0;
+  function startSpecialistHistory(session){
+    if(!['deskBreak','postRunReset'].includes(session.workout.id))return;
+    try{
+      var trackerApi=root.GarageFitSessionTracker, storeApi=root.GarageFitCoachStore;
+      var section=session.workout.id==='deskBreak'?'movement-break':'cooldown';
+      var timeline=session.workout.exercises.map(function(ex,index){
+        var phase={kind:'exercise',section:section,exerciseIndex:index,exercise:{id:ex.id,prescription:{type:ex.durationSeconds!=null?'timed':'reps',value:ex.reps}},timed:ex.durationSeconds!=null,seconds:ex.durationSeconds,side:ex.side||null};
+        phase.occurrenceId=trackerApi.occurrenceIdFor(phase);return phase;
+      });
+      var tracker=trackerApi.createTracker({store:storeApi.withEphemeralDraft(storeApi.createStore(postRunStorage())),source:'fixed',workoutId:session.workout.id,
+        draftId:'specialist:'+session.workout.id+':'+Date.now()+':'+(++specialistRunNumber)+':'+Math.random().toString(36).slice(2),
+        recordResults:true,plannedWork:trackerApi.plannedWorkFromTimeline(timeline)});
+      session.history={tracker:tracker,ids:timeline.map(function(p){return p.occurrenceId;}),seconds:0};
+      tracker.start().catch(function(error){historyFailure(session,error);});
+    }catch(error){historyFailure(session,error);}
+  }
+  function historyFailure(session,error){session.historyFailed=true;console.warn('Workout history could not be saved.',error);}
+  function recordSpecialistStep(session){
+    if(!session||!session.history||session.historyFailed)return;
+    try{
+      var ex=state.list[state.idx], tracker=session.history.tracker, id=session.history.ids[state.idx];
+      var write=state.phase==='reps'?tracker.recordDone(id):tracker.recordTimed(id,{plannedSeconds:ex.work,elapsedSeconds:ex.work-state.remaining});
+      write.catch(function(error){historyFailure(session,error);});
+    }catch(error){historyFailure(session,error);}
+  }
+  function finishSpecialistHistory(session){
+    if(!session||!session.history)return;
+    var history=session.history;session.history=null;
+    if(session.historyFailed)return;
+    history.tracker.complete({actualDurationSeconds:history.seconds}).catch(function(error){
+      historyFailure(session,error);
+      if(document.getElementById('doneTitle').textContent===session.workout.name+' Complete')document.getElementById('doneSub').textContent+=' History could not be saved.';
+    });
+  }
+
   function timedSequenceList(workout){var transitionSeconds=workout.transitionSeconds||0;return workout.exercises.map(function(exercise,index){return {id:exercise.id,name:exercise.name,work:exercise.durationSeconds,rest:index<workout.exercises.length-1?transitionSeconds:0,timedCues:CATALOGUE[exercise.id]&&CATALOGUE[exercise.id].timedCues||[]};});}
   function startTimedSequenceWorkout(workoutId){
     var workout=FIXED_WORKOUTS[workoutId];if(!workout||!workout.exercises||workout.termination.type!=='timed-sequence')return;
@@ -49,13 +86,13 @@
   function startTimedSequencePlan(workout,deskBreak){
     var transitionSeconds=workout.transitionSeconds||0;
     var total=workout.exercises.reduce(function(sum,exercise){return sum+exercise.durationSeconds;},0)+transitionSeconds*Math.max(0,workout.exercises.length-1);if(total!==workout.termination.durationSeconds)throw new Error('Timed sequence durations must equal the overall workout duration.');
-    beginInstructionSession();timedSequence={workout:workout,index:0,deskBreak:deskBreak,epoch:0,lastAdvance:-Infinity};state.key=deskBreak?'deskBreak':'fixedTimedSequence';state.list=timedSequenceList(workout);state.idx=0;state.paused=false;state.running=true;state.doneDestination='workouts';document.getElementById('routineName').textContent=workout.name;showScreen('player');requestWake();enterTimedReady();
+    beginInstructionSession();timedSequence={workout:workout,index:0,deskBreak:deskBreak,epoch:0,lastAdvance:-Infinity};state.key=deskBreak?'deskBreak':'fixedTimedSequence';state.list=timedSequenceList(workout);state.idx=0;state.paused=false;state.running=true;state.doneDestination='workouts';document.getElementById('routineName').textContent=workout.name;showScreen('player');startSpecialistHistory(timedSequence);requestWake();enterTimedReady();
   }
   function enterTimedReady(){setInstructionDisclosure('routineInstruction',null);state.phase='ready';state.remaining=3;updateProgressCount();var first=state.list[0];document.getElementById('exerciseName').textContent='Get ready';setRingColor('rest');document.getElementById('phaseLabel').textContent='GET READY';document.getElementById('repsNum').classList.add('hidden');speak('Get ready. '+first.name);runTimedTimer(3,enterTimedExercise);}
   function enterTimedExercise(){var ex=state.list[state.idx];state.phase='work';state.remaining=ex.work;updateProgressCount();document.getElementById('exerciseName').textContent=ex.name;setInstructionDisclosure('routineInstruction',ex);document.getElementById('phaseLabel').textContent='WORK';setRingColor('work');document.getElementById('repsNum').classList.add('hidden');beep(880);announceExercise(ex,exerciseCueParts(ex.name,ex.work+' seconds'),ex.work);state.cueTracker=GarageFitTimedCues.createTracker(ex.timedCues,ex.work);clearTimedCue('routineTimedCue');runTimedTimer(ex.work,enterTimedTransition,elapsed=>showDueTimedCues(state.cueTracker,elapsed,'routineTimedCue'));}
-  function enterTimedTransition(){setInstructionDisclosure('routineInstruction',null);clearTimedCue('routineTimedCue');var ex=state.list[state.idx];if(state.idx>=state.list.length-1||!ex.rest){advanceTimedSequence();return;}state.phase='rest';state.remaining=ex.rest;updateProgressCount();var next=state.list[state.idx+1];document.getElementById('exerciseName').textContent='Get ready';document.getElementById('phaseLabel').textContent=timedSequence&&timedSequence.deskBreak?'CHANGEOVER':'REST';document.getElementById('repsNum').classList.add('hidden');setRingColor('rest');beep(440);speak(next.name);runTimedTimer(ex.rest,advanceTimedSequence);}
+  function enterTimedTransition(){recordSpecialistStep(timedSequence);setInstructionDisclosure('routineInstruction',null);clearTimedCue('routineTimedCue');var ex=state.list[state.idx];if(state.idx>=state.list.length-1||!ex.rest){advanceTimedSequence();return;}state.phase='rest';state.remaining=ex.rest;updateProgressCount();var next=state.list[state.idx+1];document.getElementById('exerciseName').textContent='Get ready';document.getElementById('phaseLabel').textContent=timedSequence&&timedSequence.deskBreak?'CHANGEOVER':'REST';document.getElementById('repsNum').classList.add('hidden');setRingColor('rest');beep(440);speak(next.name);runTimedTimer(ex.rest,advanceTimedSequence);}
   function advanceTimedSequence(){if(state.idx>=state.list.length-1){finishTimedSequence();return;}state.idx++;enterTimedExercise();}
-  function finishTimedSequence(){var workout=timedSequence&&timedSequence.workout;stopTimer();state.running=false;state.doneDestination='workouts';releaseWake();document.getElementById('doneTitle').textContent=(workout?workout.name:'Workout')+' Complete';document.getElementById('doneSub').textContent=(workout&&workout.completionMessage)||'Nice work.';document.getElementById('doneStats').classList.add('hidden');document.getElementById('generatedDoneStats').classList.add('hidden');document.getElementById('amrapDoneStats').classList.add('hidden');document.getElementById('doneBest').classList.add('hidden');document.getElementById('doneBtn').textContent='Back to workouts';showScreen('done');speak('Workout complete. Nice work.');timedSequence=null;}
+  function finishTimedSequence(){finishSpecialistHistory(timedSequence);var workout=timedSequence&&timedSequence.workout;stopTimer();state.running=false;state.doneDestination='workouts';releaseWake();document.getElementById('doneTitle').textContent=(workout?workout.name:'Workout')+' Complete';document.getElementById('doneSub').textContent=(workout&&workout.completionMessage)||'Nice work.';document.getElementById('doneStats').classList.add('hidden');document.getElementById('generatedDoneStats').classList.add('hidden');document.getElementById('amrapDoneStats').classList.add('hidden');document.getElementById('doneBest').classList.add('hidden');document.getElementById('doneBtn').textContent='Back to workouts';showScreen('done');speak('Workout complete. Nice work.');timedSequence=null;}
   // Desk Break guards the entire timer tick (not only expiry): a queued callback
   // from a skipped phase must not decrement or clear the replacement timer.
   function runTimedTimer(seconds,complete,tick){
@@ -68,7 +105,7 @@
     state.timer=setInterval(function(){
       if(!current())return;
       if(state.paused){countdown.observedAt=Date.now();return;}
-      state.remaining--;cue();renderTick(state.remaining,seconds);
+      state.remaining--;if(session.history)session.history.seconds++;cue();renderTick(state.remaining,seconds);
       if(tick)tick(seconds-state.remaining);
       if(state.remaining<=0){clearInterval(state.timer);session.lastAdvance=Date.now();complete();}
     },1000);
@@ -102,7 +139,7 @@
     var workout=workoutId==='postRunReset'?(selectedPostRunPlan||root.GarageFitPostRunStretch.generate({recent:root.GarageFitPostRunStretch.readRecent(postRunStorage())})):FIXED_WORKOUTS[workoutId];if(!workout||!workout.exercises||workout.termination.type!=='fixed-sequence')return;
     if(state.running&&state.key==='fixedSequence')return;
     if(workoutId==='postRunReset'){root.GarageFitPostRunStretch.recordStarted(postRunStorage(),workout);selectedPostRunPlan=null;}
-    beginInstructionSession();fixedSequence={workout:workout,index:0,epoch:0,lastAdvance:-Infinity};state.key='fixedSequence';state.list=fixedSequenceList(workout);state.idx=0;state.paused=false;state.running=true;state.doneDestination='workouts';document.getElementById('routineName').textContent=workout.name;showScreen('player');requestWake();enterFixedSequenceReady();
+    beginInstructionSession();fixedSequence={workout:workout,index:0,epoch:0,lastAdvance:-Infinity};state.key='fixedSequence';state.list=fixedSequenceList(workout);state.idx=0;state.paused=false;state.running=true;state.doneDestination='workouts';document.getElementById('routineName').textContent=workout.name;showScreen('player');startSpecialistHistory(fixedSequence);requestWake();enterFixedSequenceReady();
   }
   function runFixedTimer(seconds,complete,tick){
     var session=fixedSequence,epoch=++session.epoch;
@@ -112,7 +149,7 @@
     state.timer=setInterval(function(){
       if(fixedSequence!==session||session.epoch!==epoch||!state.running||state.key!=='fixedSequence')return;
       if(state.paused){countdown.observedAt=Date.now();return;}
-      state.remaining--;cue();renderTick(state.remaining,seconds);
+      state.remaining--;if(session.history)session.history.seconds++;cue();renderTick(state.remaining,seconds);
       if(tick)tick(seconds-state.remaining);
       if(state.remaining<=0){clearInterval(state.timer);session.lastAdvance=Date.now();complete();}
     },1000);
@@ -127,9 +164,9 @@
     }
     updateRoutineControls();
   }
-  function enterFixedSequenceTransition(){setInstructionDisclosure('routineInstruction',null);clearTimedCue('routineTimedCue');var ex=state.list[state.idx];if(state.idx>=state.list.length-1||!ex.rest){advanceFixedSequence();return;}state.phase='rest';state.remaining=ex.rest;updateProgressCount();var next=state.list[state.idx+1];document.getElementById('exerciseName').textContent='Get ready';document.getElementById('phaseLabel').textContent='REST';document.getElementById('repsNum').classList.add('hidden');setRingColor('rest');beep(440);speak(next.name);runFixedTimer(ex.rest,advanceFixedSequence);}
+  function enterFixedSequenceTransition(){recordSpecialistStep(fixedSequence);setInstructionDisclosure('routineInstruction',null);clearTimedCue('routineTimedCue');var ex=state.list[state.idx];if(state.idx>=state.list.length-1||!ex.rest){advanceFixedSequence();return;}state.phase='rest';state.remaining=ex.rest;updateProgressCount();var next=state.list[state.idx+1];document.getElementById('exerciseName').textContent='Get ready';document.getElementById('phaseLabel').textContent='REST';document.getElementById('repsNum').classList.add('hidden');setRingColor('rest');beep(440);speak(next.name);runFixedTimer(ex.rest,advanceFixedSequence);}
   function advanceFixedSequence(){if(state.idx>=state.list.length-1){finishFixedSequence();return;}state.idx++;enterFixedSequenceStep();}
-  function finishFixedSequence(){var workout=fixedSequence&&fixedSequence.workout;stopTimer();state.running=false;state.doneDestination='workouts';releaseWake();document.getElementById('doneTitle').textContent=(workout?workout.name:'Workout')+' Complete';document.getElementById('doneSub').textContent=(workout&&workout.completionMessage)||'Nice work.';document.getElementById('doneStats').classList.add('hidden');document.getElementById('generatedDoneStats').classList.add('hidden');document.getElementById('amrapDoneStats').classList.add('hidden');document.getElementById('doneBest').classList.add('hidden');document.getElementById('doneBtn').textContent='Back to workouts';showScreen('done');speak('Workout complete. Nice work.');fixedSequence=null;}
+  function finishFixedSequence(){finishSpecialistHistory(fixedSequence);var workout=fixedSequence&&fixedSequence.workout;stopTimer();state.running=false;state.doneDestination='workouts';releaseWake();document.getElementById('doneTitle').textContent=(workout?workout.name:'Workout')+' Complete';document.getElementById('doneSub').textContent=(workout&&workout.completionMessage)||'Nice work.';document.getElementById('doneStats').classList.add('hidden');document.getElementById('generatedDoneStats').classList.add('hidden');document.getElementById('amrapDoneStats').classList.add('hidden');document.getElementById('doneBest').classList.add('hidden');document.getElementById('doneBtn').textContent='Back to workouts';showScreen('done');speak('Workout complete. Nice work.');fixedSequence=null;}
   function skipFixedSequence(){if(!state.running||state.paused||exitState.type)return;var now=Date.now();if(fixedSequence.workout.id==='postRunReset'&&now-fixedSequence.lastAdvance<350)return;fixedSequence.lastAdvance=now;fixedSequence.epoch++;clearInterval(state.timer);state.paused=false;if(state.phase==='ready')enterFixedSequenceStep();else if(state.phase==='work'||state.phase==='reps')enterFixedSequenceTransition();else if(state.phase==='rest')advanceFixedSequence();}
 
   function styleUi(){var style=document.createElement('style');style.textContent=[
@@ -181,7 +218,7 @@
     var error=document.createElement('p');error.id='deskBreakError';error.className='page-header-copy';error.setAttribute('role','alert');list.appendChild(error);
   }
   function cleanCatalogue(){var list=document.querySelector('.workout-list');if(!list)return;var buttons=list.querySelectorAll('.workout-launch');if(buttons.length>=3){rewriteCard(buttons[0],'sevenMinute');rewriteCard(buttons[1],'cindy');rewriteCard(buttons[2],'workout300');if(!list.querySelector('[data-workout-id="abBlast"]')){addWorkoutCard(list,'abBlast');var added=list.lastElementChild;added.setAttribute('data-workout-id','abBlast');}if(!list.querySelector('[data-workout-id="eveningFullBodyReset"]')){addWorkoutCard(list,'eveningFullBodyReset');var addedReset=list.lastElementChild;addedReset.setAttribute('data-workout-id','eveningFullBodyReset');}if(!list.querySelector('[data-workout-id="postRunReset"]')){addWorkoutCard(list,'postRunReset');var addedPostRun=list.lastElementChild;addedPostRun.setAttribute('data-workout-id','postRunReset');}}if(!list.querySelector('[data-workout-id="deskBreak"]'))addDeskBreakCard(list);['.workout-detail','.review-toggle','#workoutReview'].forEach(function(selector){var element=document.querySelector(selector);if(element)element.remove();});var legacyBest=document.querySelector('.best-strip');if(legacyBest)legacyBest.classList.add('hidden');}
-  function patchScreenNavigation(){baseShowScreen=root.showScreen;if(typeof baseShowScreen!=='function')return;root.showScreen=function(id){var detail=document.getElementById('workoutDetail');if(id==='workoutDetail'){['home','workouts','generator','equipment','generatedPreview','routinepick','snackpick','player','workoutPlayer','done'].forEach(function(screenId){var screen=document.getElementById(screenId);if(screen)screen.classList.add('hidden');});detail.classList.remove('hidden');document.getElementById('bottomNav').classList.add('hidden');return;}if(detail)detail.classList.add('hidden');baseShowScreen(id);};}
+  function patchScreenNavigation(){baseShowScreen=root.showScreen;if(typeof baseShowScreen!=='function')return;root.showScreen=function(id){if(id!=='player'){[timedSequence,fixedSequence].forEach(function(session){if(session){session.history=null;session.epoch++;}});}var detail=document.getElementById('workoutDetail');if(id==='workoutDetail'){['home','workouts','generator','equipment','generatedPreview','routinepick','snackpick','player','workoutPlayer','done'].forEach(function(screenId){var screen=document.getElementById(screenId);if(screen)screen.classList.add('hidden');});detail.classList.remove('hidden');document.getElementById('bottomNav').classList.add('hidden');return;}if(detail)detail.classList.add('hidden');baseShowScreen(id);};}
   function patchTimedSequenceControls(){baseSkipPhase=root.skipPhase;if(typeof baseSkipPhase==='function')root.skipPhase=function(){if(state.key==='fixedTimedSequence'||state.key==='deskBreak')skipTimedPhase();else if(state.key==='fixedSequence')skipFixedSequence();else baseSkipPhase();};}
   function install(){if(installed||!document.getElementById('workouts'))return;installed=true;styleUi();createDetailScreen();cleanCatalogue();patchScreenNavigation();patchTimedSequenceControls();}
   root.GarageFitWorkoutUI={cardMeta:CARD_META,detailDefinition:detailDefinition,openWorkoutDetail:openWorkoutDetail,startSelectedWorkout:startSelectedWorkout,startDeskBreak:startDeskBreak,skipTimedPhase:skipTimedPhase,startTimedSequenceWorkout:startTimedSequenceWorkout,startFixedSequenceWorkout:startFixedSequenceWorkout,skipFixedSequence:skipFixedSequence,install:install};
