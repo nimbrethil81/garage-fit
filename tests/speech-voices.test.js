@@ -32,7 +32,7 @@ test('Settings discovers device names, sorts British English first and keeps oth
   assert.equal(h.el('bottomNav').classList.contains('hidden'),true);
   const html=fs.readFileSync('index.html','utf8');
   assert.match(html,/onclick="showScreen\('settings'\)">Settings/);
-  assert.match(html,/onclick="showScreen\('spokenCues'\)">Spoken Cues/);
+  assert.match(html,/onclick="showScreen\('spokenCues'\)"><span>Spoken Cues<\/span>/);
   assert.match(html,/<label for="spokenVoice">Voice<select id="spokenVoice" aria-describedby="spokenVoiceHelp spokenVoiceStatus"/);
   assert.match(html,/aria-label="Back to Settings" onclick="appBack\(\)"/);
   assert.match(html,/Instructions stay in English/);

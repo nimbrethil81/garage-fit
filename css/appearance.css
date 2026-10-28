@@ -24,3 +24,19 @@
 .appearance-help:empty{display:none}
 :root[data-appearance="light"] .brand-mark path{stroke:var(--text)}
 :root[data-appearance="light"] #tile-cooldown .routine-cta{color:var(--ink)}
+
+
+/* Settings uses preference groups rather than the informational More cards. */
+#settings > *{flex-shrink:0}
+.settings-section{margin:0 0 22px}
+.settings-section h2{margin:0 0 8px;font-size:14px;font-weight:750;color:var(--text-muted)}
+.settings-group{border-radius:14px;background:var(--surface)}
+.settings-row{width:100%;min-height:58px;padding:16px;color:var(--text);font:inherit;font-size:16px;text-align:left;overflow-wrap:anywhere}
+.settings-row + .settings-row{border-top:1px solid var(--surface-2)}
+.settings-link{display:flex;align-items:center;justify-content:space-between;gap:16px;border:0;border-radius:14px;background:transparent;font-weight:750;cursor:pointer}
+.settings-chevron{flex:none;color:var(--text-muted);font-size:24px;font-weight:400;line-height:1}
+.settings-preference label{display:flex;align-items:center;justify-content:space-between;gap:12px;font-weight:750}
+.settings-preference select{min-width:0;max-width:60%;min-height:44px;padding:10px;border:1px solid var(--surface-2);border-radius:10px;background:var(--ink);color:var(--text);font:inherit}
+#settings .appearance-help{margin:10px 0 0}
+.settings-link:focus-visible,.settings-preference select:focus-visible{outline:2px solid var(--rest);outline-offset:3px}
+.settings-link:active{background:var(--ink)}
