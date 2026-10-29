@@ -208,7 +208,7 @@ test('settings use Store, preserve targets through failure/retry and pause/resum
   assert.match(p.run("document.getElementById('coachSettingsError').textContent"),/programme-settings/);
   const q=await ui(p.storage);assert.equal(q.state().currentTargets.programmeSettings.focus,'movement');
   await q.click('Programme settings');await q.click('Finish programme');assert.equal(q.state().status,'active','finish needs confirmation');
-  await q.click('Confirm finish programme');assert.match(q.run('copyText()'),/Previous programme finished/);
+  await q.click('Confirm finish programme');assert.match(q.run('copyText()'),/Previous plan · 0 sessions/);
   assert.equal(q.state().status,'completed');assert.deepEqual(q.state().anchors,before.anchors);
 });
 

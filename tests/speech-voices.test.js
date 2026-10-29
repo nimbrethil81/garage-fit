@@ -159,7 +159,7 @@ test('a real Coach programme delegates speech to the selected-voice player',asyn
   const h=harness({ownIntrinsics:true});h.app.chooseSpokenVoice('0');
   h.run(`state.ownedEquipment=['dumbbells','bench'];
     function clickCoach(label,id='coachContent'){
-      const visit=node=>node.textContent===label&&node.onclick?node:(node.children||[]).map(visit).find(Boolean);
+      const visit=node=>(node.attributes?.['aria-label']===label||node.textContent===label)&&node.onclick?node:(node.children||[]).map(visit).find(Boolean);
       return visit(document.getElementById(id)).onclick();
     }`);
   await h.run('coachUI.open()');
