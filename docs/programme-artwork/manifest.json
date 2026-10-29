@@ -1,23 +1,24 @@
 {
-  "provenance": "OpenAI image generation, 2026-10-29, issue #341",
-  "humanApproval": "pending",
+  "provenance": "Supplied garagefit-coach-artwork-v1.zip; all PNG/WebP files copied byte-for-byte",
+  "archiveSha256": "c87b6ff8b8f16d6464dedb83e9f7818144994187b13f54f8c9d6f422b9a09c40",
+  "humanApproval": "User instructed use of exact supplied artwork; final in-app visual review pending",
   "assets": [
     {
       "id": "general-fitness",
       "source": {
         "path": "docs/programme-artwork/general-fitness.png",
-        "sha256": "20da3f78a3a5db69d35868b0fe7f6573dd67d0ef4d2b2bb8348f25324d230827",
+        "sha256": "1d9836e867c3c405663e6496226a4f84cc2f9d6689dbe7ab3320f9051b4a316b",
         "dimensions": [
-          1254,
-          1254
+          887,
+          443
         ]
       },
       "runtime": {
         "path": "assets/programmes/general-fitness.webp",
-        "sha256": "105506a52eefe8708df45d1784203b5b41ac79a27a39fc497e4e3d83fcdafc32",
+        "sha256": "225e0c3e48065d35455fcfcb21e218c9c8cc99372fb8a96c24144874e52d0c51",
         "dimensions": [
-          1254,
-          1254
+          887,
+          443
         ]
       }
     },
@@ -25,18 +26,18 @@
       "id": "general-strength-4w",
       "source": {
         "path": "docs/programme-artwork/general-strength-4w.png",
-        "sha256": "602e836e7be45425c713ecd980fbd646354e4aecf659d2f01981588a1f9b0571",
+        "sha256": "ea102fb51021033bbed170df52cbf87e83e8d5e49b2a2eb0c90a785ceff3339f",
         "dimensions": [
-          1254,
-          1254
+          887,
+          443
         ]
       },
       "runtime": {
         "path": "assets/programmes/general-strength-4w.webp",
-        "sha256": "0f5514fa100a01b8763cba062cee432e8accebd4c710cbaa663076cf11e07e36",
+        "sha256": "22e5d7697c8012fdf5d3f5043c01b57971fb0c6025f7c330b771e896c0280a3b",
         "dimensions": [
-          1254,
-          1254
+          887,
+          443
         ]
       }
     },
@@ -44,18 +45,18 @@
       "id": "build-arms",
       "source": {
         "path": "docs/programme-artwork/build-arms.png",
-        "sha256": "97167eda047e4d141ebfeb1a7249d1c1453dd7663ef7fd9c6c9b5227c8a03d11",
+        "sha256": "8254c0971525253c525116c83c74805760e9c84da02a00e7931cfd0c56ab6060",
         "dimensions": [
-          1254,
-          1254
+          887,
+          444
         ]
       },
       "runtime": {
         "path": "assets/programmes/build-arms.webp",
-        "sha256": "9f8cae679f2339201166d5eb2658057e4ca2b62137f12a3ccbbb41345f3c5446",
+        "sha256": "7cc590476b9410bff02d63e91ec6797875c74e1a38520914505a17bfcc6c2704",
         "dimensions": [
-          1254,
-          1254
+          887,
+          444
         ]
       }
     },
@@ -63,18 +64,18 @@
       "id": "tennis-conditioning",
       "source": {
         "path": "docs/programme-artwork/tennis-conditioning.png",
-        "sha256": "d325816ff2301d3073b11d32fcbd91ba3149170ef68bc149e570592aec119664",
+        "sha256": "0c1be4a4ffb832b3eb9a5b76005449eda0050b410144622c346b7171ad528fcf",
         "dimensions": [
-          1254,
-          1254
+          887,
+          444
         ]
       },
       "runtime": {
         "path": "assets/programmes/tennis-conditioning.webp",
-        "sha256": "43c65458cffee440f18ea166deadeb9696bbd4142dd2060d2d99b7b3ef853140",
+        "sha256": "1cac4c0ed37c01db4e1aab31a864307e55dc4a012fbbf23ddf75bf732bb3e28d",
         "dimensions": [
-          1254,
-          1254
+          887,
+          444
         ]
       }
     }

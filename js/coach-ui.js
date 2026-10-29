@@ -591,7 +591,7 @@
       copy.append(title,description);
       const art=document.createElement('span'), image=document.createElement('img');
       art.className='coach-programme-art'; art.setAttribute('aria-hidden','true');
-      image.src='assets/programmes/'+programme.id+'.webp'; image.alt=''; image.width=128; image.height=128;
+      image.src='assets/programmes/'+programme.id+'.webp'; image.alt=''; image.width=887; image.height=programme.id==='general-fitness' || programme.id==='general-strength-4w'?443:444;
       image.onerror=()=>{image.hidden=true;}; art.append(image); card.append(copy,art);
       if (state?.status==='completed' && state.programmeDefinitionId===programme.id) {
         const footer=document.createElement('span'); footer.className='coach-programme-history';
