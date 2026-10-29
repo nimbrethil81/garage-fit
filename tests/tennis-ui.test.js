@@ -12,7 +12,7 @@ async function ui(storage = new Map(), equipment = ['dumbbells']) {
     // Controls are looked up on whichever Coach screen is showing.
     function visible(){return [['coachSettings','coachSettingsContent'],['coachProgress','coachProgressContent']].find(([screen])=>!document.getElementById(screen).classList.contains('hidden'))?.[1]||'coachContent';}
     function field(label){return nodes(visible()).find(node=>node.attributes?.['aria-label']===label);}
-    function action(label,id=visible()){return nodes(id).find(node=>node.textContent===label&&node.onclick);}
+    function action(label,id=visible()){return nodes(id).find(node=>(node.attributes?.['aria-label']===label||node.textContent===label)&&node.onclick);}
     function copyText(id='coachContent'){return nodes(id).map(node=>node.textContent).join(' ');}`);
   await p.run('coachUI.open()');
   p.click = (label,id) => p.run(`action(${JSON.stringify(label)}${id?','+JSON.stringify(id):''}).onclick()`);

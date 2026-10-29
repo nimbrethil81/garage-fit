@@ -130,7 +130,7 @@ test('rings are listed once in the Library filter without implying TRX or a bar'
 test('Coach available equipment uses the same independent rings inventory', async () => {
   const app=loadAppContext(new Map(),{ownIntrinsics:true});
   run(app, `function coachNodes(){const visit=node=>[node,...(node.children||[]).flatMap(visit)];return visit(document.getElementById('coachContent'));}
-    function coachAction(label){return coachNodes().find(node=>node.textContent===label&&node.onclick);}`);
+    function coachAction(label){return coachNodes().find(node=>(node.attributes?.['aria-label']===label||node.textContent===label)&&node.onclick);}`);
   app.toggleEquipmentItem('dumbbells');
   await run(app,'coachUI.open()');
   await run(app,"coachAction('4-Week General Strength').onclick()");

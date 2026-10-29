@@ -70,7 +70,7 @@ test('generator setup choices survive preview and equipment back navigation', ()
 test('Coach programme overview returns to the programme list through the shared action without changing programme state', async () => {
   const p = pilot(new Map(), 'general-strength-4w', 1);
   await p.run('coachUI.open()');
-  const find = label => p.run(`(()=>{const visit=n=>[n,...(n.children||[]).flatMap(visit)];return visit(document.getElementById('coachContent')).find(n=>n.textContent===${JSON.stringify(label)}&&n.onclick)})()`);
+  const find = label => p.run(`(()=>{const visit=n=>[n,...(n.children||[]).flatMap(visit)];return visit(document.getElementById('coachContent')).find(n=>(n.attributes?.['aria-label']===${JSON.stringify(label)}||n.textContent===${JSON.stringify(label)})&&n.onclick)})()`);
   assert.equal(p.run('backNav.canGoBack()'), false, 'programme list is a landing');
   const before = JSON.stringify(p.json('coachUI.controller.snapshot().state'));
   find('4-Week General Strength').onclick(); await new Promise(resolve => setImmediate(resolve));

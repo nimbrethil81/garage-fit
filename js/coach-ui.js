@@ -563,14 +563,43 @@
       if (!state || state.status==='completed') {
         wrap.append(paragraph('A training goal and sessions adapted to the work you actually do.'));
         wrap.append(heading('Fitness programmes'));
-        programmes.filter(programme => programme.type !== 'tennis-conditioning').forEach(programme => wrap.append(button(programme.name, () => { def=programme; overview(); }, true)));
+        programmes.filter(programme => programme.type !== 'tennis-conditioning').forEach(programme => wrap.append(programmeCard(programme,state)));
         wrap.append(heading('Sport cross-training'));
-        programmes.filter(programme => programme.type === 'tennis-conditioning').forEach(programme => wrap.append(button('Tennis', () => { def=programme; overview(); }, true)));
-        if (state) { const finished=paragraph('Previous programme finished · '+state.meaningfulSessionsCompleted+' meaningful sessions. Your history is saved.'); finished.className='coach-milestone'; wrap.append(finished); }
+        programmes.filter(programme => programme.type === 'tennis-conditioning').forEach(programme => wrap.append(programmeCard(programme,state)));
         return;
       }
       def = root.GarageFitData.programmes[state.programmeDefinitionId][state.programmeDefinitionVersion];
       renderHome(wrap,current);
+    }
+    const programmePresentation = {
+      'general-fitness': {description:'Varied whole-body training for everyday fitness.', accent:'fitness'},
+      'general-strength-4w': {description:'Build whole-body strength with a focused four-week plan.', accent:'strength'},
+      'build-arms': {description:'Give arms extra attention while training your whole body.', accent:'arms'},
+      'tennis-conditioning': {description:'Build strength, movement and conditioning for the court.', accent:'tennis'}
+    };
+    function programmeCard(programme, state) {
+      const presentation=programmePresentation[programme.id];
+      const name=programme.type==='tennis-conditioning'?'Tennis':programme.name;
+      const card=button('',()=>{def=programme;overview();});
+      card.className='coach-programme-card coach-programme-'+presentation.accent;
+      card.setAttribute('aria-label',name);
+      card.setAttribute('data-programme-id',programme.id);
+      const copy=document.createElement('span'), title=document.createElement('span'), description=document.createElement('span');
+      copy.className='coach-programme-copy'; title.className='coach-programme-title'; title.textContent=name;
+      description.className='coach-programme-description'; description.id='coach-programme-description-'+programme.id; description.textContent=presentation.description;
+      card.setAttribute('aria-describedby',description.id);
+      copy.append(title,description);
+      const art=document.createElement('span'), image=document.createElement('img');
+      art.className='coach-programme-art'; art.setAttribute('aria-hidden','true');
+      image.src='assets/programmes/'+programme.id+'.webp'; image.alt=''; image.width=128; image.height=128;
+      image.onerror=()=>{image.hidden=true;}; art.append(image); card.append(copy,art);
+      if (state?.status==='completed' && state.programmeDefinitionId===programme.id) {
+        const footer=document.createElement('span'); footer.className='coach-programme-history';
+        footer.id='coach-programme-history-'+programme.id;
+        footer.textContent='Previous plan · '+plural(state.meaningfulSessionsCompleted,'session'); card.append(footer);
+        card.setAttribute('aria-describedby',description.id+' '+footer.id);
+      }
+      return card;
     }
     function retainDisclosure(details,key) {
       if (Object.prototype.hasOwnProperty.call(disclosureOpen,key)) details.open=disclosureOpen[key];

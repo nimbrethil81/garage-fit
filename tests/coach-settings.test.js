@@ -11,7 +11,7 @@ async function ui(storage = new Map(), equipment = ['dumbbells','bench']) {
     function nodes(id){const visit=node=>[node,...(node.children||[]).flatMap(visit)];return visit(document.getElementById(id));}
     function visible(){return [['coachSettings','coachSettingsContent'],['coachProgress','coachProgressContent']].find(([screen])=>!document.getElementById(screen).classList.contains('hidden'))?.[1]||'coachContent';}
     function field(label){return nodes(visible()).find(node=>node.attributes?.['aria-label']===label);}
-    function action(label,id=visible()){return nodes(id).find(node=>node.textContent===label&&node.onclick);}
+    function action(label,id=visible()){return nodes(id).find(node=>(node.attributes?.['aria-label']===label||node.textContent===label)&&node.onclick);}
     function copyText(id=visible()){return nodes(id).map(node=>node.textContent).join(' ');}`);
   await p.run('coachUI.open()');
   p.click = (label, id) => p.run(`action(${JSON.stringify(label)}${id ? ','+JSON.stringify(id) : ''}).onclick()`);
@@ -70,7 +70,7 @@ test('General Strength shows its read-only plan and keeps maintenance, pause and
   await p.click('Finish programme'); await p.click('Confirm finish programme');
   const finished = p.state();
   assert.equal(finished.status, 'completed'); assert.equal(finished.programmeInstanceId, instance); assert.deepEqual(finished.anchors, anchors);
-  assert.ok(p.screen('coach')); assert.match(p.text(), /Previous programme finished/);
+  assert.ok(p.screen('coach')); assert.match(p.text(), /Previous plan · 0 sessions/);
 });
 
 test('a due four-week review stays on Coach home and in settings, without a standalone maintenance toggle', async () => {

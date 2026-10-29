@@ -1,0 +1,82 @@
+{
+  "provenance": "OpenAI image generation, 2026-10-29, issue #341",
+  "humanApproval": "pending",
+  "assets": [
+    {
+      "id": "general-fitness",
+      "source": {
+        "path": "docs/programme-artwork/general-fitness.png",
+        "sha256": "20da3f78a3a5db69d35868b0fe7f6573dd67d0ef4d2b2bb8348f25324d230827",
+        "dimensions": [
+          1254,
+          1254
+        ]
+      },
+      "runtime": {
+        "path": "assets/programmes/general-fitness.webp",
+        "sha256": "105506a52eefe8708df45d1784203b5b41ac79a27a39fc497e4e3d83fcdafc32",
+        "dimensions": [
+          1254,
+          1254
+        ]
+      }
+    },
+    {
+      "id": "general-strength-4w",
+      "source": {
+        "path": "docs/programme-artwork/general-strength-4w.png",
+        "sha256": "602e836e7be45425c713ecd980fbd646354e4aecf659d2f01981588a1f9b0571",
+        "dimensions": [
+          1254,
+          1254
+        ]
+      },
+      "runtime": {
+        "path": "assets/programmes/general-strength-4w.webp",
+        "sha256": "0f5514fa100a01b8763cba062cee432e8accebd4c710cbaa663076cf11e07e36",
+        "dimensions": [
+          1254,
+          1254
+        ]
+      }
+    },
+    {
+      "id": "build-arms",
+      "source": {
+        "path": "docs/programme-artwork/build-arms.png",
+        "sha256": "97167eda047e4d141ebfeb1a7249d1c1453dd7663ef7fd9c6c9b5227c8a03d11",
+        "dimensions": [
+          1254,
+          1254
+        ]
+      },
+      "runtime": {
+        "path": "assets/programmes/build-arms.webp",
+        "sha256": "9f8cae679f2339201166d5eb2658057e4ca2b62137f12a3ccbbb41345f3c5446",
+        "dimensions": [
+          1254,
+          1254
+        ]
+      }
+    },
+    {
+      "id": "tennis-conditioning",
+      "source": {
+        "path": "docs/programme-artwork/tennis-conditioning.png",
+        "sha256": "d325816ff2301d3073b11d32fcbd91ba3149170ef68bc149e570592aec119664",
+        "dimensions": [
+          1254,
+          1254
+        ]
+      },
+      "runtime": {
+        "path": "assets/programmes/tennis-conditioning.webp",
+        "sha256": "43c65458cffee440f18ea166deadeb9696bbd4142dd2060d2d99b7b3ef853140",
+        "dimensions": [
+          1254,
+          1254
+        ]
+      }
+    }
+  ]
+}
