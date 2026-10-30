@@ -86,7 +86,7 @@ function loadApp() {
     SpeechSynthesisUtterance: function(text){this.text=text;},
     speechSynthesis: { cancel(){}, speak(utterance){spoken.push(utterance.text);} },
     document: { getElementById:id=>elements[id]||(elements[id]=new Element(id)), createElement:()=>new Element(), addEventListener(){}, head:new Element(), querySelector(){return null;} },
-    localStorage: { getItem:key=>storage.has(key)?storage.get(key):null, setItem:(key,value)=>storage.set(key,String(value)), removeItem:key=>storage.delete(key) },
+    localStorage: {get length(){return storage.size;},key:i=>[...storage.keys()][i]||null, getItem:key=>storage.has(key)?storage.get(key):null, setItem:(key,value)=>storage.set(key,String(value)), removeItem:key=>storage.delete(key) },
     navigator: {},
     getComputedStyle: () => ({ getPropertyValue: () => '#000' }),
     setInterval: callback => { const id=nextInterval++; intervals.set(id,callback); return id; },
@@ -96,7 +96,7 @@ function loadApp() {
   };
   context.window = context; context.globalThis = context;
   vm.createContext(context);
-  for (const file of ['data/equipment.js','data/exercises.js','data/workouts.js','data/workout-families.js','js/workout-families.js','js/generator.js','js/routine-generator.js','js/desk-break.js','js/training-history.js','js/timed-cues.js','js/speech-voices.js','js/completion-signal.js','js/coach-model.js','js/coach-store.js','js/session-tracker.js','js/workout-preview.js','js/masthead.js','js/back-navigation.js']) {
+  for (const file of ['data/equipment.js','data/exercises.js','data/workouts.js','data/workout-families.js','js/workout-families.js','js/generator.js','js/routine-generator.js','js/desk-break.js','js/training-history.js','js/timed-cues.js','js/speech-voices.js','js/completion-signal.js','js/coach-model.js','js/coach-store.js','js/first-use.js','js/session-tracker.js','js/workout-preview.js','js/masthead.js','js/back-navigation.js']) {
     vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), context, { filename:file });
   }
   const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].at(-1)[1];
@@ -278,5 +278,24 @@ test('rapidly skipping every specialist occurrence records no performed credit; 
     }
     const results=await saved(context);assert.equal(results.length,1);
     assert.equal(results[0].performedWork.length,0);assert.equal(results[0].actualDurationSeconds,0);
+  }
+});
+
+test('tracked specialist completion acknowledges first use, while skipped-only and failed saves do not',async()=>{
+  for(const id of ['deskBreak','postRunReset'])for(const kind of ['performed','skipped','failed']){
+    const {context,intervals,elements}=loadApp();
+    await vm.runInContext('firstUse.ready',context);
+    if(kind==='failed'){
+      const original=context.localStorage.setItem;
+      context.localStorage.setItem=(key,value)=>{if(key.startsWith('gf_coach_'))throw Error('full');original(key,value);};
+    }
+    id==='deskBreak'?context.GarageFitWorkoutUI.startDeskBreak():context.GarageFitWorkoutUI.startFixedSequenceWorkout(id);
+    if(kind==='skipped'){
+      while(vm.runInContext('state.running',context))
+        (id==='deskBreak'?context.GarageFitWorkoutUI.skipTimedPhase:context.GarageFitWorkoutUI.skipFixedSequence)();
+    }else runToEnd(context,intervals);
+    await settleHistory();
+    assert.equal(vm.runInContext('firstUse.snapshot().completed',context),kind==='performed',id+kind);
+    assert.equal(elements.firstSaveddone.classList.contains('hidden'),kind!=='performed',id+kind);
   }
 });

@@ -440,3 +440,17 @@ test('Coach serialises rapid actions and rejects a save continuation for an obso
   assert.equal(h.run('generatorState.timelineIndex'),index+2);
   assert.equal(h.run('coachAdvancing'),false);
 });
+
+test('a real standalone saved completion acknowledges first use; failed writes preserve guidance',async()=>{
+  for(const fail of [false,true]){
+    const h=harness();await h.run('firstUse.ready');
+    h.generate(7,10);h.app.startStandaloneGeneratedWorkout();
+    if(fail)h.app.localStorage.setItem=(key,value)=>{if(key.startsWith('gf_coach_'))throw Error('full');h.storage.set(key,String(value));};
+    await h.playToEnd();
+    await Promise.resolve(h.run('generatorState.trackedResult')).catch(()=>{});
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(h.run('firstUse.snapshot().completed'),!fail);
+    assert.equal(h.app.document.getElementById('firstSaveddone').classList.contains('hidden'),fail);
+    if(fail)assert.match(h.app.document.getElementById('doneSub').textContent,/could not be saved/);
+  }
+});

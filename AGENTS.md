@@ -20,6 +20,8 @@ GarageFit is a dependency-free browser PWA for fixed and generated workouts.
 - New primary tabs must reuse the shared masthead (`js/masthead.js`, `data-masthead` host) and the existing `showScreen()` / `#bottomNav` behaviour, and extend `tests/primary-masthead.test.js`. Inspect existing components and styles before creating new patterns.
 - When adding or editing exercises, follow the catalogue and editorial rules in data/EXERCISE_METADATA.md, including the exercise-instruction standard.
 
+First-use impact check for changes: **no impact** for catalogue/exercise/visual-only edits; **minor** for contextual explanations or an existing first-use step; **material** for a new primary mode or fundamental setup/navigation changes. Preserve the maintained contract: newcomers can understand their options, optionally configure equipment, complete a workout and understand what was saved without an account or programme. For minor/material impact, check the affected first-use path and keep its guidance accurate.
+
 ## Screen presentation
 
 For new or materially revised Coach, Generator, Prep & Recover and relevant More information screens, apply these principles proportionately; not everything needs a card.

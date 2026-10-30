@@ -72,7 +72,7 @@
     if(!session||!session.history)return;
     var history=session.history;session.history=null;
     if(session.historyFailed)return;
-    history.tracker.complete({actualDurationSeconds:history.seconds}).catch(function(error){
+    history.tracker.complete({actualDurationSeconds:history.seconds}).then(function(result){if(root.firstUseSaved)return root.firstUseSaved(result,'done');}).catch(function(error){
       historyFailure(session,error);
       if(document.getElementById('doneTitle').textContent===session.workout.name+' Complete')document.getElementById('doneSub').textContent+=' History could not be saved.';
     });

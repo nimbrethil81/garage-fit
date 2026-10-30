@@ -448,3 +448,15 @@ test('unknown actual exercise identity remains valid evidence without an invente
   const loaded=await store.listSessionResults({performedOnly:true,limit:1});
   assert.equal(loaded.results[0].performedWork[0].exerciseId,null);
 });
+
+test('first-use installation evidence is read-only and detects orphaned and damaged Coach keys',async()=>{
+  const storage=new MemoryStorage(),store=createStore(storage);
+  assert.equal(await store.hasInstallationEvidence(),false);
+  storage.map.set('gf_coach_programme_state:orphan','broken');
+  assert.equal(await store.hasInstallationEvidence(),true);
+  assert.deepEqual(storage.writes,[]);
+  storage.failReads=true; // key enumeration remains readable; record contents are deliberately never parsed.
+  assert.equal(await store.hasInstallationEvidence(),true);
+  storage.key=()=>{throw Error('unreadable');};
+  await rejectsWith(store.hasInstallationEvidence(),'storage-unavailable');
+});
