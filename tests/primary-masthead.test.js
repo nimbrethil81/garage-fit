@@ -10,15 +10,16 @@ const screens=[...html.matchAll(/<main id="([^"]+)"[^>]*>([\s\S]*?)<\/main>/g)].
 const NAV={home:'routinesNav',workouts:'workoutsNav',coach:'coachNav',generator:'generatorNav',more:'moreNav'};
 const TITLES={home:'Warm-up &amp; Cool-down',workouts:'Workouts',coach:'Coach',generator:'Workout Generator',more:'More'};
 
-// The approved #348 reference retains the five-tab bar on the three shared
-// progress secondaries. They keep back headers and never become primary tabs.
+// Approved #348 progress and #354 Backup & Restore retain the five-tab bar
+// on secondary screens. Back headers do not create extra primary tabs.
 const PROGRESS=['yourProgress','trainingHistory','sessionDetails'];
+const SHARED_SECONDARIES=[...PROGRESS,'backupRestore'];
 function classify(app){
   const el=id=>app.document.getElementById(id);
   const primary=[],secondary=[],sharedProgress=[];
   for(const {id} of screens){
     app.showScreen(id);
-    if(PROGRESS.includes(id)){
+    if(SHARED_SECONDARIES.includes(id)){
       assert.equal(el('bottomNav').classList.contains('hidden'),false,id);
       sharedProgress.push(id);secondary.push(id);
     }else (el('bottomNav').classList.contains('hidden')?secondary:primary).push(id);
@@ -26,9 +27,9 @@ function classify(app){
   return {primary,secondary,sharedProgress};
 }
 
-test('five primary tabs and only the approved shared progress secondaries show the bottom navigation',()=>{
+test('five primary tabs and approved shared secondaries show the bottom navigation',()=>{
   const {primary,secondary,sharedProgress}=classify(loadAppContext());
-  assert.deepEqual(sharedProgress.sort(),PROGRESS.slice().sort());
+  assert.deepEqual(sharedProgress.sort(),SHARED_SECONDARIES.slice().sort());
   assert.deepEqual(primary.sort(),Object.keys(NAV).sort());
   for(const id of ['coachPreview','coachSubstitute','coachResult','player','workoutPlayer','equipment','generatedPreview'])assert.ok(secondary.includes(id),id);
 });
@@ -178,4 +179,14 @@ test('shared progress keeps the entry tab active and uses secondary back headers
       assert.match(body,/class="back-btn"/);assert.doesNotMatch(body,/data-masthead/);
     }
   }
+});
+
+
+test('Backup & Restore retains More navigation and a secondary back header without a sixth tab',()=>{
+  const app=loadAppContext();app.showScreen('backupRestore');
+  assert.equal(app.document.getElementById('bottomNav').classList.contains('hidden'),false);
+  for(const [screen,id] of Object.entries(NAV))assert.equal(app.document.getElementById(id).attributes['aria-current'],screen==='more'?'page':undefined);
+  const body=screens.find(screen=>screen.id==='backupRestore').body;
+  assert.match(body,/class="back-btn"/);assert.doesNotMatch(body,/data-masthead/);
+  assert.equal(Object.keys(NAV).length,5);
 });
