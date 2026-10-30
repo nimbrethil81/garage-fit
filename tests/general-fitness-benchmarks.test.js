@@ -588,7 +588,7 @@ test('Your progress keeps training consistency, capability balance and comparabl
   const p = await ui();
   await p.click('General Fitness'); await p.click('Start programme');
   p.day(1); await p.run('coachUI.open()');
-  await p.click('Your progress');
+  await p.run('coachUI.openProgrammeProgress()');
   const empty = p.text('coachProgressContent').replace(/\s+/g, ' ');
   const order = ['Training consistency · last 4 weeks', 'Capability balance · last 28 days', 'Demonstrated comparable improvement', 'Recent sessions'].map(label => empty.indexOf(label));
   assert.ok(order.every(index => index > 0) && order.every((index, i) => !i || index > order[i - 1]), 'three separate sections precede Recent sessions: ' + order);
@@ -600,7 +600,7 @@ test('Your progress keeps training consistency, capability balance and comparabl
   assert.ok(p.json("nodes('coachProgressContent').filter(node=>node.className==='coach-progress-card-button').length") === 6 + 3, 'six balance cards and three benchmark cards');
   // Read-only: viewing progress writes nothing.
   const before = [...p.storage.entries()];
-  await p.run('coachUI.openProgress()');
+  await p.run('coachUI.openProgrammeProgress()');
   assert.deepEqual([...p.storage.entries()], before);
   await p.run('coachUI.back()');
 
@@ -634,7 +634,7 @@ async function uiUntilOfferedFrom(p, from = 0) {
   throw new Error('no benchmark was offered');
 }
 async function openProgressText(p, day) {
-  p.day(day); await p.run('coachUI.open()'); await p.click('Your progress');
+  p.day(day); await p.run('coachUI.open()'); await p.run('coachUI.openProgrammeProgress()');
   const text = p.text('coachProgressContent') + ' ' + p.json("nodes('coachProgressContent').filter(node=>node.className==='coach-progress-detail').map(node=>nodes('coachProgressContent').length&&[node,...node.children].map(child=>child.textContent).join(' '))").join(' ');
   await p.run('coachUI.back()');
   return text.replace(/\s+/g, ' ');

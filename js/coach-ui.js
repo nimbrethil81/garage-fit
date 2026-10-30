@@ -567,6 +567,7 @@
         programmes.filter(programme => programme.type !== 'tennis-conditioning').forEach(programme => wrap.append(programmeCard(programme,state)));
         wrap.append(heading('Sport cross-training'));
         programmes.filter(programme => programme.type === 'tennis-conditioning').forEach(programme => wrap.append(programmeCard(programme,state)));
+        wrap.append(progressLink());
         return;
       }
       def = root.GarageFitData.programmes[state.programmeDefinitionId][state.programmeDefinitionVersion];
@@ -864,7 +865,8 @@
         : state.currentTargets.tennisDevelopment?.phase==='consolidation'?'Consolidation':'Development';
       return state.mode==='maintenance'?'Maintenance':def.openEnded?'Ongoing':'Development';
     }
-    function openProgress() {
+    function openProgress() { return root.openSharedProgress(); }
+    function openProgrammeProgress() {
       renderProgress(); showScreen('coachProgress');
       el('coachProgress').querySelector?.('.back-btn')?.focus?.();
     }
@@ -1310,7 +1312,8 @@
         resetOptions(); showScreen('coach'); render(); if(onSessionSaved)await onSessionSaved(result); });
     }
     return {open, overview, controller, renderAnchor, record, showEnd, saveFeedback, updateActualSummary,
-      isActive: () => sessionActive, run, backFromSubstitute, backFromOverview, inOverview: () => overviewOpen, openProgress, openSettings, back: () => {previewEditing=false;showScreen('coach');render();},
+      isActive: () => sessionActive, run, backFromSubstitute, backFromOverview, inOverview: () => overviewOpen, openProgress, openProgrammeProgress,
+      progressContext: async () => {await initialisation;const state=controller.snapshot().state;return state?{state,definition:root.GarageFitData.programmes[state.programmeDefinitionId]?.[state.programmeDefinitionVersion]}:null;}, openSettings, back: () => {previewEditing=false;showScreen('coach');render();},
       init: () => { initialisation=run(() => controller.load()); return initialisation; }};
   }
   root.GarageFitCoachUI = {createController, mount, tennisWeeklyProgress, programmeWeeklyProgress, weeklyConsistency, previewMessages};

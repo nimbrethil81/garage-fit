@@ -94,7 +94,7 @@ test('Coach preview, progress, settings and substitute back go to the right Coac
   p.start(); await p.run('coachUI.open()');
   p.run("coachUI.controller.prepare({duration:30,equipment:['dumbbells']});showScreen('coachPreview')");
   assert.equal(p.run('appBack()'), true); assert.equal(p.run('currentScreen'), 'coach');
-  p.run('coachUI.openProgress()'); assert.equal(p.run('currentScreen'), 'coachProgress');
+  await p.run('coachUI.openProgress()'); assert.equal(p.run('currentScreen'), 'yourProgress');
   assert.equal(p.run('appBack()'), true); assert.equal(p.run('currentScreen'), 'coach');
   p.run('coachUI.openSettings()'); assert.equal(p.run('currentScreen'), 'coachSettings');
   assert.equal(p.run('appBack()'), true); assert.equal(p.run('currentScreen'), 'coach');

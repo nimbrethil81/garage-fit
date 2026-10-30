@@ -288,7 +288,7 @@ test('Coach renders an optional bounded sport review, persists dismissal, and st
   const text=(id='coachProgressContent')=>p.run(`JSON.stringify(document.getElementById('${id}'),(key,value)=>key==='onclick'?undefined:value)`);
   // A due check-in is announced on Coach home and answered in Your progress.
   assert.match(text('coachContent'),/optional tennis check-in is ready in Your progress/);
-  await p.run("findCoachButton('Your progress').onclick()");
+  await p.run("coachUI.openProgrammeProgress()");
   assert.match(text(),/Optional tennis progress check-in/);
   assert.match(text(),/Court movement/);assert.match(text(),/Match endurance/);assert.match(text(),/Physical comfort/);
   assert.match(text(),/Not sure/);
@@ -296,7 +296,7 @@ test('Coach renders an optional bounded sport review, persists dismissal, and st
   assert.doesNotMatch(text(),/Optional tennis progress check-in/);
   await p.run('coachUI.open()');
   assert.doesNotMatch(text('coachContent'),/check-in is ready/);
-  await p.run("findCoachButton('Your progress').onclick()");
+  await p.run("coachUI.openProgrammeProgress()");
   assert.doesNotMatch(text(),/Optional tennis progress check-in/);
   await p.run('coachUI.back()');
   assert.ok(p.run("findCoachButton('View today’s workout')"));

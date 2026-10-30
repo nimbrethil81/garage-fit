@@ -10,19 +10,25 @@ const screens=[...html.matchAll(/<main id="([^"]+)"[^>]*>([\s\S]*?)<\/main>/g)].
 const NAV={home:'routinesNav',workouts:'workoutsNav',coach:'coachNav',generator:'generatorNav',more:'moreNav'};
 const TITLES={home:'Warm-up &amp; Cool-down',workouts:'Workouts',coach:'Coach',generator:'Workout Generator',more:'More'};
 
-// Primary screens are discovered through the real showScreen() behaviour: those that show the bottom nav.
+// The approved #348 reference retains the five-tab bar on the three shared
+// progress secondaries. They keep back headers and never become primary tabs.
+const PROGRESS=['yourProgress','trainingHistory','sessionDetails'];
 function classify(app){
   const el=id=>app.document.getElementById(id);
-  const primary=[],secondary=[];
+  const primary=[],secondary=[],sharedProgress=[];
   for(const {id} of screens){
     app.showScreen(id);
-    (el('bottomNav').classList.contains('hidden')?secondary:primary).push(id);
+    if(PROGRESS.includes(id)){
+      assert.equal(el('bottomNav').classList.contains('hidden'),false,id);
+      sharedProgress.push(id);secondary.push(id);
+    }else (el('bottomNav').classList.contains('hidden')?secondary:primary).push(id);
   }
-  return {primary,secondary};
+  return {primary,secondary,sharedProgress};
 }
 
-test('the five primary tabs are exactly the screens that show the bottom navigation',()=>{
-  const {primary,secondary}=classify(loadAppContext());
+test('five primary tabs and only the approved shared progress secondaries show the bottom navigation',()=>{
+  const {primary,secondary,sharedProgress}=classify(loadAppContext());
+  assert.deepEqual(sharedProgress.sort(),PROGRESS.slice().sort());
   assert.deepEqual(primary.sort(),Object.keys(NAV).sort());
   for(const id of ['coachPreview','coachSubstitute','coachResult','player','workoutPlayer','equipment','generatedPreview'])assert.ok(secondary.includes(id),id);
 });
@@ -155,4 +161,21 @@ test('first use preserves the five primary tabs and uses native accessible contr
   assert.match(html,/<details id="firstUseCompact" class="hidden"><summary>Your first workout<\/summary>/);
   assert.match(html,/id="firstUseBodyweightBtn" type="button"/);
   assert.doesNotMatch(html, /id="firstSaved[^>]*aria-live/,'acknowledgement does not steal announcements');
+});
+
+
+test('shared progress keeps the entry tab active and uses secondary back headers without a sixth tab',async()=>{
+  const vm=require('node:vm'),app=loadAppContext(new Map(),{ownIntrinsics:true});
+  const run=code=>vm.runInContext(code,app);
+  for(const origin of ['more','coach']){
+    await run(`progressUI.open('${origin}')`);
+    for(const screen of PROGRESS){
+      app.showScreen(screen);
+      for(const [tab,nav] of Object.entries(NAV)){
+        assert.equal(app.document.getElementById(nav).attributes['aria-current'],tab===origin?'page':undefined,screen+'/'+tab);
+      }
+      const body=screens.find(s=>s.id===screen).body;
+      assert.match(body,/class="back-btn"/);assert.doesNotMatch(body,/data-masthead/);
+    }
+  }
 });

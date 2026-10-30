@@ -220,7 +220,7 @@ test('existing Coach entry point lists both programmes and renders open-ended st
   const text=el('coachContent').children.map(c=>c.textContent).join(' ');
   const visit=node=>[node.textContent,...(node.children||[]).map(visit)].join(' ');
   assert.match(visit(el('coachContent')),/Build Arms Ongoing.*0 of 3 sessions this week.*2 is acceptable/);
-  await el('coachContent').children.find(c=>c.textContent==='Your progress').onclick();
+  await p.run('coachUI.openProgrammeProgress()');
   const progress=p.run("(function visit(node){return [node.textContent,...(node.children||[]).map(visit)].join(' ')})(document.getElementById('coachProgressContent'))");
   assert.match(progress,/Curls · 0 \/ 9/);assert.match(progress,/Extensions · 0 \/ 9/);
 });

@@ -17,7 +17,7 @@ async function ui(storage = new Map(), equipment = ['dumbbells','bench']) {
   p.click = (label, id = 'coachContent') => p.run(`action(${JSON.stringify(label)},${JSON.stringify(id)}).onclick()`);
   p.state = () => p.json('coachUI.controller.snapshot().state');
   p.text = (id = 'coachProgressContent') => p.run(`copyText(${JSON.stringify(id)})`);
-  p.progress = async () => { await p.click('Your progress'); assert.equal(p.run("document.getElementById('coachProgress').classList.contains('hidden')"), false); };
+  p.progress = async () => { await p.run('coachUI.openProgrammeProgress()'); assert.equal(p.run("document.getElementById('coachProgress').classList.contains('hidden')"), false); };
   p.cards = () => p.json("labelledLike('','coachProgressContent').filter(node=>node.className==='coach-progress-card-button').map(node=>node.attributes['aria-label'])");
   p.open = label => p.run(`labelledLike(${JSON.stringify('^'+label)}).find(node=>node.className==='coach-progress-card-button').onclick()`);
   p.detail = label => p.json(`(()=>{const button=labelledLike(${JSON.stringify('^'+label)}).find(node=>node.className==='coach-progress-card-button');
@@ -39,7 +39,7 @@ const logAnchor = (requirement, reps = 'work.prescription.reps', load = '12', un
     await tracker.recordAnchor(work.occurrenceId,{status:'completed',sets:[{reps:${reps},load:${load},
       ...(${load}===null?{}:{loadUnit:${JSON.stringify(unit)},loadInterpretation:${JSON.stringify(interpretation)}})}]});}`;
 
-test('every programme opens the same Your progress screen with its real number of strength targets', async () => {
+test('every programme opens the same Programme progress screen with its real number of strength targets', async () => {
   for (const [key, count, labels] of [['strength', 3, ['Squat','Push','Pull']], ['arms', 2, ['Curl','Extension']], ['tennis', 4, ['Knee','Hinge','Push','Pull']]]) {
     const p = await ui(); await start(p, key);
     const before = p.state(), durable = [...p.storage.entries()].filter(([key])=>key!=='gf_first_use_v1');
@@ -183,13 +183,13 @@ test('Tennis progress shows six coverage cards with observed, unknown and infeas
   assert.match(p.text(), /No saved sessions yet/, 'another programme’s sessions are not shown');
 });
 
-test('a live session draft is untouched by Your progress, and a recovered interruption shows only its performed work', async () => {
+test('a live session draft is untouched by Programme progress, and a recovered interruption shows only its performed work', async () => {
   const p = await ui(new Map(), ['dumbbells']); await start(p, 'strength');
   await p.click('View today’s workout'); await p.click('Start workout', 'coachPreviewContent');
   await p.run(`(async()=>{const work=coachPlayerTracker().plannedWork().find(item=>item.requirementId==='anchor-squat');
     await coachPlayerTracker().recordDone(work.occurrenceId);})()`);
   const draft = await p.run('pilotStore.loadSessionDraft()'), state = p.state(); assert.ok(draft);
-  await p.run('coachUI.openProgress()'); assert.match(p.text(), /Strength targets/);
+  await p.run('coachUI.openProgrammeProgress()'); assert.match(p.text(), /Strength targets/);
   await p.run('coachUI.back()');
   assert.equal(p.run('coachUI.isActive()'), true);
   assert.deepEqual(await p.run('pilotStore.loadSessionDraft()'), draft); assert.deepEqual(p.state(), state);
@@ -244,7 +244,7 @@ test('session identity shows only where recorded: legacy and unpublished identit
   assert.equal(gs.count, 1); assert.equal('roles' in gs, false);
 });
 
-test('General Fitness Your progress has no empty strength targets card', async () => {
+test('General Fitness Programme progress has no empty strength targets card', async () => {
   const p = await ui(new Map(), ['dumbbells']);
   await p.click('General Fitness'); await p.click('Start programme');
   await p.progress();

@@ -271,7 +271,7 @@ test('General Fitness is offered and runs home → preview/edit → player → s
   assert.equal(p.run("nodes('coachContent').find(node=>node.attributes.role==='status').className"), 'coach-save-status coach-save-complete');
   const result = (await p.run('pilotStore.listSessionResults()')).results[0];
   assert.equal(result.workoutFamilyId, workout.workoutFamilyId); assert.equal(result.familyStyleId, workout.familyStyleId);
-  await p.click('Your progress');
+  await p.run('coachUI.openProgrammeProgress()');
   const progress = p.run("copyText('coachProgressContent')");
   assert.match(progress, /Open-ended programme · 2–5 sessions per week/);
   assert.match(progress, new RegExp('Recent sessions .*'+label+' · Completed'));
