@@ -110,7 +110,7 @@ layout: null
   #generator .choice-btn.selected{background:#dcede8;border-color:#2e655f;color:#2e655f}
   .generator-options{margin:0 0 14px}.generator-options summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;min-height:44px;padding:0 4px;color:var(--text-muted);font-size:13px;font-weight:850}.generator-options summary::-webkit-details-marker{display:none}.generator-options summary:focus-visible{outline:3px solid var(--rest);outline-offset:3px;border-radius:10px}.generator-options summary::after{content:'+';margin-left:auto;width:25px;height:25px;border-radius:50%;display:grid;place-items:center;background:var(--surface);color:var(--text-muted);font-size:16px}.generator-options[open] summary::after{content:'−'}.generator-options-value{color:var(--work-light)}.generator-options .generator-card{margin:6px 0 0}.body-focus-row{grid-template-columns:repeat(4,1fr)}.difficulty-row{grid-template-columns:repeat(3,1fr)}
   .generator-equipment{width:100%;border:1px solid var(--surface-2);background:transparent;color:var(--text);border-radius:15px;padding:15px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;margin-bottom:14px}.generator-equipment span{display:flex;flex-direction:column;gap:3px;font-size:14px;font-weight:850}.generator-equipment small{color:var(--text-muted);font-size:11px;font-weight:650}.generator-equipment .icon{color:var(--rest)}
-  .generator-primary{width:100%;border:0;background:var(--work);color:#101416;border-radius:15px;padding:18px;font-weight:950;text-transform:uppercase;letter-spacing:.04em;font-size:15px}.setup-hint{background:rgba(79,138,131,.14);border:1px solid var(--rest-strong);border-radius:14px;padding:13px 14px;margin-bottom:14px;color:var(--text-muted);font-size:12px;line-height:1.45}.setup-hint strong{display:block;color:var(--text);font-size:13px;margin-bottom:2px}
+  .generator-primary{width:100%;border:0;background:var(--work);color:#101416;border-radius:15px;padding:18px;font-weight:950;text-transform:uppercase;letter-spacing:.04em;font-size:15px}
   .equipment-list{display:grid;grid-template-columns:1fr 1fr;gap:10px}.equipment-item{border:1px solid var(--surface-2);background:transparent;color:var(--text);border-radius:14px;min-height:66px;padding:13px;text-align:left;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:space-between;gap:8px}.equipment-item::after{content:'+';width:25px;height:25px;border-radius:50%;display:grid;place-items:center;background:var(--surface);color:var(--text-muted)}.equipment-item.selected{border-color:var(--rest);background:rgba(79,138,131,.14)}.equipment-item.selected::after{content:'✓';background:var(--rest);color:var(--ink)}.equipment-note{color:var(--text-muted);font-size:12px;line-height:1.45;margin:17px 0}.equipment-done{margin-top:auto;min-height:54px}
   /* The shell extends beneath the home indicator; keep this scrollable screen and its action inside it. */
   #equipment{margin-bottom:env(safe-area-inset-bottom);padding-bottom:calc(14px + env(safe-area-inset-bottom))}#equipment>*{flex-shrink:0}
@@ -253,6 +253,13 @@ layout: null
   #coachResultSummary{margin:0;color:var(--text-muted);font-size:15px;line-height:1.5}
   #coachResult .coach-feedback{display:flex;flex-direction:column;gap:12px}
   @media(max-width:380px){.nav-btn{min-width:0;padding:8px 2px;font-size:9px;letter-spacing:0}}
+  #done:has(.first-use:not(.hidden)){justify-content:flex-start}#done .first-use{flex-shrink:0;width:100%;max-width:500px}#done .first-use h2{font-size:16px}
+  .first-use{padding:14px;margin:0 0 14px;border:1px solid var(--surface-2);border-radius:12px;background:var(--surface);text-align:left;overflow-wrap:anywhere}
+  .first-use h2{font-size:16px;margin:0 0 8px}.first-use p{font-size:14px;line-height:1.5;margin:0 0 10px;color:var(--text-muted)}
+  .first-use button,.first-use summary{min-height:44px;font:inherit;color:var(--rest);cursor:pointer}
+  .first-use button{background:var(--ink);border:1px solid var(--surface-2);border-radius:8px;padding:9px 12px;white-space:normal}
+  .first-use summary{color:var(--text);display:list-item;padding:10px 0}.first-use summary:focus-visible{outline:3px solid var(--rest);outline-offset:3px}
+  .first-use-actions{display:flex;flex-wrap:wrap;gap:8px}#firstUseFull:not(:first-child){margin-top:14px}
 </style>
 <link rel="stylesheet" href="css/player-layout.css?rev={{ site.github.build_revision }}">
 </head>
@@ -276,6 +283,7 @@ layout: null
       <div class="brand" data-masthead></div>
     </div>
     <div class="home-intro"><h1 class="screen-title"><span class="title-phrase">Warm-up &amp;</span> <span class="title-phrase">Cool-down</span></h1></div>
+    <aside id="firstUseHome" class="first-use hidden"><p>Pick a five-minute warm-up before activity or a cool-down afterwards. Each starts straight away; no programme needed.</p><button type="button" onclick="dismissFirstUseMode('home')">Got it</button></aside>
     <div class="routine-mode" role="group" aria-label="Routine type"><button id="routineModeBodyweight" type="button" aria-pressed="true" onclick="setRoutineVariant('bodyweight')">Bodyweight</button><button id="routineModeEquipment" type="button" aria-pressed="false" onclick="setRoutineVariant('equipment')">With equipment</button></div>
     <div class="routine-list">
       <button class="routine-card" id="tile-warmup" type="button" onclick="startPreferredRoutine('warmup')"><span class="routine-kicker">Prepare</span><span class="label">Warm Up</span><span class="routine-card-bottom"><span class="sub" id="warmupSub"></span><span class="routine-cta">Start →</span></span></button>
@@ -335,6 +343,19 @@ layout: null
     </header>
     <div class="home-intro"><h1 class="screen-title">Workout Generator</h1></div>
     <p class="page-header-copy">Choose your time and style. We’ll build the rest.</p>
+    <section class="first-use hidden" id="firstUseGenerator" aria-label="Getting started">
+      <div id="firstUseEquipment">
+        <h2>Make it work with what you own</h2>
+        <p>Choose your equipment for tailored workouts, or use just your bodyweight. You can change this later.</p>
+        <div class="first-use-actions"><button id="firstUseEquipmentBtn" type="button" onclick="openEquipment('generator')">Choose equipment</button><button id="firstUseBodyweightBtn" type="button" onclick="setOwnedEquipment([])">Bodyweight only</button></div>
+      </div>
+      <div id="firstUseFull">
+        <h2>Your first workout</h2>
+        <p>Use the settings below or adjust them. Preview, swap exercises and follow “How to do it” in the player. No account or programme needed.</p>
+        <button type="button" onclick="generateWorkout()">Preview your first workout</button>
+      </div>
+      <details id="firstUseCompact" class="hidden"><summary>Your first workout</summary><p>Preview, swap exercises and follow “How to do it” in the player. Completed workouts are saved on this browser/device.</p><button type="button" onclick="generateWorkout()">Preview a workout</button></details>
+    </section>
     <div class="generator-card">
       <h2>Duration</h2>
       <div class="choice-row duration-row" id="durationChoices"></div>
@@ -343,8 +364,7 @@ layout: null
       <h2>Workout style</h2>
       <div class="choice-row focus-row" id="focusChoices"></div>
     </div>
-    <div class="setup-hint hidden" id="equipmentSetupHint"><strong>Set up your equipment</strong>Tell GarageFit what you own for workouts tailored to your garage. You can still generate a bodyweight workout.</div>
-    <button class="generator-equipment" type="button" onclick="openEquipment('generator')"><span>Equipment<small id="generatorEquipmentSummary">Bodyweight only</small></span><svg class="icon" aria-hidden="true"><use href="#icon-equipment"></use></svg></button>
+    <button class="generator-equipment" type="button" id="generatorEquipmentBtn" onclick="openEquipment('generator')"><span>Equipment<small id="generatorEquipmentSummary">Bodyweight only</small></span><svg class="icon" aria-hidden="true"><use href="#icon-equipment"></use></svg></button>
     <details class="generator-options" id="generatorOptions">
       <summary>Additional options<span class="generator-options-value" id="generatorOptionsValue"></span></summary>
       <div class="generator-card">
@@ -374,7 +394,7 @@ layout: null
     <button class="generator-primary equipment-done" type="button" onclick="closeEquipment(true)">Done</button>
   </main>
 
-  <main id="generatedPreview" class="screen hidden">
+  <main id="generatedPreview" class="screen hidden" tabindex="-1">
     <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Generator" onclick="appBack()">←</button><h1>Workout</h1><span class="header-spacer"></span></header>
     <div class="preview-kicker" id="previewKicker">20 min · Mixed</div>
     <p class="equipment-note hidden" id="previewFamilyPurpose"></p>
@@ -504,12 +524,15 @@ layout: null
     <div class="done-stats hidden" id="generatedDoneStats"><div class="done-stat"><strong id="generatedDoneTime">00:00</strong><span>Elapsed time</span></div><div class="done-stat"><strong id="generatedDoneRounds">3</strong><span>Main blocks</span></div><div class="done-stat"><strong id="generatedDoneExercises">15</strong><span>Main exercises</span></div></div>
     <div class="done-stats hidden" id="amrapDoneStats"><div class="done-stat"><strong id="amrapDoneScore">0 rounds + 0 reps</strong><span>AMRAP result</span></div></div>
     <div class="done-best hidden" id="doneBest"></div>
+    <aside id="firstSaveddone" class="first-use hidden"><h2>Your first workout is saved</h2><p>Your workout history stays in this browser on this device. There’s no account or sync. You can return to Generator or explore the other tabs whenever you like.</p></aside>
     <button class="ctrl-btn ctrl-primary" id="doneBtn" type="button" onclick="goDoneHome()">Back to Prep &amp; Recover</button>
   </main>
 
   <main id="coach" class="screen hidden">
     <div class="home-header"><div class="brand" data-masthead></div></div>
     <div class="home-intro"><h1 class="screen-title">Coach</h1></div>
+    <aside id="firstUseCoach" class="first-use hidden"><p>Coach offers optional programmes that adapt to your recorded workouts. You can keep using Generator without starting one.</p><button type="button" onclick="dismissFirstUseMode('coach')">Got it</button></aside>
+    <aside id="firstSavedcoach" class="first-use hidden"><h2>Your first workout is saved</h2><p>Your workout history stays in this browser on this device. There’s no account or sync. You can return to Generator or explore the other tabs whenever you like.</p><button type="button" onclick="showLanding('generator')">Back to Generator</button></aside>
     <p id="coachError" class="coach-error" role="alert"></p>
     <div id="coachContent"></div>
   </main>
@@ -653,6 +676,7 @@ layout: null
 <script src="data/sport-capabilities.js"></script>
 <script src="js/coach-model.js"></script>
 <script src="js/coach-store.js"></script>
+<script src="js/first-use.js"></script>
 <script src="js/session-tracker.js"></script>
 <script src="data/programmes.js"></script>
 <script src="js/training-history.js"></script>
@@ -934,6 +958,10 @@ async function copyWorkoutDiagnostics(){
 }
 function captureGeneratorDiagnostics(){window.garageFitWorkoutDiagnostics?.capture(generatorState.workout,{source:'Generator',equipment:state.ownedEquipment})}
 function showScreen(id){
+  if(firstUse&&id!==currentScreen){
+    if(['home','coach'].includes(currentScreen))firstUse.dismissMode(currentScreen);
+    if(['home','coach','workouts','more','generatedPreview'].includes(id))firstUse.explore();
+  }
   if(manualInstructionSpeech&&id!==currentScreen)cancelSpeech();
   if(currentScreen==='spokenCues'&&id!=='spokenCues')stopVoicePreview();
   if(!['generator','generatedPreview','equipment'].includes(id)){generatorState.workoutFamilyId=null;clearGeneratorFamilyError()}
@@ -945,6 +973,8 @@ function showScreen(id){
   [['home','routinesNav'],['workouts','workoutsNav'],['coach','coachNav'],['generator','generatorNav'],['more','moreNav']].forEach(pair=>{const active=id===pair[0],button=document.getElementById(pair[1]);button.classList.toggle('active',active);active?button.setAttribute('aria-current','page'):button.removeAttribute('aria-current')});
   if(typeof backNav!=='undefined'&&backNav)backNav.sync();
   if(id==='generatedPreview')captureGeneratorDiagnostics();
+  if(firstUse)renderFirstUse();
+  ['done','coach'].forEach(screen=>{if(id!==screen)document.getElementById('firstSaved'+screen).classList.add('hidden')});
 }
 function showLanding(id){if(id==='coach'&&coachUI)return coachUI.open();if(id==='workouts')renderPersonalBest();if(id==='generator')renderGenerator();showScreen(id)}
 function goHome(){stopTimer();stopGeneratedPhaseTimer();stopWorkoutClock();state.running=false;workoutState.running=false;state.paused=false;releaseWake();cancelSpeech();showScreen('home')}
@@ -966,7 +996,7 @@ function renderGenerator(){
   const bodyFocusWrap=document.getElementById('bodyFocusChoices');bodyFocusWrap.innerHTML='';Object.keys(BODY_FOCUS_LABELS).forEach(value=>{const button=document.createElement('button');button.type='button';button.className='choice-btn'+(generatorState.bodyFocus===value?' selected':'');button.textContent=BODY_FOCUS_LABELS[value];button.setAttribute('aria-pressed',String(generatorState.bodyFocus===value));button.disabled=!!family&&family.bodyFocus.length===1;button.onclick=()=>selectGeneratorBodyFocus(value);bodyFocusWrap.appendChild(button)});
   const difficultyWrap=document.getElementById('difficultyChoices');difficultyWrap.innerHTML='';Object.keys(DIFFICULTY_LABELS).forEach(value=>{const button=document.createElement('button');button.type='button';button.className='choice-btn'+(generatorState.difficulty===value?' selected':'');button.textContent=DIFFICULTY_LABELS[value];button.setAttribute('aria-pressed',String(generatorState.difficulty===value));button.onclick=()=>selectGeneratorDifficulty(value);difficultyWrap.appendChild(button)});
   document.getElementById('generatorOptionsValue').textContent=generatorOptionsSummary(generatorState);
-  document.getElementById('generatorEquipmentSummary').textContent=equipmentSummary();document.getElementById('equipmentSetupHint').classList.toggle('hidden',state.equipmentConfigured);
+  document.getElementById('generatorEquipmentSummary').textContent=equipmentSummary();renderFirstUse();
 }
 // Summarise the active family and effective additional options without disabled preferences.
 function generatorOptionsSummary(options){const family=options.workoutFamilyId?GarageFitWorkoutFamilies.getDefinition(options.workoutFamilyId,options.workoutFamilyVersion):null;return [family?family.name:null,(!family||family.bodyFocus.length>1)&&options.bodyFocus&&options.bodyFocus!=='full-body'?BODY_FOCUS_LABELS[options.bodyFocus]:null,options.difficulty&&options.difficulty!=='normal'?DIFFICULTY_LABELS[options.difficulty]:null].filter(Boolean).map(label=>'· '+label).join(' ')}
@@ -976,11 +1006,12 @@ function clearGeneratorFamilyError(){document.getElementById('generatorFamilyErr
 function selectGeneratorFocus(value){if(generatorState.workoutFamilyId)return;generatorState.focus=value;try{localStorage.setItem('gf_generator_focus',value)}catch(e){}renderGenerator()}
 function selectGeneratorBodyFocus(value){if(generatorState.workoutFamilyId&&GarageFitWorkoutFamilies.getDefinition(generatorState.workoutFamilyId).bodyFocus.length===1)return;generatorState.bodyFocus=value;try{localStorage.setItem('gf_generator_body_focus',value)}catch(e){}renderGenerator()}
 function selectGeneratorDifficulty(value){generatorState.difficulty=value;try{localStorage.setItem('gf_generator_difficulty',value)}catch(e){}renderGenerator()}
-function openEquipment(returnTo){generatorState.equipmentReturn=returnTo||'generator';renderEquipment();showScreen('equipment')}
+let equipmentFocus=null;
+function openEquipment(returnTo){equipmentFocus=document.activeElement;generatorState.equipmentReturn=returnTo||'generator';renderEquipment();showScreen('equipment')}
 function renderEquipment(){const wrap=document.getElementById('equipmentList');wrap.innerHTML='';EQUIPMENT.forEach(item=>{const selected=state.ownedEquipment.includes(item.id),button=document.createElement('button');button.type='button';button.className='equipment-item'+(selected?' selected':'');button.textContent=item.name;button.setAttribute('aria-pressed',String(selected));if(item.id==='rings'&&selected)button.setAttribute('aria-describedby','ringsSetupGuidance');button.onclick=()=>toggleEquipmentItem(item.id);wrap.appendChild(button)});document.getElementById('ringsSetupGuidance').classList.toggle('hidden',!state.ownedEquipment.includes('rings'))}
-function setOwnedEquipment(ids){state.ownedEquipment=EQUIPMENT.filter(item=>ids.includes(item.id)).map(item=>item.id);state.equipmentConfigured=true;saveEquipment();renderHome();renderGenerator()}
+function setOwnedEquipment(ids){const firstChoice=currentScreen==='generator';state.ownedEquipment=EQUIPMENT.filter(item=>ids.includes(item.id)).map(item=>item.id);state.equipmentConfigured=true;saveEquipment();renderHome();renderGenerator();if(firstChoice)document.getElementById('generatorEquipmentBtn').focus()}
 function toggleEquipmentItem(id){if(!EQUIPMENT.some(item=>item.id===id))return;setOwnedEquipment(state.ownedEquipment.includes(id)?state.ownedEquipment.filter(item=>item!==id):state.ownedEquipment.concat(id));renderEquipment()}
-function closeEquipment(markConfigured){if(markConfigured){state.equipmentConfigured=true;saveEquipment()}renderHome();renderGenerator();if(generatorState.equipmentReturn==='coach'&&coachUI){return coachUI.open()}showScreen(['home','more'].includes(generatorState.equipmentReturn)?generatorState.equipmentReturn:'generator')}
+function closeEquipment(markConfigured){if(markConfigured){state.equipmentConfigured=true;saveEquipment()}renderHome();renderGenerator();if(generatorState.equipmentReturn==='coach'&&coachUI){return coachUI.open()}showScreen(['home','more'].includes(generatorState.equipmentReturn)?generatorState.equipmentReturn:'generator');if(equipmentFocus&&equipmentFocus.focus){const target=generatorState.equipmentReturn==='generator'?document.getElementById('generatorEquipmentBtn'):equipmentFocus;target.focus()}}
 function getGeneratedHistory(){try{const value=JSON.parse(localStorage.getItem('gf_generator_history'));return Array.isArray(value)?value.slice(0,4):[]}catch(e){return []}}
 let generatorRecentProtocols=[];
 async function refreshGeneratorProtocols(){
@@ -1009,7 +1040,7 @@ function generateWorkout(){
     if(!generatorState.workoutFamilyId||error.code!=='family-not-feasible')throw error;
     const message=document.getElementById('generatorFamilyError');message.textContent=familyFailureMessage(error);message.classList.remove('hidden');showScreen('generator');message.focus();return;
   }
-  renderGeneratedPreview();showScreen('generatedPreview');
+  renderGeneratedPreview();showScreen('generatedPreview');document.getElementById('generatedPreview').focus();
 }
 function generatedWorkoutIdentity(workout){
   if(!workout.workoutFamilyId)return FOCUS_LABELS[workout.focus];
@@ -1418,7 +1449,7 @@ function trackGenerated(action){try{const write=action();if(write&&write.catch)w
 // Record the current exercise occurrence's outcome before the timeline moves on. Timed work is
 // measured from the countdown; rep work is Done or skipped. Moving the index is not evidence.
 function recordGeneratedOutcome(action){const tracker=generatorState.tracker,phase=currentGeneratedPhase();if(!tracker||!tracker.started||tracker.finalised||generatorState.trackedResult||!phase||phase.kind!=='exercise')return;trackGenerated(()=>phase.timed?tracker.recordTimed(phase.occurrenceId,{plannedSeconds:phase.seconds,elapsedSeconds:phase.seconds-Math.max(0,generatorState.remaining)}):action==='done'?tracker.recordDone(phase.occurrenceId):tracker.recordSkip(phase.occurrenceId))}
-function finishGeneratedTracking(kind){const tracker=generatorState.tracker;if(!tracker||!tracker.started||tracker.finalised||generatorState.trackedResult)return null;if(kind==='exit'&&generatorState.standaloneTracking){generatorState.tracker=null;return null}const options={actualDurationSeconds:Math.floor(currentWorkoutElapsedMs()/1000)};generatorState.trackedResult=trackGenerated(()=>kind==='complete'?tracker.complete(options):tracker.exitEarly(options));if(kind==='complete'&&generatorState.standaloneTracking&&generatorState.trackedResult)Promise.resolve(generatorState.trackedResult).then(()=>Promise.all([refreshGeneratorProtocols(),refreshGeneratorFamilySessions()])).catch(()=>{});return generatorState.trackedResult}
+function finishGeneratedTracking(kind){const tracker=generatorState.tracker;if(!tracker||!tracker.started||tracker.finalised||generatorState.trackedResult)return null;if(kind==='exit'&&generatorState.standaloneTracking){generatorState.tracker=null;return null}const options={actualDurationSeconds:Math.floor(currentWorkoutElapsedMs()/1000)};generatorState.trackedResult=trackGenerated(()=>kind==='complete'?tracker.complete(options):tracker.exitEarly(options));if(kind==='complete'&&generatorState.standaloneTracking&&generatorState.trackedResult)Promise.resolve(generatorState.trackedResult).then(result=>{firstUseSaved(result,'done');return Promise.all([refreshGeneratorProtocols(),refreshGeneratorFamilySessions()])}).catch(()=>{if(currentScreen==='done')document.getElementById('doneSub').textContent='Workout complete. History could not be saved.'});return generatorState.trackedResult}
 function currentGeneratedPhase(){return generatorState.timeline[generatorState.timelineIndex]}
 function syncGeneratedCountdown(){if(isAmrapBlockPhase()&&amrapBlockRun()){generatorState.remaining=amrapBlockRemaining();return}if(isDensityPhase()&&densityRun()){generatorState.remaining=densityRemaining();return}if(isEmomPhase()&&emomRun()){generatorState.remaining=Math.max(0,(emomRun().originMs+currentGeneratedPhase().endsAtSeconds*1000-currentWorkoutElapsedMs())/1000);return}if(generatorState.phaseTimer!==null&&generatorState.phaseTickAt!=null){const now=Date.now();if(!workoutState.paused)generatorState.remaining=Math.max(0,generatorState.remaining-(now-generatorState.phaseTickAt)/1000);generatorState.phaseTickAt=now}}
 function stopGeneratedPhaseTimer(){syncGeneratedCountdown();clearInterval(generatorState.phaseTimer);generatorState.phaseTimer=null}
@@ -1875,6 +1906,7 @@ function confirmExitChoice(){if(exitState.type==='workout'&&isCoachPlayer())retu
 function handleModalBackdrop(event){if(event.target===document.getElementById('exitDialog'))cancelExit()}
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!document.getElementById('exitDialog').classList.contains('hidden'))cancelExit()});
 let coachUI=null,coachAdvancing=false;
+let firstUse=null;
 function isCoachPlayer(){return !!(coachUI&&coachUI.isActive()&&generatorState.tracker&&!generatorState.standaloneTracking)}
 function coachPlayerTracker(){return generatorState.tracker}
 function stopCoachPlayer(){stopGeneratedPhaseTimer();stopWorkoutClock();workoutState.running=false;releaseWake();cancelSpeech()}
@@ -1895,9 +1927,24 @@ async function coachExit(){
   if(coachAdvancing)return;coachAdvancing=true;updateWorkoutPauseUI();
   try{const phase=currentGeneratedPhase();stopGeneratedPhaseTimer();if(isDensityPhase(phase)){if(!await checkpointDensityExit(phase))return}else if(isEmomPhase(phase)){if(!await settleEmomMinute(phase,'skip'))return}else if(phase&&phase.kind==='exercise'&&phase.timed){if(!await coachUI.record(phase,generatorState.tracker,'skip',phase.seconds-Math.max(0,generatorState.remaining)))return}closeExitDialog();exitState.type=null;coachUI.showEnd('exit',Math.floor(currentWorkoutElapsedMs()/1000))}finally{coachAdvancing=false;updateWorkoutPauseUI()}
 }
+function dismissFirstUseMode(id){firstUse.dismissMode(id);document.getElementById(id==='home'?'routinesNav':'coachNav').focus()}
+function renderFirstUse(){
+  if(!firstUse)return;
+  const status=firstUse.snapshot(),active=status.isNew&&!status.completed;
+  document.getElementById('firstUseGenerator').classList.toggle('hidden',!status.isNew||(status.completed&&state.equipmentConfigured));
+  document.getElementById('firstUseEquipment').classList.toggle('hidden',state.equipmentConfigured);
+  document.getElementById('firstUseFull').classList.toggle('hidden',status.explored||status.completed);
+  document.getElementById('firstUseCompact').classList.toggle('hidden',!status.explored||status.completed);
+  ['home','coach'].forEach(id=>document.getElementById('firstUse'+id[0].toUpperCase()+id.slice(1)).classList.toggle('hidden',!active||status.modes.includes(id)));
+}
+async function firstUseSaved(result,screen){
+  if(!firstUse||!await firstUse.saved(result))return;
+  if(currentScreen===screen)document.getElementById('firstSaved'+screen).classList.remove('hidden');
+}
+try{firstUse=GarageFitFirstUse.create({storage:localStorage,store:GarageFitCoachStore.createStore(localStorage),onChange:renderFirstUse})}catch(_){}
 loadEquipment();
 if(typeof GarageFitCoachUI!=='undefined'){
-  coachUI=GarageFitCoachUI.mount({catalogue:CATALOGUE,equipment:EQUIPMENT,getEquipment:()=>state.ownedEquipment,setEquipment:setOwnedEquipment,buildTimeline:workout=>buildGeneratedTimeline(workout),showScreen,stopPlayer:stopCoachPlayer,onViewChange:()=>backNav&&backNav.sync(),
+  coachUI=GarageFitCoachUI.mount({catalogue:CATALOGUE,equipment:EQUIPMENT,getEquipment:()=>state.ownedEquipment,setEquipment:setOwnedEquipment,onSessionSaved:result=>firstUseSaved(result,'coach'),buildTimeline:workout=>buildGeneratedTimeline(workout),showScreen,stopPlayer:stopCoachPlayer,onViewChange:()=>backNav&&backNav.sync(),
     play:(workout,tracker)=>{generatorState.workout=workout;startGeneratedWorkout({tracker});state.doneDestination='coach';document.getElementById('workoutPlayerTitle').textContent='Coach · '+workout.duration+' min'}});
   coachUI.init();
 }

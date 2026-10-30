@@ -158,6 +158,21 @@
     }
 
     return {
+      // Read-only first-use classification, including orphaned/corrupt records. Never
+      // reconcile, migrate or reset data merely to decide whether to show guidance.
+      async hasInstallationEvidence() {
+        requireStorage();
+        try {
+          if (typeof storage.key !== 'function' || !Number.isInteger(storage.length) || storage.length > MAX_RECOVERY_KEYS)
+            throw new Error('Storage cannot be inspected safely.');
+          for (let i = 0; i < storage.length; i++) {
+            const key = storage.key(i);
+            if (typeof key !== 'string') throw new Error('Storage key is unreadable.');
+            if (key.startsWith(KEY_PREFIX)) return true;
+          }
+          return false;
+        } catch (error) { throw new CoachError('storage-unavailable', 'Could not inspect existing Coach evidence.', {}, error); }
+      },
       // Shared, optional planning preferences. Absent storage means none; reads
       // never create records, and clearing never touches programme/history data.
       async loadCoachPreferences() { return readRecord('coach-preferences', PREFERENCES_KEY) || Model.createCoachPreferences(); },

@@ -147,3 +147,12 @@ test('fresh startup selects Generator and page returns preserve the current tab 
   assert.equal(run('workoutState.running&&!workoutState.paused'),true);
   assert.equal(el('bottomNav').classList.contains('hidden'),true);
 });
+
+test('first use preserves the five primary tabs and uses native accessible controls',async()=>{
+  const app=loadAppContext();await require('node:vm').runInContext('firstUse.ready',app);
+  assert.deepEqual(classify(app).primary.sort(),Object.keys(NAV).sort());
+  assert.match(html,/<section class="first-use hidden" id="firstUseGenerator" aria-label="Getting started">/);
+  assert.match(html,/<details id="firstUseCompact" class="hidden"><summary>Your first workout<\/summary>/);
+  assert.match(html,/id="firstUseBodyweightBtn" type="button"/);
+  assert.doesNotMatch(html, /id="firstSaved[^>]*aria-live/,'acknowledgement does not steal announcements');
+});

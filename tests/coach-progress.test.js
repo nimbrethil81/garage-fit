@@ -42,7 +42,7 @@ const logAnchor = (requirement, reps = 'work.prescription.reps', load = '12', un
 test('every programme opens the same Your progress screen with its real number of strength targets', async () => {
   for (const [key, count, labels] of [['strength', 3, ['Squat','Push','Pull']], ['arms', 2, ['Curl','Extension']], ['tennis', 4, ['Knee','Hinge','Push','Pull']]]) {
     const p = await ui(); await start(p, key);
-    const before = p.state(), durable = [...p.storage.entries()];
+    const before = p.state(), durable = [...p.storage.entries()].filter(([key])=>key!=='gf_first_use_v1');
     await p.progress();
     assert.equal(p.run("document.getElementById('bottomNav').classList.contains('hidden')"), true, 'secondary screen');
     const cards = p.cards().filter(label => !/Performed|Unmeasured|Not performed/.test(label.split(' · ')[1]));
@@ -56,7 +56,7 @@ test('every programme opens the same Your progress screen with its real number o
     assert.equal(/Arm work · last 7 days/.test(p.text()), key === 'arms');
     assert.doesNotMatch(p.text(), /Pause|Finish programme|Move to maintenance/, 'management stays off Your progress');
     // Viewing progress is read-only.
-    assert.deepEqual(p.state(), before); assert.deepEqual([...p.storage.entries()], durable);
+    assert.deepEqual(p.state(), before); assert.deepEqual([...p.storage.entries()].filter(([key])=>key!=='gf_first_use_v1'), durable);
     await p.run('coachUI.back()');
     assert.equal(p.run("document.getElementById('coach').classList.contains('hidden')"), false);
     assert.equal(p.run("document.getElementById('bottomNav').classList.contains('hidden')"), false);

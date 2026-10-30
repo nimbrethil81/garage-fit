@@ -395,7 +395,7 @@
       review: () => engine.programmeReview(definition(), state, clock())};
   }
 
-  function mount({catalogue, equipment, getEquipment, setEquipment, buildTimeline, play, showScreen, stopPlayer, onViewChange}) {
+  function mount({catalogue, equipment, getEquipment, setEquipment, buildTimeline, play, showScreen, stopPlayer, onViewChange, onSessionSaved}) {
     let storage;
     try { storage=root.localStorage; } catch (error) { storage=null; }
     const store = root.GarageFitCoachStore.createStore(storage);
@@ -1307,7 +1307,7 @@
         lastSaved=result.finalStatus==='abandoned'?'Session saved · no meaningful main work recorded.'
           : stableIds.size ? 'Session saved · '+result.finalStatus+' · '+recorded+' anchors recorded'
           : ['Session saved',result.finalStatus,identity?.label,measured ? plural(measured,'benchmark')+' recorded' : null].filter(Boolean).join(' · ');
-        resetOptions(); showScreen('coach'); render(); });
+        resetOptions(); showScreen('coach'); render(); if(onSessionSaved)await onSessionSaved(result); });
     }
     return {open, overview, controller, renderAnchor, record, showEnd, saveFeedback, updateActualSummary,
       isActive: () => sessionActive, run, backFromSubstitute, backFromOverview, inOverview: () => overviewOpen, openProgress, openSettings, back: () => {previewEditing=false;showScreen('coach');render();},

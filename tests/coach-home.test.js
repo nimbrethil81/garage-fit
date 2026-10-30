@@ -101,9 +101,9 @@ test('non-Tennis weeks use Monday local midnight, completion time and DST-length
 
 test('a saved session updates the home count; abandoned work and previews earn nothing', async () => {
   const p = await ui(new Map(), ['dumbbells']); await start(p, 'strength');
-  const before = p.state(), durable = [...p.storage.entries()];
+  const before = p.state(), durable = [...p.storage.entries()].filter(([key])=>key!=='gf_first_use_v1');
   await p.click('View today’s workout');
-  assert.deepEqual(p.state(), before); assert.deepEqual([...p.storage.entries()].filter(([key])=>key!==p.app.GarageFitWorkoutDiagnostics.KEY), durable, 'a preview writes no Coach or training records');
+  assert.deepEqual(p.state(), before); assert.deepEqual([...p.storage.entries()].filter(([key])=>key!==p.app.GarageFitWorkoutDiagnostics.KEY&&key!=='gf_first_use_v1'), durable, 'a preview writes no Coach or training records');
   assert.ok(p.storage.has(p.app.GarageFitWorkoutDiagnostics.KEY), 'the visible composition alone is retained for diagnostics');
   assert.equal(await p.run('pilotStore.loadSessionDraft()'), null);
   await p.click('Start workout', 'coachPreviewContent');
@@ -383,4 +383,22 @@ test('finished history belongs only to the matching card, with credited counts i
     assert.deepEqual(footers,[{id:{strength:'general-strength-4w',tennis:'tennis-conditioning',fitness:'general-fitness'}[key],text:'Previous plan · '+count+' session'+(count===1?'':'s')}]);
     assert.doesNotMatch(p.text(),/Your history is saved|Previous programme finished|Completed/);
   }
+});
+
+test('first Coach completion acknowledges only after feedback persistence, once, without forced next steps',async()=>{
+  const p=await ui();await p.run('firstUse.ready');await start(p,'fitness');
+  await p.click('View today’s workout');await p.click('Start workout','coachPreviewContent');
+  await p.run(`(async()=>{for(const work of coachPlayerTracker().plannedWork().filter(item=>item.section==='main'))await coachPlayerTracker().recordDone(work.occurrenceId);})()`);
+  p.run("coachUI.showEnd('complete',1800)");
+  assert.equal(p.run('firstUse.snapshot().completed'),false,'feedback screen is not a saved result');
+  const write=p.app.localStorage.setItem;
+  p.app.localStorage.setItem=(key,value)=>{if(key.startsWith('gf_coach_'))throw Error('full');write(key,value);};
+  await p.run("coachUI.saveFeedback('about-right')");
+  assert.equal(p.run('firstUse.snapshot().completed'),false);
+  p.app.localStorage.setItem=write;
+  await p.run("coachUI.saveFeedback('about-right')");
+  assert.equal(p.run('firstUse.snapshot().completed'),true);
+  assert.equal(p.app.document.getElementById('firstSavedcoach').classList.contains('hidden'),false);
+  p.run("showLanding('generator');showScreen('coach')");
+  assert.equal(p.app.document.getElementById('firstSavedcoach').classList.contains('hidden'),true);
 });

@@ -179,7 +179,7 @@ for (const programme of ['general-strength-4w','build-arms']) {
 test('creation and optional policy restrictions reject visibly, preserving state/definition identity', async () => {
   const p = pilot();
   await assert.rejects(p.run("pilot.start(pilotDef,pilotOptions.equipment,{sportId:'tennis',focus:'speed'})"), /focus/);
-  assert.equal(p.storage.size,0);
+  assert.equal([...p.storage.keys()].filter(key=>key!=='gf_first_use_v1').length,0);
   await p.run("pilot.start(pilotDef,pilotOptions.equipment,{sportId:'tennis'})");
   assert.deepEqual(settings(p), defaults());
   p.run(`const registry=GarageFitCoachPolicies.createRegistry({'general-strength':{
