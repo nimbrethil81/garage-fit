@@ -3,7 +3,10 @@
 **Preparatory implementation for #354; not shipped or wired into the app.**
 The approved Dropbox reference pack is located at
 `/Apps/GarageFit/Design References/Backup & Restore/GarageFit-Backup-Restore-Visual-References-v1.0.zip`,
-but the implementation workspace's HTTP policy blocks its download. The issue
+but the implementation workspace's HTTP policy blocks its download. Dropbox's
+text-extraction tool can read its README: it confirms 24 approved conceptual
+mockups covering 12 states in light/dark, at 390 × 800 CSS pixels. It does not
+expose the image contents for visual inspection. The issue
 requires those approved references before visual implementation. This branch
 therefore contains storage APIs, the format registry and a tested coordinator;
 it must not be merged as a completed #354 feature.
