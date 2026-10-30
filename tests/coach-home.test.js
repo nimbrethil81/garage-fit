@@ -358,9 +358,13 @@ test('selection cards preserve categories, order, native controls and all overvi
   const p=await ui();
   const cards=()=>p.json("nodes('coachContent').filter(n=>n.attributes?.['data-programme-id']).map(n=>({id:n.attributes['data-programme-id'],label:n.attributes['aria-label'],type:n.type}))");
   assert.deepEqual(cards().map(n=>n.id),['general-fitness','general-strength-4w','build-arms','tennis-conditioning']);
+  assert.deepEqual(p.json("nodes('coachContent').filter(n=>n.className==='coach-programme-category').map(n=>n.textContent)"),['Fitness programme','Fitness programme','Fitness programme','Sport cross-training']);
+  assert.equal(p.json("nodes('coachContent').filter(n=>n.className==='coach-programme-chevron'&&n.attributes['aria-hidden']==='true'&&!n.onclick).length"),4);
+  assert.equal(p.run("document.getElementById('coachContent').classList.contains('coach-programme-selection')"),true);
   for(const name of Object.values(names)) {
     const card=cards().find(n=>n.label===name); assert.ok(card); assert.equal(card.type,'button');
     await p.click(name); assert.ok(p.has('Start programme'));
+    assert.equal(p.run("document.getElementById('coachContent').classList.contains('coach-programme-selection')"),false);
     await p.run("field('Back to Coach programmes').onclick()"); assert.equal(cards().length,4);
   }
   assert.doesNotMatch(p.text(),/Previous plan|Your history is saved/);

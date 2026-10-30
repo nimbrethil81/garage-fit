@@ -553,7 +553,7 @@
       // Ownership is shared. Only future planning reads the latest selection;
       // prepared prescriptions and live trackers retain their original context.
       if (options) options.equipment=getEquipment().slice();
-      const wrap=el('coachContent'); wrap.innerHTML=''; const current=controller.snapshot(), state=current.state;
+      const wrap=el('coachContent'); wrap.innerHTML=''; wrap.classList.remove('coach-programme-selection'); const current=controller.snapshot(), state=current.state;
       if (current.errors.length) {
         wrap.append(paragraph('Some Coach records could not be recovered. Saved evidence has been retained.'),
           ...current.errors.map(error => paragraph(error.message)), button('Retry recovery', async () => { await controller.load(true); resetOptions(); render(); }));
@@ -561,6 +561,7 @@
       }
       if (current.interruptedDraft) { wrap.append(heading('Interrupted session'),paragraph('Your recorded work is safe. Save it before starting another session.'),button('Save performed work',() => showEnd('exit',null),true)); return; }
       if (!state || state.status==='completed') {
+        wrap.classList.add('coach-programme-selection');
         wrap.append(paragraph('A training goal and sessions adapted to the work you actually do.'));
         wrap.append(heading('Fitness programmes'));
         programmes.filter(programme => programme.type !== 'tennis-conditioning').forEach(programme => wrap.append(programmeCard(programme,state)));
@@ -584,15 +585,18 @@
       card.className='coach-programme-card coach-programme-'+presentation.accent;
       card.setAttribute('aria-label',name);
       card.setAttribute('data-programme-id',programme.id);
-      const copy=document.createElement('span'), title=document.createElement('span'), description=document.createElement('span');
+      const copy=document.createElement('span'), category=document.createElement('span'), title=document.createElement('span'), description=document.createElement('span');
+      category.className='coach-programme-category'; category.textContent=programme.type==='tennis-conditioning'?'Sport cross-training':'Fitness programme';
       copy.className='coach-programme-copy'; title.className='coach-programme-title'; title.textContent=name;
       description.className='coach-programme-description'; description.id='coach-programme-description-'+programme.id; description.textContent=presentation.description;
       card.setAttribute('aria-describedby',description.id);
-      copy.append(title,description);
+      copy.append(category,title,description);
       const art=document.createElement('span'), image=document.createElement('img');
       art.className='coach-programme-art'; art.setAttribute('aria-hidden','true');
       image.src='assets/programmes/'+programme.id+'.webp'; image.alt=''; image.width=887; image.height=programme.id==='general-fitness' || programme.id==='general-strength-4w'?443:444;
-      image.onerror=()=>{image.hidden=true;}; art.append(image); card.append(copy,art);
+      image.onerror=()=>{image.hidden=true;}; art.append(image);
+      const chevron=document.createElement('span'); chevron.className='coach-programme-chevron'; chevron.textContent='›'; chevron.setAttribute('aria-hidden','true');
+      card.append(copy,art,chevron);
       if (state?.status==='completed' && state.programmeDefinitionId===programme.id) {
         const footer=document.createElement('span'); footer.className='coach-programme-history';
         footer.id='coach-programme-history-'+programme.id;
@@ -997,6 +1001,7 @@
       details.append(text('summary','',label),paragraph(copy)); return details;
     }
     function overviewView() {
+      el('coachContent').classList.remove('coach-programme-selection');
       if (isTennis()) { tennisOverview(); return; }
       const assessment=controller.assess(def,getEquipment()), wrap=el('coachContent'); wrap.innerHTML='';
       if (!def.anchorSelectionPolicy) {
