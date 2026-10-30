@@ -18,6 +18,7 @@ layout: null
 <script src="js/appearance.js"></script>
 <script>if(navigator.standalone===true)document.documentElement.classList.add('ios-standalone');</script>
 <link rel="stylesheet" href="css/appearance.css">
+<link rel="stylesheet" href="css/backup.css">
 <link rel="stylesheet" href="css/workout-preview.css">
 <style>
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -603,12 +604,20 @@ layout: null
         <button class="settings-row settings-link" type="button" onclick="showScreen('spokenCues')"><span>Spoken Cues</span><span class="settings-chevron" aria-hidden="true">›</span></button>
       </div>
     </section>
+    <section class="settings-section" aria-labelledby="settingsData">
+      <h2 id="settingsData">Your data</h2>
+      <div class="settings-group"><button id="backupRestoreEntry" class="settings-row settings-link" type="button" onclick="openBackupRestore()"><span>Backup &amp; Restore</span><span class="settings-chevron" aria-hidden="true">›</span></button></div>
+    </section>
     <section class="settings-section" aria-labelledby="settingsAbout">
       <h2 id="settingsAbout">About</h2>
       <div class="settings-group">
         <button class="settings-row settings-link" type="button" onclick="openAbout()"><span>About</span><span class="settings-chevron" aria-hidden="true">›</span></button>
       </div>
     </section>
+  </main>
+  <main id="backupRestore" class="screen backup-screen hidden">
+    <header class="page-header"><button class="back-btn" type="button" aria-label="Back" onclick="appBack()">←</button><h1 id="backupRestoreTitle">Backup &amp; Restore</h1><span class="header-spacer"></span></header>
+    <div id="backupRestoreContent"></div>
   </main>
   <main id="about" class="screen info-detail hidden">
     <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Settings" onclick="appBack()">←</button><h1>About</h1><span class="header-spacer"></span></header>
@@ -708,7 +717,12 @@ layout: null
 <script src="js/coach-ui.js"></script>
 <script src="js/masthead.js"></script>
 <script src="js/back-navigation.js"></script>
+<script src="js/backup-registry.js"></script>
+<script src="js/backup.js"></script>
+<script src="js/backup-browser.js"></script>
+<script src="js/backup-ui.js"></script>
 <script>
+window.garageFitAppReady=typeof GarageFitBackupBrowser==='undefined';
 const REST_S=5;
 const CATALOGUE=GarageFitData.exercises,EQUIPMENT=GarageFitData.equipment;
 function exerciseById(id,overrides){return Object.assign({},CATALOGUE[id],overrides||{})}
@@ -726,7 +740,10 @@ const SEVEN_NAMES=['Jumping jacks','Wall sit','Push-ups','Abdominal crunches','S
 const SEVEN_MINUTE_WORKOUT=GarageFitData.fixedWorkouts.sevenMinute.map((id,index)=>({id,name:SEVEN_NAMES[index],work:30,rest:10}));
 SEVEN_MINUTE_WORKOUT[SEVEN_MINUTE_WORKOUT.length-1].rest=0;
 const PB_KEY='gf_300_pb_seconds';
-let backNav=null;
+let backNav=null,backupUI=null,backupBrowser=null,backup=null,appStarted=false,appReady=false,backupReturnScreen='settings';
+function trackAppPersistence(promise){return typeof GarageFitBackupActivity==='undefined'?promise:GarageFitBackupActivity.track(promise)}
+function isBackupBlocked(){return !appReady||state.running||workoutState.running||coachAdvancing||!!coachUI?.isActive()||!!coachUI?.isBusy?.()||!!(generatorState.tracker?.started&&!generatorState.tracker.finalised)||typeof GarageFitBackupActivity!=='undefined'&&(GarageFitBackupActivity.pending>0||GarageFitBackupActivity.failed)}
+function openBackupRestore(){backupReturnScreen=currentScreen;backupUI?.open()}
 let state={key:null,list:[],idx:0,phase:'ready',remaining:0,timer:null,paused:false,ownedEquipment:[],equipmentConfigured:false,wakeLock:null,running:false,doneDestination:'home',cueTracker:null,routine:null,routineRun:null};
 let workoutState={mode:'fixed',workout:null,idx:0,round:1,completedRounds:0,additionalReps:0,history:[],completed:[],elapsedMs:0,startedAt:0,timer:null,paused:false,running:false,expired:false,result:null};
 // Display labels; the generator's focus key for Mixed remains 'balanced'.
@@ -898,7 +915,7 @@ function openExerciseDetail(id){
   showScreen('exerciseDetail');
 }
 let currentScreen=null,voicePreviewPlaying=false;
-const speechVoices=GarageFitSpeechVoices.create({getSynthesis:()=>window.speechSynthesis,getStorage:()=>localStorage,onChange:()=>{if(currentScreen==='spokenCues')renderSpokenVoices()}});
+let speechVoices=null;
 function renderSpokenVoices(){
   const select=document.getElementById('spokenVoice'),selected=speechVoices.selected(),saved=speechVoices.preference();
   select.innerHTML='';
@@ -973,6 +990,7 @@ async function copyWorkoutDiagnostics(){
 }
 function captureGeneratorDiagnostics(){window.garageFitWorkoutDiagnostics?.capture(generatorState.workout,{source:'Generator',equipment:state.ownedEquipment})}
 function showScreen(id){
+  if(id!=='backupRestore'&&(backupUI&&!backupUI.canLeave()||backupBrowser&&!backupBrowser.status().canLeave))return;
   if(firstUse&&id!==currentScreen){
     if(['home','coach'].includes(currentScreen))firstUse.dismissMode(currentScreen);
     if(['home','coach','workouts','more','generatedPreview'].includes(id))firstUse.explore();
@@ -983,9 +1001,9 @@ function showScreen(id){
   currentScreen=id;
   if(id==='spokenCues')speechVoices.refresh();
   document.getElementById('app').classList.toggle('active-player',id==='player'||id==='workoutPlayer');
-  ['home','workouts','generator','equipment','generatedPreview','snackpick','player','workoutPlayer','done','more','settings','about','spokenCues','workoutPatterns','workoutPatternDetail','exerciseLibrary','exerciseDetail','coach','coachPreview','coachProgress','coachSettings','coachSubstitute','coachResult','yourProgress','trainingHistory','sessionDetails'].forEach(s=>document.getElementById(s).classList.toggle('hidden',s!==id));
-  const sharedProgress=['yourProgress','trainingHistory','sessionDetails'].includes(id), navScreen=sharedProgress?progressUI.origin():id;
-  const landing=sharedProgress||['home','workouts','generator','more','coach'].includes(id),nav=document.getElementById('bottomNav');nav.classList.toggle('hidden',!landing);
+  ['home','workouts','generator','equipment','generatedPreview','snackpick','player','workoutPlayer','done','more','settings','about','spokenCues','workoutPatterns','workoutPatternDetail','exerciseLibrary','exerciseDetail','coach','coachPreview','coachProgress','coachSettings','coachSubstitute','coachResult','yourProgress','trainingHistory','sessionDetails','backupRestore'].forEach(s=>document.getElementById(s).classList.toggle('hidden',s!==id));
+  const sharedProgress=['yourProgress','trainingHistory','sessionDetails'].includes(id), navScreen=sharedProgress?progressUI.origin():id==='backupRestore'?'more':id;
+  const landing=sharedProgress||id==='backupRestore'||['home','workouts','generator','more','coach'].includes(id),nav=document.getElementById('bottomNav');nav.classList.toggle('hidden',!landing);
   [['home','routinesNav'],['workouts','workoutsNav'],['coach','coachNav'],['generator','generatorNav'],['more','moreNav']].forEach(pair=>{const active=navScreen===pair[0],button=document.getElementById(pair[1]);button.classList.toggle('active',active);active?button.setAttribute('aria-current','page'):button.removeAttribute('aria-current')});
   if(typeof backNav!=='undefined'&&backNav)backNav.sync();
   if(id==='generatedPreview')captureGeneratorDiagnostics();
@@ -1039,8 +1057,6 @@ let generatorRecentFamilySessions={};
 async function refreshGeneratorFamilySessions(){
   try{const limit=GarageFitTrainingHistory.RECENT_SESSION_LIMIT,query=await GarageFitCoachStore.createStore(localStorage).listSessionResults({sources:['coach','generator','fixed'],performedOnly:true,limit,candidateLimit:limit});generatorRecentFamilySessions=GarageFitTrainingHistory.createHistory(query.results,CATALOGUE).lastCompletedFamilySessions()}catch(e){generatorRecentFamilySessions={}}
 }
-refreshGeneratorProtocols();
-refreshGeneratorFamilySessions();
 function familyFailureMessage(error){
   const family=GarageFitWorkoutFamilies.getDefinition(generatorState.workoutFamilyId),codes=(error.reasons||[]).map(reason=>reason.code);
   const reason=codes.includes('insufficient-eligible-movements')||codes.includes('missing-essential-practice')?'There are too few suitable movements for its required practice.':codes.includes('phase-cannot-fit')?'Its movement practice and recovery cannot fit the selected time.':'A suitable session with the required movement balance and recovery could not be built.';
@@ -1461,7 +1477,7 @@ function standaloneGeneratedTracking(){if(typeof GarageFitCoachStore==='undefine
 function startStandaloneGeneratedWorkout(){startGeneratedWorkout(standaloneGeneratedTracking())}
 function startGeneratedTracking(tracking){generatorState.tracker=null;generatorState.trackedResult=null;generatorState.trackerError=null;generatorState.standaloneTracking=!!(tracking&&tracking.standalone);if(!tracking)return;if(tracking.tracker){generatorState.tracker=tracking.tracker;return}const tracker=GarageFitSessionTracker.createTracker(Object.assign({workoutId:generatorState.workout.id,...GarageFitSessionTracker.identityFromWorkout(generatorState.workout),plannedWork:GarageFitSessionTracker.plannedWorkFromTimeline(generatorState.timeline,tracking)},tracking));generatorState.tracker=tracker;trackGenerated(()=>tracker.start())}
 // Tracking never interrupts playback: failures are kept for the tracked context to inspect.
-function trackGenerated(action){try{const write=action();if(write&&write.catch)write.catch(error=>{generatorState.trackerError=error});return write}catch(error){generatorState.trackerError=error;return null}}
+function trackGenerated(action){try{const write=trackAppPersistence(action());if(write&&write.catch)write.catch(error=>{generatorState.trackerError=error});return write}catch(error){generatorState.trackerError=error;if(typeof GarageFitBackupActivity!=='undefined')GarageFitBackupActivity.fail();return null}}
 // Record the current exercise occurrence's outcome before the timeline moves on. Timed work is
 // measured from the countdown; rep work is Done or skipped. Moving the index is not evidence.
 function recordGeneratedOutcome(action){const tracker=generatorState.tracker,phase=currentGeneratedPhase();if(!tracker||!tracker.started||tracker.finalised||generatorState.trackedResult||!phase||phase.kind!=='exercise')return;trackGenerated(()=>phase.timed?tracker.recordTimed(phase.occurrenceId,{plannedSeconds:phase.seconds,elapsedSeconds:phase.seconds-Math.max(0,generatorState.remaining)}):action==='done'?tracker.recordDone(phase.occurrenceId):tracker.recordSkip(phase.occurrenceId))}
@@ -1953,21 +1969,33 @@ function renderFirstUse(){
   document.getElementById('firstUseCompact').classList.toggle('hidden',!status.explored||status.completed);
   ['home','coach'].forEach(id=>document.getElementById('firstUse'+id[0].toUpperCase()+id.slice(1)).classList.toggle('hidden',!active||status.modes.includes(id)));
 }
-async function firstUseSaved(result,screen){
+function firstUseSaved(result,screen){return trackAppPersistence((async()=>{
   if(!firstUse||!await firstUse.saved(result))return;
   if(currentScreen===screen)document.getElementById('firstSaved'+screen).classList.remove('hidden');
-}
+})())}
+let progressUI=null;
+function openSharedProgress(){return progressUI.open('coach')}
+function initialiseGarageFit(){
+  if(appStarted)return;appStarted=true;
+  const startupTasks=[];
+  if(typeof GarageFitAppearance!=='undefined')GarageFitAppearance.refresh?.();
+  speechVoices=GarageFitSpeechVoices.create({getSynthesis:()=>window.speechSynthesis,getStorage:()=>localStorage,onChange:()=>{if(currentScreen==='spokenCues')renderSpokenVoices()}});
 try{firstUse=GarageFitFirstUse.create({storage:localStorage,store:GarageFitCoachStore.createStore(localStorage),onChange:renderFirstUse})}catch(_){}
 loadEquipment();
 if(typeof GarageFitCoachUI!=='undefined'){
   coachUI=GarageFitCoachUI.mount({catalogue:CATALOGUE,equipment:EQUIPMENT,getEquipment:()=>state.ownedEquipment,setEquipment:setOwnedEquipment,onSessionSaved:result=>firstUseSaved(result,'coach'),buildTimeline:workout=>buildGeneratedTimeline(workout),showScreen,stopPlayer:stopCoachPlayer,onViewChange:()=>backNav&&backNav.sync(),
     play:(workout,tracker)=>{generatorState.workout=workout;startGeneratedWorkout({tracker});state.doneDestination='coach';document.getElementById('workoutPlayerTitle').textContent='Coach · '+workout.duration+' min'}});
-  coachUI.init();
+  startupTasks.push(coachUI.init());
 }
-function openSharedProgress(){return progressUI.open('coach')}
-const progressUI=GarageFitProgressUI.mount({store:GarageFitCoachStore.createStore((()=>{try{return localStorage}catch(error){return null}})()),catalogue:CATALOGUE,showScreen,
+progressUI=GarageFitProgressUI.mount({store:GarageFitCoachStore.createStore((()=>{try{return localStorage}catch(error){return null}})()),catalogue:CATALOGUE,showScreen,
   getProgramme:()=>coachUI.progressContext(),openProgramme:()=>coachUI.openProgrammeProgress(),
   returnToOrigin:origin=>origin==='coach'?coachUI.open():showScreen('more')});
+
+  if(firstUse)startupTasks.push(firstUse.ready);
+  startupTasks.push(refreshGeneratorProtocols(),refreshGeneratorFamilySessions());
+  appReady=typeof GarageFitBackupBrowser==='undefined';
+  return Promise.all(startupTasks).then(()=>{appReady=true;window.garageFitAppReady=true;if(typeof window.dispatchEvent==='function'&&typeof Event!=='undefined')window.dispatchEvent(new Event('garagefit-ready'));});
+}
 // Shared back navigation (#241): explicit eligible view -> existing back callback. Player, workoutPlayer,
 // done, coachResult and the landings are deliberately absent, so no back control or swipe ever applies there.
 backNav=GarageFitBackNav.create({
@@ -1975,7 +2003,7 @@ backNav=GarageFitBackNav.create({
   getView:()=>currentScreen==='coach'?(coachUI&&coachUI.inOverview()?'coachOverview':null):currentScreen,
   routes:{
     equipment:()=>closeEquipment(),generatedPreview:()=>showLanding('generator'),
-    settings:()=>showScreen('more'),about:()=>showScreen('settings'),spokenCues:()=>showScreen('settings'),workoutPatterns:()=>showScreen('more'),workoutPatternDetail:backToWorkoutPatterns,
+    backupRestore:()=>backupUI.back(),settings:()=>showScreen('more'),about:()=>showScreen('settings'),spokenCues:()=>showScreen('settings'),workoutPatterns:()=>showScreen('more'),workoutPatternDetail:backToWorkoutPatterns,
     exerciseLibrary:()=>showScreen('more'),exerciseDetail:()=>showScreen('exerciseLibrary'),
     coachOverview:()=>coachUI.backFromOverview(),coachPreview:()=>coachUI.back(),coachProgress:()=>{if(!progressUI.backProgramme())coachUI.back()},
     yourProgress:()=>progressUI.backOverview(),trainingHistory:()=>progressUI.backHistory(),sessionDetails:()=>progressUI.backDetail(),
@@ -1985,6 +2013,22 @@ backNav=GarageFitBackNav.create({
 function appBack(){return backNav.back()}
 GarageFitBackNav.createSwipe({canStart:()=>backNav.canGoBack()&&!state.running&&!workoutState.running,onBack:appBack}).attach(document);
 backNav.sync();
+// Only the initialisation work above can mutate or query durable app state.
+// Run it after the shared tab lease and any interrupted restore have settled.
+if(typeof GarageFitBackupBrowser==='undefined')initialiseGarageFit();
+else {
+  const app=document.getElementById('app');app.inert=true;
+  backupBrowser=GarageFitBackupBrowser.create({window,storage:(()=>{try{return localStorage}catch(_){return null}})(),isBlocked:isBackupBlocked,onBusy:value=>{app.inert=!appReady;document.getElementById('bottomNav').inert=value||!backupBrowser?.status().canLeave;}});
+  const backupCore=GarageFitBackup.create({storage:backupBrowser.storage,coach:GarageFitCoachStore.createBackupAccess(backupBrowser.storage),isBlocked:isBackupBlocked,withExclusive:backupBrowser.withExclusive});
+  backup=Object.create(backupCore);backup.prepare=options=>backupBrowser.withExclusive(()=>backupCore.prepare(options));
+  backupUI=GarageFitBackupUI.mount({document,backup,showScreen,saveFile:backupBrowser.saveFile,readFile:backupBrowser.readFile,isBlocked:isBackupBlocked,
+    onRestored:()=>window.location.reload(),returnToActivity:()=>showScreen(backupReturnScreen),retryRecovery:()=>window.location.reload(),onStateChange:status=>{document.getElementById('bottomNav').inert=!status.canLeave||!backupBrowser.status().canLeave;}});
+  const start=()=>backupBrowser.start(()=>backup.recover()).then(initialiseGarageFit).then(()=>{app.inert=false;}).catch(error=>{app.inert=false;backupUI.showRecovery(error);});
+  start();
+  // Capturing navigation guards also covers the standalone workout extension's
+  // wrapper around showScreen. No stale view can be used after replacement.
+  document.addEventListener('click',event=>{if((!backupUI.canLeave()||!backupBrowser.status().canLeave)&&!event.target.closest?.('#backupRestore')){event.preventDefault();event.stopImmediatePropagation();}},true);
+}
 </script>
 <script src="js/player-layout.js"></script>
 </body>

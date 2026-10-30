@@ -1,21 +1,9 @@
 # GarageFit portable backup records
 
-**Preparatory implementation for #354; not shipped or wired into the app.**
-The approved Dropbox reference pack is located at
-`/Apps/GarageFit/Design References/Backup & Restore/GarageFit-Backup-Restore-Visual-References-v1.0.zip`,
-but the implementation workspace's HTTP policy blocks its download. Dropbox's
-text-extraction tool can read its README: it confirms 24 approved conceptual
-mockups covering 12 states in light/dark, at 390 × 800 CSS pixels. It does not
-expose the image contents for visual inspection. The issue
-requires those approved references before visual implementation. This branch
-therefore contains storage APIs, the format registry and a tested coordinator;
-it must not be merged as a completed #354 feature.
-
-Still required: approved-reference inspection and current iPhone baseline
-captures; Settings screens and navigation; native save/share/download transport
-and truthful save statuses; startup recovery before mutable clients; browser
-tab protection and pending-write/activity guards; client reinitialisation;
-light/dark, narrow viewport, focus and real iPhone PWA verification.
+The Settings → Your data → Backup & Restore flow implements the approved
+BR1–BR6 and BR-UI1–BR-UI8 Option B decisions. Visual references are the approved
+30 October 2026 v1.0 pack (24 conceptual mockups, 12 states, light/dark), retained
+in Dropbox at `/Apps/GarageFit/Design References/Backup & Restore/`.
 
 The portable data domain is curated, not a dump of browser storage. Register any
 new durable feature explicitly, validate its stored representation and add a
@@ -80,8 +68,7 @@ state, never portable data.
 
 `js/backup.js` exposes `GarageFitBackup.create({storage, coach, registry,
 isBlocked, withExclusive, now})`. The Coach argument is the synchronous
-`GarageFitCoachStore.createBackupAccess(storage)` boundary. Nothing is mounted
-by loading the module.
+`GarageFitCoachStore.createBackupAccess(storage)` boundary. The browser bridge and screen are mounted by the existing inline app bootstrap.
 
 Format 1 archives contain `app: "GarageFit"`, an ISO `createdAt`, separate
 version-1 `preferences` and `coach` sections, and a lowercase SHA-256 `checksum`
@@ -116,20 +103,48 @@ Recovery reverts a pending journal to the exact original snapshot and fails clos
 if the journal or storage cannot be used. Success requires a full reload or
 reinitialisation of every stateful client before any other app mutation.
 
-**Required integration contract:** `withExclusive(action)` must prevent *all*
-competing app writes, not only another restore. Merely requesting a Web Lock
-inside `restore` is insufficient when other tabs write without acquiring that
-lock. One viable integration is a shared app-lifetime tab lease acquired before
-mutable startup, upgraded to an exclusive lease only while the initiating tab's
-own writes are suspended and other tabs are closed. Recovery needs startup
-exclusive ownership. Unsupported protection must disable destructive restore.
-`isBlocked` must include all live/paused activities, pending specialised result
-saves, tracker finalisation and other writes; persisted drafts also block directly
-through the Coach API. The draft coordinator accepts these capabilities by
-injection for deterministic testing; **browser integration is outstanding**.
+`js/backup-browser.js` takes a shared Web Lock before any mutable startup,
+first-use classification, history query or equipment migration. Recovery upgrades
+to exclusive ownership before touching a pending journal. Export preparation and
+restore both upgrade to an exclusive lease with bounded `ifAvailable` acquisition;
+other live GarageFit tabs must be closed before continuing. A failed downgrade
+also blocks app use until reload, rather than leaving a stale client unprotected.
 
-Validation: `node --test tests/backup.test.js tests/backup-registry.test.js
- tests/coach-backup.test.js`, followed by the repository's full persistence suite.
+The bridge guards this localStorage instance's normal set/remove/clear methods
+while startup, recovery or replacement is protected. Only the coordinator receives
+a captured-native-method adapter, whose writes require exclusive ownership. This
+also blocks late asynchronous app writes. Shared leases stay held while a page is
+in the back-forward cache; successful restore retains exclusive ownership and
+blocks navigation/writes until the success screen's Continue reloads every client.
+No localStorage transaction or cross-device synchronisation is claimed. Protection
+requires the app's lease-aware implementation; close older loaded GarageFit tabs
+before upgrading/restoring as well.
+
+The `isBlocked` callback covers live/paused routines and players, Coach operations,
+unfinalised trackers, pending specialist/Generator saves and first-use callbacks.
+Known tracking failures remain blocked until reload rather than producing a backup
+that claims to contain an unsaved run. Persisted drafts additionally block through
+the Coach API. Browsers without protected storage access can run normally when no
+journal exists, but backup/restore protection fails closed; unreadable storage or
+an unresolved journal shows the blocking recovery screen.
+
+File transport progressively uses Web Share file support, then a native save
+picker, then a Blob download. Preparation is separate from the user's save-button
+click, preserving native user activation. Even a fulfilled OS/browser invocation
+is labelled offered/unverified. Ordinary export verification is optional;
+pre-restore preservation requires reselecting the saved file and passing checksum,
+content and destination-identity checks. Cancelling native selection or sharing
+never changes durable app data.
+
+Validation: `node --test tests/backup*.test.js tests/coach-backup.test.js`,
+relevant existing suites, then the repository's Fast and Full persistence suites.
+`python3 scripts/verify-backup.py OUTPUT [URL]` runs real Chromium file
+round-trips, shared-tab guards, startup recovery and representative light/dark,
+390/320 px, enlarged-text and keyboard/focus/touch-target captures using synthetic
+records. The maintained first-use contract is preserved: no new primary mode or
+setup flow, and restored audience/completion acknowledgement remains durable.
 Fault tests cover each significant storage write/delete and reload from each
-persisted intermediate state; these do not replace browser integration or real
-iPhone file-handling tests.
+persisted intermediate state. Physical iPhone installed-PWA native picker/share
+and VoiceOver checks remain unverified in this Linux environment and must be
+recorded explicitly in delivery evidence. Chromium emulation does not establish
+physical-device conformance.

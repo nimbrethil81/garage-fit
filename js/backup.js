@@ -238,7 +238,15 @@
       });
     }
     return {prepare, verify, validate, restore, recover,
-      inspectDestination() { requireSettled(); const raw = snapshot(); return {meaningful: !!(raw.preferences.length || raw.coach.length), preservationVerified: !!preservation?.verified && preservation.original === canonical(raw)}; },
+      inspectDestination() {
+        requireSettled(); const raw = snapshot();
+        registry.validate(raw.preferences);
+        const counts = coach.validatePortable(coach.exportPortable());
+        if (canonical(raw) !== canonical(snapshot())) fail('concurrent-change', 'Your data changed. Review the current device again.');
+        return {meaningful: !!(raw.preferences.length || raw.coach.length),
+          preservationVerified: !!preservation?.verified && preservation.original === canonical(raw),
+          summary: {...counts, preferences: counts.preferences + raw.preferences.length}};
+      },
       get busy() { return busy; }};
   }
   root.GarageFitBackup = {create, BackupError, FORMAT, MAX_BYTES, JOURNAL, RESERVE, canonical, fingerprint};
