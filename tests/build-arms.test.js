@@ -213,8 +213,8 @@ test('open-ended progress never automatically completes and persisted results re
 test('existing Coach entry point lists both programmes and renders open-ended status and dose', async () => {
   const p=pilot();await p.run('coachUI.open()');
   const el=id=>p.app.document.getElementById(id);
-  assert.ok(el('coachContent').children.some(c=>c.textContent==='Build Arms'));
-  const button=el('coachContent').children.find(c=>c.textContent==='Build Arms');await button.onclick();
+  assert.ok(el('coachContent').children.some(c=>c.attributes?.['aria-label']==='Build Arms'));
+  const button=el('coachContent').children.find(c=>c.attributes?.['aria-label']==='Build Arms');await button.onclick();
   assert.ok(el('coachContent').children.some(c=>/direct arm curl/.test(c.textContent)));
   await p.run("coachUI.controller.start(armsDef,['bands'])");await p.run('coachUI.open()');
   const text=el('coachContent').children.map(c=>c.textContent).join(' ');

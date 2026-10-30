@@ -86,7 +86,7 @@ test('Tennis setup and daily training keep the shared Coach navigation; preview 
   const vm=require('node:vm'), app=loadAppContext(new Map(),{ownIntrinsics:true});
   const run=source=>vm.runInContext(source,app);
   await run("state.ownedEquipment=['dumbbells'];coachUI.open()");
-  run("function coachButton(text){const visit=node=>node.textContent===text&&node.onclick?node:(node.children||[]).map(visit).find(Boolean);return visit(document.getElementById('coachContent'));}");
+  run("function coachButton(text){const visit=node=>(node.attributes?.['aria-label']===text||node.textContent===text)&&node.onclick?node:(node.children||[]).map(visit).find(Boolean);return visit(document.getElementById('coachContent'));}");
   await run("coachButton('Tennis').onclick()");
   assert.equal(app.document.getElementById('bottomNav').classList.contains('hidden'),false);
   assert.equal(app.document.getElementById('coachNav').attributes['aria-current'],'page');

@@ -271,7 +271,13 @@ test('Coach panel pause preserves edited actuals and checkpoint failure protects
 });
 
 test('Coach preview rows show confirmed load guidance, interval work and plain supporting rows', async () => {
-  const p=pilot();p.run("state.ownedEquipment=['dumbbells']");await p.start();
+  const p=pilot();
+  // Keep the UI clock inside the fixture's training block, matching the controller.
+  // The real calendar can otherwise replace the workout CTA with a block review.
+  p.run(`const PreviewDate=Date; Date=class extends PreviewDate {
+    constructor(...args){super(...(args.length?args:[pilotNow]));}
+    static now(){return PreviewDate.parse(pilotNow);}
+  }; state.ownedEquipment=['dumbbells'];`);await p.start();
   await p.begin();await p.log('anchor-squat','undefined','12');await p.finish('complete');
   await p.run('coachUI.open()');
   p.run(`function previewNodes(){const visit=node=>[node,...(node.children||[]).flatMap(visit)];return visit(document.getElementById('coachPreviewContent'));}

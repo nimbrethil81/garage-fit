@@ -11,7 +11,7 @@ async function ui(storage = new Map(), equipment = ['dumbbells','bench']) {
     function nodes(id){const visit=node=>[node,...(node.children||[]).flatMap(visit)];return visit(document.getElementById(id));}
     function visible(){return [['coachSettings','coachSettingsContent'],['coachProgress','coachProgressContent']].find(([screen])=>!document.getElementById(screen).classList.contains('hidden'))?.[1]||'coachContent';}
     function field(label){return nodes(visible()).find(node=>node.attributes?.['aria-label']===label);}
-    function action(label,id=visible()){return nodes(id).find(node=>node.textContent===label&&node.onclick);}
+    function action(label,id=visible()){return nodes(id).find(node=>(node.attributes?.['aria-label']===label||node.textContent===label)&&node.onclick);}
     function copyText(id=visible()){return nodes(id).map(node=>node.textContent).join(' ');}`);
   await p.run('coachUI.open()');
   p.click = (label, id) => p.run(`action(${JSON.stringify(label)}${id ? ','+JSON.stringify(id) : ''}).onclick()`);
@@ -226,7 +226,7 @@ test('shared equipment edits preserve the live Coach workout, durable draft and 
 
 test('General Fitness is offered and runs home → preview/edit → player → save → progress on the shared screens', async () => {
   const p = await ui(new Map(), ['dumbbells']);
-  assert.match(p.text(), /A training goal and sessions adapted to the work you actually do\. Fitness programmes.*General Fitness 4-Week General Strength Build Arms Sport cross-training Tennis/);
+  assert.match(p.text(), /A training goal and sessions adapted to the work you actually do\. Fitness programmes.*General Fitness.*4-Week General Strength.*Build Arms.*Sport cross-training.*Tennis/);
   assert.doesNotMatch(p.text(), /stable anchors/);
   await p.click('General Fitness');
   assert.match(p.text(), /2–5 sessions per week Recommended, not obligatory\s+30 min default Adjustable for each session/);
@@ -350,5 +350,33 @@ test('programme setups share accurate facts and concise, optional progression he
     if(key==='tennis') assert.ok(p.run("field('GarageFit sessions per week')"));
     await p.run("field('Back to Coach programmes').onclick()"); assert.ok(p.has(names[key]));
     await p.click(names[key]); await p.click('Start programme'); assert.ok(p.state());
+  }
+});
+
+
+test('selection cards preserve categories, order, native controls and all overview/back routes', async () => {
+  const p=await ui();
+  const cards=()=>p.json("nodes('coachContent').filter(n=>n.attributes?.['data-programme-id']).map(n=>({id:n.attributes['data-programme-id'],label:n.attributes['aria-label'],type:n.type}))");
+  assert.deepEqual(cards().map(n=>n.id),['general-fitness','general-strength-4w','build-arms','tennis-conditioning']);
+  for(const name of Object.values(names)) {
+    const card=cards().find(n=>n.label===name); assert.ok(card); assert.equal(card.type,'button');
+    await p.click(name); assert.ok(p.has('Start programme'));
+    await p.run("field('Back to Coach programmes').onclick()"); assert.equal(cards().length,4);
+  }
+  assert.doesNotMatch(p.text(),/Previous plan|Your history is saved/);
+  p.run("nodes('coachContent').find(n=>n.src?.startsWith('assets/programmes/')).onerror()");
+  assert.equal(p.run("nodes('coachContent').find(n=>n.src?.startsWith('assets/programmes/')).hidden"),true);
+  await p.click('General Fitness'); assert.ok(p.has('Start programme'));
+});
+
+test('finished history belongs only to the matching card, with credited counts including zero', async () => {
+  for (const [key,count] of [['strength',3],['tennis',1],['fitness',0]]) {
+    const p=await ui(); await start(p,key);
+    // Inject a snapshot at the view boundary: counts remain the controller's credited value.
+    p.run(`const priorSnapshot=coachUI.controller.snapshot; coachUI.controller.snapshot=()=>{const snap=priorSnapshot();return {...snap,state:{...snap.state,status:'completed',meaningfulSessionsCompleted:${count}}};}`);
+    await p.run('coachUI.open()');
+    const footers=p.json("nodes('coachContent').filter(n=>n.attributes?.['data-programme-id']).flatMap(n=>n.children.filter(c=>c.className==='coach-programme-history').map(c=>({id:n.attributes['data-programme-id'],text:c.textContent})))");
+    assert.deepEqual(footers,[{id:{strength:'general-strength-4w',tennis:'tennis-conditioning',fitness:'general-fitness'}[key],text:'Previous plan · '+count+' session'+(count===1?'':'s')}]);
+    assert.doesNotMatch(p.text(),/Your history is saved|Previous programme finished|Completed/);
   }
 });

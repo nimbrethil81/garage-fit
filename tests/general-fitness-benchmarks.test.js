@@ -495,7 +495,7 @@ async function ui(storage = new Map()) {
     state.ownedEquipment=[];
     let seed=33;Math.random=()=>{seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};
     function nodes(id='coachContent'){const visit=node=>[node,...(node.children||[]).flatMap(visit)];return visit(document.getElementById(id));}
-    function action(label,id='coachContent'){return nodes(id).find(node=>node.textContent===label&&node.onclick);}
+    function action(label,id='coachContent'){return nodes(id).find(node=>(node.attributes?.['aria-label']===label||node.textContent===label)&&node.onclick);}
     function copyText(id='coachContent'){return nodes(id).map(node=>node.textContent).join(' ');}
     function uiDay(days){uiNow=new NativeDate(${T0}+days*${DAY}).toISOString();}`);
   await p.run('coachUI.open()');

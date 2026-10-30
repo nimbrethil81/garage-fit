@@ -14,7 +14,7 @@ function setup(storage = new Map()) {
     Date=class extends NativeDate {constructor(...args){super(...(args.length?args:[uiNow]));} static now(){return Date.parse(uiNow);}};
     state.ownedEquipment=['rings'];
     function nodes(id){const visit=node=>[node,...(node.children||[]).flatMap(visit)];return visit(document.getElementById(id));}
-    function action(label,id='coachContent'){return nodes(id).find(node=>node.textContent===label&&node.onclick);}
+    function action(label,id='coachContent'){return nodes(id).find(node=>(node.attributes?.['aria-label']===label||node.textContent===label)&&node.onclick);}
     function copyText(id='coachContent'){return nodes(id).map(node=>node.textContent).join(' ');}`);
   p.session = async (day, reps = 10) => {
     p.run(`pilotNow='2026-10-${String(day).padStart(2, '0')}T08:00:00Z'`);

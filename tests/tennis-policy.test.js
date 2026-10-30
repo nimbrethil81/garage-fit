@@ -308,7 +308,7 @@ test('Tennis entry and player distinguish stable progression anchors from rep an
   const p = pilot(new Map(),'tennis-conditioning');
   p.run("state.ownedEquipment=['dumbbells']"); await p.run('coachUI.open()');
   const element = id => p.app.document.getElementById(id);
-  await element('coachContent').children.find(node => node.textContent === 'Tennis').onclick();
+  await element('coachContent').children.find(node => node.attributes?.['aria-label'] === 'Tennis').onclick();
   const help=element('coachContent').children.find(node=>node.className==='coach-help coach-setup-help');
   assert.ok(help); assert.equal(!!help.open,false);
   assert.equal(help.children[0].textContent,'How training fits your tennis');

@@ -12,7 +12,7 @@ async function ui(storage = new Map(), equipment = ['dumbbells']) {
     // Controls are looked up on whichever Coach screen is showing.
     function visible(){return [['coachSettings','coachSettingsContent'],['coachProgress','coachProgressContent']].find(([screen])=>!document.getElementById(screen).classList.contains('hidden'))?.[1]||'coachContent';}
     function field(label){return nodes(visible()).find(node=>node.attributes?.['aria-label']===label);}
-    function action(label,id=visible()){return nodes(id).find(node=>node.textContent===label&&node.onclick);}
+    function action(label,id=visible()){return nodes(id).find(node=>(node.attributes?.['aria-label']===label||node.textContent===label)&&node.onclick);}
     function copyText(id='coachContent'){return nodes(id).map(node=>node.textContent).join(' ');}`);
   await p.run('coachUI.open()');
   p.click = (label,id) => p.run(`action(${JSON.stringify(label)}${id?','+JSON.stringify(id):''}).onclick()`);
@@ -208,7 +208,7 @@ test('settings use Store, preserve targets through failure/retry and pause/resum
   assert.match(p.run("document.getElementById('coachSettingsError').textContent"),/programme-settings/);
   const q=await ui(p.storage);assert.equal(q.state().currentTargets.programmeSettings.focus,'movement');
   await q.click('Programme settings');await q.click('Finish programme');assert.equal(q.state().status,'active','finish needs confirmation');
-  await q.click('Confirm finish programme');assert.match(q.run('copyText()'),/Previous programme finished/);
+  await q.click('Confirm finish programme');assert.match(q.run('copyText()'),/Previous plan · 0 sessions/);
   assert.equal(q.state().status,'completed');assert.deepEqual(q.state().anchors,before.anchors);
 });
 

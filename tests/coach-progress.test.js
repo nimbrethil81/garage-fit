@@ -11,7 +11,7 @@ async function ui(storage = new Map(), equipment = ['dumbbells','bench']) {
     function nodes(id='coachContent'){const visit=node=>[node,...(node.children||[]).flatMap(visit)];return visit(document.getElementById(id));}
     function labelled(label,id='coachProgressContent'){return nodes(id).find(node=>node.attributes?.['aria-label']===label);}
     function labelledLike(pattern,id='coachProgressContent'){return nodes(id).filter(node=>new RegExp(pattern).test(node.attributes?.['aria-label']||''));}
-    function action(label,id='coachContent'){return nodes(id).find(node=>node.textContent===label&&node.onclick);}
+    function action(label,id='coachContent'){return nodes(id).find(node=>(node.attributes?.['aria-label']===label||node.textContent===label)&&node.onclick);}
     function copyText(id='coachProgressContent'){return nodes(id).map(node=>node.textContent).join(' ');}`);
   await p.run('coachUI.open()');
   p.click = (label, id = 'coachContent') => p.run(`action(${JSON.stringify(label)},${JSON.stringify(id)}).onclick()`);

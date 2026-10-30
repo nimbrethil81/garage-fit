@@ -1,0 +1,98 @@
+{
+  "general-fitness": {
+    "dimensions": [
+      887,
+      443
+    ],
+    "png_bytes": 350103,
+    "webp_bytes": 68252,
+    "png_sha256": "1d9836e867c3c405663e6496226a4f84cc2f9d6689dbe7ab3320f9051b4a316b",
+    "webp_sha256": "225e0c3e48065d35455fcfcb21e218c9c8cc99372fb8a96c24144874e52d0c51",
+    "alpha_min_max": [
+      0,
+      255
+    ],
+    "transparent_pixel_count": 162005,
+    "translucent_pixel_count": 230170,
+    "webp_alpha_exact": true,
+    "webp_alpha_max_difference": 0,
+    "source_quadrant": [
+      0,
+      0,
+      887,
+      443
+    ]
+  },
+  "general-strength-4w": {
+    "dimensions": [
+      887,
+      443
+    ],
+    "png_bytes": 285056,
+    "webp_bytes": 43534,
+    "png_sha256": "ea102fb51021033bbed170df52cbf87e83e8d5e49b2a2eb0c90a785ceff3339f",
+    "webp_sha256": "22e5d7697c8012fdf5d3f5043c01b57971fb0c6025f7c330b771e896c0280a3b",
+    "alpha_min_max": [
+      0,
+      255
+    ],
+    "transparent_pixel_count": 161004,
+    "translucent_pixel_count": 231409,
+    "webp_alpha_exact": true,
+    "webp_alpha_max_difference": 0,
+    "source_quadrant": [
+      887,
+      0,
+      1774,
+      443
+    ]
+  },
+  "build-arms": {
+    "dimensions": [
+      887,
+      444
+    ],
+    "png_bytes": 246609,
+    "webp_bytes": 53432,
+    "png_sha256": "8254c0971525253c525116c83c74805760e9c84da02a00e7931cfd0c56ab6060",
+    "webp_sha256": "7cc590476b9410bff02d63e91ec6797875c74e1a38520914505a17bfcc6c2704",
+    "alpha_min_max": [
+      0,
+      255
+    ],
+    "transparent_pixel_count": 211488,
+    "translucent_pixel_count": 181480,
+    "webp_alpha_exact": true,
+    "webp_alpha_max_difference": 0,
+    "source_quadrant": [
+      0,
+      443,
+      887,
+      887
+    ]
+  },
+  "tennis-conditioning": {
+    "dimensions": [
+      887,
+      444
+    ],
+    "png_bytes": 360490,
+    "webp_bytes": 78586,
+    "png_sha256": "0c1be4a4ffb832b3eb9a5b76005449eda0050b410144622c346b7171ad528fcf",
+    "webp_sha256": "1cac4c0ed37c01db4e1aab31a864307e55dc4a012fbbf23ddf75bf732bb3e28d",
+    "alpha_min_max": [
+      0,
+      255
+    ],
+    "transparent_pixel_count": 191477,
+    "translucent_pixel_count": 201733,
+    "webp_alpha_exact": true,
+    "webp_alpha_max_difference": 0,
+    "source_quadrant": [
+      887,
+      443,
+      1774,
+      887
+    ]
+  }
+}
