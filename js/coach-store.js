@@ -290,6 +290,151 @@
     };
   }
 
+  // Synchronous, narrow storage boundary for the backup transaction coordinator.
+  // Raw snapshots retain bytes (including the derived index) for exact rollback;
+  // portable snapshots are separately validated and never contain a live draft.
+  function backupKeyKind(key) {
+    if (key === ACTIVE_PROGRAMME_KEY) return 'active-programme';
+    if (key === PREFERENCES_KEY) return 'coach-preferences';
+    if (key === SESSION_INDEX_KEY) return 'session-result-index';
+    if (key === SESSION_DRAFT_KEY) return 'session-draft';
+    if (typeof key === 'string' && key.startsWith(PROGRAMME_STATE_PREFIX)) return 'programme-state';
+    if (typeof key === 'string' && key.startsWith(SESSION_RESULT_PREFIX)) return 'session-result';
+    return null;
+  }
+
+  function createBackupAccess(storage, options = {}) {
+    const Model = root.GarageFitCoachModel;
+    const fail = (code, message, details = {}) => { throw new Model.CoachError(code, message, details); };
+    const definitions = options.definitions || (root.GarageFitData || {}).programmes || {};
+    function checkEntries(entries, portable) {
+      if (!Array.isArray(entries) || entries.length > MAX_RECOVERY_KEYS)
+        fail('invalid-record', 'Coach backup exceeds its supported record bound.');
+      const seen = new Set();
+      entries.forEach(entry => {
+        if (!Array.isArray(entry) || entry.length !== 2 || typeof entry[0] !== 'string' || typeof entry[1] !== 'string'
+          || !backupKeyKind(entry[0]) || seen.has(entry[0])) fail('invalid-record', 'Coach backup contains an unknown or duplicate record.');
+        if (portable && [SESSION_INDEX_KEY, SESSION_DRAFT_KEY].includes(entry[0]))
+          fail('invalid-record', 'Portable backups cannot contain session drafts or derived indexes.');
+        seen.add(entry[0]);
+      });
+    }
+    function snapshotRaw() {
+      try {
+        if (!storage || typeof storage.key !== 'function' || !Number.isInteger(storage.length)
+          || storage.length > MAX_RECOVERY_KEYS) fail('storage-unavailable', 'Storage cannot be fully inspected for backup.');
+        const keys = [];
+        for (let i = 0; i < storage.length; i++) {
+          const key = storage.key(i);
+          if (typeof key !== 'string') fail('storage-unavailable', 'Storage changed during backup.');
+          if (key.startsWith(KEY_PREFIX)) keys.push(key);
+        }
+        const entries = keys.sort().map(key => [key, storage.getItem(key)]);
+        checkEntries(entries, false);
+        return entries;
+      } catch (error) {
+        if (error instanceof Model.CoachError) throw error;
+        throw new Model.CoachError('storage-unavailable', 'Could not inspect Coach data for backup.', {}, error);
+      }
+    }
+    function parseEntry(key, raw) {
+      let parsed;
+      try { parsed = JSON.parse(raw); }
+      catch (error) { throw new Model.CoachError('corrupt-record', 'Coach backup contains invalid JSON.', {key}, error); }
+      const kind = backupKeyKind(key);
+      const record = Model.assertValid(kind, Model.upgradeRecord(kind, parsed));
+      if (kind === 'programme-state' && programmeStateKey(record.programmeInstanceId) !== key
+        || kind === 'session-result' && sessionResultKey(record.sessionResultId) !== key)
+        fail('invalid-record', 'Coach record identity does not match its storage key.', {key});
+      return record;
+    }
+    function validatePortable(entries) {
+      checkEntries(entries, true);
+      const records = entries.map(([key, raw]) => ({key, kind: backupKeyKind(key), value: parseEntry(key, raw)}));
+      const states = new Map(records.filter(item => item.kind === 'programme-state').map(item => [item.value.programmeInstanceId, item.value]));
+      const results = new Map(records.filter(item => item.kind === 'session-result').map(item => [item.value.sessionResultId, item.value]));
+      const checkDefinition = value => {
+        const definition = definitions[value.programmeDefinitionId] && definitions[value.programmeDefinitionId][value.programmeDefinitionVersion];
+        if (!definition) fail('invalid-record', 'This backup needs an unavailable programme definition.', {programmeDefinitionId: value.programmeDefinitionId, programmeDefinitionVersion: value.programmeDefinitionVersion});
+      };
+      for (const state of states.values()) {
+        checkDefinition(state);
+        const targets = state.currentTargets || {};
+        const referenced = [state.lastAppliedSessionResultId, targets.lastMeaningfulSessionResultId,
+          ...((targets.reconciliation || {}).appliedSessionResultIds || []),
+          ...(state.recentSessionSummaries || []).map(item => item.sessionResultId),
+          ...(state.recentOverrides || []).map(item => item.sessionResultId),
+          ...(state.recentSubstitutions || []).map(item => item.sessionResultId)];
+        (state.anchors || []).forEach(anchor => {
+          const variation = anchor.variationProgression || {};
+          referenced.push(...(variation.evidence || []).map(item => item.sessionResultId));
+          (variation.transitions || []).forEach(item => referenced.push(...item.evidenceSessionResultIds));
+        });
+        referenced.filter(Boolean).forEach(id => {
+          const result = results.get(id);
+          if (!result || result.source !== 'coach' || result.programmeInstanceId !== state.programmeInstanceId)
+            fail('invalid-record', 'Programme state references missing or unrelated session evidence.', {sessionResultId: id});
+        });
+      }
+      records.filter(item => item.kind === 'active-programme').forEach(({value}) => {
+        checkDefinition(value);
+        const state = states.get(value.programmeInstanceId);
+        if (!state || state.programmeDefinitionId !== value.programmeDefinitionId
+          || state.programmeDefinitionVersion !== value.programmeDefinitionVersion)
+          fail('invalid-record', 'Active programme does not match a saved programme state.');
+      });
+      for (const result of results.values()) {
+        if (result.source === 'coach' && !states.has(result.programmeInstanceId))
+          fail('invalid-record', 'Coach session evidence has no owning programme state.', {sessionResultId: result.sessionResultId});
+      }
+      return {programmes: states.size, completed: [...results.values()].filter(item => item.finalStatus === 'completed').length,
+        partial: [...results.values()].filter(item => item.finalStatus === 'partial').length, sessions: results.size,
+        preferences: records.filter(item => item.kind === 'coach-preferences').length};
+    }
+    function exportPortable() {
+      const raw = snapshotRaw();
+      if (raw.some(([key]) => key === SESSION_DRAFT_KEY)) fail('active-session', 'Finish or resolve the current workout before creating a backup.');
+      const entries = raw.filter(([key]) => key !== SESSION_INDEX_KEY);
+      validatePortable(entries);
+      // A missing derived index is rebuilt on import. Existing indexes must be
+      // readable and missing referenced evidence must never disappear.
+      const indexEntry = raw.find(([key]) => key === SESSION_INDEX_KEY);
+      if (indexEntry) {
+        const index = parseEntry(...indexEntry);
+        const ids = new Set(entries.filter(([key]) => backupKeyKind(key) === 'session-result').map(([key, value]) => JSON.parse(value).sessionResultId));
+        if (index.sessionResultIds.some(id => !ids.has(id))) fail('invalid-record', 'Session history references missing evidence.');
+      }
+      return entries;
+    }
+    function materialisePortable(entries) {
+      validatePortable(entries);
+      const results = entries.filter(([key]) => backupKeyKind(key) === 'session-result').map(entry => parseEntry(...entry));
+      results.sort((a,b) => (Date.parse(a.endedAt || a.startedAt || a.generatedAt) || 0)
+        - (Date.parse(b.endedAt || b.startedAt || b.generatedAt) || 0) || a.sessionResultId.localeCompare(b.sessionResultId));
+      const index = {schemaVersion: Model.SCHEMA_VERSION, sessionResultIds: results.map(item => item.sessionResultId)};
+      return [...entries.map(entry => entry.slice()), [SESSION_INDEX_KEY, JSON.stringify(index)]].sort((a,b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0);
+    }
+    function replaceRaw(entries) {
+      checkEntries(entries, false);
+      // The caller must have durably staged its recovery journal before invoking
+      // this operation. It intentionally propagates partial-write failures.
+      const previous = snapshotRaw(), next = new Map(entries);
+      entries.forEach(([key, value]) => storage.setItem(key, value));
+      previous.forEach(([key]) => { if (!next.has(key)) storage.removeItem(key); });
+    }
+    function hasUnsettledDraft() {
+      try {
+        if (!storage || typeof storage.getItem !== 'function') fail('storage-unavailable', 'Coach storage is unavailable.');
+        return storage.getItem(SESSION_DRAFT_KEY) !== null;
+      } catch (error) {
+        if (error instanceof Model.CoachError) throw error;
+        throw new Model.CoachError('storage-unavailable', 'Could not inspect the current workout.', {}, error);
+      }
+    }
+    function validateRawEntries(entries) { checkEntries(entries, false); return entries; }
+    return {snapshotRaw, exportPortable, validatePortable, materialisePortable, replaceRaw, validateRawEntries, hasUnsettledDraft};
+  }
+
   // A view of a Coach store for an execution context whose unfinished work is never saved
   // (standalone generated workouts). Its Session Draft lives only in memory, so it can neither
   // be resumed after reload nor replace the single persisted active draft (e.g. an interrupted
@@ -309,5 +454,5 @@
     };
   }
 
-  root.GarageFitCoachStore = { createStore, withEphemeralDraft };
+  root.GarageFitCoachStore = { createStore, withEphemeralDraft, createBackupAccess, backupKeyKind };
 })(typeof window !== 'undefined' ? window : globalThis);
