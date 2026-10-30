@@ -57,8 +57,9 @@ test('EMOM uses the resolved targets, minute identity and the shared accessible 
   assert.equal(h.el('workoutTarget').textContent,'6 reps');
   assert.equal(h.el('workoutTarget').classList.contains('hidden'),false);
   assert.equal(h.el('workoutRingNum').textContent,'60');
-  assert.equal(h.el('completeMovementAction').textContent,'Done');
-  assert.equal(h.el('coachSkipBtn').classList.contains('hidden'),false);
+  assert.equal(h.el('completeMovementAction').textContent,'Next');
+  assert.equal(h.el('coachSkipBtn').classList.contains('hidden'),true);
+  assert.equal(h.el('completeMovementNext').textContent,'Rest');
   assert.equal(h.el('previousWorkoutBtn').disabled,true);
   assert.match(fs.readFileSync('index.html','utf8'),/id="workoutEmomStatus" role="status" aria-live="polite"/);
   assert.equal(h.starts.length,1);
@@ -81,7 +82,7 @@ test('early Done confirms one rep occurrence, then rests to the original boundar
   assert.equal(h.tracker().outcome(id).sets,undefined,'no planned reps or load become actual measures');
   assert.equal(h.run('generatorState.remaining'),47.5);
   assert.equal(h.el('completeMovementBtn').disabled,false);
-  assert.equal(h.el('completeMovementAction').textContent,'Skip rest');
+  assert.equal(h.el('completeMovementAction').textContent,'Next');
   assert.equal(h.el('completeMovementNext').textContent,'Plank');
   assert.equal(h.el('workoutRingPhase').textContent,'REST');
   assert.match(h.el('workoutEmomStatus').textContent,/Work complete.*Rest until next minute/);
@@ -315,7 +316,7 @@ test('Skip rest at 23 seconds enters the next prescription with a full clock and
   const h=harness();await h.start();const first=h.phase(),planned=plain(h.tracker().plannedWork());
   h.time(5000);await h.app.generatedPrimaryAction();await h.pulse(32000);
   assert.equal(h.run('generatorState.remaining'),23);
-  assert.equal(h.el('completeMovementAction').textContent,'Skip rest');
+  assert.equal(h.el('completeMovementAction').textContent,'Next');
   assert.equal(h.el('completeMovementBtn').disabled,false);
   assert.equal(h.el('completeMovementNext').textContent,'Plank');
   const outcome=plain(h.tracker().outcome(first.occurrenceId)),stale=h.callback();
@@ -371,7 +372,7 @@ test('Skip rest cannot settle unfinished work and never replaces partial or skip
     h.time(timed?7250:5000);await h.app.generatedSkipWork();
     const outcome=plain(h.tracker().outcome(first.occurrenceId));
     assert.equal(outcome.status,timed?'partial':'skipped');
-    assert.equal(h.el('completeMovementAction').textContent,'Skip rest');
+    assert.equal(h.el('completeMovementAction').textContent,'Next');
     h.time(400);await h.app.generatedSkipWork();assert.equal(h.phase(),first,'Skip work does not skip rest');
     await h.app.generatedPrimaryAction();assert.equal(h.phase().minute,2);assert.equal(h.run('generatorState.remaining'),60);
     assert.deepEqual(plain(h.tracker().outcome(first.occurrenceId)),outcome);
@@ -426,7 +427,7 @@ test('failed and pending rep/timed saves cannot rebase time or discard the origi
     assert.equal(h.el('completeMovementBtn').disabled,false);
     await h.app.updateEmomMinute('skip-rest');assert.equal(h.phase(),first);
     tracker[method]=record;h.time(10000);await h.app.generatedPrimaryAction();
-    assert.equal(h.phase(),first);assert.equal(h.el('completeMovementAction').textContent,'Skip rest');
+    assert.equal(h.phase(),first);assert.equal(h.el('completeMovementAction').textContent,'Next');
     assert.equal(h.el('coachPlayerError').textContent,'');
     const outcome=plain(tracker.outcome(first.occurrenceId));
     assert.equal(outcome.status,timed?'partial':'completed');
@@ -475,7 +476,7 @@ test('rebased timed work cues follow active work time once through pause and res
   await h.start();h.time(5000);await h.app.generatedPrimaryAction();h.time(400);await h.app.generatedPrimaryAction();
   await h.pulse(10000);assert.equal(h.spoken.filter(text=>text==='Halfway through this minute work').length,1);
   h.app.toggleWorkoutPause();await h.pulse(100000);h.app.toggleWorkoutPause();
-  await h.pulse(10000);assert.equal(h.chimes,2);assert.equal(h.el('completeMovementAction').textContent,'Skip rest');
+  await h.pulse(10000);assert.equal(h.chimes,2);assert.equal(h.el('completeMovementAction').textContent,'Next');
   await h.pulse(1000);assert.equal(h.spoken.filter(text=>text==='Halfway through this minute work').length,1);
   await h.app.generatedPrimaryAction();assert.equal(h.phase().minute,3);assert.equal(h.el('workoutRingNum').textContent,'60');
 });
@@ -490,6 +491,8 @@ test('final Skip rest previews and enters the actual phase, block or finish exac
     if(after==='finish')h.run(`generatorState.timeline.splice(${index+1})`);
     h.time(5000);await h.app.generatedPrimaryAction();const outcome=plain(h.tracker().outcome(first.occurrenceId));
     assert.equal(h.el('completeMovementNext').textContent,after==='cooldown'?'Cool-down':after==='rest'?'Rest':after==='finish'?'':'Next block');
+    assert.equal(h.el('completeMovementAction').textContent,after==='finish'?'Finish workout':'Next');
+    assert.equal(h.el('coachSkipBtn').classList.contains('hidden'),true);
     h.time(400);const stale=h.callback();await h.app.generatedPrimaryAction();await stale();
     if(after==='finish'){
       assert.equal(h.run('workoutState.running'),false);await h.flush();

@@ -43,11 +43,18 @@ def main():
             minute = lambda: page.evaluate('currentGeneratedPhase().minute')
             remaining = lambda: page.locator('#workoutRingNum').text_content()
 
+            assert action.text_content() == 'Next'
+            assert page.locator('#completeMovementNext').text_content() == 'Rest'
+            assert not page.locator('#coachSkipBtn').is_visible()
+            assert not page.locator('#workoutNextPreview').is_visible()
+            assert page.locator('#completeMovementBtn #completeMovementNext').count() == 1
+            assert page.locator('.workout-secondary-controls button:visible').count() == 2
+            layout.check(page, report, label+'-rep-work')
             pulse(5000)
             button.click()
             page.wait_for_function('emomWork().settled')
             pulse(32000)
-            assert remaining() == '23' and action.text_content() == 'Skip rest'
+            assert remaining() == '23' and action.text_content() == 'Next'
             assert button.is_enabled()
             expected = page.evaluate('activityName(generatorState.timeline[generatorState.timelineIndex+1].exercise)')
             assert page.locator('#completeMovementNext').text_content() == expected
@@ -68,7 +75,7 @@ def main():
             page.locator('#workoutRing').click()
             pulse(20000)
             page.wait_for_function('emomWork().settled')
-            assert remaining() == '40' and action.text_content() == 'Skip rest'
+            assert remaining() == '40' and action.text_content() == 'Next'
             pulse(400)
             button.focus()
             page.keyboard.press('Enter')

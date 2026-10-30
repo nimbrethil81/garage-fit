@@ -157,9 +157,9 @@ test('Coach result actuals survive ring pause and failed timed saves resume the 
 
 test('shared player surface wires the ring, the pause control and one primary action in the HTML',()=>{
   const html=fs.readFileSync('index.html','utf8');assert.doesNotMatch(html,/workoutPauseBtn/);
-  // #235: each player shows one muted preview above its primary action, never inside it.
+  // #235 remains the initial/non-EMOM layout; #334 moves the EMOM preview into Next.
   for(const [name,button,action] of [['routineNextName','skipPhaseBtn','routineNextAction'],['completeMovementNext','completeMovementBtn','completeMovementAction']]){
-    assert.match(html,new RegExp(`<p class="next-preview"><span>Next:</span> <span class="hidden" id="${name}"></span></p>[\\s\\S]*?<button[^>]*id="${button}"[^>]*aria-describedby="${name}"[^>]*><span class="complete-action" id="${action}">Next</span></button>`));
+    assert.match(html,new RegExp(`<p class="next-preview"${name==='completeMovementNext'?' id="workoutNextPreview"':''}><span>Next:</span> <span class="hidden" id="${name}"></span></p>[\\s\\S]*?<button[^>]*id="${button}"[^>]*aria-describedby="${name}"[^>]*><span class="complete-action" id="${action}">Next</span></button>`));
   }
   assert.doesNotMatch(html,/complete-next|first-letter/);
   const css=fs.readFileSync('css/player-layout.css','utf8');assert.doesNotMatch(css,/ring-wrap::after\{display:none/);assert.doesNotMatch(css,/first-letter/);

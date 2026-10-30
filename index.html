@@ -487,7 +487,7 @@ layout: null
     </div>
     <div class="workout-actions">
       <p id="coachPlayerError" class="coach-error" role="alert"></p>
-      <p class="next-preview"><span>Next:</span> <span class="hidden" id="completeMovementNext"></span></p>
+      <p class="next-preview" id="workoutNextPreview"><span>Next:</span> <span class="hidden" id="completeMovementNext"></span></p>
       <div class="workout-secondary-controls">
         <button class="previous-btn" id="previousWorkoutBtn" type="button" onclick="previousWorkoutMovement()" disabled><span class="previous-arrow" aria-hidden="true">←</span><span class="previous-copy"><span>Previous</span><strong id="previousWorkoutName">None yet</strong></span></button>
         <button class="ctrl-btn ctrl-primary complete-btn" id="completeMovementBtn" type="button" aria-describedby="completeMovementNext" onclick="completeWorkoutMovement()"><span class="complete-action" id="completeMovementAction">Next</span></button>
@@ -1171,7 +1171,9 @@ function renderUpNext(){
   if(workoutState.mode!=='generated'){
     if(!fixedWorkoutIsFinal()){const exercises=activeFixedExercises();label=activityName(exercises[(workoutState.idx+1)%exercises.length])}
   }else label=nextGeneratedLabel();
-  const next=document.getElementById('completeMovementNext');next.textContent=label;next.classList.toggle('hidden',!label);
+  const next=document.getElementById('completeMovementNext'),preview=document.getElementById('workoutNextPreview'),primary=document.getElementById('completeMovementBtn'),emom=workoutState.mode==='generated'&&isEmomPhase();
+  preview.classList.toggle('hidden',emom);(emom?primary:preview).appendChild(next);
+  next.textContent=label;next.classList.toggle('hidden',!label);
 }
 const WORKOUT_COUNTDOWN_KINDS=['setup-transition','ready','rest','round-rest','set-rest','set-change','interval-rest','ladder-rest','pyramid-rest','complex-change','complex-rest','density-rest','block-transition','transition'];
 function isEmomPhase(phase=currentGeneratedPhase()){return !!phase&&phase.kind==='exercise'&&phase.protocol==='emom'}
@@ -1791,7 +1793,7 @@ function renderGeneratedPhase(){
     player.classList.toggle('rest-phase',work.settled);
     const status=work.retry?'Could not save. Retry this minute.':work.settled?(work.status==='completed'?'Work complete.':work.status==='partial'?'Timed work stopped.':'Work not confirmed.')+' Rest until next minute.':'Finish the target, then rest.';
     const statusEl=document.getElementById('workoutEmomStatus');if(statusEl.textContent!==status)statusEl.textContent=status;
-    setPrimaryAction(work.retry?'Retry save':work.settled?'Skip rest':phase.timed?'Next':'Done');
+    setPrimaryAction(work.retry?'Retry save':work.settled&&generatorState.timelineIndex===generatorState.timeline.length-1&&!isCoachPlayer()?'Finish workout':'Next');
   }else if(phase.kind==='exercise'){
     name.textContent=phase.exercise.name;target.textContent=phase.timed?'':generatedPhasePrescription(phase).value+' reps';const details=[];if(phase.side)details.push(phase.side.toUpperCase());const load=generatedLoadText(phase.exercise,phase.plannedLoad);if(load)details.push(load);if(phase.plannedLoad&&phase.plannedLoad.relativeLoad)details.push('Adjust stance only if comfortable');note.textContent=details.join(' · ');setPrimaryAction(generatorState.timelineIndex===generatorState.timeline.length-1&&!isCoachPlayer()?'Finish workout':'Next');
   }else if(phase.kind==='setup-transition'){
@@ -1815,7 +1817,7 @@ function renderGeneratedPhase(){
   }else{name.textContent='Get ready';target.textContent='';setPrimaryAction('Next')}
   renderUpNext();renderWorkoutRing();updateWorkoutPauseUI();document.getElementById('previousWorkoutName').textContent=isEmomPhase(phase)?'Minute timer':previousIndex<0?'None yet':generatorState.timeline[previousIndex].exercise.name;previousButton.querySelector('.previous-copy span').textContent='Previous';if(coachUI)coachUI.renderAnchor(phase,generatorState.tracker);
   renderDensityPhase(phase);renderAmrapBlockPhase(phase);
-  if(isEmomPhase(phase))document.getElementById('coachSkipBtn').classList.toggle('hidden',phase.timed||emomWork(phase).settled||!!emomWork(phase).pending);
+  if(isEmomPhase(phase))document.getElementById('coachSkipBtn').classList.add('hidden');
   if(['ladder','pyramid'].includes(phase.protocol)&&phase.kind==='exercise'||phase.protocol==='complex'&&phase.kind==='exercise'&&!phase.timed)document.getElementById('coachSkipBtn').classList.remove('hidden');
 }
 // Consume a burst as one intent, including taps queued just after a timer transition.

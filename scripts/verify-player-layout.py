@@ -44,10 +44,12 @@ METRICS = """({optional=false,allowReflow=false}={})=>{
    const hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);
    if(!e.contains(hit))failures.push(e.id+': covered');
  }
- // #235: one muted preview directly above a centred primary action, never inside it.
+ // #334 supersedes #235 for EMOM: show the immediate activity inside Next.
  const primary=controls.querySelector('#skipPhaseBtn,#completeMovementBtn'),preview=controls.querySelector('.next-preview'),pb=box(primary);
- if(primary.querySelector('.next-preview,#routineNextName,#completeMovementNext')||!preview)failures.push('preview inside primary');
- else if(getComputedStyle(preview).visibility==='visible'&&(box(preview).bottom>pb.y+1||preview.textContent.trim()==='Next:'))failures.push('preview misplaced or empty');
+ const emom=p.id==='workoutPlayer'&&visible(p.querySelector('#workoutEmomStatus'));
+ if(emom){if(!primary.querySelector('#completeMovementNext')||visible(preview))failures.push('EMOM next activity placement')}
+ else if(primary.querySelector('.next-preview,#routineNextName,#completeMovementNext')||!preview)failures.push('preview inside primary');
+ else if(visible(preview)&&getComputedStyle(preview).visibility==='visible'&&(box(preview).bottom>pb.y+1||preview.textContent.trim()==='Next:'))failures.push('preview misplaced or empty');
  if(preview&&new Set([preview,...preview.querySelectorAll('*')].map(e=>getComputedStyle(e).color)).size>1)failures.push('preview colour not uniform');
  // GF-R1 (#280): where Previous exists (workout player) Previous is LEFT of the
  // primary action in ONE row, at every size; only the routine player, which has no
