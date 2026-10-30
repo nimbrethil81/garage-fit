@@ -11,6 +11,7 @@ const setup = (storage = new Map()) => {
 
 test('external preferences default to none without writes, persist, edit, reload and clear independently', async () => {
   const storage = new Map(), p = setup(storage);
+  await p.run('firstUse.ready'); // Separate startup presentation markers from preference reads.
   const before = [...storage];
   await p.run('(async()=>{globalThis.emptyPreferences=await preferenceStore.loadCoachPreferences()})()');
   assert.deepEqual(p.json('emptyPreferences'),{schemaVersion:1,usualExternalActivities:[]});
