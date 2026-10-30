@@ -1,0 +1,9 @@
+# Visual cohesion evidence (#345)
+
+[Before / after comparison](before-after.jpg): columns are Coach, Generator and Prep & Recover; rows are Light and Dark. Each pair shows the same 393 × 852 browser state before (left) and after (right). Before uses `91d03e3` (`main` at implementation start). Captured using Chromium via Playwright against `scripts/preview_server.py`.
+
+The comparison matrix contains 96 matching configurations per revision: Light/Dark × 320/375/393/430px × normal/140% CSS text-size adjustment × Coach selection, completed-plan selection, Generator Additional options, family-disabled Generator, Bodyweight and With equipment. The history fixture injects a completed General Fitness snapshot at the UI controller boundary, as the existing Coach history regression tests do. All visible element rectangles, including bottom navigation, match before/after. Light Coach captures are pixel-identical. Computed-style differences are confined to programme-card colours and the specified selected controls (including inherited foreground colours).
+
+Additional browser checks cover 30-minute Generator selection, pressed semantics, both routine segments, retained 3px keyboard focus, explicit appearance persistence, Automatic OS switches during an active workout, and a paused workout retaining its time/state. Existing appearance verification passes in both themes. Disabled opacity and unselected styles remain unchanged. Screenshots show the existing small category labels and action colours unchanged except for the approved Dark card foregrounds.
+
+Limits: supplied iPhone reference captures were unavailable; local exact documented states and colours were used. CSS text-size adjustment emulates enlargement, not iOS Dynamic Type. These browser checks do not certify physical installed-iPhone safe areas, touch targets or native accessibility. No root layout, viewport code, navigation, artwork, JS behaviour or appearance tokens changed.

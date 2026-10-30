@@ -63,3 +63,19 @@ test('Settings groups actual preferences with decorative navigation chevrons and
   assert.doesNotMatch(settings,/→/);
   assert.match(settings,/id="appearanceStatus" role="status"/);
 });
+
+test('visual cohesion colours stay scoped to selected controls and Dark programme selection',()=>{
+  const html=fs.readFileSync('index.html','utf8');
+  const rules=new Map([...html.replace(/\/\*[\s\S]*?\*\//g,'').matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([,selector,body])=>[selector.trim(),body.trim()]));
+  assert.equal(rules.get('#generator .choice-btn.selected'),'background:#dcede8;border-color:#2e655f;color:#2e655f');
+  assert.equal(rules.get('#home .routine-mode button[aria-pressed="true"]'),'background:#dcede8;color:#2e655f;box-shadow:inset 0 0 0 1px #2e655f');
+  const scope=':root[data-appearance="dark"] #coachContent.coach-programme-selection ';
+  for(const [programme,colour] of Object.entries({fitness:'#fcebd7',strength:'#e5eee7',arms:'#fbe4dc',tennis:'#e8ecd9'})){
+    assert.equal(rules.get(scope+'.coach-programme-'+programme),'--programme-surface:'+colour);
+    assert.equal(rules.get(':root[data-appearance="light"] .coach-programme-'+programme),'--programme-surface:'+colour);
+  }
+  assert.equal(rules.get(scope+'.coach-programme-card'),'color:#263238;--text-muted:#55635f');
+  assert.equal(rules.get(scope+'.coach-programme-chevron'),'color:#263238;background:rgba(255,255,255,.72)');
+  assert.equal(rules.get(scope+'.coach-programme-history'),'color:#263238;border-top-color:rgba(38,50,56,.15)');
+  assert.equal(rules.get('.coach-programme-card:focus-visible'),'outline:3px solid var(--rest);outline-offset:3px');
+});
