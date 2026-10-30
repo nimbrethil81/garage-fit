@@ -1047,9 +1047,37 @@ function appendGeneratedBlockRows(list,workout,blockIndex,plan){
   });
 }
 function swapGeneratedExercise(blockIndex,exerciseIndex){GarageFitGenerator.swap(generatorState.workout,blockIndex,exerciseIndex,{catalogue:CATALOGUE,equipment:state.ownedEquipment});renderGeneratedPreview()}
-let audioCtx=null;function beep(freq=880,dur=.12,volume=.15){try{audioCtx=audioCtx||new(window.AudioContext||window.webkitAudioContext)();const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.frequency.value=freq;o.type='sine';o.connect(g);g.connect(audioCtx.destination);g.gain.setValueAtTime(volume,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+dur);o.start();o.stop(audioCtx.currentTime+dur)}catch(e){}}
+let audioCtx=null;
+function prepareAudio(create=false){
+  try{
+    if(!audioCtx||audioCtx.state==='closed'){
+      if(!create)return null;
+      audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    }
+    if((audioCtx.state==='suspended'||audioCtx.state==='interrupted')){
+      // Resume inside the gesture when possible. Never queue sounds on this promise:
+      // a later successful unlock must not replay an old tick or completion chime.
+      Promise.resolve(audioCtx.resume()).catch(()=>{});
+    }
+    return audioCtx;
+  }catch(e){return null}
+}
+function unlockAudio(event){if(event.isTrusted)prepareAudio(true)}
+for(const event of ['click','touchend','keydown'])document.addEventListener(event,unlockAudio,{capture:true});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')prepareAudio()});
+function beep(freq=880,dur=.12,volume=.15){
+  try{
+    const ctx=prepareAudio(true);
+    if(!ctx||ctx.state!=='running')return;
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.frequency.value=freq;o.type='sine';o.connect(g);g.connect(ctx.destination);
+    g.gain.setValueAtTime(volume,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+dur);
+    o.start();o.stop(ctx.currentTime+dur);
+    o.onended=()=>{o.disconnect();g.disconnect()};
+  }catch(e){}
+}
 function exerciseCountdownTick(tracker,remaining,active){
-  if(GarageFitTimedCues.takeCountdownTick(tracker,remaining,active,Date.now()))beep(520,.035,.035);
+  if(GarageFitTimedCues.takeCountdownTick(tracker,remaining,active,Date.now()))beep(520,.07,.08);
 }
 function playCompletionChime(){beep(880,.12)}
 function exerciseCueParts(name,quantity,side){if(!side){const m=/^(.*?)\s+[-\u2013\u2014]\s+(Left|Right)$/i.exec(name);if(m){name=m[1];side=m[2]}}return side?[name+', '+String(side).toLowerCase()+' side.',quantity]:[name+'. '+quantity]}
