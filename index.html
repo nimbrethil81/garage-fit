@@ -262,6 +262,7 @@ layout: null
   .first-use-actions{display:flex;flex-wrap:wrap;gap:8px}#firstUseFull:not(:first-child){margin-top:14px}
 </style>
 <link rel="stylesheet" href="css/player-layout.css?rev={{ site.github.build_revision }}">
+<link rel="stylesheet" href="css/progress.css">
 </head>
 <body>
 <svg class="svg-sprite" aria-hidden="true">
@@ -541,7 +542,7 @@ layout: null
     <p id="coachPreviewError" class="coach-error" role="alert"></p><div id="coachPreviewContent"></div>
   </main>
   <main id="coachProgress" class="screen hidden">
-    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Coach" onclick="appBack()">←</button><h1>Your progress</h1><span class="header-spacer"></span></header>
+    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Your progress" onclick="appBack()">←</button><h1>Programme progress</h1><span class="header-spacer"></span></header>
     <p id="coachProgressError" class="coach-error" role="alert"></p><div id="coachProgressContent"></div>
   </main>
   <main id="coachSettings" class="screen hidden">
@@ -561,11 +562,24 @@ layout: null
       <button class="ctrl-btn ctrl-secondary" type="button" onclick="coachUI.saveFeedback('hard')">Hard</button>
     </div>
   </main>
+  <main id="yourProgress" class="screen info-detail progress-screen hidden">
+    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to More or Coach" onclick="appBack()">←</button><h1>Your progress</h1><span class="header-spacer"></span></header>
+    <div id="yourProgressContent" class="progress-content"></div>
+  </main>
+  <main id="trainingHistory" class="screen info-detail progress-screen hidden">
+    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Your progress" onclick="appBack()">←</button><h1>Training history</h1><span class="header-spacer"></span></header>
+    <div id="trainingHistoryContent" class="progress-content"></div>
+  </main>
+  <main id="sessionDetails" class="screen info-detail progress-screen hidden">
+    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to previous activity list" onclick="appBack()">←</button><h1>Session details</h1><span class="header-spacer"></span></header>
+    <div id="sessionDetailsContent" class="progress-content"></div>
+  </main>
   <main id="more" class="screen hidden">
     <div class="home-header">
       <div class="brand" data-masthead></div>
     </div>
     <div class="home-intro"><h1 class="screen-title">More</h1></div>
+    <button class="library-entry" type="button" onclick="progressUI.open('more')">Your progress</button>
     <button class="library-entry" type="button" onclick="openExerciseLibrary()">Exercise Library →</button>
     <button class="library-entry" type="button" onclick="openWorkoutPatterns()"><span>Workout Patterns →</span></button>
     <button class="library-entry" type="button" onclick="openEquipment('more')">My Equipment →</button>
@@ -690,6 +704,7 @@ layout: null
 <script src="js/workout-diagnostics.js"></script>
 <script src="js/coach-tennis-ui.js"></script>
 <script src="js/coach-progress-ui.js"></script>
+<script src="js/progress-ui.js"></script>
 <script src="js/coach-ui.js"></script>
 <script src="js/masthead.js"></script>
 <script src="js/back-navigation.js"></script>
@@ -968,9 +983,10 @@ function showScreen(id){
   currentScreen=id;
   if(id==='spokenCues')speechVoices.refresh();
   document.getElementById('app').classList.toggle('active-player',id==='player'||id==='workoutPlayer');
-  ['home','workouts','generator','equipment','generatedPreview','snackpick','player','workoutPlayer','done','more','settings','about','spokenCues','workoutPatterns','workoutPatternDetail','exerciseLibrary','exerciseDetail','coach','coachPreview','coachProgress','coachSettings','coachSubstitute','coachResult'].forEach(s=>document.getElementById(s).classList.toggle('hidden',s!==id));
-  const landing=['home','workouts','generator','more','coach'].includes(id),nav=document.getElementById('bottomNav');nav.classList.toggle('hidden',!landing);
-  [['home','routinesNav'],['workouts','workoutsNav'],['coach','coachNav'],['generator','generatorNav'],['more','moreNav']].forEach(pair=>{const active=id===pair[0],button=document.getElementById(pair[1]);button.classList.toggle('active',active);active?button.setAttribute('aria-current','page'):button.removeAttribute('aria-current')});
+  ['home','workouts','generator','equipment','generatedPreview','snackpick','player','workoutPlayer','done','more','settings','about','spokenCues','workoutPatterns','workoutPatternDetail','exerciseLibrary','exerciseDetail','coach','coachPreview','coachProgress','coachSettings','coachSubstitute','coachResult','yourProgress','trainingHistory','sessionDetails'].forEach(s=>document.getElementById(s).classList.toggle('hidden',s!==id));
+  const sharedProgress=['yourProgress','trainingHistory','sessionDetails'].includes(id), navScreen=sharedProgress?progressUI.origin():id;
+  const landing=sharedProgress||['home','workouts','generator','more','coach'].includes(id),nav=document.getElementById('bottomNav');nav.classList.toggle('hidden',!landing);
+  [['home','routinesNav'],['workouts','workoutsNav'],['coach','coachNav'],['generator','generatorNav'],['more','moreNav']].forEach(pair=>{const active=navScreen===pair[0],button=document.getElementById(pair[1]);button.classList.toggle('active',active);active?button.setAttribute('aria-current','page'):button.removeAttribute('aria-current')});
   if(typeof backNav!=='undefined'&&backNav)backNav.sync();
   if(id==='generatedPreview')captureGeneratorDiagnostics();
   if(firstUse)renderFirstUse();
@@ -1948,6 +1964,10 @@ if(typeof GarageFitCoachUI!=='undefined'){
     play:(workout,tracker)=>{generatorState.workout=workout;startGeneratedWorkout({tracker});state.doneDestination='coach';document.getElementById('workoutPlayerTitle').textContent='Coach · '+workout.duration+' min'}});
   coachUI.init();
 }
+function openSharedProgress(){return progressUI.open('coach')}
+const progressUI=GarageFitProgressUI.mount({store:GarageFitCoachStore.createStore((()=>{try{return localStorage}catch(error){return null}})()),catalogue:CATALOGUE,showScreen,
+  getProgramme:()=>coachUI.progressContext(),openProgramme:()=>coachUI.openProgrammeProgress(),
+  returnToOrigin:origin=>origin==='coach'?coachUI.open():showScreen('more')});
 // Shared back navigation (#241): explicit eligible view -> existing back callback. Player, workoutPlayer,
 // done, coachResult and the landings are deliberately absent, so no back control or swipe ever applies there.
 backNav=GarageFitBackNav.create({
@@ -1957,7 +1977,8 @@ backNav=GarageFitBackNav.create({
     equipment:()=>closeEquipment(),generatedPreview:()=>showLanding('generator'),
     settings:()=>showScreen('more'),about:()=>showScreen('settings'),spokenCues:()=>showScreen('settings'),workoutPatterns:()=>showScreen('more'),workoutPatternDetail:backToWorkoutPatterns,
     exerciseLibrary:()=>showScreen('more'),exerciseDetail:()=>showScreen('exerciseLibrary'),
-    coachOverview:()=>coachUI.backFromOverview(),coachPreview:()=>coachUI.back(),coachProgress:()=>coachUI.back(),
+    coachOverview:()=>coachUI.backFromOverview(),coachPreview:()=>coachUI.back(),coachProgress:()=>{if(!progressUI.backProgramme())coachUI.back()},
+    yourProgress:()=>progressUI.backOverview(),trainingHistory:()=>progressUI.backHistory(),sessionDetails:()=>progressUI.backDetail(),
     coachSettings:()=>coachUI.back(),coachSubstitute:()=>coachUI.backFromSubstitute()
   }
 });

@@ -268,7 +268,7 @@ test('10-minute preview and the common player count actual selected anchors with
   const deferred=initial.anchors.filter(anchor=>!selected.some(item=>item.requirementId===anchor.requirementId));
   assert.ok(deferred.every(anchor=>!result.anchorResults.some(item=>item.requirementId===anchor.requirementId)));
   assert.ok(deferred.every(anchor=>JSON.stringify(after.anchors.find(item=>item.requirementId===anchor.requirementId))===JSON.stringify(anchor)));
-  await p.click('Your progress');
+  await p.run('coachUI.openProgrammeProgress()');
   assert.match(p.run("copyText('coachProgressContent')"),/Tennis fitness · last 14 days.*Performed/);
   assert.doesNotMatch(p.run("copyText('coachProgressContent')")+p.run('copyText()'),/Week NaN|Four-week review|Move to maintenance/);
   await p.run('coachUI.back()');
@@ -295,7 +295,7 @@ test('unknown partial coverage and an interrupted session recover once, with loc
   await p.run(`(async()=>{const work=coachPlayerTracker().plannedWork().find(item=>item.requirementId?.startsWith('tennis-anchor-'));
     await coachPlayerTracker().recordPartial(work.occurrenceId,{sets:[{reps:null,load:null}],note:'Some work performed; amount unknown'});})()`);
   const q=await ui(p.storage),before=q.state();
-  await q.click('Your progress');const progress=q.run("copyText('coachProgressContent')");
+  await q.run('coachUI.openProgrammeProgress()');const progress=q.run("copyText('coachProgressContent')");
   assert.match(progress,/Unmeasured.*recorded without an amount, so exposure is unknown/);
   assert.match(progress,/Not possible with today’s equipment|Limited by equipment/);
   assert.match(progress,/History is local to this browser and device/);
