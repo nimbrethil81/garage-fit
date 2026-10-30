@@ -2,6 +2,12 @@
   // Shared read-only views. Persistence and performed-evidence interpretation stay
   // in the existing store/history modules; no writes or programme credit here.
   const known = value => value !== null && value !== undefined;
+  const formatDuration = seconds => root.GarageFitCoachProgressUI.formatDuration(seconds);
+  function loadRelevant(exercise) {
+    // The catalogue's load hint describes externally loaded movements. Unknown
+    // identities retain an honest unknown rather than asserting bodyweight work.
+    return !exercise || !!exercise.load || (exercise.equipment || []).some(group => group.includes('bands'));
+  }
   const timestamp = result => result.endedAt || result.startedAt;
   const supporting = result => result.source === 'fixed' && ['deskBreak','postRunReset'].includes(result.workoutId);
   function isTraining(result) {
@@ -87,9 +93,7 @@
       return date.toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long',year:'numeric'});
     }
     function duration(result) {
-      if(!known(result.actualDurationSeconds))return 'Duration not recorded';
-      const seconds=result.actualDurationSeconds;
-      return seconds < 60 ? Math.round(seconds)+' sec' : Number((seconds/60).toFixed(1))+' min';
+      return formatDuration(result.actualDurationSeconds) || 'Duration not recorded';
     }
     function activityRow(result, parent) {
       const row=button(null,()=>openDetail(result.sessionResultId,parent,row));row.setAttribute('aria-label',label(result)+' · '+status(result)+' · '+dateText(result));
@@ -169,10 +173,11 @@
         row.append(node('strong',(catalogue[item.exerciseId]?.name||'Exercise not identified')+side),p(item.status==='partial'?'Partial':'Completed'));
         if(!item.sets.length)row.append(p('Amount not recorded. Completion does not establish reps or load.'));
         item.sets.forEach((set,i)=>{
-          const measures=[];if(known(set.reps.value))measures.push(set.reps.value+' reps');if(known(set.seconds.value))measures.push(set.seconds.value+' sec');
+          const measures=[];if(known(set.reps.value))measures.push(set.reps.value+' reps');const time=formatDuration(set.seconds.value);if(time)measures.push(time);
           if(!measures.length)measures.push('amount not recorded');
           if(known(set.load.value))measures.push(set.load.value+' '+(set.loadUnit||'unit not recorded')+(set.loadInterpretation==='per-item'?' each':set.loadInterpretation==='total'?' total':' · load interpretation not recorded'));
-          else measures.push(set.resistanceSetup?'resistance setup confirmed':'load not recorded');
+          else if(set.resistanceSetup)measures.push('resistance setup confirmed');
+          else if(loadRelevant(catalogue[item.exerciseId]))measures.push('load not recorded');
           row.append(p('Set '+(i+1)+' · '+measures.join(' · ')));
         });list.append(row);
       });
@@ -188,5 +193,5 @@
     function backProgramme() {if(!programmeOpened)return false;programmeOpened=false;show('yourProgress',overviewScroll);return true;}
     return {open,openHistory,openDetail,backDetail,backHistory,backOverview,backProgramme,origin:()=>origin};
   }
-  root.GarageFitProgressUI={mount,isTraining,classification,label,summary,insights};
+  root.GarageFitProgressUI={mount,formatDuration,loadRelevant,isTraining,classification,label,summary,insights};
 })(typeof window !== 'undefined' ? window : globalThis);

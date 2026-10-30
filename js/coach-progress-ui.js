@@ -6,6 +6,16 @@
   const known = value => value !== null && value !== undefined;
   const dateText = iso => new Date(iso).toLocaleDateString(undefined, {weekday: 'short', day: 'numeric', month: 'short'});
 
+  // Presentation only: never normalise stored measurements or comparison evidence.
+  function formatDuration(seconds) {
+    if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds < 0) return null;
+    if (seconds < 9.95) return seconds.toFixed(1)+' sec';
+    const rounded = Math.round(seconds);
+    if (rounded < 60) return rounded+' sec';
+    const remainder = rounded % 60;
+    return Math.floor(rounded/60)+' min'+(remainder ? ' '+remainder+' sec' : '');
+  }
+
   function sectionLabel(anchor) {
     if (anchor.directElbowAction) return anchor.directElbowAction === 'flexion' ? 'Curl' : 'Extension';
     return title(anchor.roleId || anchor.pattern || 'Target');
@@ -28,7 +38,7 @@
   // Sets/reps only: the prescription. Load is shown separately and never implied.
   function prescriptionText(target, exercise) {
     const goal = target.target || {};
-    const amount = goal.type === 'reps' || known(goal.maxReps) ? goal.maxReps+' reps' : known(goal.seconds) ? goal.seconds+' sec' : 'work';
+    const amount = goal.type === 'reps' || known(goal.maxReps) ? goal.maxReps+' reps' : formatDuration(goal.seconds) ? formatDuration(goal.seconds) : 'work';
     return target.targetSets+' × '+amount+(perSide(exercise) ? ' each side' : '');
   }
   function currentLoadText(target) {
@@ -59,7 +69,7 @@
   }
   function setText(set, index) {
     const side = set.side === 'left' || set.side === 'right' ? ' '+set.side : '';
-    const amount = known(set.reps) ? set.reps+' reps' : known(set.seconds) ? set.seconds+' sec' : 'reps not recorded';
+    const amount = known(set.reps) ? set.reps+' reps' : formatDuration(set.seconds) ? formatDuration(set.seconds) : 'reps not recorded';
     const load = loadText(set.load, set.loadUnit, set.loadInterpretation)
       || (set.resistanceSetup ? 'resistance setup confirmed' : 'load not recorded');
     return 'Set '+(index+1)+side+' · '+amount+' · '+load;
@@ -257,5 +267,5 @@
 
     return {strengthTargets, capabilityGrid, armsExposure, consistency, balance, improvement, sessionHistory, section};
   }
-  root.GarageFitCoachProgressUI = {createViews, workoutIdentity, sectionLabel, prescriptionText, lastPerformed, nextProgression, loadText};
+  root.GarageFitCoachProgressUI = {createViews, formatDuration, workoutIdentity, sectionLabel, prescriptionText, lastPerformed, nextProgression, loadText};
 })(typeof window !== 'undefined' ? window : globalThis);
