@@ -172,16 +172,31 @@ layout: null
   #coachContent details>button,#coachContent details>p{margin-top:12px}
   #coachContent summary{font-weight:800;padding:12px 0;cursor:pointer}
   #coachContent .generator-options{padding:14px}
-  .coach-programme-card{display:grid;grid-template-columns:minmax(0,1fr) minmax(72px,30%);align-items:center;gap:12px;width:100%;min-height:132px;margin:0 0 12px;padding:16px;border:1px solid var(--surface-2);border-radius:16px;background:var(--surface);color:var(--text);font:inherit;text-align:left;cursor:pointer;overflow-wrap:anywhere}
+  #coachContent.coach-programme-selection{gap:9px}
+  #coachContent.coach-programme-selection>h2{margin:4px 10px 0}
+  #coachContent.coach-programme-selection>p{margin-bottom:4px}
+  .coach-programme-card{position:relative;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);align-items:center;gap:0;width:100%;min-height:116px;margin:0;padding:15px 10px 14px 16px;border:0;border-radius:15px;background:var(--programme-surface);color:var(--text);font:inherit;text-align:left;cursor:pointer;overflow-wrap:anywhere}
+  .coach-programme-fitness{--programme-surface:#4a3d35}
+  .coach-programme-strength{--programme-surface:#304943}
+  .coach-programme-arms{--programme-surface:#4b3937}
+  .coach-programme-tennis{--programme-surface:#3c4635}
+  :root[data-appearance="light"] .coach-programme-fitness{--programme-surface:#fcebd7}
+  :root[data-appearance="light"] .coach-programme-strength{--programme-surface:#e5eee7}
+  :root[data-appearance="light"] .coach-programme-arms{--programme-surface:#fbe4dc}
+  :root[data-appearance="light"] .coach-programme-tennis{--programme-surface:#e8ecd9}
   .coach-programme-card:focus-visible{outline:3px solid var(--rest);outline-offset:3px}
-  .coach-programme-card:active{border-color:var(--rest)}
-  .coach-programme-copy{display:flex;flex-direction:column;gap:8px;min-width:0}
-  .coach-programme-title{font-size:17px;font-weight:850;line-height:1.25}
-  .coach-programme-description{font-size:13px;line-height:1.45;color:var(--text-muted)}
-  .coach-programme-art{display:flex;align-items:center;justify-content:center;min-width:0}
-  .coach-programme-art img{display:block;max-width:100%;height:auto;object-fit:contain}
+  .coach-programme-card:active{box-shadow:inset 0 0 0 2px var(--rest)}
+  .coach-programme-copy{display:flex;flex-direction:column;gap:6px;min-width:0;padding-right:5px}
+  .coach-programme-category{font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;font-weight:750;line-height:1.4;color:var(--text-muted);white-space:normal}
+  .coach-programme-title{font-size:20px;font-weight:850;line-height:1.12;letter-spacing:-.025em}
+  .coach-programme-description{font-size:13px;line-height:1.35;color:var(--text-muted)}
+  .coach-programme-art{display:flex;align-items:flex-end;justify-content:center;min-width:0;align-self:stretch;padding-top:16px}
+  .coach-programme-art img{display:block;width:calc(100% + 14px);max-width:none;margin-left:-14px;height:auto;align-self:flex-end;object-fit:contain}
   .coach-programme-art img[hidden]{display:none}
-  .coach-programme-history{grid-column:1/-1;border-top:1px solid var(--surface-2);padding-top:10px;color:var(--text-muted);font-size:12px;line-height:1.4}
+  .coach-programme-chevron{position:absolute;right:11px;top:29px;display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.14);color:var(--text);font-size:25px;line-height:1;font-weight:500}
+  :root[data-appearance="light"] .coach-programme-chevron{background:rgba(255,255,255,.72)}
+  .coach-programme-history{grid-column:1/-1;display:flex;align-items:center;gap:8px;border-top:1px solid var(--surface-2);margin-top:10px;padding-top:8px;color:var(--text);font-size:12px;line-height:1.4}
+  .coach-programme-history::before{content:'◷';font-size:20px;line-height:1}
   .coach-programme-heading{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.coach-tennis-intro{display:flex;flex-direction:column;gap:4px}
   #coachContent .coach-programme-heading h2{margin:0}.coach-status{border:1px solid var(--surface-2);border-radius:99px;padding:4px 8px;color:var(--rest);font-size:11px;font-weight:800}
   .coach-weekly{display:flex;flex-direction:column;gap:9px}.coach-weekly-segments{display:flex;gap:6px}.coach-weekly-segments span{flex:1;height:7px;border-radius:99px;background:var(--surface-2)}.coach-weekly-segments .filled{background:var(--rest)}.coach-weekly-roles{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px;font-size:.9rem}.coach-weekly-segments .minimum{box-shadow:inset 0 0 0 1px var(--rest)}
