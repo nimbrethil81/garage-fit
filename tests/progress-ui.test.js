@@ -77,7 +77,7 @@ test('read-only detail keeps actual occurrences, side, timing, measured zero and
     {occurrenceId:'skip',exerciseId:'push-up',status:'skipped'}]});
   const p=await ui([record]);await p.run("progressUI.open('more');");p.run("progressUI.openDetail('partial','yourProgress')");
   const text=p.text('sessionDetailsContent');assert.match(text,/18 min.*Recorded duration/);assert.match(text,/left.*0 reps · 10 sec · 0 kg total/);
-  assert.match(text,/12 sec · load not recorded/);assert.match(text,/Amount not recorded/);assert.match(text,/Remaining planned exercises/);
+  assert.match(text,/12 sec/);assert.match(text,/Amount not recorded/);assert.match(text,/Remaining planned exercises/);
   assert.doesNotMatch(text,/99|100|90 sec/);
   assert.equal(p.run("progressNodes('sessionDetailsContent').filter(n=>n.onclick).length"),0);
 });
@@ -134,4 +134,36 @@ test('leaving during a pending read keeps the destination and empty overview has
   const p=await ui();await p.run("progressUI.open('more')");assert.match(p.text('yourProgressContent'),/Your history starts here/);
   p.run("let resolveRead;globalThis.slowUI=GarageFitProgressUI.mount({store:{listSessionResults:()=>new Promise(resolve=>resolveRead=resolve)},catalogue:CATALOGUE,showScreen,getProgramme:async()=>null,returnToOrigin:()=>showScreen('more'),openProgramme:()=>{}});globalThis.pendingRead=slowUI.open('more');slowUI.backOverview();resolveRead({results:[],errors:[]})");
   await p.run('pendingRead');assert.equal(p.run('currentScreen'),'more');
+});
+
+test('duration presentation handles precision, minute carry and invalid measurements',async()=>{
+  const p=await ui();
+  for(const [value,expected] of [[0,'0.0 sec'],[2.6139999999999937,'2.6 sec'],[5.160000000000007,'5.2 sec'],[5.490000000000004,'5.5 sec'],[9.99,'10 sec'],[10,'10 sec'],[34.4,'34 sec'],[59.4,'59 sec'],[59.9,'1 min'],[60,'1 min'],[85,'1 min 25 sec'],[119.9,'2 min']])
+    assert.equal(p.run(`GarageFitProgressUI.formatDuration(${value})`),expected);
+  for(const value of ['null','undefined','NaN','Infinity','-1','"5"','{}'])
+    assert.equal(p.run(`GarageFitProgressUI.formatDuration(${value})`),null);
+});
+test('detail formats actual seconds consistently and omits irrelevant load placeholders without writes',async()=>{
+  const ids=['supine-heel-slides','open-close-gates','standing-scapular-protraction-retraction','goblet-squat'];
+  const record=fixture('timing',{finalStatus:'partial',actualDurationSeconds:85,
+    plannedWork:ids.map((exerciseId,i)=>({occurrenceId:'x'+i,exerciseId,section:i<3?'warmup':'main',prescription:{type:'timed',seconds:99}})),
+    performedWork:ids.map((exerciseId,i)=>({occurrenceId:'x'+i,exerciseId,status:'partial',sets:[{seconds:[2.6139999999999937,5.160000000000007,5.490000000000004,34][i]}]}))});
+  const p=await ui([record]);
+  // Use canonical identities, so this also catches stale catalogue references.
+  for(const id of ids)assert.ok(p.run(`CATALOGUE[${JSON.stringify(id)}]`),id);
+  const before=[...p.storage.entries()];await p.run("progressUI.open('more')");
+  assert.match(p.text('yourProgressContent'),/1 min 25 sec/);
+  p.run("progressUI.openHistory()");assert.match(p.text('trainingHistoryContent'),/1 min 25 sec/);
+  p.run("progressUI.openDetail('timing')");const text=p.text('sessionDetailsContent');
+  assert.match(text,/2.6 sec/);assert.match(text,/5.2 sec/);assert.match(text,/5.5 sec/);
+  assert.equal((text.match(/load not recorded/g)||[]).length,1);
+  assert.match(text,/Partial/);assert.doesNotMatch(text,/99 sec|NaN|undefined/);
+  assert.deepEqual([...p.storage.entries()],before);
+});
+
+test('load relevance uses catalogue descriptors for loaded, band and bodyweight exercises',async()=>{
+ const p=await ui();
+ for(const [id,expected] of [['goblet-squat',true],['band-row',true],['plank',false],['supine-heel-slides',false],['open-close-gates',false]])
+   assert.equal(p.run(`GarageFitProgressUI.loadRelevant(CATALOGUE[${JSON.stringify(id)}])`),expected,id);
+ assert.equal(p.run('GarageFitProgressUI.loadRelevant(null)'),true);
 });
