@@ -209,7 +209,15 @@ Observed results (all browser checks use prepared assets unless noted):
 - Existing `verify-player-timers.py` `native_entry_checks` (name refers to UI
   entry controls, **not** native runtime): passed all seven entry fixtures in
   Chromium separately.
-- Fast and Full Node suites: see PR for final results.
+- Focused Node regression suites: **146 passed, 0 failed** (about, backup-browser,
+  backup-registry, backup-ui, backup, coach-backup, coach-store, session-tracker,
+  training-history, instruction-speech, player-audio, player-viewport,
+  protocol-contracts). Run with `node --test tests/<name>.test.js` for those names.
+- Broad Fast (`node --test --test-skip-pattern='\[Full\]' tests/*.test.js`) and
+  Full (`node --test tests/*.test.js`) were started but are **not yet complete**
+  at this blocked handover. No aggregate pass is claimed. Local output is in
+  `/tmp/gf360-fast.log` and `/tmp/gf360-full.log`; inspect terminal summaries before
+  recording success. The focused checks above do not substitute for completion.
 - iOS generation/sync: passed; Xcode compilation/signing/install: **blocked**.
 
 The speech-affordance regression needs a focused correction before release;
