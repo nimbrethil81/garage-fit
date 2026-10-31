@@ -98,3 +98,9 @@ Fixed Workouts and standalone Prep & Recover are excluded.
 - [Shared workout-family definitions and resolution](docs/WORKOUT_FAMILIES.md)
 - [Tennis mapping constraints and catalogue gaps](docs/TENNIS_CAPABILITY_AUDIT.md)
 - [Shared player controls and mobile verification](docs/PLAYER_TIMERS.md)
+
+## Editorial safety evidence (developer only)
+
+See [the manual safety-review pilot runbook](docs/SAFETY_REVIEW.md) for synthetic,
+replayable Generator/Coach/fixed-workout packets and human-controlled review and
+archive procedures. No reviews, uploads or app changes run automatically.
