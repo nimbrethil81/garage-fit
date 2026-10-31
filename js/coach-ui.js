@@ -1312,7 +1312,7 @@
         resetOptions(); showScreen('coach'); render(); if(onSessionSaved)await onSessionSaved(result); });
     }
     return {open, overview, controller, renderAnchor, record, showEnd, saveFeedback, updateActualSummary,
-      isActive: () => sessionActive, run, backFromSubstitute, backFromOverview, inOverview: () => overviewOpen, openProgress, openProgrammeProgress,
+      isActive: () => sessionActive, isBusy: () => busy, run, backFromSubstitute, backFromOverview, inOverview: () => overviewOpen, openProgress, openProgrammeProgress,
       progressContext: async () => {await initialisation;const state=controller.snapshot().state;return state?{state,definition:root.GarageFitData.programmes[state.programmeDefinitionId]?.[state.programmeDefinitionVersion]}:null;}, openSettings, back: () => {previewEditing=false;showScreen('coach');render();},
       init: () => { initialisation=run(() => controller.load()); return initialisation; }};
   }

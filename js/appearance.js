@@ -15,6 +15,11 @@
     if (select) select.value = preference;
   }
   root.GarageFitAppearance = {
+    refresh() {
+      preference='automatic';
+      try {const saved=root.localStorage.getItem(key);if(valid(saved))preference=saved;}catch(_){}
+      apply();
+    },
     choose(value) {
       if (!valid(value)) return;
       preference = value;

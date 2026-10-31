@@ -59,7 +59,7 @@
       tracker.start().catch(function(error){historyFailure(session,error);});
     }catch(error){historyFailure(session,error);}
   }
-  function historyFailure(session,error){session.historyFailed=true;console.warn('Workout history could not be saved.',error);}
+  function historyFailure(session,error){if(root.GarageFitBackupActivity)root.GarageFitBackupActivity.fail();session.historyFailed=true;console.warn('Workout history could not be saved.',error);}
   function recordSpecialistStep(session){
     if(!session||!session.history||session.historyFailed)return;
     try{
@@ -72,7 +72,9 @@
     if(!session||!session.history)return;
     var history=session.history;session.history=null;
     if(session.historyFailed)return;
-    history.tracker.complete({actualDurationSeconds:history.seconds}).then(function(result){if(root.firstUseSaved)return root.firstUseSaved(result,'done');}).catch(function(error){
+    var saving=history.tracker.complete({actualDurationSeconds:history.seconds});
+    if(root.GarageFitBackupActivity)saving=root.GarageFitBackupActivity.track(saving);
+    saving.then(function(result){if(root.firstUseSaved)return root.firstUseSaved(result,'done');}).catch(function(error){
       historyFailure(session,error);
       if(document.getElementById('doneTitle').textContent===session.workout.name+' Complete')document.getElementById('doneSub').textContent+=' History could not be saved.';
     });
@@ -220,7 +222,7 @@
   function cleanCatalogue(){var list=document.querySelector('.workout-list');if(!list)return;var buttons=list.querySelectorAll('.workout-launch');if(buttons.length>=3){rewriteCard(buttons[0],'sevenMinute');rewriteCard(buttons[1],'cindy');rewriteCard(buttons[2],'workout300');if(!list.querySelector('[data-workout-id="abBlast"]')){addWorkoutCard(list,'abBlast');var added=list.lastElementChild;added.setAttribute('data-workout-id','abBlast');}if(!list.querySelector('[data-workout-id="eveningFullBodyReset"]')){addWorkoutCard(list,'eveningFullBodyReset');var addedReset=list.lastElementChild;addedReset.setAttribute('data-workout-id','eveningFullBodyReset');}if(!list.querySelector('[data-workout-id="postRunReset"]')){addWorkoutCard(list,'postRunReset');var addedPostRun=list.lastElementChild;addedPostRun.setAttribute('data-workout-id','postRunReset');}}if(!list.querySelector('[data-workout-id="deskBreak"]'))addDeskBreakCard(list);['.workout-detail','.review-toggle','#workoutReview'].forEach(function(selector){var element=document.querySelector(selector);if(element)element.remove();});var legacyBest=document.querySelector('.best-strip');if(legacyBest)legacyBest.classList.add('hidden');}
   function patchScreenNavigation(){baseShowScreen=root.showScreen;if(typeof baseShowScreen!=='function')return;root.showScreen=function(id){if(id!=='player'){[timedSequence,fixedSequence].forEach(function(session){if(session){session.history=null;session.epoch++;}});}var detail=document.getElementById('workoutDetail');if(id==='workoutDetail'){['home','workouts','generator','equipment','generatedPreview','routinepick','snackpick','player','workoutPlayer','done'].forEach(function(screenId){var screen=document.getElementById(screenId);if(screen)screen.classList.add('hidden');});detail.classList.remove('hidden');document.getElementById('bottomNav').classList.add('hidden');return;}if(detail)detail.classList.add('hidden');baseShowScreen(id);};}
   function patchTimedSequenceControls(){baseSkipPhase=root.skipPhase;if(typeof baseSkipPhase==='function')root.skipPhase=function(){if(state.key==='fixedTimedSequence'||state.key==='deskBreak')skipTimedPhase();else if(state.key==='fixedSequence')skipFixedSequence();else baseSkipPhase();};}
-  function install(){if(installed||!document.getElementById('workouts'))return;installed=true;styleUi();createDetailScreen();cleanCatalogue();patchScreenNavigation();patchTimedSequenceControls();}
+  function install(){if(installed||!document.getElementById('workouts'))return;if(root.garageFitAppReady===false){root.addEventListener('garagefit-ready',install,{once:true});return;}installed=true;styleUi();createDetailScreen();cleanCatalogue();patchScreenNavigation();patchTimedSequenceControls();}
   root.GarageFitWorkoutUI={cardMeta:CARD_META,detailDefinition:detailDefinition,openWorkoutDetail:openWorkoutDetail,startSelectedWorkout:startSelectedWorkout,startDeskBreak:startDeskBreak,skipTimedPhase:skipTimedPhase,startTimedSequenceWorkout:startTimedSequenceWorkout,startFixedSequenceWorkout:startFixedSequenceWorkout,skipFixedSequence:skipFixedSequence,install:install};
   if(document.readyState==='complete')install();else root.addEventListener('load',install,{once:true});
 })(window);
