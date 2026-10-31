@@ -1162,7 +1162,7 @@
           }
           list.append(ui.exerciseRow({index:exerciseIndex,marker:ui.supersetMarker(block,exerciseIndex),name:exercise.name,
             prescription:block.benchmark ? 'As many controlled reps as you can' : ui.occurrenceTargetLabel(block,exerciseIndex)||(target ? targetPrescription(exercise,block) : block.protocol==='emom' ? ui.emomTargetLabel(block,exerciseIndex) : block.protocol==='timed_intervals' ? block.prescription.workSeconds+' sec' : ui.formatPrescription(exercise)),
-            targetLabel:target ? 'Strength target' : block.benchmark ? 'Optional benchmark' : null, instruction:catalogue[exercise.id]?.instruction,
+            targetLabel:target ? 'Strength target' : block.benchmark ? 'Optional benchmark' : null, instruction:catalogue[exercise.id]?.instruction,exerciseId:exercise.id,
             cue:[target ? effortCue(anchor,context) : block.benchmark ? 'Record your reps in the player, or skip' : null,...(exercise.timedCues || []).map(cue=>cue.text)].filter(Boolean).join(' · '),controls}));
         });
       }
@@ -1172,7 +1172,7 @@
         const list=text('ol','preview-list','');
         (part ? part.exercises : []).forEach((exercise,index) => {
           ui.appendSetupTransitions(list,workout,{section:key,exerciseIndex:index});
-          list.append(ui.exerciseRow({index,name:exercise.name,prescription:ui.formatPrescription(exercise)}));
+          list.append(ui.exerciseRow({index,name:exercise.name,prescription:ui.formatPrescription(exercise),instruction:catalogue[exercise.id]?.instruction,exerciseId:exercise.id}));
         });
         owned.forEach(item => blockRows(list,blocks[item.blockIndex],item.blockIndex));
         section(title+' · '+ui.sectionDurationLabel(sectionPlan.seconds[key]),list);

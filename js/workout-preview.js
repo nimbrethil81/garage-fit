@@ -1,7 +1,8 @@
 (function (root) {
   // Presentation only. Headings/rows return detached DOM nodes; indexes are zero-based.
   // Row copy (name, prescription, instruction, cue, optional targetLabel) is plain text.
-  // Callers resolve catalogue instructions and supply controls as already-wired DOM nodes
+  // Callers resolve canonical instructions, opt into guidance with stable exercise IDs,
+  // and supply controls as already-wired DOM nodes
   // (e.g. Swap, Edit, Substitute, or none). No workout/state/storage access or mutations.
   function text(tag, className, value) {
     const node=root.document.createElement(tag);
@@ -40,20 +41,53 @@
       .forEach(change=>list.appendChild(setupTransitionRow(change)));
   }
 
-  function instructionDisclosure(instruction) {
+  function guidanceSections(exerciseId) {
+    const guidance=root.GarageFitData?.exerciseGuidance?.(exerciseId);
+    if (!guidance) return null;
+    const section=text('div','exercise-guidance','');
+    for (const [key,label] of [['setup','Setup'],['movement','Movement'],['technique','Technique'],['beforeYouTry','Before you try']]) {
+      if (guidance[key]) section.append(text('h3','',label),text('p','',guidance[key]));
+    }
+    return section;
+  }
+
+  function illustration(exerciseId) {
+    const source=root.GarageFitData?.exerciseIllustration(exerciseId);
+    if (!source) return null;
+    const region=text('div','preview-illustration',''), image=root.document.createElement('img');
+    image.setAttribute('alt',''); image.setAttribute('aria-hidden','true');
+    image.style.visibility='hidden';
+    // Per-occurrence ownership: a failed/removed image cannot revive its region.
+    let current=image;
+    image.onload=()=>{if(current===image && region.children[0]===image)image.style.visibility='visible';};
+    image.onerror=()=>{if(current!==image)return;current=null;region.classList.add('hidden');region.replaceChildren();};
+    region.appendChild(image); image.setAttribute('src',source);
+    return region;
+  }
+
+  function instructionDisclosure(instruction, exerciseId) {
     if (!instruction) return null;
     const details=root.document.createElement('details'); details.className='exercise-instruction';
     details.append(text('summary','','How to do it'),text('p','',instruction));
+    // Only opted-in callers gain visual/deeper guidance; other consumers keep their output.
+    if (exerciseId) {
+      const image=illustration(exerciseId), guidance=guidanceSections(exerciseId);
+      if (image) details.appendChild(image);
+      if (guidance) {
+        const more=text('details','exercise-more-guidance','');
+        more.append(text('summary','','More guidance'),guidance); details.appendChild(more);
+      }
+    }
     return details;
   }
 
   // `marker` replaces the numbered index, e.g. A/B for the two exercises of a superset.
-  function exerciseRow({index, marker, name, prescription, instruction, cue, targetLabel, controls=[]}) {
+  function exerciseRow({index, marker, name, prescription, instruction, exerciseId, cue, targetLabel, controls=[]}) {
     const row=root.document.createElement('li'), copy=text('div','preview-exercise',name);
     copy.appendChild(text('span','preview-prescription',prescription));
     if (targetLabel) copy.appendChild(text('span','preview-prescription preview-target-label',targetLabel));
     if (cue) copy.appendChild(text('span','review-note',cue));
-    const disclosure=instructionDisclosure(instruction);
+    const disclosure=instructionDisclosure(instruction,exerciseId);
     if (disclosure) copy.appendChild(disclosure);
     row.append(text('span','preview-index',marker||String(index+1).padStart(2,'0')),copy);
     if (controls.length) {
@@ -130,5 +164,5 @@
     }).join(' → ');
   }
 
-  root.GarageFitWorkoutPreview={sectionHeading,blockHeading,sectionDurationLabel,setupTransitionRow,appendSetupTransitions,exerciseRow,instructionDisclosure,formatPrescription,protocolLabel,supersetMarker,emomTargetLabel,occurrenceTargetLabel};
+  root.GarageFitWorkoutPreview={guidanceSections,sectionHeading,blockHeading,sectionDurationLabel,setupTransitionRow,appendSetupTransitions,exerciseRow,instructionDisclosure,formatPrescription,protocolLabel,supersetMarker,emomTargetLabel,occurrenceTargetLabel};
 })(typeof window==='undefined' ? globalThis : window);

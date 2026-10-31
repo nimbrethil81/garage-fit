@@ -25,8 +25,8 @@
       if (swappable) {
         const button=document.createElement('button'); button.type='button'; button.className='swap-btn'; button.textContent='Swap'; button.setAttribute('aria-label','Swap '+exercise.name); button.onclick=()=>window.swapGeneratedPreparation(section,index); controls.push(button);
       }
-      // Preparation retains its compact copy; Main opts into instructions and cues.
-      list.appendChild(GarageFitWorkoutPreview.exerciseRow({index,name:exercise.name,prescription:formatPrescription(exercise),controls}));
+      // Supporting phases use the same optional guidance as Main.
+      list.appendChild(GarageFitWorkoutPreview.exerciseRow({index,name:exercise.name,prescription:formatPrescription(exercise),instruction:instructionFor(exercise),exerciseId:exercise.id,controls}));
     });
   }
 

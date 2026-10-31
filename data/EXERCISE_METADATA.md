@@ -498,3 +498,20 @@ same-origin WebP path or null. The small opt-in set lives beside the canonical
 catalogue; paths derive from IDs. No exercise fields or workout contracts change.
 Future consumers must hide failed images without interrupting instructions or
 playback. See `docs/exercise-artwork/README.md` for sources and verification.
+
+### Optional detailed guidance (display only)
+
+`data/exercise-guidance.js` is a companion lookup by existing stable exercise ID,
+not a second catalogue. `buildExerciseGuidance` rejects unknown IDs and section
+keys, empty sections and non-text values. Allowed optional keys, rendered in this
+order, are `setup`, `movement`, `technique`, `beforeYouTry` (informational readiness,
+never a proficiency score or eligibility condition). Omit unwarranted sections.
+All content is plain text rendered with `textContent`.
+
+The production lookup is intentionally empty pending explicit editorial approval
+of teaching copy. Implementation fixtures are labelled in tests;
+they are not teaching content. Approval of the UI does not approve teaching drafts
+or artwork. Add only reviewed content to the lookup. Keep canonical `instruction`
+single-line and at most 180 characters; it remains the only instruction used by
+speech. Detailed guidance must never enter generated workouts, Coach/session
+records, eligibility rules, history or backups.

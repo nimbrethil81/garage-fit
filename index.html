@@ -48,7 +48,7 @@ layout: null
   .info-detail .page-header h1{min-width:0;overflow-wrap:anywhere;font-size:clamp(22px,7vw,32px);line-height:1.15}.library-entry{width:100%;min-height:58px;border:0;border-radius:14px;background:var(--card);color:var(--card-text);padding:16px;text-align:left;font-weight:850;font-size:16px}
   #more>.library-entry+.library-entry{margin-top:10px}#spokenCues .library-controls{grid-template-columns:minmax(0,1fr)}#spokenCues .ctrl-btn{flex:none;width:100%;min-height:54px;margin-top:12px}
   .library-controls{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-bottom:16px}.library-controls label{display:flex;flex-direction:column;gap:6px;color:var(--text-muted);font-size:12px;font-weight:750}.library-controls input,.library-controls select{width:100%;min-width:0;border:1px solid var(--surface-2);border-radius:10px;background:var(--surface);color:var(--text);padding:12px;font:inherit;font-size:16px}
-  .library-illustration{width:100%;aspect-ratio:4/3;max-height:min(36vh,320px);margin-top:12px;background:#263238;border-radius:12px;overflow:hidden}.library-illustration img{display:block;width:100%;height:100%;object-fit:contain;padding:12px;box-sizing:border-box}
+  .library-illustration{width:min(100%,calc(min(36vh,320px) * 4 / 3));aspect-ratio:4/3;margin-top:12px;background:#263238;border-radius:12px;overflow:hidden}.library-illustration img{display:block;width:100%;height:100%;object-fit:contain;padding:12px;box-sizing:border-box}
   .library-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}.library-row{width:100%;min-height:58px;border:0;border-radius:12px;background:var(--card);color:var(--card-text);padding:12px 15px;text-align:left;display:flex;flex-direction:row;align-items:center;gap:12px}.library-row strong{font-size:15px;line-height:1.3;min-width:0;overflow-wrap:anywhere}.equipment-icon{flex:0 0 32px;width:32px;display:inline-flex;align-items:center;justify-content:center}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.library-empty{color:var(--text-muted)}.library-detail-section{margin:0 0 22px}.library-detail-section h2{font-size:14px;color:var(--rest);margin:0 0 7px}.library-detail-section p{line-height:1.5;margin:0;overflow-wrap:anywhere}
   .home-header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:5px 0 24px}
   .home-intro{margin:0 0 17px}.screen-title{font-size:34px;line-height:1;font-weight:900;letter-spacing:-.04em}.home-intro h1{margin:0}.title-phrase{white-space:nowrap}.home-title{margin-bottom:16px}
@@ -648,7 +648,7 @@ layout: null
   </main>
   <main id="exerciseDetail" class="screen info-detail hidden">
     <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Exercise Library" onclick="appBack()">←</button><h1 id="libraryDetailName"></h1><span class="header-spacer"></span></header>
-    <section class="library-detail-section hidden" id="libraryInstructionSection"><h2>Instruction</h2><p id="libraryDetailInstruction"></p><div id="libraryDetailIllustration" class="library-illustration hidden"></div></section>
+    <section class="library-detail-section hidden" id="libraryInstructionSection"><h2>Instruction</h2><p id="libraryDetailInstruction"></p><div id="libraryDetailIllustration" class="library-illustration hidden"></div><div id="libraryDetailGuidance"></div></section>
     <section class="library-detail-section"><h2>Equipment</h2><p id="libraryDetailEquipment"></p></section>
     <section class="library-detail-section"><h2>Where it may appear</h2><p id="libraryDetailContexts"></p></section>
   </main>
@@ -680,6 +680,7 @@ layout: null
 <script src="data/equipment.js"></script>
 <script src="js/equipment-icons.js"></script>
 <script src="data/exercises.js"></script>
+<script src="data/exercise-guidance.js"></script>
 <script src="data/workouts.js"></script>
 <script src="js/desk-break.js"></script>
 <script src="data/workout-families.js"></script>
@@ -910,6 +911,8 @@ function openExerciseDetail(id){
   document.getElementById('libraryDetailInstruction').textContent=exercise.instruction||'';
   document.getElementById('libraryInstructionSection').classList.toggle('hidden',!exercise.instruction);
   renderLibraryIllustration(exercise.id);
+  const guidance=document.getElementById('libraryDetailGuidance');guidance.innerHTML='';
+  const sections=GarageFitWorkoutPreview.guidanceSections(exercise.id);if(sections)guidance.appendChild(sections);
   document.getElementById('libraryDetailEquipment').textContent=libraryEquipmentLabel(exercise);
   document.getElementById('libraryDetailContexts').textContent=libraryContexts(exercise);
   showScreen('exerciseDetail');
@@ -1106,7 +1109,7 @@ function appendGeneratedBlockRows(list,workout,blockIndex,plan){
     button.type='button';button.className='swap-btn';button.textContent='Swap';button.setAttribute('aria-label','Swap '+exercise.name);button.onclick=()=>swapGeneratedExercise(blockIndex,exerciseIndex);
     list.appendChild(GarageFitWorkoutPreview.exerciseRow({index:exerciseIndex,marker:GarageFitWorkoutPreview.supersetMarker(block,exerciseIndex),name:exercise.name,
       prescription:GarageFitWorkoutPreview.occurrenceTargetLabel(block,exerciseIndex)||(block.protocol==='emom'?GarageFitWorkoutPreview.emomTargetLabel(block,exerciseIndex):block.protocol==='timed_intervals'?block.prescription.workSeconds+' sec':formatPrescription(exercise)),
-      instruction:instructionFor(exercise),cue:(exercise.timedCues||[]).map(cue=>cue.text).join(' · '),controls:[button]}));
+      instruction:instructionFor(exercise),exerciseId:exercise.id,cue:(exercise.timedCues||[]).map(cue=>cue.text).join(' · '),controls:[button]}));
   });
 }
 function swapGeneratedExercise(blockIndex,exerciseIndex){GarageFitGenerator.swap(generatorState.workout,blockIndex,exerciseIndex,{catalogue:CATALOGUE,equipment:state.ownedEquipment});renderGeneratedPreview()}
