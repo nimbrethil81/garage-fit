@@ -1,0 +1,15 @@
+{
+  "name": "garagefit-native-proof",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Issue 360 isolated compatibility proof; not a production app",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "prepare:web": "python3 ../scripts/prepare_native.py --ref HEAD",
+    "ios:add": "cap add ios",
+    "ios:sync": "cap sync ios",
+    "ios:open": "cap open ios"
+  },
+  "dependencies": { "@capacitor/core": "8.6.0", "@capacitor/ios": "8.6.0" },
+  "devDependencies": { "@capacitor/cli": "8.6.0" }
+}
