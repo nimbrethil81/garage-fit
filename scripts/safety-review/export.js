@@ -56,7 +56,7 @@ async function sample(input=manifest()) {
           const session={id:`${spec.id}/${i+1}`,clock,syntheticOutcome:cfg.outcomes[i],stateBefore:before,preview:plain(preview.plan),...resolved(p,preview.workout)};
           c.sessions.push(session);
           if(cfg.outcomes[i]!=='missed') {
-            await p.begin(JSON.stringify({duration:cfg.duration,equipment:cfg.equipment,difficulty:'normal'}));
+            await p.run('pilot.begin().then(value=>{pilotTracker=value})');
             await p.run(`(async()=>{const work=pilotTracker.plannedWork().filter(x=>x.section==='main');for(const item of (${cfg.outcomes[i]==='partial'}?work.slice(0,1):work))await pilotTracker.recordDone(item.occurrenceId);})()`);
             session.syntheticResult=plain(await p.finish(cfg.outcomes[i]==='partial'?'exit':'complete'));
           }

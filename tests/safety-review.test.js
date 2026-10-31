@@ -19,6 +19,7 @@ test('editorial sampler replays real resolved plans, infeasibility and synthetic
   const coach=a.cases.find(c=>c.route==='coach');
   assert.equal(coach.outcome,'generated');
   assert.equal(coach.sessions[0].syntheticResult.finalStatus,'completed');
+  for(const session of coach.sessions.filter(s=>s.syntheticResult))assert.deepEqual(session.syntheticResult.plannedWork,session.plannedWork,'synthetic results execute the exported preview, never a second draw');
   assert.equal(coach.sessions[1].syntheticResult.finalStatus,'partial');
   assert.equal(coach.sessions[2].syntheticResult,undefined);
   assert.deepEqual(coach.sessions[2].stateBefore.state,coach.sessions[2].stateAfter.state);
