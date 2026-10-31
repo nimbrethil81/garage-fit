@@ -119,6 +119,9 @@ test('Generator renders all phases through shared rows and retains caller-owned 
   assert.equal(rows.length,main.length+workout.warmup.exercises.length+workout.rampup.exercises.length+workout.cooldown.exercises.length);
   assert.equal(rows[0].prescription,'40 sec','interval work overrides the catalogue rep count');
   assert.equal(rows[0].instruction,app.GarageFitData.exercises['trx-knee-tuck'].instruction,'caller resolves canonical instructions');
+  for(const row of rows) {
+    assert.equal(row.instruction,app.GarageFitData.exercises[row.exerciseId].instruction);
+  }
   for(const section of ['warmup','rampup','cooldown']) {
     const list=el('preview'+section[0].toUpperCase()+section.slice(1)+'List');
     assert.equal(list.children.length,workout[section].exercises.length);
@@ -147,4 +150,28 @@ test('rounds presentation distinguishes single-exercise sets and Athletic drills
   const {loadAppContext}=require('./helpers/app-context');const app=loadAppContext();
   const w=app.GarageFitGenerator.generate({catalogue:app.GarageFitData.exercises,equipment:[],workoutFamilyId:'athletic-movement',workoutFamilyVersion:5,duration:10,difficulty:'normal'});
   assert.match(app.GarageFitWorkoutPreview.protocolLabel(w.main.blocks[1]),/^Movement drill/);
+});
+
+test('preview guidance is optional, plain text, silent and owned by each repeated occurrence',()=>{
+  const app=loadAppContext(), ui=app.GarageFitWorkoutPreview, unsafe='<img src=x onerror=alert(1)>';
+  // Explicit test fixture; no new exercise teaching content is shipped.
+  const fixtures=app.GarageFitData.buildExerciseGuidance({'trx-row':{setup:unsafe,beforeYouTry:'TEST FIXTURE: informational only'}});
+  app.GarageFitData.exerciseGuidance=id=>fixtures[id]||null;
+  const spoken=[];app.speechSynthesis.speak=value=>spoken.push(value);
+  const options={index:0,name:'TRX row',prescription:'10 reps',instruction:'Canonical instruction',exerciseId:'trx-row'};
+  const a=ui.exerciseRow(options).children[1].children[1],b=ui.exerciseRow(options).children[1].children[1];
+  assert.notEqual(a,b);a.open=true;assert.ok(!b.open);
+  assert.equal(a.children[1].textContent,options.instruction);
+  const image=a.children[2].children[0],other=b.children[2].children[0];
+  assert.notEqual(image,other);assert.equal(image.getAttribute('alt'),'');
+  assert.equal(image.getAttribute('src'),'assets/exercises/trx-row.webp');
+  assert.equal(image.style.visibility,'hidden');image.onload();assert.equal(image.style.visibility,'visible');
+  const more=a.children[3];assert.equal(more.children[0].textContent,'More guidance');assert.ok(!more.open);
+  assert.deepEqual(more.children[1].children.map(n=>n.textContent),['Setup',unsafe,'Before you try','TEST FIXTURE: informational only']);
+  assert.equal(more.children[1].children.some(n=>n.innerHTML),false);
+  image.onerror();image.onload();assert.equal(a.children[2].classList.contains('hidden'),true);
+  assert.equal(a.children[2].children.length,0);assert.equal(other.style.visibility,'hidden');
+  assert.equal(a.children[1].textContent,options.instruction);assert.deepEqual(spoken,[]);
+  const simple=ui.instructionDisclosure('Short','air-squat');assert.equal(simple.children.length,2);
+  const legacy=ui.instructionDisclosure('Short');assert.equal(legacy.children.length,2);
 });

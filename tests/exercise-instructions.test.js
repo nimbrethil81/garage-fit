@@ -235,3 +235,17 @@ test('spoken exercise cues separate side and quantity into queued utterances wit
   assert.deepEqual(spoken, ['Runner\'s stretch, left side.', '30 seconds']);
   assert.equal(cancelled.length, 1, 'one cancel per cue clears stale speech');
 });
+
+test('display-only guidance validates stable IDs and known non-empty sections without publishing drafts',()=>{
+  const app=loadAppContext(),data=app.GarageFitData;
+  for(const id of Object.keys(data.exercises)) assert.equal(data.exerciseGuidance(id),null);
+  for(const id of ['unknown','__proto__','../trx-row',null]) assert.equal(data.exerciseGuidance(id),null);
+  for(const entries of [{unknown:{setup:'fixture'}},JSON.parse('{"__proto__":{"setup":"fixture"}}'),{'trx-row':{readinessScore:3}},{'trx-row':{setup:''}},{'trx-row':{}},{'trx-row':{movement:42}},[]]) {
+    assert.throws(()=>data.buildExerciseGuidance(entries));
+  }
+  const input={'trx-row':{setup:' Fixture only — not coaching copy. ',beforeYouTry:'Fixture readiness information.'}};
+  const validated=data.buildExerciseGuidance(input);input['trx-row'].setup='changed';
+  assert.equal(validated['trx-row'].setup,'Fixture only — not coaching copy.');
+  assert.ok(Object.isFrozen(validated)&&Object.isFrozen(validated['trx-row']));
+  assert.deepEqual(Array.from(app.GarageFitGenerator.validateCatalogue(data.exercises)),[]);
+});

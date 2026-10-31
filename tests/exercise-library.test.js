@@ -152,3 +152,14 @@ test('no-image, failed loads and stale callbacks never retain artwork or disrupt
   app.openExerciseDetail('trx-row');const retry=region.children[0];retry.onload();
   assert.equal(region.classList.contains('hidden'),false);assert.equal(retry.style.visibility,'visible');
 });
+
+test('Library appends only reviewed guidance in order and clears it when changing exercise',()=>{
+  const app=loadAppContext(),holder=app.document.getElementById('libraryDetailGuidance');
+  // TEST FIXTURE, not approved production teaching text.
+  const fixtures=app.GarageFitData.buildExerciseGuidance({'trx-row':{movement:'TEST FIXTURE: movement',setup:'<b>TEST FIXTURE</b>'}});
+  app.GarageFitData.exerciseGuidance=id=>fixtures[id]||null;
+  app.openExerciseDetail('trx-row');
+  assert.deepEqual(holder.children[0].children.map(n=>n.textContent),['Setup','<b>TEST FIXTURE</b>','Movement','TEST FIXTURE: movement']);
+  assert.equal(holder.children[0].children[1].innerHTML,'');
+  app.openExerciseDetail('air-squat');assert.equal(holder.children.length,0);
+});

@@ -402,3 +402,19 @@ test('first Coach completion acknowledges only after feedback persistence, once,
   p.run("showLanding('generator');showScreen('coach')");
   assert.equal(p.app.document.getElementById('firstSavedcoach').classList.contains('hidden'),true);
 });
+
+test('Coach preview includes silent canonical guidance in Main and every actual supporting-phase row',async()=>{
+  const p=await ui();await start(p,'strength');
+  p.run(`const guidanceRows=[];const renderGuidanceRow=GarageFitWorkoutPreview.exerciseRow;
+    GarageFitWorkoutPreview.exerciseRow=options=>{guidanceRows.push(options);return renderGuidanceRow(options);};`);
+  await p.click('View today’s workout');
+  const workout=p.json('coachUI.controller.snapshot().preview.workout');
+  const exercises=[...workout.warmup.exercises,...workout.rampup.exercises,...workout.main.blocks.flatMap(b=>b.exercises),...workout.cooldown.exercises];
+  const rows=p.json('guidanceRows');assert.equal(rows.length,exercises.length);
+  for(const row of rows){
+    assert.ok(exercises.some(e=>e.id===row.exerciseId));
+    assert.equal(row.instruction,p.app.GarageFitData.exercises[row.exerciseId].instruction);
+  }
+  assert.ok(rows.some(r=>r.targetLabel==='Strength target'));
+  assert.equal(JSON.stringify(workout).includes('beforeYouTry'),false);
+});

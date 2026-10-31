@@ -17,3 +17,21 @@
 .preview-exercise .exercise-instruction{color:var(--card-muted);text-align:left;margin:4px 0 0;font-size:12px}
 .preview-list .exercise-instruction summary{color:var(--rest-card)}
 .preview-list .review-note{color:var(--card-muted)}
+/* In-flow guidance belongs to preview scrolling, never the active player overlay. */
+.preview-illustration{width:100%;max-width:270px;aspect-ratio:4/3;margin:10px 0;background:#263238;border-radius:12px;overflow:hidden}
+.preview-illustration img{display:block;width:100%;height:100%;object-fit:contain;padding:10px;box-sizing:border-box}
+.exercise-guidance h3{font-size:14px;line-height:1.4;color:var(--rest);margin:14px 0 6px}
+.exercise-guidance p{line-height:1.5;margin:0;overflow-wrap:anywhere}
+.preview-list .exercise-guidance h3{color:var(--rest-card);font-size:12px}
+.preview-list .exercise-guidance p{margin:0 0 10px}
+.preview-list .exercise-instruction summary{min-height:44px;box-sizing:border-box;display:flex;align-items:center;padding:8px 0}
+.preview-list .exercise-instruction summary:focus-visible{outline:2px solid var(--rest-card);outline-offset:-2px;border-radius:4px}
+.preview-list .exercise-more-guidance summary::before{content:''}
+.preview-list .exercise-instruction>p{margin:4px 0 10px}
+.preview-list .preview-controls{align-self:start}
+.preview-list .swap-btn{min-height:44px}
+.preview-list .preview-index{align-self:start;padding-top:2px}
+.preview-exercise .exercise-instruction{font-weight:400}
+/* Grid tracks and controls must also shrink under enlarged text/browser zoom. */
+#generatedPreview .preview-actions{grid-template-columns:minmax(0,1fr) minmax(0,1.7fr)}
+#generatedPreview .preview-actions button{min-width:0;min-height:44px;white-space:normal;overflow-wrap:anywhere}
