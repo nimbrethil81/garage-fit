@@ -39,7 +39,8 @@
       [...details.children].filter(child => child !== summary).forEach(child => content.appendChild(child));
       heading.append(title, close); surface.append(heading, content); details.appendChild(surface);
       if (['routineInstruction','workoutInstruction'].includes(details.id)) content.classList.add('player-instruction-content');
-      if (['routineInstruction','workoutInstruction'].includes(details.id) && instructionSpeechAvailable()) {
+      const bindInstructionSpeech = () => {
+        if (!['routineInstruction','workoutInstruction'].includes(details.id) || !instructionSpeechAvailable() || content.classList.contains('player-instruction-speech')) return;
         content.classList.add('player-instruction-speech');
         content.setAttribute('role', 'button');
         content.setAttribute('tabindex', '0');
@@ -57,7 +58,9 @@
             if (!event.repeat) speakDisplayedInstruction(details.id);
           }
         });
-      }
+      };
+      bindInstructionSpeech();
+      window.addEventListener('garagefit-ready', bindInstructionSpeech);
       if (details.id === 'coachAnchorEdit') {
         // Retain the confirmation outside the editor and show its live text while
         // editing too. Keep the original live region as the sole announcer.

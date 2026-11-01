@@ -80,9 +80,9 @@ test('mixed fixed and Desk Break exercise timers share countdown cues without ch
   }
 });
 
-test('Mixed bodyweight-only 30-minute generated timed exercise attempts ticks at 3, 2, 1 and completion at zero',()=>{
+for(const [duration,focus,difficulty] of [[30,'balanced','normal'],[15,'cardio','hard']])test(`${duration}-minute ${focus} ${difficulty} bodyweight generated exercise dispatches 3, 2, 1 and completion`,()=>{
   const h=harness();
-  h.run(`let seed338=42;generatorState.workout=GarageFitGenerator.generate({catalogue:CATALOGUE,duration:30,focus:'balanced',equipment:[],random:()=>{seed338=(seed338*1664525+1013904223)>>>0;return seed338/4294967296}});
+  h.run(`let seed338=42;generatorState.workout=GarageFitGenerator.generate({catalogue:CATALOGUE,duration:${duration},focus:'${focus}',difficulty:'${difficulty}',bodyFocus:'full-body',equipment:[],random:()=>{seed338=(seed338*1664525+1013904223)>>>0;return seed338/4294967296}});
     generatorState.timeline=buildGeneratedTimeline(generatorState.workout);
     generatorState.timelineIndex=generatorState.timeline.findIndex(p=>p.kind==='exercise'&&p.timed&&p.section==='main');
     workoutState.mode='generated';workoutState.running=true;
@@ -91,8 +91,8 @@ test('Mixed bodyweight-only 30-minute generated timed exercise attempts ticks at
     const originalBeep338=beep;beep=(...args)=>{if(args[0]===880)complete338++;originalBeep338(...args)};
     startGeneratedCountdown(currentGeneratedPhase().seconds);`);
   assert.ok(h.run('generatorState.timelineIndex')>=0);
-  const duration=h.run('currentGeneratedPhase().seconds');
-  for(let i=0;i<duration*4;i++)h.pulse(250);
+  const phaseDuration=h.run('currentGeneratedPhase().seconds');
+  for(let i=0;i<phaseDuration*4;i++)h.pulse(250);
   assert.deepEqual(Array.from(h.run('observed338')),[3,2,1]);
   assert.equal(h.ticks.length,3);assert.equal(h.run('complete338'),1);
 });

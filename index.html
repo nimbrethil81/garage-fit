@@ -1100,33 +1100,55 @@ function appendGeneratedBlockRows(list,workout,blockIndex,plan){
 }
 function swapGeneratedExercise(blockIndex,exerciseIndex){GarageFitGenerator.swap(generatorState.workout,blockIndex,exerciseIndex,{catalogue:CATALOGUE,equipment:state.ownedEquipment});renderGeneratedPreview()}
 let audioCtx=null;
+// Bounded, memory-only technical evidence. No workout, speech, device identifiers
+// or telemetry; scheduled does not certify that the device made an audible sound.
+const playerAudioEvents=[];
+function recordPlayerAudio(event,error){
+  playerAudioEvents.push({event,state:audioCtx?.state||'absent',visibility:document.visibilityState||'unknown',error:error?.name||null});
+  if(playerAudioEvents.length>40)playerAudioEvents.shift();
+}
+function playerAudioDiagnostics(){return playerAudioEvents.map(entry=>({...entry}))}
+function prepareAudioSession(){
+  try{
+    // WebKit's default ambient session may obey the iPhone silent switch while
+    // Web Speech remains audible. Use media playback routing for workout sounds.
+    if(navigator.audioSession&&navigator.audioSession.type!=='playback'){
+      navigator.audioSession.type='playback';recordPlayerAudio('session-playback');
+    }
+  }catch(error){recordPlayerAudio('session-failed',error)}
+}
 function prepareAudio(create=false){
   try{
     if(!audioCtx||audioCtx.state==='closed'){
       if(!create)return null;
+      prepareAudioSession();
       audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+      recordPlayerAudio('created');
+      audioCtx.onstatechange=()=>recordPlayerAudio('statechange');
     }
     if((audioCtx.state==='suspended'||audioCtx.state==='interrupted')){
       // Resume inside the gesture when possible. Never queue sounds on this promise:
       // a later successful unlock must not replay an old tick or completion chime.
-      Promise.resolve(audioCtx.resume()).catch(()=>{});
+      recordPlayerAudio('resume-request');
+      Promise.resolve(audioCtx.resume()).then(()=>recordPlayerAudio('resume-settled'),error=>recordPlayerAudio('resume-failed',error));
     }
     return audioCtx;
-  }catch(e){return null}
+  }catch(error){recordPlayerAudio('prepare-failed',error);return null}
 }
-function unlockAudio(event){if(event.isTrusted)prepareAudio(true)}
+function unlockAudio(event){if(event.isTrusted){prepareAudioSession();prepareAudio(true)}}
 for(const event of ['click','touchend','keydown'])document.addEventListener(event,unlockAudio,{capture:true});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')prepareAudio()});
 function beep(freq=880,dur=.12,volume=.15){
   try{
     const ctx=prepareAudio(true);
-    if(!ctx||ctx.state!=='running')return;
+    if(!ctx||ctx.state!=='running'){recordPlayerAudio('sound-skipped');return;}
     const o=ctx.createOscillator(),g=ctx.createGain();
     o.frequency.value=freq;o.type='sine';o.connect(g);g.connect(ctx.destination);
     g.gain.setValueAtTime(volume,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+dur);
     o.start();o.stop(ctx.currentTime+dur);
+    recordPlayerAudio(freq===520?'tick-scheduled':'chime-scheduled');
     o.onended=()=>{o.disconnect();g.disconnect()};
-  }catch(e){}
+  }catch(error){recordPlayerAudio('sound-failed',error)}
 }
 function exerciseCountdownTick(tracker,remaining,active){
   if(GarageFitTimedCues.takeCountdownTick(tracker,remaining,active,Date.now()))beep(520,.07,.08);
