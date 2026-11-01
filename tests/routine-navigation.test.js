@@ -14,7 +14,7 @@ function harness(){
 }
 
 test('every routine entry point uses the ring and immediate Next name, then freezes/resumes its existing countdown',()=>{
-  for(const entry of ["startRoutine('warmup','bodyweight')","startRoutine('cooldown','bodyweight')","startRoutine('rampup')","startSevenMinuteWorkout()","openSnack();startSnack(0)","GarageFitWorkoutUI.startTimedSequenceWorkout('abBlast')","GarageFitWorkoutUI.startTimedSequenceWorkout('eveningFullBodyReset')","GarageFitWorkoutUI.startFixedSequenceWorkout('postRunReset')"]){
+  for(const entry of ["startRoutine('warmup','bodyweight')","startRoutine('cooldown','bodyweight')","startRoutine('rampup')","startSevenMinuteWorkout()","openSnack();startSnack(0)","GarageFitWorkoutUI.openWorkoutDetail('abBlast');GarageFitWorkoutUI.startTimedSequenceWorkout('abBlast')","GarageFitWorkoutUI.startTimedSequenceWorkout('eveningFullBodyReset')","GarageFitWorkoutUI.startFixedSequenceWorkout('postRunReset')"]){
     const h=harness();h.run(entry);assert.equal(h.el('routineNextAction').textContent,'Next',entry);
     assert.equal(h.el('routineNextName').textContent,h.app.activityName(h.run('state.list[0]')));
     assert.equal(h.el('routineRing').classList.contains('hidden'),false);assert.equal(h.el('routinePause').classList.contains('hidden'),true);

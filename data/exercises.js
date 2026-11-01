@@ -153,6 +153,13 @@
       patterns:['core','push'], conditioning:false, strength:3, cardio:2, difficulty:'moderate', bodyFocus:'core', generator:true, main:true, mainRole:'supporting', sidedness:'alternating', bodyPosition:'floor', movementPlanes:['sagittal','transverse'],
       prescription:{type:'reps',value:12}, estimatedSeconds:30,
       instruction:'Start in a plank with feet wide, touch one hand to the opposite shoulder, then alternate hands while keeping your hips still.' },
+    // Stable legacy Ab Blast identities; specialist-only, without changing Main eligibility.
+    { id:'sit-up', name:'Sit-ups', patterns:['core'], strength:3, cardio:2, difficulty:'moderate', bodyFocus:'core', bodyPosition:'floor',
+      prescription:{type:'timed',value:40},
+      instruction:'Lie on your back with knees bent and feet flat, curl your torso towards your thighs and lower slowly, keeping your neck relaxed.' },
+    { id:'flutter-kicks', name:'Flutter kicks', patterns:['core'], strength:3, cardio:2, difficulty:'moderate', bodyFocus:'core', bodyPosition:'floor', sidedness:'alternating',
+      prescription:{type:'timed',value:40},
+      instruction:'Lie on your back with legs extended, lift them slightly and alternate small up-and-down kicks, keeping your lower back pressed into the floor.' },
     { id:'abdominal-crunch', name:'Abdominal crunch',
       patterns:['core'], conditioning:false, strength:2, cardio:2, difficulty:'easy', bodyFocus:'core', bodyPosition:'floor',
       prescription:{type:'timed',value:30}, generator:true, main:true, mainProtocols:WITH_TIMED_INTERVALS,

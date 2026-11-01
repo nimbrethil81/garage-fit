@@ -96,7 +96,7 @@ function loadApp() {
   };
   context.window = context; context.globalThis = context;
   vm.createContext(context);
-  for (const file of ['data/equipment.js','data/exercises.js','data/workouts.js','data/workout-families.js','js/workout-families.js','js/generator.js','js/routine-generator.js','js/desk-break.js','js/training-history.js','js/timed-cues.js','js/speech-voices.js','js/completion-signal.js','js/coach-model.js','js/coach-store.js','js/first-use.js','js/session-tracker.js','js/workout-preview.js','js/masthead.js','js/back-navigation.js','js/progress-ui.js']) {
+  for (const file of ['data/equipment.js','data/exercises.js','data/workouts.js','data/workout-families.js','js/workout-families.js','js/generator.js','js/routine-generator.js','js/desk-break.js','js/ab-blast.js','js/training-history.js','js/timed-cues.js','js/speech-voices.js','js/completion-signal.js','js/coach-model.js','js/coach-store.js','js/first-use.js','js/session-tracker.js','js/workout-preview.js','js/masthead.js','js/back-navigation.js','js/progress-ui.js']) {
     vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), context, { filename:file });
   }
   const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].at(-1)[1];
@@ -298,4 +298,49 @@ test('tracked specialist completion acknowledges first use, while skipped-only a
     assert.equal(vm.runInContext('firstUse.snapshot().completed',context),kind==='performed',id+kind);
     assert.equal(elements.firstSaveddone.classList.contains('hidden'),kind!=='performed',id+kind);
   }
+});
+
+for(const kind of ['complete','skip','partial'])test('Ab Blast locks preview and saves truthful '+kind+' work',async()=>{
+  const {context,intervals}=loadApp(),ui=context.GarageFitWorkoutUI;
+  ui.openWorkoutDetail('abBlast');
+  const preview=ui.detailDefinition('abBlast');
+  ui.startSelectedWorkout();
+  const list=vm.runInContext('state.list',context);
+  assert.deepEqual(Array.from(list,e=>[e.name,e.work+' sec']),Array.from(preview.exercises,e=>[e.name,e.target]));
+  ui.startSelectedWorkout();
+  assert.equal(vm.runInContext('state.remaining',context),3);
+  tick(intervals,vm.runInContext('state.timer',context),3);
+  const stale=intervals.get(vm.runInContext('state.timer',context));
+  if(kind!=='complete'){
+    if(kind==='partial')tick(intervals,vm.runInContext('state.timer',context),2);
+    vm.runInContext('Date.now=()=>2000000000000',context);
+    ui.skipTimedPhase();
+    const remaining=vm.runInContext('state.remaining',context);
+    stale();ui.skipTimedPhase();
+    assert.equal(vm.runInContext('state.remaining',context),remaining);
+    assert.equal(vm.runInContext('state.idx',context),1);
+  }
+  const timer=intervals.get(vm.runInContext('state.timer',context));
+  const remaining=vm.runInContext('state.remaining',context);
+  context.togglePause();timer();assert.equal(vm.runInContext('state.remaining',context),remaining);context.togglePause();
+  runToEnd(context,intervals);stale();
+  const results=await saved(context);assert.equal(results.length,1);
+  const result=results[0];assert.equal(result.workoutId,'abBlast');assert.equal(result.source,'fixed');
+  assert.equal(result.plannedWork.length,list.length);
+  assert.deepEqual(Array.from(result.plannedWork,p=>p.prescription.side||null),Array.from(list,e=>e.side));
+  assert.ok(result.plannedWork.every(p=>p.section==='movement-break'));
+  assert.equal(result.performedWork.length,list.length-(kind==='skip'?1:0));
+  if(kind==='partial'){assert.equal(result.performedWork[0].status,'partial');assert.equal(result.performedWork[0].sets[0].seconds,2);}
+  assert.equal(result.actualDurationSeconds,303-(kind==='complete'?0:list[0].work-(kind==='partial'?2:0)));
+  const history=context.GarageFitTrainingHistory.createHistory(results,context.GarageFitData.exercises);
+  assert.equal(history.recentTrainingSummary().sessions.length,0);
+  assert.equal(Object.keys(history.lastCompletedFamilySessions()).length,0);
+});
+
+test('Ab Blast re-entry invalidates callbacks and regenerates the preview',()=>{
+  const {context,intervals}=loadApp(),ui=context.GarageFitWorkoutUI;
+  ui.openWorkoutDetail('abBlast');ui.startSelectedWorkout();
+  const stale=intervals.get(vm.runInContext('state.timer',context));
+  context.goWorkouts();ui.openWorkoutDetail('abBlast');ui.startSelectedWorkout();
+  stale();assert.equal(vm.runInContext('state.remaining',context),3);
 });

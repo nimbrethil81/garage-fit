@@ -9,7 +9,7 @@
     return !exercise || !!exercise.load || (exercise.equipment || []).some(group => group.includes('bands'));
   }
   const timestamp = result => result.endedAt || result.startedAt;
-  const supporting = result => result.source === 'fixed' && ['deskBreak','postRunReset'].includes(result.workoutId);
+  const supporting = result => result.source === 'fixed' && ['deskBreak','postRunReset','abBlast'].includes(result.workoutId);
   function isTraining(result) {
     if (supporting(result) || !['coach','generator','fixed'].includes(result.source)
       || !['completed','partial'].includes(result.finalStatus)) return false;
@@ -18,10 +18,11 @@
       && root.GarageFitCoachRecovery.meaningful(work, planned.get(work.occurrenceId)));
   }
   function label(result) {
+    if (result.source === 'fixed' && result.workoutId === 'abBlast') return '5-Minute Ab Blast';
     if (supporting(result)) return result.workoutId === 'deskBreak' ? 'Desk Break' : 'Post-run Stretch';
     return root.GarageFitCoachProgressUI.workoutIdentity(result)?.label || 'Recorded session';
   }
-  const classification = result => supporting(result) ? result.workoutId === 'deskBreak' ? 'Movement break' : 'Recovery'
+  const classification = result => result.source === 'fixed' && result.workoutId === 'abBlast' ? 'Core' : supporting(result) ? result.workoutId === 'deskBreak' ? 'Movement break' : 'Recovery'
     : isTraining(result) ? 'Training' : 'Recorded activity';
   const status = result => ({completed:'Completed',partial:'Partial',abandoned:'Ended early','skipped-before-start':'Not started'})[result.finalStatus];
   const source = result => ({coach:'Coach',generator:'Generator',fixed:'Workouts',external:'Reported activity'})[result.source] || 'Source unknown';
