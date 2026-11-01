@@ -14,8 +14,7 @@
   "10 cardio hard core dumbbells": [
     "warmup standing-knee-curls,body-hoops,air-squat",
     "rampup mountain-climbers",
-    "emom | conditioning | {\"minutes\":3,\"slotSeconds\":60,\"targets\":[{\"type\":\"timed\",\"value\":30},{\"type\":\"timed\",\"value\":30}]} :: mountain-climbers@timed:30,plank-up-downs@timed:30",
-    "timed_intervals | finisher | {\"workSeconds\":45,\"transitionSeconds\":15,\"cycles\":2} :: squat-jumps@reps:10,dumbbell-wood-chop@timed:40",
+    "timed_intervals | conditioning | {\"workSeconds\":30,\"transitionSeconds\":15,\"cycles\":3} :: ski-abs@timed:30,dumbbell-clean-and-press@reps:10,mountain-climbers@timed:30",
     "cooldown side-stretch,childs-pose,chest-opener"
   ],
   "20 strength normal lower kettlebell": [

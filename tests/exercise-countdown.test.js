@@ -80,11 +80,13 @@ test('mixed fixed and Desk Break exercise timers share countdown cues without ch
   }
 });
 
-for(const [duration,focus,difficulty] of [[30,'balanced','normal'],[15,'cardio','hard']])test(`${duration}-minute ${focus} ${difficulty} bodyweight generated exercise dispatches 3, 2, 1 and completion`,()=>{
+for(const [duration,focus,difficulty] of [[30,'balanced','normal'],[15,'cardio','hard']])test(`${duration}-minute ${focus} ${difficulty} bodyweight generated wall-clock exercise dispatches 3, 2, 1 and completion`,()=>{
   const h=harness();
   h.run(`let seed338=42;generatorState.workout=GarageFitGenerator.generate({catalogue:CATALOGUE,duration:${duration},focus:'${focus}',difficulty:'${difficulty}',bodyFocus:'full-body',equipment:[],random:()=>{seed338=(seed338*1664525+1013904223)>>>0;return seed338/4294967296}});
     generatorState.timeline=buildGeneratedTimeline(generatorState.workout);
-    generatorState.timelineIndex=generatorState.timeline.findIndex(p=>p.kind==='exercise'&&p.timed&&p.section==='main');
+    // #366 may select EMOM first. This Date.now-only harness exercises wall-clock
+    // phases; emom-player.test.js covers actual-work ticks on the EMOM block clock.
+    generatorState.timelineIndex=generatorState.timeline.findIndex(p=>p.kind==='exercise'&&p.timed&&p.section==='main'&&p.protocol!=='emom');
     workoutState.mode='generated';workoutState.running=true;
     var observed338=[],complete338=0;const originalTick338=exerciseCountdownTick;
     exerciseCountdownTick=(tracker,remaining,active)=>{const before=tracker.lowest;originalTick338(tracker,remaining,active);if(active&&tracker.lowest<before&&remaining>0&&remaining<=3)observed338.push(Math.ceil(remaining))};
