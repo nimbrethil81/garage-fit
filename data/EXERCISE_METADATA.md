@@ -302,6 +302,20 @@ It is policy in `js/generator.js` (`DIFFICULTY_POLICY`), not metadata:
 | Easy | `hard` exercises are ineligible; `easy` exercises get a score preference over `moderate`. | `hard` exercises are ineligible. | Unchanged. |
 | Hard | Nothing is excluded; `hard` exercises get a score preference, `moderate` a smaller one. The preference is withheld from a high-impact exercise following high-impact work, and stays below the pattern, recency and variety rules. | Unchanged. | Unchanged. |
 
+Traditional Generator Hard Cardio also checks the whole Main at resolved work-time
+estimates: at least 65% conditioning work, average `cardio` at least 3.8, and no
+successive non-conditioning work below cardio 4 exceeding 60 active seconds.
+These targets allow roughly one-third complementary strength work while keeping
+average demand near the catalogue's high (4) anchor. They are composition proxies,
+not measured exertion. Repetition targets and both sides count; recovery does not
+inflate active work. AMRAP uses catalogue-paced repeats within its cap.
+A bounded search prefers safe, sufficient compositions and keeps valid fallback
+work when the pool cannot meet the targets. High-impact neighbours are avoided
+where alternatives exist, including across repeated rounds; low-impact work can
+meet every target. Other difficulty/focus combinations and specialist families
+retain their existing policies.
+
+
 Main swaps keep the workout's difficulty, and Ramp-up swaps keep Easy's exclusion.
 Difficulty changes exercise selection only, not rest, rounds or interval structure.
 

@@ -1216,6 +1216,10 @@
       const route=accessories.length>=SUPPORTING_ROUTE.minCandidates;
       if(route)candidates=narrow(stages,'supporting-route',candidates,accessories);
       const previous=selected[selected.length-1]||state.exercises[state.exercises.length-1];
+      if(state.hardCardio&&previous&&previous.impact==='high'){
+        const safer=candidates.filter(ex=>ex.impact!=='high');
+        if(safer.length)candidates=narrow(stages,'cardio-impact-recovery',candidates,safer);
+      }
       const allSelected=state.exercises.concat(selected);
       const scoreFor=(exercise,parts)=>{
         let score=scoreCandidate(exercise,desired,allSelected,focus,history,catalogue,parts)+credit(parts,'intent',scoreIntent(exercise,intent));
@@ -1234,6 +1238,10 @@
         const adjacentHighImpact=previous&&previous.impact==='high'&&exercise.impact==='high';
         const difficulty=adjacentHighImpact?0:difficultyCredit(exercise,state.difficulty);
         if(difficulty)score+=credit(parts,'difficulty',difficulty);
+        // Assist the whole-Main search without changing prescription or eligibility.
+        // Low-impact conditioning earns the same credit as jumping work.
+        if(state.hardCardio&&!adjacentHighImpact&&exercise.conditioning&&exercise.cardio>=4)
+          score+=credit(parts,'cardio-challenge',6);
         const bodyFocus=adjacentHighImpact?0:bodyFocusCredit(exercise,state.bodyFocus,allSelected);
         if(bodyFocus)score+=credit(parts,'body-focus',bodyFocus);
         if(state.sessionPrescription)score+=credit(parts,'session-priority',sessionPriorityCredit(exercise,state.sessionPrescription,history,catalogue));
@@ -1689,6 +1697,54 @@
     return penalty;
   }
 
+  // Catalogue-based composition proxy, not a physiological exertion measurement.
+  // Use the player's resolved occurrences: timed intervals, per-side estimates and
+  // reduced rep targets must contribute their actual planned work, not slot counts.
+  const HARD_CARDIO_POLICY=Object.freeze({conditioningShare:.65,cardioDemand:3.8,maxWeakSeconds:60,maxAttempts:40});
+  function cardioChallenge(blocks) {
+    let workSeconds=0,conditioningSeconds=0,cardioWork=0,weakSeconds=0,maxWeakSeconds=0,highImpactAdjacency=0,previous=null;
+    for(const block of blocks){
+      let steps=resolveBlockSteps(block);
+      if(block.protocol==='amrap'&&steps.length){
+        // AMRAP playback repeats a sequence until its cap. Estimate that sequence
+        // at catalogue pace, including prescribed rests; never assume faster reps.
+        const sequence=steps,expanded=[];
+        let remaining=block.prescription.capSeconds;
+        while(remaining>0){
+          const before=remaining;
+          for(const step of sequence){
+            const seconds=step.kind==='exercise'?step.estimatedSeconds:step.seconds;
+            if(!Number.isFinite(seconds)||seconds<=0)continue;
+            if(remaining<=0)break;
+            expanded.push({...step,...(step.kind==='exercise'?{estimatedSeconds:Math.min(seconds,remaining)}:{seconds:Math.min(seconds,remaining)})});
+            remaining-=seconds;
+          }
+          if(remaining===before)break;
+        }
+        steps=expanded;
+      }
+      for(const step of steps){
+        if(step.kind!=='exercise')continue;
+        const exercise=block.exercises[step.exerciseIndex],target=step.plannedPrescription||step.target;
+        const seconds=step.estimatedSeconds??(step.timed?step.seconds:target
+          ?Math.ceil(exercise.estimatedSeconds*target.value/exercise.prescription.value):exercise.estimatedSeconds);
+        workSeconds+=seconds;
+        conditioningSeconds+=exercise.conditioning?seconds:0;
+        cardioWork+=exercise.cardio*seconds;
+        // Recovery remains intact; only successive weak work is accumulated here.
+        weakSeconds=!exercise.conditioning&&exercise.cardio<4?weakSeconds+seconds:0;
+        maxWeakSeconds=Math.max(maxWeakSeconds,weakSeconds);
+        if(previous&&previous.impact==='high'&&exercise.impact==='high')highImpactAdjacency++;
+        previous=exercise;
+      }
+    }
+    const conditioningShare=workSeconds?conditioningSeconds/workSeconds:0,cardioDemand=workSeconds?cardioWork/workSeconds:0;
+    const deficit=Math.max(0,HARD_CARDIO_POLICY.conditioningShare-conditioningShare)
+      +Math.max(0,HARD_CARDIO_POLICY.cardioDemand-cardioDemand)/5
+      +Math.max(0,maxWeakSeconds-HARD_CARDIO_POLICY.maxWeakSeconds)/HARD_CARDIO_POLICY.maxWeakSeconds;
+    return {workSeconds,conditioningShare,cardioDemand,maxWeakSeconds,highImpactAdjacency,deficit,suitable:workSeconds>0&&deficit===0};
+  }
+
   function exerciseExposureCount(block,index){
     return block.protocol==='emom'?Math.max(0,Math.ceil((blockRepeatCount(block)-index)/block.exercises.length)):blockRepeatCount(block);
   }
@@ -1873,7 +1929,7 @@
   }
 
   function composeMain(catalogue, eligible, budget, duration, focus, owned, history, rest, random, difficulty, bodyFocus, recentProtocols, captureAlternatives) {
-    const attempts=[],reserve=[];
+    const attempts=[],reserve=[],hardCardio=focus==='cardio'&&difficulty==='hard';
     const diversityTarget=EQUIPMENT_DIVERSITY[duration]||EQUIPMENT_DIVERSITY[20];
     const viableCount=viableEquipmentTypes(eligible).size;
     // One roll for the whole Main, taken only where the route could apply, so short Main phases,
@@ -1883,9 +1939,10 @@
     // Catalogue growth can make all ten attempts miss a variety requirement. Retry
     // only that failure path before using the short last-resort fallback; ordinary
     // valid attempts and supporting-route selection keep their existing draw stream.
-    for(let attempt=0;attempt<10||(!attempts.length&&attempt<20);attempt++){
+    for(let attempt=0;attempt<10||(!attempts.length&&attempt<20)
+      ||(hardCardio&&attempt<HARD_CARDIO_POLICY.maxAttempts&&!attempts.some(item=>item.challenge.suitable&&item.challenge.highImpactAdjacency===0&&Math.abs(item.estimated-budget.main)<=mainDurationTolerance(budget.main)));attempt++){
       const count=chooseBlockCount(duration,eligible.length,random),intents=chooseIntents(focus,count,random);
-      const state={exercises:[],usedIds:new Set(),equipmentUsage:new Map(),blocks:[],owned,diversityTarget,supportingRoute,difficulty,bodyFocus,duration,recentProtocols};
+      const state={exercises:[],usedIds:new Set(),equipmentUsage:new Map(),blocks:[],owned,diversityTarget,supportingRoute,difficulty,bodyFocus,duration,recentProtocols,hardCardio};
       let remaining=budget.main;
       for(let index=0;index<count;index++){
         const blocksLeft=count-index;
@@ -1933,13 +1990,17 @@
         const dominantBlockShare=Math.max(...state.blocks.map(block=>block.estimatedDurationSeconds))/estimated;
         if(dominantBlockShare>BLOCK_DOMINANCE_CAP)blockDominancePenalty=(dominantBlockShare-BLOCK_DOMINANCE_CAP)*300;
       }
-      const record={attempt,blocks:state.blocks,estimated,routeFilled:!!state.supportingRouteFilled,fitness:Math.abs(estimated-budget.main)+mainQualityPenalty(state.blocks,budget.main,eligible.length)+dominancePenalty+blockDominancePenalty-varietyCredit-equipmentCredit};
+      const record={attempt,blocks:state.blocks,estimated,...(hardCardio?{challenge:cardioChallenge(state.blocks)}:{}),routeFilled:!!state.supportingRouteFilled,fitness:Math.abs(estimated-budget.main)+mainQualityPenalty(state.blocks,budget.main,eligible.length)+dominancePenalty+blockDominancePenalty-varietyCredit-equipmentCredit};
       if(diversityOnly){reserve.push(record);continue;}
       attempts.push(record);
       if(activeTrace)activeTrace({type:'main-attempt',attempt,issues:[],fitness:record.fitness});
     }
-    attempts.sort((a,b)=>a.fitness-b.fitness);
-    reserve.sort((a,b)=>a.fitness-b.fitness);
+    // Safety and cardiovascular adequacy precede soft composition preferences;
+    // retain the best valid fallback when a constrained pool cannot meet the target.
+    const rank=(a,b)=>hardCardio?(a.challenge.highImpactAdjacency-b.challenge.highImpactAdjacency
+      ||a.challenge.deficit-b.challenge.deficit||a.fitness-b.fitness):a.fitness-b.fitness;
+    attempts.sort(rank);
+    reserve.sort(rank);
     // Owned kit with a narrow role (e.g. a pull-up bar beside rings) can make every attempt miss
     // the diversity minimum, or leave only attempts outside the Main duration tolerance. Rather
     // than an under-filled Main or the short fallback, a reserve attempt that is otherwise valid
@@ -3717,7 +3778,7 @@
     applySetupPlan(workout);
   }
 
-  root.GarageFitGenerator = { registerFamilyComposer, validateFamilyWorkout, blockTrainingSection, trainingSectionPlan, TRAINING_SECTION_LABELS, generateFamilyReplan, resolvedOccurrences, BUDGETS, RESTS, PROTOCOL_SHAPES, MAIN_PROTOCOLS, GENERATED_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, EQUIPMENT_SETUP_SECONDS, EQUIPMENT_SETUP_NOTE, planSetupTransitions, mainSeconds, EMOM_POLICY, LADDER_POLICY, PYRAMID_POLICY, COMPLEX_POLICY, DENSITY_POLICY, AMRAP_POLICY, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, WORKOUT_DIFFICULTIES, EXERCISE_DIFFICULTIES, DIFFICULTY_POLICY, workoutDifficulty, difficultyExcluded, difficultyCredit, WORKOUT_BODY_FOCUSES, EXERCISE_BODY_FOCUSES, EXERCISE_DIRECT_ELBOW_ACTIONS, BODY_FOCUS_POLICY, workoutBodyFocus, bodyFocusCredit, SHORTLIST_SIZE, SHORTLIST_MARGIN, WINDOW_MAX_RANKS, SUPPORTING_ROUTE, drawSupportingRoute, candidateWindowRanks, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, setupProfilesCompatible, blockSetupCompatible, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_SETUP_PROFILES, VALID_PATTERNS, VALID_WARMUP_AREAS, VALID_STRETCH_TARGETS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, OCCURRENCE_TARGET_LIMITS, resolveOccurrenceTarget, validateOccurrenceTargets, validateOccurrenceRecovery, validateFamilyBlock, validateEmomBlock, validateLadderBlock, validatePyramidBlock, pyramidKind, validateComplexBlock, validateDensityBlock, validateAmrapBlock, complexSequenceIssues, buildEmomBlock, protocolCompatible, protocolWeights, recentProtocolsFromResults, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, protocolConditions, selectBlockExercises, selectWarmup, kneeMobilityQualified, upperTrunkTarget, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, SessionPrescriptionError, assessSessionPrescription, generate, swap, swapPreparation };
+  root.GarageFitGenerator = { registerFamilyComposer, validateFamilyWorkout, blockTrainingSection, trainingSectionPlan, TRAINING_SECTION_LABELS, generateFamilyReplan, resolvedOccurrences, BUDGETS, RESTS, PROTOCOL_SHAPES, MAIN_PROTOCOLS, GENERATED_PROTOCOLS, MAIN_INTENTS, MAIN_ROLES, BLOCK_TRANSITION_SECONDS, EQUIPMENT_SETUP_SECONDS, EQUIPMENT_SETUP_NOTE, planSetupTransitions, mainSeconds, EMOM_POLICY, LADDER_POLICY, PYRAMID_POLICY, COMPLEX_POLICY, DENSITY_POLICY, AMRAP_POLICY, WARMUP_PHASE_ORDER, EQUIPMENT_DIVERSITY, EQUIPMENT_DOMINANCE_CAP, BLOCK_DOMINANCE_CAP, WORKOUT_DIFFICULTIES, EXERCISE_DIFFICULTIES, DIFFICULTY_POLICY, workoutDifficulty, difficultyExcluded, difficultyCredit, WORKOUT_BODY_FOCUSES, EXERCISE_BODY_FOCUSES, EXERCISE_DIRECT_ELBOW_ACTIONS, BODY_FOCUS_POLICY, workoutBodyFocus, bodyFocusCredit, SHORTLIST_SIZE, SHORTLIST_MARGIN, WINDOW_MAX_RANKS, SUPPORTING_ROUTE, drawSupportingRoute, candidateWindowRanks, controlledPick, selectionWindow, selectionRanks, generatedPhaseEligible, requirementsMet, sectionSetupKey, setupProfilesCompatible, blockSetupCompatible, groupSectionBySetup, sharedPatterns, selectionTags, sameFamily, sameRepetitionClass, sameExerciseOrFamily, mainFamilyCapReached, prescriptionMode, sideCount, phaseExercise, fitTimedDurations, recentUsePenalty, preparationMetadataValid, validateCatalogue, assertValidCatalogue, VALID_SETUP_PROFILES, VALID_PATTERNS, VALID_WARMUP_AREAS, VALID_STRETCH_TARGETS, validatePreparation, estimateMain, estimateBlockDuration, resolveBlockSteps, OCCURRENCE_TARGET_LIMITS, resolveOccurrenceTarget, validateOccurrenceTargets, validateOccurrenceRecovery, validateFamilyBlock, validateEmomBlock, validateLadderBlock, validatePyramidBlock, pyramidKind, validateComplexBlock, validateDensityBlock, validateAmrapBlock, complexSequenceIssues, buildEmomBlock, protocolCompatible, protocolWeights, recentProtocolsFromResults, preferredRepeatCount, repetitionPenalty, mainQualityPenalty, HARD_CARDIO_POLICY, cardioChallenge, validateMain, mainVarietyIssues, equipmentUsageSeconds, viableEquipmentTypes, primaryEquipment, blockRepeatCount, protocolConditions, selectBlockExercises, selectWarmup, kneeMobilityQualified, upperTrunkTarget, lowerBodyDemand, lowerPrepTarget, selectRampup, scoreRampupCandidate, mainBlocks, normaliseWorkout, SessionPrescriptionError, assessSessionPrescription, generate, swap, swapPreparation };
 
   if (typeof window!=='undefined' && typeof document!=='undefined' && typeof window.addEventListener==='function') window.addEventListener('load',()=>{
     if (document.querySelector('script[data-garagefit-rampup-ui]')) return;

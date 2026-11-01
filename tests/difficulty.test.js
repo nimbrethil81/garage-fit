@@ -126,10 +126,15 @@ test('Hard keeps variety and fatigue safeguards ahead of its preference', () => 
   }
   assert.ok(adjacentHighImpact(workoutsFor('hard')) <= adjacentHighImpact(workoutsFor('normal')));
   // The preference is withheld from a high-impact candidate that would follow high-impact work
-  // (read from the generator's own labelled score components).
+  // (read from labelled scores, or the stronger Hard Cardio candidate filter).
   let withheld = 0, credited = 0;
   for (let seed=1;seed<=12;seed++) G.generate({ catalogue, duration:30, focus:'cardio', equipment:[], random:random(seed), difficulty:'hard', trace:event => {
     if (event.type!=='pick' || event.phase!=='main') return;
+    for(const stage of event.stages||[])if(stage.label==='cardio-impact-recovery'){
+      withheld+=stage.removed.length;
+      assert.ok(stage.removed.every(exercise=>exercise.impact==='high'));
+      assert.ok(event.scored.every(({exercise})=>exercise.impact!=='high'));
+    }
     for (const { exercise } of event.scored) {
       const parts = event.explain(exercise);
       if (parts['adjacent-high-impact']) { withheld++; assert.equal(parts.difficulty, undefined, exercise.id); }
@@ -161,4 +166,70 @@ test('swaps keep the workout difficulty', () => {
     count(workout.main.blocks[0].exercises[0].difficulty==='hard' ? 1 : 0);
   }
   assert.ok(hardSwaps > normalSwaps, `hard swaps ${hardSwaps} vs normal ${normalSwaps}`);
+});
+
+// Whole-Main cardiovascular demand, rather than a count of Hard-labelled moves.
+test('Hard Cardio rejects the reported Main by work time without banning its exercises', () => {
+  const block={protocol:'rounds',exercises:['low-pogo-hops','single-leg-glute-bridge','ski-abs','alternating-lateral-lunge'].map(id=>catalogue[id]),
+    prescription:{rounds:3,exerciseRestSeconds:10,roundRestSeconds:30}};
+  const result=G.cardioChallenge([block]);
+  assert.equal(result.workSeconds,465); // Includes both sides of the 55-second bridge.
+  assert.equal(result.conditioningShare,60/155);
+  assert.equal(result.suitable,false);
+  // A low-impact alternative is sufficient; jumping is never required.
+  const lowImpact={...block,exercises:['step-jacks','boxer-step-and-punches','power-march'].map(id=>catalogue[id])};
+  assert.equal(G.cardioChallenge([lowImpact]).suitable,true);
+});
+
+test('cardio challenge weights resolved interval, rep and per-side targets rather than rest or slots', () => {
+  const bridge=catalogue['single-leg-glute-bridge'],jacks=catalogue['jumping-jacks'];
+  const rounds={protocol:'rounds',exercises:[bridge,jacks],prescription:{rounds:1,exerciseRestSeconds:10,roundRestSeconds:30}};
+  assert.equal(G.cardioChallenge([rounds]).workSeconds,85);
+  const interval={protocol:'timed_intervals',exercises:[jacks],prescription:{cycles:3,workSeconds:20,transitionSeconds:10}};
+  assert.equal(G.cardioChallenge([interval]).workSeconds,60);
+  const emom={protocol:'emom',exercises:[jacks],prescription:{minutes:3,slotSeconds:60,targets:[{type:'timed',value:20}]}};
+  assert.deepEqual(G.validateEmomBlock(emom),[]);
+  assert.equal(G.cardioChallenge([emom]).workSeconds,60);
+  const changed={...rounds,occurrenceTargets:[{plannedPrescription:{type:'unilateral-reps',value:4}},null]};
+  assert.deepEqual(G.validateOccurrenceTargets(changed),[]);
+  assert.equal(G.cardioChallenge([changed]).workSeconds,58); // 14 s each side + 30 s jacks.
+  const amrap=require('./helpers/protocol-fixtures').blockFixtures(catalogue,{amrap:true}).amrap;
+  assert.deepEqual(G.validateAmrapBlock(amrap,catalogue),[]);
+  const capped=G.cardioChallenge([amrap]);
+  assert.equal(capped.workSeconds,amrap.prescription.capSeconds);
+  assert.equal(capped.maxWeakSeconds,amrap.prescription.capSeconds);
+  assert.equal(capped.suitable,false);
+  const weak={...rounds,exercises:[bridge],prescription:{rounds:3,exerciseRestSeconds:0,roundRestSeconds:30}};
+  assert.equal(G.cardioChallenge([weak]).maxWeakSeconds,165);
+});
+
+test('Hard Cardio whole-Main quality across durations, equipment and seeds', () => {
+  const protocols=new Set();
+  for(const duration of [10,15,20,30,45])for(const equipment of [[],['dumbbells'],ALL_EQUIPMENT])for(let seed=1;seed<=8;seed++){
+    const workout=G.generate({catalogue,duration,focus:'cardio',difficulty:'hard',equipment,random:random(seed*53+duration)});
+    const result=G.cardioChallenge(workout.main.blocks),label=`${duration}m ${equipment.length} equipment seed ${seed}`;
+    assert.equal(result.suitable,true,`${label}: ${JSON.stringify(result)}`);
+    assert.equal(result.highImpactAdjacency,0,label);
+    assert.deepEqual(G.validateMain(workout.main,catalogue,equipment,G.BUDGETS[duration].main),[],label);
+    const exercises=mainOf(workout);
+    assert.equal(new Set(exercises.map(e=>e.id)).size,exercises.length,label);
+    workout.main.blocks.forEach(b=>protocols.add(b.protocol));
+  }
+  assert.ok(protocols.size>=3,'coverage must include different Main protocols');
+});
+
+test('Hard Cardio remains playable with low-impact-only and intensity-infeasible pools', () => {
+  for(const kind of ['low-impact','weak-only']){
+    const constrained=Object.fromEntries(Object.entries(catalogue).map(([id,e])=>[id,e.generator&&e.main
+      &&(kind==='low-impact'?e.impact!=='low':e.conditioning||e.cardio>=4)?{...e,generator:false}:e]));
+    let attempts=0;
+    const workout=G.generate({catalogue:constrained,duration:15,focus:'cardio',difficulty:'hard',equipment:[],random:random(7),
+      trace:event=>{if(event.type==='main-attempt')attempts++;}});
+    assert.ok(attempts<=G.HARD_CARDIO_POLICY.maxAttempts);
+    assert.deepEqual(G.validateMain(workout.main,constrained,[],G.BUDGETS[15].main),[]);
+    const result=G.cardioChallenge(workout.main.blocks);
+    assert.equal(result.suitable,kind==='low-impact');
+    if(kind==='low-impact')assert.ok(mainOf(workout).every(e=>e.impact==='low'));
+    assert.ok(workout.warmup.exercises.length&&workout.rampup.exercises.length&&workout.cooldown.exercises.length);
+  }
 });

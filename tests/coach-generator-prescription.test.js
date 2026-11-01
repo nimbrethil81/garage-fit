@@ -73,15 +73,20 @@ test('assessment is pure, structured and independent of random/history',()=>{
 });
 
 test('omitted/null prescription and an empty prescription preserve standalone output and random consumption',()=>{
-  const run=prescription=>{
+  const run=(prescription,overrides={})=>{
     let draws=0;const seeded=random(901);
-    const workout=Generator.generate({catalogue,duration:20,focus:'balanced',equipment:kit,sessionPrescription:prescription,random:()=>{draws++;return seeded();}});
+    const workout=Generator.generate({catalogue,duration:20,focus:'balanced',equipment:kit,...overrides,sessionPrescription:prescription,random:()=>{draws++;return seeded();}});
     delete workout.id;delete workout.prescriptionOutcome;
     return {workout,draws};
   };
   assert.deepEqual(run(null),run(undefined));
   assert.deepEqual(run(rx({requiredAnchors:[],workoutStyle:'balanced'})),run(undefined));
   assert.deepEqual(run(rx({requiredAnchors:[],workoutStyle:'balanced',optionalMainExerciseIds:null})),run(undefined));
+  // #366 keeps the deliberate empty-RX alias; prescribed/family composition remains separate.
+  const hardCardio={focus:'cardio',difficulty:'hard'};
+  const standalone=run(undefined,hardCardio);
+  assert.equal(Generator.cardioChallenge(standalone.workout.main.blocks).suitable,true);
+  assert.deepEqual(run(rx({requiredAnchors:[],workoutStyle:'cardio',difficulty:'hard'}),hardCardio),standalone);
 });
 
 test('required anchors survive many seeds, recent penalties, supporting roles and recipe rotation',()=>{

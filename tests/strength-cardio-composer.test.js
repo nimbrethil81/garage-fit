@@ -427,17 +427,17 @@ test('S1 unilateral prescriptions play both sides once with correct total estima
 // One real full-catalogue draw per addition, retaining rare supporting selection
 // without duplicating the exhaustive audit's distribution sweep.
 test('every S1 addition retains an observed standalone Generator Main route',()=>{
-  // Ring scapular row remains controlled support: its incidental legacy Cardio draw
-  // grants no conditioning status; its intended Strength v2 route is proved below.
-  for(const [id,kit,duration,focus,seed,style='strength'] of [
+  // Ring scapular row is controlled, easy support. #366 replaces its incidental
+  // Hard Cardio draw with an Easy Strength route; Strength v2 is proved below.
+  for(const [id,kit,duration,focus,seed,style='strength',difficulty='hard'] of [
     ['single-leg-glute-bridge',[],30,'lower',4],['hand-release-push-up',['rings'],30,'upper',6],
     ['wall-push-up',[],30,'upper',2],['reverse-nordic',[],30,'upper',6],
     ['side-lying-hip-adduction',[],45,'lower',22],['prone-swimmer-raise',['kettlebell'],30,'lower',10],
     ['dumbbell-suitcase-march',['dumbbells'],45,'core',2],['dumbbell-half-kneeling-press',['dumbbells'],30,'upper',1],
-    ['dumbbell-lateral-lunge',['dumbbells'],30,'lower',1],['ring-scapular-row',['rings'],20,'upper',1,'cardio'],
+    ['dumbbell-lateral-lunge',['dumbbells'],30,'lower',1],['ring-scapular-row',['rings'],30,'upper',15,'strength','easy'],
     ['dumbbell-staggered-stance-row',['dumbbells'],45,'upper',4]
   ]){
-    const w=s1Generate(null,kit,duration,focus,seed,'hard',style);assert.ok(s1Main(w).some(e=>e.id===id),id);
+    const w=s1Generate(null,kit,duration,focus,seed,difficulty,style);assert.ok(s1Main(w).some(e=>e.id===id),id);
     assert.deepEqual(G.validateMain(w.main,C,kit),[],id);
   }
 });

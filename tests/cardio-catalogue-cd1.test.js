@@ -125,11 +125,15 @@ test('[Full] legacy Cardio and Mixed Main, generated Warm-up and Prep & Recover 
     {"focus":"cardio","bodyFocus":"full-body","equipment":[],"duration":30,"seed":3033},
     {"focus":"cardio","bodyFocus":"lower","difficulty":"hard","equipment":["dumbbells","kettlebell"],"duration":30,"seed":11},
     {"focus":"cardio","bodyFocus":"lower","difficulty":"easy","equipment":["dumbbells","kettlebell"],"duration":30,"seed":7},
-    {"focus":"cardio","bodyFocus":"lower","difficulty":"hard","equipment":["dumbbells","kettlebell"],"duration":30,"seed":1}
+    {"focus":"cardio","bodyFocus":"lower","difficulty":"hard","equipment":["dumbbells","kettlebell"],"duration":30,"seed":1},
+    // #366 retains cardio-sufficient routes for both low-impact full-body boxing moves.
+    {"focus":"cardio","bodyFocus":"lower","difficulty":"hard","equipment":["dumbbells","kettlebell"],"duration":30,"seed":52},
+    {"focus":"cardio","bodyFocus":"lower","difficulty":"hard","equipment":["dumbbells","kettlebell"],"duration":30,"seed":8}
   ];
   for(const {seed,...options} of fixtures){
     const w=G.generate({catalogue:C,...options,random:rng(seed)});
     checkDoses(w);exercises(w).forEach(ex=>seen.add(ex.id));
+    if(options.difficulty==='hard')assert.equal(G.cardioChallenge(w.main.blocks).suitable,true);
     for(const ex of w.warmup.exercises){
       warm.add(ex.id);
       if(PREP.includes(ex.id))assert.ok(ex.prescription.value<=25&&ex.prescription.value<40,ex.id);

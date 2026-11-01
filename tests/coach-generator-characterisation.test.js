@@ -73,7 +73,11 @@ test('characterisation matrix covers the required dimensions', () => {
 
 for (const [label,options] of CASES) {
   test('standalone Generator output is stable: ' + label, () => {
-    assert.deepEqual(summarise(run(options)),EXPECTED[label]);
+    const workout=run(options);
+    assert.deepEqual(summarise(workout),EXPECTED[label]);
+    // #366 intentionally updates Hard Cardio composition; other fixtures stay pinned.
+    if(options.focus==='cardio'&&options.difficulty==='hard')
+      assert.equal(GarageFitGenerator.cardioChallenge(workout.main.blocks).suitable,true);
   });
 }
 

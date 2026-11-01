@@ -190,15 +190,15 @@ test('shared preview/player/tracker use contextual targets and per-side occurren
   assert.equal(G.estimateBlockDuration(perSide),47);
 });
 
-test('no-family seeded output and random draws match the pre-178 main baseline',()=>{
+test('no-family seeded output and random draws match their approved baselines',()=>{
   const snapshotCatalogue=require('./helpers/coach-fixtures').catalogueBeforeC1(C);
   const fixtures=[
     // Re-pinned for #255: three newly shared Main exercises change this pool (same RNG count).
     [{duration:10,focus:'strength',bodyFocus:'upper',difficulty:'easy',equipment:[]},68,'3f1db1c18734e2513d3aec3b31bb85e6575b15a66cd306d62a590c4588a2f97c'],
     // Re-pinned for #221: AMRAP's Balanced conditioning weight changes this draw (same RNG count).
     [{duration:20,focus:'balanced',bodyFocus:'lower',difficulty:'normal',equipment:['dumbbells']},111,'44875bbe9c3722c38ccf4f199ea36826df5d6d6139983d405f9c544b13208221'],
-    // Also re-pinned for #255 (same RNG count).
-    [{duration:45,focus:'cardio',bodyFocus:'core',difficulty:'hard',equipment:['trx','bands']},189,'bb0a3caab49aa476508085e25679f94a76d1fad87f7e514ddb3f85e6b9a0949a']
+    // Re-pinned for #366: whole-Main Hard Cardio challenge policy (same RNG count).
+    [{duration:45,focus:'cardio',bodyFocus:'core',difficulty:'hard',equipment:['trx','bands']},189,'2d620ebba4ab1da542df5e9a848aef7a18ce5b3ded1bccd9d32e3b8b42fef275']
   ];
   for(const [options,expectedDraws,expectedHash] of fixtures){
     let seed=31,draws=0;
@@ -208,6 +208,7 @@ test('no-family seeded output and random draws match the pre-178 main baseline',
     const snapshot=JSON.stringify(w,(_key,value)=>value&&typeof value==='object'&&typeof value.id==='string'&&C[value.id]
       ?Object.fromEntries(Object.entries(value).filter(([key])=>key!=='name'&&key!=='instruction')):value);
     assert.equal(draws,expectedDraws);assert.equal(createHash('sha256').update(snapshot).digest('hex'),expectedHash);
+    if(options.focus==='cardio'&&options.difficulty==='hard')assert.equal(G.cardioChallenge(w.main.blocks).suitable,true);
   }
   assert.equal(JSON.stringify(C),catalogueBefore);
 });
