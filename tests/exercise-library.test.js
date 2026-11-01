@@ -34,7 +34,7 @@ test('name search, equipment alternatives, bodyweight and combined filters',()=>
   search.value='RoW';app.renderExerciseLibrary();
   assert.ok(visible().length>0);assert.ok(visible().every(name=>name.toLowerCase().includes('row')));
   filter.value='trx';app.renderExerciseLibrary();
-  assert.ok(visible().length>0);assert.ok(visible().every(name=>name.toLowerCase().includes('row')&&name.toLowerCase().includes('trx')));
+  assert.ok(visible().length>0);assert.ok(visible().every(name=>name.toLowerCase().includes('row')&&name.toLowerCase().includes('suspension strap')));
   search.value='';filter.value='bodyweight';app.renderExerciseLibrary();
   assert.ok(visible().includes('Air squat'));
   assert.ok(list.children.every(li=>li.children[0].children[2].textContent===', Bodyweight'));

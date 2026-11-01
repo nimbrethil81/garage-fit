@@ -3,7 +3,7 @@
     { id: 'dumbbells', name: 'Dumbbells' },
     { id: 'kettlebell', name: 'Kettlebell' },
     { id: 'pullup-bar', name: 'Pull-up bar' },
-    { id: 'trx', name: 'TRX' },
+    { id: 'trx', name: 'Suspension straps' },
     { id: 'rings', name: 'Gymnastic rings' },
     { id: 'barbell', name: 'Barbell' },
     { id: 'bench', name: 'Bench' },

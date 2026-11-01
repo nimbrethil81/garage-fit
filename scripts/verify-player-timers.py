@@ -21,6 +21,8 @@ state.idx=0;enterWork();state.remaining=17;renderTick(17,30);"""
 GENERATED = """state.ownedEquipment=['dumbbells'];
 generatorState.workout=GarageFitGenerator.generate({catalogue:CATALOGUE,duration:20,focus:'balanced',equipment:state.ownedEquipment,random:()=>0.4});
 startStandaloneGeneratedWorkout();"""
+CHALLENGE = """goWorkouts();
+startChallenge300(GarageFitChallenge300.generate({catalogue:CATALOGUE,equipment:state.ownedEquipment}));"""
 TIMED = """enterGeneratedPhase(generatorState.timeline.findIndex(p=>p.kind==='exercise'&&p.timed&&p.section==='warmup'));
 currentGeneratedPhase().seconds=30;generatorState.remaining=17;renderWorkoutRing();"""
 
@@ -71,7 +73,7 @@ def controls(page, ring_id, state, remaining, timer, next_id, pause_id):
 
 def native_entry_checks(browser,url):
     # Real catalogue detail/Start clicks exercise the installed Workouts UI wrapper.
-    for name in ['7 Minute Workout','5-Minute Ab Blast','Evening Full-Body Reset','Post Run Stretch','Cindy','300 Workout']:
+    for name in ['7-Minute Bodyweight Circuit','5-Minute Ab Blast','Evening Full-Body Reset','Post Run Stretch','300-Rep Challenge']:
         page=fresh(browser,url,(390,844))
         page.evaluate("showLanding('workouts')")
         page.get_by_role('button',name='View '+name+' details',exact=True).click()

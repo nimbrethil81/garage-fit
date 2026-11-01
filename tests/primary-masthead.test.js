@@ -144,7 +144,7 @@ test('fresh startup selects Generator and page returns preserve the current tab 
     assert.equal(run('currentScreen'),screen);
   }
   app.showScreen('settings');app.appBack();assert.equal(run('currentScreen'),'more');
-  app.startFixedWorkout('cindy');app.completeWorkoutMovement();
+  app.startResolvedFixedWorkout(app.GarageFitData.fixedWorkouts.cindy);app.completeWorkoutMovement();
   const before=run('JSON.stringify([workoutState.idx,workoutState.history,workoutState.running,workoutState.paused])');
   assert.equal(app.appBack(),false);returnToApp();
   assert.equal(run('currentScreen'),'workoutPlayer');

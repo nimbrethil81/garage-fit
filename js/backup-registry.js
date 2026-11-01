@@ -24,6 +24,7 @@
     gf_generator_body_focus: oneOf(['upper', 'full-body', 'lower', 'core']),
     gf_generator_history: json(sessionIds),
     gf_300_pb_seconds: raw => /^\d+$/.test(raw) && count(Number(raw)),
+    gf_300_challenge_history_v1: json(value => !!root.GarageFitChallenge300 && root.GarageFitChallenge300.validHistory(value)),
     gf_amrap_results: json(value => Array.isArray(value) && value.every(result => object(result)
       && text(result.workoutId) && result.terminationType === 'amrap'
       && count(result.durationSeconds) && result.durationSeconds > 0

@@ -102,9 +102,10 @@ test('copy matches current EMOM, Superset, Density and AMRAP behaviour',()=>{
   assert.match(body('superset'),/rest only after the pair/);
   assert.match(body('density'),/not as-many-rounds-as-possible/);
   assert.match(body('density'),/time cap/);
-  assert.match(body('pyramid'),/TRX/);
+  assert.match(body('pyramid'),/suspension strap/i);
+  assert.doesNotMatch(JSON.stringify(patternsOf(app0)),/TRX|Cindy/);
   const amrap=body('amrap');
-  assert.match(amrap,/Cindy/);
+
   // Generated AMRAP (#221): Balanced/Cardio and optional Coach conditioning, 2–3 exercises, 3–8 minutes, no score.
   assert.doesNotMatch(amrap,/does not yet choose AMRAP|Cindy only/);
   assert.match(amrap,/Generated Balanced and Cardio workouts, including optional Coach conditioning/);
@@ -116,6 +117,6 @@ test('copy matches current EMOM, Superset, Density and AMRAP behaviour',()=>{
   assert.deepEqual([policy.minExercises,policy.maxExercises,policy.minCapSeconds/60,policy.maxCapSeconds/60],[2,3,3,8]);
   const cindy=loadAppContext().GarageFitData.fixedWorkouts.cindy;
   assert.equal(cindy.termination.type,'amrap');
-  assert.match(amrap,new RegExp(`${cindy.termination.durationSeconds/60}-minute AMRAP of 5 pull-ups, 10 push-ups and 15 air squats`));
+  assert.equal(cindy.legacyOnly,true);
   assert.deepEqual([...cindy.exercises.map(e=>e.reps)],[5,10,15]);
 });

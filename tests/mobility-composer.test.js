@@ -184,6 +184,15 @@ const composition=workout=>{
   return result;
 };
 
+// Published construction and every non-editorial exercise field remain frozen.
+// IP1 (#364) deliberately changes canonical display names/instructions. These
+// digests were derived from the original catalogue's seeded sessions and verified
+// equal against the renamed catalogue after excluding only those copy fields.
+const publishedContractSnapshot=sessions=>JSON.stringify(sessions,(_key,value)=>
+  value&&typeof value==='object'&&typeof value.id==='string'&&C[value.id]
+    ?Object.fromEntries(Object.entries(value).filter(([key])=>key!=='name'&&key!=='instruction'))
+    :value);
+
 test('published Mobility v1 seeded output is unchanged by the v2 composition (#264)',()=>{
   const sessions=[],historical=catalogueBeforePrepP1(C);
   for(const duration of [10,20,45])for(const difficulty of ['easy','normal','hard'])for(const equipment of [[],['trx']])for(const seed of [1,31,2026]) {
@@ -193,7 +202,7 @@ test('published Mobility v1 seeded output is unchanged by the v2 composition (#2
     delete w.id;sessions.push(w);
   }
   assert.equal(sessions.length,54);
-  assert.equal(createHash('sha256').update(JSON.stringify(sessions)).digest('hex'),'4182e035fa133e021f3eda981f5d580ec959a95674092c60e6c8990581c08525');
+  assert.equal(createHash('sha256').update(publishedContractSnapshot(sessions)).digest('hex'),'39f0c281c95947058e23086325153e9307f524f2efac3bab63d2164f3b2fe3fd');
   assert.equal(generate().workoutFamilyVersion,1,'an unversioned request is still the published v1');
 });
 
@@ -478,7 +487,7 @@ test('published Mobility v2 seeded composition and saved interpretation are unch
     assert.deepEqual(composition(v2({...options,random:rng(seed)})),composition(w),'live catalogue preserves v2 composition');
     delete w.id;sessions.push(w);
   }
-  assert.equal(createHash('sha256').update(JSON.stringify(sessions)).digest('hex'),'1ec309aaf74c9bc78f70789cae529eb0e33fcd42c363e4b5ad0af63163902981');
+  assert.equal(createHash('sha256').update(publishedContractSnapshot(sessions)).digest('hex'),'5070bd0a3c9501c62a2732ab7b1087807964b6f5515538976732f73efc378490');
   for(const w of [sessions[0],sessions.at(-1)]) {
     assert.deepEqual(copy(G.normaliseWorkout(copy(w))),w);
     assert.deepEqual(valid(w,w.main.blocks.some(b=>b.exercises.some(ex=>ex.equipment.length))?['trx']:[]),PASSES);

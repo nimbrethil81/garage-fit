@@ -32,7 +32,7 @@ test('instruction metadata defaults to quiet and accepts a concise sentence', ()
   assert.equal(catalogue['air-squat'].voiceInstruction, false);
   assert.match(catalogue['air-squat'].instruction, /knees in line with your toes/);
   assert.equal(catalogue['trx-knee-tuck'].voiceInstruction, true);
-  assert.match(catalogue['trx-knee-tuck'].instruction, /feet in the TRX straps/);
+  assert.match(catalogue['trx-knee-tuck'].instruction, /feet in the straps/);
   assert.deepEqual(errorsWith('air-squat', { instruction:'Stand tall and bend your knees into a squat.' }), []);
 });
 

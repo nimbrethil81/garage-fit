@@ -101,7 +101,7 @@ test('selected voice reaches routines, fixed and generated playback, midpoint cu
   assert.equal(h.spoken.at(-1).text,'Halfway. Change sides.');
   h.app.togglePause();assert.equal(h.run('state.paused'),true);
   let cancels=h.cancelled();h.app.goHome();assert.ok(h.cancelled()>cancels);
-  h.app.goHome();h.app.startWorkout();
+  h.app.goHome();h.app.startResolvedFixedWorkout(h.app.GarageFitData.fixedWorkouts.workout300);
   cancels=h.cancelled();h.app.toggleWorkoutPause();assert.ok(h.cancelled()>cancels);
   const fixedCount=h.spoken.length;
   h.app.goGenerator();h.app.generateWorkout();h.app.startGeneratedWorkout();

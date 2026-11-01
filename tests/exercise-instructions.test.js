@@ -20,13 +20,13 @@ test('the shared disclosure displays canonical instructions and resets between e
   assert.equal(context.createInstructionDisclosure({id:'unknown'}), null);
   const info = context.createInstructionDisclosure(vm.runInContext("CATALOGUE['trx-knee-tuck']",context));
   assert.equal(info.children[0].textContent, 'How to do it');
-  assert.match(info.children[1].textContent, /feet in the TRX straps/);
+  assert.match(info.children[1].textContent, /feet in the straps/);
   context.setInstructionDisclosure('workoutInstruction', { id:'air-squat' });
   assert.equal(el('workoutInstruction').classList.contains('hidden'), false);
   assert.equal(el('workoutInstructionText').textContent, squat.children[1].textContent);
   context.setInstructionDisclosure('workoutInstruction', { id:'trx-knee-tuck' });
   assert.equal(el('workoutInstruction').classList.contains('hidden'), false);
-  assert.match(el('workoutInstructionText').textContent, /feet in the TRX straps/);
+  assert.match(el('workoutInstructionText').textContent, /feet in the straps/);
   el('workoutInstruction').open = true;
   context.setInstructionDisclosure('workoutInstruction', { id:'wall-angel' });
   assert.equal(el('workoutInstruction').open, false);
@@ -41,7 +41,7 @@ test('reviewed kettlebell movements and separated stretches have clear instructi
   }
   assert.match(vm.runInContext("CATALOGUE['single-arm-kettlebell-row'].instruction",context),/change sides halfway/i);
   assert.equal(vm.runInContext("CATALOGUE['hip-flexor-arm-stretch'].name",context),'Hip flexor stretch');
-  assert.equal(vm.runInContext("CATALOGUE['trx-glute-standing'].name",context),'TRX glute stretch');
+  assert.equal(vm.runInContext("CATALOGUE['trx-glute-standing'].name",context),'Suspension strap glute stretch');
 });
 
 test('Arm Circles and the two knee movements have unambiguous catalogue copy', () => {

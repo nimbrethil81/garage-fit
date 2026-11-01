@@ -202,7 +202,7 @@ def instruction_speech_checks(browser, url):
         page.wait_for_function("typeof speakDisplayedInstruction==='function'")
         for player, details, start in [
             ('player','routineInstruction',timers.ROUTINE),
-            ('workoutPlayer','workoutInstruction',"startFixedWorkout('workout300')")
+            ('workoutPlayer','workoutInstruction',timers.CHALLENGE)
         ]:
             page.evaluate(start)
             page.evaluate("id=>setInstructionDisclosure(id,CATALOGUE['trx-row'])",details)
@@ -260,7 +260,7 @@ def instruction_speech_checks(browser, url):
 
 def illustrated_checks(page, report, output, label):
     for player, details, start in [('player','routineInstruction',timers.ROUTINE),
-                                    ('workoutPlayer','workoutInstruction',"startFixedWorkout('workout300')")]:
+                                    ('workoutPlayer','workoutInstruction',timers.CHALLENGE)]:
         page.evaluate(start)
         for exercise_id in ['trx-row','skater-jumps','side-plank','air-squat']:
             page.evaluate("args=>setInstructionDisclosure(args[0],CATALOGUE[args[1]])", [details,exercise_id])
@@ -409,8 +409,10 @@ def main():
             for kind in ['warmup','cooldown']:
                 page.evaluate(f"startRoutine('{kind}','bodyweight');enterWork()")
                 check(page,report,label+'-'+kind)
-            for workout in ['workout300','cindy']:
-                page.evaluate(f"startFixedWorkout('{workout}')")
+            # Historical AMRAP execution stays covered without a public catalogue route.
+            for workout,start in [('workout300',timers.CHALLENGE),
+                                  ('legacy-amrap',"startResolvedFixedWorkout(FIXED_WORKOUTS.cindy)")]:
+                page.evaluate(start)
                 check(page,report,label+'-'+workout);capture(page,args.output,label+'-'+workout)
                 # Finish workout is the longest primary label; it must stay in the row.
                 page.evaluate("document.getElementById('completeMovementAction').textContent='Finish workout'")
@@ -482,7 +484,7 @@ def main():
             # Emulate extreme text enlargement: readable content may reflow in
             # a contained stage, but navigation and the page still cannot scroll.
             page.set_viewport_size({'width':375,'height':540})
-            page.evaluate("startFixedWorkout('workout300');document.getElementById('workoutExercise').textContent='Push-ups with a controlled lowering phase'")
+            page.evaluate(timers.CHALLENGE+"document.getElementById('workoutExercise').textContent='Push-ups with a controlled lowering phase'")
             page.add_style_tag(content='.workout-exercise{font-size:54px!important}.workout-target{font-size:46px!important}.movement-progress{font-size:22px!important}')
             check(page,report,label+'-enlarged-text',allow_reflow=True)
             assert page.locator('#workoutPlayer').evaluate("e=>e.classList.contains('player-reflow')")

@@ -248,7 +248,7 @@ test('Coach player Next, Skip, Previous and measured timed exit save exactly the
   assert.ok(result.performedWork.some(work=>work.sets[0].seconds===4));
   assert.equal(p.run('coachUI.controller.snapshot().state.anchors[0].currentTarget.target.maxReps'),6);
   await p.run('coachUI.open()');assert.equal(p.run('coachUI.controller.snapshot().state.meaningfulSessionsCompleted'),1);
-  p.run('startWorkout()');assert.equal(p.run("document.getElementById('coachAnchorLog').classList.contains('hidden')"),true);
+  p.run('startResolvedFixedWorkout(GarageFitData.fixedWorkouts.workout300)');assert.equal(p.run("document.getElementById('coachAnchorLog').classList.contains('hidden')"),true);
 });
 
 test('Coach panel pause preserves edited actuals and checkpoint failure protects Next until retry',async()=>{

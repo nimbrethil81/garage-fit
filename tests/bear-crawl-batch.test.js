@@ -33,7 +33,7 @@ test('the batch entries match the approved metadata',()=>{
   assert.deepEqual(tp.prescription,{type:'reps',value:8});
   assert.equal(tp.estimatedSeconds,30);
   assert.deepEqual(tp.mainProtocols,['rounds','paired_sets']);
-  assert.equal(tp.name,'TRX pike');
+  assert.equal(tp.name,'Suspension strap pike');
   assert.deepEqual(bcurl.equipment,[['dumbbells']]);
   assert.deepEqual([bcurl.family,bcurl.repetitionClass,bcurl.patterns,bcurl.conditioning,bcurl.strength,bcurl.cardio,bcurl.impact,bcurl.load,bcurl.sidedness,bcurl.bodyPosition,bcurl.mainRole],['biceps-curl',null,['pull'],false,3,1,'low','Medium','bilateral','standing','supporting']);
   assert.deepEqual(bcurl.prescription,{type:'reps',value:10});

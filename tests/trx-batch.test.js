@@ -15,7 +15,7 @@ test('the TRX batch is five distinct, TRX-only, Main-only generator exercises wi
   for(const id of IDS){
     const ex=catalogue[id];
     assert.ok(ex,id);
-    assert.match(ex.name,/^TRX /);
+    assert.match(ex.name,/^Suspension strap /);
     assert.deepEqual(ex.equipment,[['trx']]);
     assert.ok(ex.generator&&ex.main);
     assert.ok(!ex.warmup&&!ex.rampup&&!ex.cooldown);
@@ -25,7 +25,7 @@ test('the TRX batch is five distinct, TRX-only, Main-only generator exercises wi
     assert.ok(!ex.mainProtocols.includes('timed_intervals'),id);
   }
   assert.equal(new Set(IDS.map(id=>catalogue[id].name)).size,5);
-  assert.equal(catalogue['trx-pistol-squat'].name,'TRX pistol squat');
+  assert.equal(catalogue['trx-pistol-squat'].name,'Suspension strap pistol squat');
 });
 
 test('per-side TRX exercises prescribe and budget both sides; bilateral ones do not',()=>{

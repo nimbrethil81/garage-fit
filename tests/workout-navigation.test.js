@@ -34,19 +34,19 @@ const previewName=(timeline,index)=>{
 };
 
 test('fixed rounds show Next until the actual last occurrence, and the button previews only the next name',()=>{
-  const h=harness();h.app.startWorkout();
+  const h=harness();h.app.startResolvedFixedWorkout(h.app.GarageFitData.fixedWorkouts.workout300);
   assert.equal(action(h),'Next');assert.equal(next(h).textContent,h.run('activeFixedExercises()[1].name'));assert.equal(next(h).classList.contains('hidden'),false);
   h.run('workoutState.workout={...workoutState.workout,termination:{type:"fixed-rounds",rounds:2}};workoutState.idx=activeFixedExercises().length-1');h.app.renderWorkout();
   assert.equal(action(h),'Next');assert.equal(next(h).textContent,'Pull-ups');
   h.run('workoutState.round=2');h.app.renderWorkout();
   assert.equal(action(h),'Finish workout');assert.equal(next(h).textContent,'');assert.equal(next(h).classList.contains('hidden'),true);
-  h.app.startFixedWorkout('cindy');h.app.completeWorkoutMovement();h.app.completeWorkoutMovement();
+  h.app.startResolvedFixedWorkout(h.app.GarageFitData.fixedWorkouts.cindy);h.app.completeWorkoutMovement();h.app.completeWorkoutMovement();
   assert.equal(action(h),'Next');assert.equal(next(h).textContent,h.run('activeFixedExercises()[(workoutState.idx+1)%activeFixedExercises().length].name'));
   h.run('workoutState.idx=activeFixedExercises().length-1');h.app.renderWorkout();assert.equal(next(h).textContent,'Pull-ups');
 });
 
 test('fixed Previous followed by Next restores occurrence history, and paused navigation is blocked',()=>{
-  const h=harness();h.app.startFixedWorkout('cindy');
+  const h=harness();h.app.startResolvedFixedWorkout(h.app.GarageFitData.fixedWorkouts.cindy);
   for(let i=0;i<3;i++)h.app.completeWorkoutMovement();
   const score=h.run('JSON.stringify({round:workoutState.round,history:workoutState.history,reps:workoutState.additionalReps})');
   h.app.previousWorkoutMovement();h.app.completeWorkoutMovement();assert.equal(h.run('JSON.stringify({round:workoutState.round,history:workoutState.history,reps:workoutState.additionalReps})'),score);
@@ -55,7 +55,7 @@ test('fixed Previous followed by Next restores occurrence history, and paused na
 });
 
 test('untimed work shows no ring and keeps a labelled pause control; the ring toggles pause on timed work',()=>{
-  const h=harness();h.app.startFixedWorkout('cindy');h.time(1250);
+  const h=harness();h.app.startResolvedFixedWorkout(h.app.GarageFitData.fixedWorkouts.cindy);h.time(1250);
   assert.equal(h.el('workoutRingWrap').classList.contains('hidden'),true);assert.equal(h.el('workoutTarget').classList.contains('hidden'),false);assert.equal(h.el('workoutPausedState').textContent,'Pause');
   h.tap();assert.equal(h.run('workoutState.paused'),true);assert.equal(h.run('currentWorkoutElapsedMs()'),1250);
   assert.equal(h.el('workoutPausedState').textContent,'Paused — tap to resume');assert.equal(h.el('workoutPausedState').attributes['aria-pressed'],'true');
@@ -86,7 +86,7 @@ test('tapping the panel, text, instructions or Coach fields no longer pauses and
 });
 
 test('exit cancellation restores only an originally running clock and ring pause is ignored behind the dialog',()=>{
-  const h=harness();h.app.startWorkout();h.app.openExitDialog('workout');h.tap();assert.equal(h.run('workoutState.paused'),true);
+  const h=harness();h.app.startResolvedFixedWorkout(h.app.GarageFitData.fixedWorkouts.workout300);h.app.openExitDialog('workout');h.tap();assert.equal(h.run('workoutState.paused'),true);
   h.app.cancelExit();assert.equal(h.run('workoutState.paused'),false);
   h.tap();h.app.openExitDialog('workout');h.app.cancelExit();assert.equal(h.run('workoutState.paused'),true);
 });

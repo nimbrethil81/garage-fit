@@ -7,6 +7,7 @@ function registry() {
   const context = vm.createContext({});
   context.window = context;
   vm.runInContext(fs.readFileSync('data/equipment.js', 'utf8'), context);
+  vm.runInContext(fs.readFileSync('js/challenge300.js', 'utf8'), context);
   vm.runInContext(fs.readFileSync('js/backup-registry.js', 'utf8'), context);
   return context.GarageFitBackupRegistry;
 }
@@ -15,6 +16,7 @@ const sample = {
   gf_equipment_inventory: '[ ]', gf_equipment_configured: 'true', gf_equipment: 'false',
   gf_generator_duration: '30', gf_generator_focus: 'balanced', gf_generator_difficulty: 'normal',
   gf_generator_body_focus: 'full-body', gf_generator_history: json([['retired-exercise'], ['air-squat']]),
+  gf_300_challenge_history_v1: json({version:1,results:[]}),
   gf_300_pb_seconds: '0130', gf_amrap_results: json([{workoutId: 'cindy', terminationType: 'amrap',
     durationSeconds: 1200, completedRounds: 5, additionalReps: 8, partialReps: 3, completedAt: '2026-10-01T10:00:00Z'}]),
   gf_routine_variant: 'equipment', gf_routine_recent_v1: json({version: 1,

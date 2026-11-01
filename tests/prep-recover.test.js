@@ -300,7 +300,7 @@ test('fixed Workouts keep their data; the authored routine lists are retired', (
   // The routine player still serves the fixed 7 Minute Workout.
   const a = app();
   a.context.startSevenMinuteWorkout();
-  assert.equal(a.el('routineName').textContent, '7 Minute Workout');
+  assert.equal(a.el('routineName').textContent, '7-Minute Bodyweight Circuit');
   assert.equal(a.run('state.routineRun'), null);
   playToEnd(a);
   assert.equal(a.el('doneBtn').textContent, 'Back to workouts');

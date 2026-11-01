@@ -177,10 +177,10 @@ test('one continuous countdown repeats the sequence by Next, crediting each move
   assert.equal(h.el('workoutRingWrap').classList.contains('hidden'),false);assert.equal(h.el('workoutTarget').textContent,'8 reps');
   assert.equal(h.el('workoutTarget').classList.contains('hidden'),false);assert.match(h.el('workoutMovementProgress').textContent,/^Round 1$/);
   assert.equal(h.el('workoutAmrapStatus').classList.contains('hidden'),false);assert.equal(h.el('completeMovementAction').textContent,'Next');
-  assert.equal(h.el('completeMovementNext').textContent,'TRX row');assert.match(h.spoken.join(' '),/AMRAP\. Round 1\..*steady, comfortable pace/);
+  assert.equal(h.el('completeMovementNext').textContent,'Suspension strap row');assert.match(h.spoken.join(' '),/AMRAP\. Round 1\..*steady, comfortable pace/);
   const deadline=h.run('amrapBlockRun().deadlineMs');
   for(let n=0;n<2;n++)await h.next();
-  assert.equal(h.el('completeMovementNext').textContent,'TRX squat','the last movement previews the next round');
+  assert.equal(h.el('completeMovementNext').textContent,'Suspension strap squat','the last movement previews the next round');
   await h.next();
   assert.equal(h.phase().occurrenceId,ids[0]);assert.match(h.el('workoutMovementProgress').textContent,/^Round 2$/);
   assert.equal(h.tracker().performedWork().length,3);const writes=h.tracker().writeCount;
@@ -238,7 +238,7 @@ test('double taps, Previous and visibility return keep one position and the orig
   const h=harness();await h.start();const ids=copy(h.phases().map(p=>p.occurrenceId));
   h.time(400);await h.app.generatedPrimaryAction();await h.app.generatedPrimaryAction();await h.flush();
   assert.equal(h.phase().occurrenceId,ids[1],'a rapid second tap cannot confirm the next movement');assert.equal(h.tracker().outcome(ids[1]),null);
-  assert.equal(h.el('previousWorkoutBtn').disabled,false);assert.equal(h.el('previousWorkoutName').textContent,'TRX squat');
+  assert.equal(h.el('previousWorkoutBtn').disabled,false);assert.equal(h.el('previousWorkoutName').textContent,'Suspension strap squat');
   h.time(400);h.app.previousGeneratedPhase();assert.equal(h.phase().occurrenceId,ids[0]);assert.equal(h.tracker().outcome(ids[1]),null,'moving back records nothing');
   assert.equal(h.el('previousWorkoutBtn').disabled,true,'Previous never leaves the block or the round');
   for(let n=0;n<3;n++)await h.next();
@@ -300,7 +300,7 @@ test('regressions: Cindy keeps its fixed AMRAP player; EMOM and density keep the
   const app=loadAppContext(new Map(),{ownIntrinsics:true});
   const cindy=app.GarageFitData.fixedWorkouts.cindy;
   assert.deepEqual(copy(cindy.termination),{type:'amrap',durationSeconds:1200});
-  app.startFixedWorkout('cindy');
+  app.startResolvedFixedWorkout(app.GarageFitData.fixedWorkouts.cindy);
   assert.equal(vm.runInContext("workoutState.mode",app),'fixed');assert.equal(vm.runInContext('isAmrapBlockPhase()',app),false);
   assert.equal(app.document.getElementById('workoutAmrapStatus').classList.contains('hidden'),true);
   const blocks=blockFixtures(C,{emom:true,density:true,amrap:true});

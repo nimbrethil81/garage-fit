@@ -84,7 +84,7 @@ written instruction remains available even when automatic speech is skipped.
 
 | Exercise | Good | Avoid |
 | --- | --- | --- |
-| TRX knee tuck | “From a plank with feet in the TRX straps, draw both knees towards your chest, then extend.” | “Do your best with TRX knee tucks for stronger abs!” |
+| suspension strap knee tuck | “From a plank with feet in the straps, draw both knees towards your chest, then extend.” | “Do your best with suspension strap knee tucks for stronger abs!” |
 | Wall angel | “With your back against a wall and arms bent in a W, slide your arms up into a Y and back down.” | “Stand against a wall. Move your arms up. Keep your back flat. Repeat carefully.” |
 
 ## Identity and equipment
@@ -148,7 +148,7 @@ alone never counts as lower-body demand.
 | 1 | Negligible: mobility, jumping jacks, recovery walk | Negligible: static holds, slow heavy hinges |
 | 2 | Light: high-rep bodyweight such as burpees or bicycle crunches | Light: most controlled strength sets |
 | 3 | Moderate bodyweight: air squat, plank, dead hang | Moderate: air squats, carries, bicycle crunches |
-| 4 | Hard bodyweight or moderate load: push-ups, bands, TRX, hanging knee raise | High: cleans, step-ups, kettlebell figure-of-eight |
+| 4 | Hard bodyweight or moderate load: push-ups, bands, suspension straps, hanging knee raise | High: cleans, step-ups, kettlebell figure-of-eight |
 | 5 | Heavy load or very hard bodyweight: goblet squat, barbell lifts, pull-ups | Maximal: jumping jacks, burpees, swings, high knees |
 
 ### `difficulty`
@@ -160,8 +160,8 @@ it; other exercises leave it unset (`null`).
 
 | Value | Use for | Examples |
 | --- | --- | --- |
-| `easy` | Simple, stable movements a beginner can perform well at a comfortable effort: no jumping, no technical or ballistic lifting, no demanding strength prerequisite. | Air squat, glute bridge, plank, crunches, jumping jacks, band exercises, supported dumbbell presses and rows, step-ups, TRX row |
-| `moderate` | Standard movements that need some strength, coordination, balance or conditioning but are routine for a regular trainee. | Push-ups, lunges, goblet squat, deadlifts, kettlebell swing, mountain climbers, high knees, hanging knee raise, TRX chest press |
+| `easy` | Simple, stable movements a beginner can perform well at a comfortable effort: no jumping, no technical or ballistic lifting, no demanding strength prerequisite. | Air squat, glute bridge, plank, crunches, jumping jacks, band exercises, supported dumbbell presses and rows, step-ups, suspension strap row |
+| `moderate` | Standard movements that need some strength, coordination, balance or conditioning but are routine for a regular trainee. | Push-ups, lunges, goblet squat, deadlifts, kettlebell swing, mountain climbers, high knees, hanging knee raise, suspension strap chest press |
 | `hard` | Movements with a substantial strength, skill, balance or power prerequisite, or explosive full-body work. | Pull-ups, toes-to-bar, pistol and Bulgarian split squats, cleans and snatches, thrusters, burpees, squat/box/skater jumps |
 
 Classify the movement, not the equipment: a barbell or kettlebell does not make an
@@ -206,13 +206,13 @@ biceps-led elbow flexion, or isolated or clearly triceps-led elbow extension. It
 mean that the elbow bends or straightens during the movement.
 
 - Set `flexion` for curls and other biceps-led work where bending the elbow is the point
-  (dumbbell, band and TRX biceps curls).
+  (dumbbell, band and suspension strap biceps curls).
 - Set `extension` for triceps extensions, triceps presses and triceps-led dips where
-  straightening the elbow against load is the point (band triceps extension, TRX triceps
+  straightening the elbow against load is the point (band triceps extension, suspension strap triceps
   press, bench dips, triceps dips on a chair).
 - Leave it unset for compound work where the elbow moves but chest, shoulders or back lead:
   rows, pull-ups and chin-ups, chest and shoulder presses, push-ups, and any exercise
-  whose name merely contains "curl" for another joint (TRX hamstring curl) or that
+  whose name merely contains "curl" for another joint (suspension strap hamstring curl) or that
   stretches the arm (triceps stretch).
 
 Decide it editorially from the movement, never from `patterns`, `family`, `bodyFocus`,
@@ -328,7 +328,7 @@ combines freely with workout style and difficulty.
 | --- | --- | --- | --- |
 | 1 | Basic mobility (arm circles, body twists) | None (mobility, jumping jacks, dead hang) | Simple (arm circles, air squat, jacks) |
 | 2 | Gentle dynamic (plank, dead hang, step back lunge) | Light (air squat, plank, carries) | Moderate (push-up, lunge, deadlift) |
-| 3 | Moderate (air squat, high knees, loaded hinges) | Moderate (push-up, goblet squat, burpees, swings) | Technical (kettlebell swing and figure-of-eight, TRX mountain climber) |
+| 3 | Moderate (air squat, high knees, loaded hinges) | Moderate (push-up, goblet squat, burpees, swings) | Technical (kettlebell swing and figure-of-eight, suspension strap mountain climber) |
 | 4 | Brisk (jumping jacks, push-ups, goblet squat, star jumps) | Heavy; excluded from Ramp-up | Highly technical; excluded from Ramp-up |
 | 5 | Near-maximal (burpees, high knees, jumps, swings) | Very heavy; excluded from Ramp-up | Very technical; excluded from Ramp-up |
 
@@ -437,7 +437,7 @@ variants of substantially the same exercise:
   on a pull-up bar);
 - direction variants of the same movement (arm circles forwards, backwards and with a
   direction change);
-- a stretch and its TRX version;
+- a stretch and its suspension strap version;
 - assistance variants that retain the same movement (ring dip and foot-assisted ring
   dip, ring support hold and foot-assisted ring support hold).
 

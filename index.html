@@ -301,33 +301,19 @@ layout: null
       <p>Choose a challenge, from rep-based efforts to guided intervals.</p>
     </header>
     <div class="workout-list">
-    <button class="workout-launch seven-minute" type="button" onclick="startSevenMinuteWorkout()" aria-label="Start the 7 Minute Workout">
+    <button class="workout-launch seven-minute" data-workout-id="sevenMinute" type="button" onclick="startSevenMinuteWorkout()" aria-label="Start the 7-Minute Bodyweight Circuit">
       <span class="workout-kicker">Timed circuit</span>
       <span class="workout-number">7</span>
-      <span class="workout-label">Minute Workout</span>
+      <span class="workout-label">Bodyweight Circuit</span>
       <span class="workout-launch-bottom">
         <span class="workout-launch-meta"><span>12 movements</span><span>30s work · 10s rest</span></span>
         <span class="workout-launch-cta">Start →</span>
       </span>
     </button>
-    <button class="workout-launch" type="button" onclick="startFixedWorkout('cindy')" aria-label="Start Cindy, a 20 minute AMRAP">
-      <span class="workout-kicker">AMRAP</span>
-      <span class="workout-number">20</span>
-      <span class="workout-label">Cindy</span>
-      <span class="workout-launch-bottom">
-        <span class="workout-launch-meta"><span>20 min AMRAP</span><span>3-movement sequence</span></span>
-        <span class="workout-launch-cta">Start →</span>
-      </span>
-    </button>
-    <section class="workout-detail" aria-labelledby="cindyDetailTitle">
-      <h2 id="cindyDetailTitle">Cindy · 20 min AMRAP</h2>
-      <ul id="cindyReview"></ul>
-      <p class="provenance" id="cindyProvenance"></p>
-    </section>
-    <button class="workout-launch" type="button" onclick="startWorkout()" aria-label="Start the 300 Workout">
+    <button class="workout-launch" data-workout-id="workout300" type="button" onclick="startWorkout()" aria-label="Start the 300-Rep Challenge">
       <span class="workout-kicker">For time</span>
       <span class="workout-number">300</span>
-      <span class="workout-label">Workout</span>
+      <span class="workout-label">Rep Challenge</span>
       <span class="workout-launch-bottom">
         <span class="workout-launch-meta"><span>7 movements</span><span>300 total reps</span></span>
         <span class="workout-launch-cta">Start →</span>
@@ -445,7 +431,7 @@ layout: null
   <main id="workoutPlayer" class="screen hidden">
     <div class="workout-player-top">
       <button class="close-btn" type="button" aria-label="Exit workout" onclick="openExitDialog('workout')">✕</button>
-      <div class="routine-name" id="workoutPlayerTitle">300 Workout</div>
+      <div class="routine-name" id="workoutPlayerTitle">300-Rep Challenge</div>
       <div class="elapsed" id="workoutElapsed">00:00</div>
     </div>
     <div class="workout-stage" id="workoutStage">
@@ -686,6 +672,7 @@ layout: null
 <script src="data/workout-families.js"></script>
 <script src="js/workout-families.js"></script>
 <script src="js/generator.js"></script>
+<script src="js/challenge300.js"></script>
 <script src="data/mobility-membership.js"></script>
 <script src="data/athletic-membership.js"></script>
 <script src="js/mobility-composer.js"></script>
@@ -737,8 +724,7 @@ const ROUTINE_TITLES={warmup:'Warm Up',cooldown:'Cool Down',rampup:'Ramp Up'};
 const FIXED_WORKOUTS=GarageFitData.fixedWorkouts;
 function fixedWorkoutExercises(workout){return workout.exercises.map(item=>exerciseById(item.id,item))}
 const WORKOUT_300=fixedWorkoutExercises(FIXED_WORKOUTS.workout300);
-const SEVEN_NAMES=['Jumping jacks','Wall sit','Push-ups','Abdominal crunches','Step-ups onto a chair','Squats','Triceps dips on a chair','Plank','High knees running in place','Lunges','Push-ups with rotation','Side plank'];
-const SEVEN_MINUTE_WORKOUT=GarageFitData.fixedWorkouts.sevenMinute.map((id,index)=>({id,name:SEVEN_NAMES[index],work:30,rest:10}));
+const SEVEN_MINUTE_WORKOUT=GarageFitData.fixedWorkouts.sevenMinute.map(id=>({id,name:CATALOGUE[id].name,work:30,rest:10}));
 SEVEN_MINUTE_WORKOUT[SEVEN_MINUTE_WORKOUT.length-1].rest=0;
 const PB_KEY='gf_300_pb_seconds';
 let backNav=null,backupUI=null,backupBrowser=null,backup=null,appStarted=false,appReady=false,backupReturnScreen='settings';
@@ -788,7 +774,7 @@ function loadEquipment(){
   // The legacy all-equipment toggle predates rings; keep that inventory unchanged.
   else{const legacy=readPreference('gf_equipment');if(legacy!==null){state.ownedEquipment=legacy==='true'?EQUIPMENT.filter(item=>item.id!=='rings').map(item=>item.id):[];state.equipmentConfigured=true;saveEquipment()}else{state.ownedEquipment=[];state.equipmentConfigured=false}}
   const savedDuration=Number(readPreference('gf_generator_duration')),savedFocus=readPreference('gf_generator_focus');if([10,15,20,30,45].includes(savedDuration))generatorState.duration=savedDuration;if(['strength','balanced','cardio'].includes(savedFocus))generatorState.focus=savedFocus;const savedDifficulty=readPreference('gf_generator_difficulty');if(Object.keys(DIFFICULTY_LABELS).includes(savedDifficulty))generatorState.difficulty=savedDifficulty;const savedBodyFocus=readPreference('gf_generator_body_focus');if(Object.keys(BODY_FOCUS_LABELS).includes(savedBodyFocus))generatorState.bodyFocus=savedBodyFocus;
-  GarageFitMasthead.mount(document);loadRoutineVariant();renderHome();renderWorkoutReview();renderCindyDetail();renderPersonalBest();renderGenerator();showScreen('generator')
+  GarageFitMasthead.mount(document);loadRoutineVariant();renderHome();renderWorkoutReview();renderPersonalBest();renderGenerator();showScreen('generator')
 }
 function saveEquipment(){try{localStorage.setItem('gf_equipment_inventory',JSON.stringify(state.ownedEquipment));localStorage.setItem('gf_equipment_configured',String(state.equipmentConfigured))}catch(e){}}
 // Prep & Recover Warm Up / Cool Down: each Start builds a fresh five-minute plan (js/routine-generator.js).
@@ -858,11 +844,11 @@ const WORKOUT_PATTERNS=[
   {id:"timed-intervals",name:"Timed intervals",sections:["Each exercise runs against the clock for a fixed work interval rather than a rep count.","Work until the timer ends, use the short transition to get ready for the next exercise, and keep going through the planned cycles.","The clock sets the pace, so you can concentrate on moving well without counting reps.","Four cycles of 40 seconds on squat jumps, mountain climbers and plank, with a short transition between them."]},
   {id:"emom",name:"EMOM",sections:["EMOM stands for every minute on the minute. Each minute starts a new exercise window.","Complete the rep or time target for that minute. Once you finish, rest until the next minute begins. For rep targets, tap Done when you finish. The player can let you skip the rest and start the next minute straight away with a fresh one-minute window. Some EMOMs rotate between up to three exercises.","It gives clear structure and built-in recovery: the faster you finish the target, the more rest you get before the next minute.","Eight minutes alternating air squats and push-ups, with a set rep target each minute and the remainder of the minute to recover."]},
   {id:"ladder",name:"Ladder",sections:["A ladder changes the number of reps at each step, either climbing (such as 2, 4, 6, 8) or descending.","Complete the exact reps shown for each step, then rest before the next step. A ladder uses one or two exercises, and the preview shows the full rep sequence.","Gradually building or reducing the reps lets you settle in, accumulate quality work and finish with a clear end point.","Air squats and push-ups at 2, 4, 6 then 8 reps, with a rest between steps."]},
-  {id:"pyramid",name:"Pyramid",sections:["A pyramid works one exercise through steps that rise and then fall, such as 4, 8, 4 reps.","Complete each step in order with rest between steps. With a rep pyramid, keep one comfortable load throughout. For some standing TRX exercises the pyramid can vary the resistance instead (lighter, heavier, lighter): you adjust your stance only if comfortable. These cues are planned guidance, not measurements.","It builds volume gradually around one movement and finishes with easier steps as you tire.","Rep pyramid: 4, 8, 4 reps of a squat with a comfortable load. TRX variation: 8, 4, 8 reps with the stance lighter, heavier, then lighter."]},
+  {id:"pyramid",name:"Pyramid",sections:["A pyramid works one exercise through steps that rise and then fall, such as 4, 8, 4 reps.","Complete each step in order with rest between steps. With a rep pyramid, keep one comfortable load throughout. For some standing suspension strap exercises the pyramid can vary the resistance instead (lighter, heavier, lighter): you adjust your stance only if comfortable. These cues are planned guidance, not measurements.","It builds volume gradually around one movement and finishes with easier steps as you tire.","Rep pyramid: 4, 8, 4 reps of a squat with a comfortable load. suspension strap variation: 8, 4, 8 reps with the stance lighter, heavier, then lighter."]},
   {id:"complex",name:"Complex",sections:["A complex strings two or three movements together and repeats the whole sequence.","Do every movement in order, with a brief changeover between movements, then rest after each sequence. Each movement keeps its own target, and the player labels the sequence and movement you are on.","Staying on one setup removes equipment changes and makes the movements flow together.","Three sequences of three movements done in order with one setup, each movement with its own rep target and a rest after every sequence."]},
   {id:"density",name:"Density",sections:["A density block sets a fixed target of work for two exercises, with a time cap to finish within. It is not as-many-rounds-as-possible.","Complete the planned rounds and reps at a steady pace. The block ends when the target is done or the cap runs out, whichever comes first. There is no extra credit for racing and no bonus rounds.","Fixed targets keep the work predictable, while the cap makes sure the block fits the time available.","Three rounds of 8 squats and 8 push-ups within a 5-minute cap, then stop."]},
-  // AMRAP availability wording (fixed Cindy plus generated Balanced/Cardio blocks, #221) lives in this entry.
-  {id:"amrap",name:"AMRAP",sections:["AMRAP stands for as many rounds as possible. You repeat a short sequence of exercises until the time is up.","Work through the exercises in order, round after round, at a steady, comfortable pace and recover as needed. In generated workouts, tap Next after each exercise; the player shows the countdown and your round. When time is up, finish or skip the exercise you are on, then move on. Generated AMRAP blocks keep no score; in Cindy the score is completed rounds plus any extra reps.","It is used in the fixed Cindy workout. Generated Balanced and Cardio workouts, including optional Coach conditioning, can also include one short AMRAP block of two or three exercises lasting 3 to 8 minutes.","Cindy is a 20-minute AMRAP of 5 pull-ups, 10 push-ups and 15 air squats. A generated block might repeat 8 TRX squats, 8 TRX rows and 8 TRX chest presses for 5 minutes."]}
+  // AMRAP availability wording (generated Balanced/Cardio blocks, #221) lives in this entry.
+  {id:"amrap",name:"AMRAP",sections:["AMRAP stands for as many rounds as possible. You repeat a short sequence of exercises until the time is up.","Work through the exercises in order, round after round, at a steady, comfortable pace and recover as needed. In generated workouts, tap Next after each exercise; the player shows the countdown and your round. When time is up, finish or skip the exercise you are on, then move on. Generated AMRAP blocks keep no score.","Generated Balanced and Cardio workouts, including optional Coach conditioning, can also include one short AMRAP block of two or three exercises lasting 3 to 8 minutes.","A generated block might repeat 8 suspension strap squats, 8 suspension strap rows and 8 suspension strap chest presses for 5 minutes."]}
 ];
 let patternListScroll=0;
 function renderWorkoutPatterns(){
@@ -1169,7 +1155,7 @@ function startRoutine(key,variant){let list;abandonRoutineRun();state.routine=nu
     error.textContent='';state.routine=routine;state.routineRun=ROUTINES.createRoutineRun(routine);list=routinePlaylist(routine);
   }else if(key==='rampup')list=EX.rampUp;
   beginInstructionSession();state.key=key;state.list=list.slice();state.idx=0;state.paused=false;state.running=true;state.doneDestination='home';document.getElementById('routineName').textContent=ROUTINE_TITLES[key];showScreen('player');requestWake();enterReady()}
-function startSevenMinuteWorkout(){beginInstructionSession();state.key='sevenMinute';state.list=SEVEN_MINUTE_WORKOUT.slice();state.idx=0;state.paused=false;state.running=true;state.doneDestination='workouts';document.getElementById('routineName').textContent='7 Minute Workout';showScreen('player');requestWake();enterReady()}
+function startSevenMinuteWorkout(){beginInstructionSession();state.key='sevenMinute';state.list=SEVEN_MINUTE_WORKOUT.slice();state.idx=0;state.paused=false;state.running=true;state.doneDestination='workouts';document.getElementById('routineName').textContent='7-Minute Bodyweight Circuit';showScreen('player');requestWake();enterReady()}
 function enterReady(){setInstructionDisclosure('routineInstruction',null);state.phase='ready';state.remaining=3;state.cueTracker=null;clearTimedCue('routineTimedCue');updateProgressCount();const first=state.list[0];document.getElementById('exerciseName').textContent='Get ready';setRingColor('rest');document.getElementById('phaseLabel').textContent='GET READY';document.getElementById('repsNum').classList.add('hidden');speak('Get ready. '+first.name);runTimer(3,()=>enterWork())}
 function enterWork(){state.phase='work';const ex=state.list[state.idx];state.remaining=ex.work;state.cueTracker=GarageFitTimedCues.createTracker(ex.timedCues,ex.work);clearTimedCue('routineTimedCue');updateProgressCount();document.getElementById('exerciseName').textContent=ex.name;setInstructionDisclosure('routineInstruction',ex);document.getElementById('phaseLabel').textContent=state.key==='rampup'?'GO':'WORK';setRingColor('work');const repsEl=document.getElementById('repsNum');if(state.key==='rampup'){repsEl.classList.remove('hidden');repsEl.textContent=ex.reps?('x'+ex.reps+' reps'):'hold'}else repsEl.classList.add('hidden');playCompletionChime();announceExercise(ex,exerciseCueParts(ex.name,ex.work+' seconds'),ex.work);runTimer(ex.work,()=>{recordRoutineOccurrence('completed');enterRestOrNext()},elapsed=>showDueTimedCues(state.cueTracker,elapsed,'routineTimedCue'))}
 function enterRestOrNext(){setInstructionDisclosure('routineInstruction',null);const ex=state.list[state.idx],isLast=state.idx===state.list.length-1;state.cueTracker=null;clearTimedCue('routineTimedCue');if(isLast){finishRoutine();return}if(!ex.rest){state.idx++;enterWork();return}state.phase='rest';state.remaining=ex.rest;updateProgressCount();const next=state.list[state.idx+1];document.getElementById('exerciseName').textContent='Get ready';document.getElementById('phaseLabel').textContent='REST';document.getElementById('repsNum').classList.add('hidden');setRingColor('rest');playCompletionChime();speak(next.name);runTimer(ex.rest,()=>{state.idx++;enterWork()})}
@@ -1194,9 +1180,6 @@ function pickRandom(arr,n){const copy=arr.slice(),out=[];while(copy.length&&out.
 function renderWorkoutReview(){
   const list=document.getElementById('workoutReview');list.innerHTML='';
   WORKOUT_300.forEach(ex=>{const li=document.createElement('li'),name=document.createElement('span'),reps=document.createElement('span');name.className='review-name';name.textContent=ex.name;if(ex.note){const note=document.createElement('span');note.className='review-note';note.textContent=ex.note;name.appendChild(note)}reps.className='review-reps';reps.textContent=ex.reps+' reps';li.append(name,reps);list.appendChild(li)});
-}
-function renderCindyDetail(){
-  const workout=FIXED_WORKOUTS.cindy,list=document.getElementById('cindyReview');list.innerHTML='';fixedWorkoutExercises(workout).forEach(ex=>{const item=document.createElement('li');item.textContent=ex.reps+' '+ex.name;list.appendChild(item)});const repeat=document.createElement('li');repeat.textContent='Repeat for '+Math.round(workout.termination.durationSeconds/60)+' minutes';list.appendChild(repeat);document.getElementById('cindyProvenance').textContent=workout.provenance;
 }
 function toggleWorkoutReview(){
   const button=document.getElementById('reviewToggle'),list=document.getElementById('workoutReview'),willOpen=list.classList.contains('hidden');list.classList.toggle('hidden',!willOpen);button.setAttribute('aria-expanded',String(willOpen));button.querySelector('span:first-child').textContent=willOpen?'Hide 300 exercises':'Review 300 exercises';
@@ -1224,9 +1207,23 @@ function startWorkoutClock(){clearInterval(workoutState.timer);workoutState.star
 function pauseWorkoutClock(){if(!workoutState.running||workoutState.paused)return;if(workoutState.mode==='generated')syncGeneratedCountdown();workoutState.elapsedMs=currentWorkoutElapsedMs();workoutState.paused=true;cancelSpeech();clearInterval(workoutState.timer);renderWorkoutElapsed();updateWorkoutPauseUI()}
 function resumeWorkoutClock(){if(!workoutState.running||!workoutState.paused)return;workoutState.paused=false;generatorState.phaseTickAt=Date.now();startWorkoutClock();updateWorkoutPauseUI()}
 function stopWorkoutClock(){if(generatorState.densityOperation){generatorState.densityOperation=null;coachAdvancing=false}if(generatorState.amrapOperation){generatorState.amrapOperation=null;coachAdvancing=false}if(workoutState.running&&!workoutState.paused)workoutState.elapsedMs=currentWorkoutElapsedMs();clearInterval(workoutState.timer);workoutState.timer=null;if(generatorState.emomOperation){generatorState.emomOperation=null;coachAdvancing=false}}
-function startWorkout(){startFixedWorkout('workout300')}
+function startWorkout(){GarageFitWorkoutUI.openWorkoutDetail('workout300')}
 function startFixedWorkout(workoutId){
-  const workout=FIXED_WORKOUTS[workoutId];if(!workout||!workout.exercises)return;document.getElementById('coachAnchorLog').classList.add('hidden');document.getElementById('coachSkipBtn').classList.add('hidden');document.getElementById('coachPlayerError').textContent='';beginInstructionSession();stopTimer();stopGeneratedPhaseTimer();stopWorkoutClock();state.running=false;state.doneDestination='workouts';workoutState={mode:'fixed',workout,idx:0,round:1,completedRounds:0,additionalReps:0,history:[],completed:workout.exercises.map(()=>false),elapsedMs:0,startedAt:Date.now(),timer:null,paused:false,running:true,expired:false,result:null};const player=document.getElementById('workoutPlayer');player.classList.remove('generated-player','rest-phase');document.getElementById('workoutPlayerTitle').textContent=workout.name;document.getElementById('doneStats').classList.add('hidden');document.getElementById('generatedDoneStats').classList.add('hidden');document.getElementById('amrapDoneStats').classList.add('hidden');document.getElementById('completeMovementBtn').disabled=false;document.getElementById('previousWorkoutBtn').querySelector('.previous-copy span').textContent='Previous';showScreen('workoutPlayer');renderWorkout();startWorkoutClock();requestWake();beep(880);const first=fixedWorkoutExercises(workout)[0];announceExercise(first,workout.name+'. '+first.reps+' '+first.name+'. Go.');
+  if(workoutId==='cindy')return;
+  if(workoutId==='workout300')return startWorkout();
+  return startResolvedFixedWorkout(FIXED_WORKOUTS[workoutId]);
+}
+function startResolvedFixedWorkout(workout){
+  if(!workout||!workout.exercises)return;document.getElementById('coachAnchorLog').classList.add('hidden');document.getElementById('coachSkipBtn').classList.add('hidden');document.getElementById('coachPlayerError').textContent='';beginInstructionSession();stopTimer();stopGeneratedPhaseTimer();stopWorkoutClock();state.running=false;state.doneDestination='workouts';workoutState={mode:'fixed',workout,idx:0,round:1,completedRounds:0,additionalReps:0,history:[],completed:workout.exercises.map(()=>false),elapsedMs:0,startedAt:Date.now(),timer:null,paused:false,running:true,expired:false,result:null};const player=document.getElementById('workoutPlayer');player.classList.remove('generated-player','rest-phase');document.getElementById('workoutPlayerTitle').textContent=workout.name;document.getElementById('doneStats').classList.add('hidden');document.getElementById('generatedDoneStats').classList.add('hidden');document.getElementById('amrapDoneStats').classList.add('hidden');document.getElementById('completeMovementBtn').disabled=false;document.getElementById('previousWorkoutBtn').querySelector('.previous-copy span').textContent='Previous';showScreen('workoutPlayer');renderWorkout();startWorkoutClock();requestWake();beep(880);const first=fixedWorkoutExercises(workout)[0];announceExercise(first,workout.name+'. '+first.reps+' '+first.name+'. Go.');
+}
+function startChallenge300(plan){
+  if(workoutState.running)return;
+  const frozen=GarageFitChallenge300.freeze(plan,{equipment:state.ownedEquipment,catalogue:CATALOGUE});
+  const workout={id:'workout300',name:'300-Rep Challenge',termination:{type:'fixed-rounds',rounds:1},exercises:frozen.exercises.map(ex=>({id:ex.exerciseId,name:ex.name,reps:ex.reps,note:[ex.counting,ex.load,ex.setup].filter(Boolean).join(' · ')}))};
+  startResolvedFixedWorkout(workout);workoutState.challenge=frozen;workoutState.challengeResultId='challenge300:'+Date.now()+':'+Math.random().toString(36).slice(2);workoutState.lastAdvance=-Infinity;
+}
+function saveChallenge300Result(elapsedSeconds){
+  try{const result=GarageFitChallenge300.createResult(workoutState.challenge,{resultId:workoutState.challengeResultId,elapsedSeconds,completedAt:new Date().toISOString(),status:'completed'});GarageFitChallenge300.saveResult(localStorage,result);workoutState.result=result;}catch(error){if(typeof GarageFitBackupActivity!=='undefined')GarageFitBackupActivity.fail();document.getElementById('doneSub').textContent='Workout complete. History could not be saved.';console.warn('Challenge history could not be saved.',error);}
 }
 function activeFixedExercises(){return fixedWorkoutExercises(workoutState.workout||FIXED_WORKOUTS.workout300)}
 function repsPerFixedRound(){return activeFixedExercises().reduce((total,ex)=>total+ex.reps,0)}
@@ -1382,7 +1379,7 @@ function updateWorkoutPauseUI(){
 function toggleWorkoutPause(){if(!workoutState.running||coachAdvancing||exitState.type)return;workoutState.paused?resumeWorkoutClock():pauseWorkoutClock()}
 function completeWorkoutMovement(){
   if(workoutState.mode==='generated')return generatedPrimaryAction();
-  if(!workoutState.running||workoutState.paused)return;const exercises=activeFixedExercises(),index=workoutState.idx,ex=exercises[index];workoutState.history.push({idx:index,round:workoutState.round,completedRounds:workoutState.completedRounds,additionalReps:workoutState.additionalReps,completed:workoutState.completed.slice()});
+  if(!workoutState.running||workoutState.paused||exitState.type)return;const now=workoutNow();if(workoutState.challenge&&now-(workoutState.lastAdvance??-Infinity)<350)return;workoutState.lastAdvance=now;const exercises=activeFixedExercises(),index=workoutState.idx,ex=exercises[index];workoutState.history.push({idx:index,round:workoutState.round,completedRounds:workoutState.completedRounds,additionalReps:workoutState.additionalReps,completed:workoutState.completed.slice()});
   if(isAmrapWorkout()){
     workoutState.additionalReps+=ex.reps;if(index===exercises.length-1){workoutState.completedRounds++;workoutState.additionalReps=0;workoutState.round++;workoutState.idx=0}else workoutState.idx++;if(amrapRemainingMs()<=0){expireAmrap(false);return}playCompletionChime();renderWorkout();const next=exercises[workoutState.idx];announceExercise(next,'Round '+workoutState.round+'. '+next.name+'. '+next.reps+' reps');return
   }
@@ -1393,8 +1390,8 @@ function previousWorkoutMovement(){
   if(!workoutState.running||workoutState.paused||!workoutState.history.length)return;const prior=workoutState.history.pop();workoutState.idx=prior.idx;workoutState.round=prior.round;workoutState.completedRounds=prior.completedRounds;workoutState.additionalReps=prior.additionalReps;workoutState.completed=prior.completed;renderWorkout();const ex=activeFixedExercises()[workoutState.idx];announceExercise(ex,ex.name+'. '+ex.reps+' reps'+(ex.note?'. '+ex.note:''));
 }
 function finishWorkout(){
-  workoutState.elapsedMs=currentWorkoutElapsedMs();workoutState.running=false;clearInterval(workoutState.timer);workoutState.timer=null;releaseWake();playCompletionChime();const elapsedSeconds=Math.max(1,Math.floor(workoutState.elapsedMs/1000)),previousBest=getPersonalBest(),isBest=previousBest===null||elapsedSeconds<previousBest;if(isBest)savePersonalBest(elapsedSeconds);state.doneDestination='workouts';
-  document.getElementById('doneTitle').textContent='300 Complete';document.getElementById('doneSub').textContent='Every rep done. Strong work.';document.getElementById('doneTime').textContent=formatTime(elapsedSeconds);document.getElementById('doneStats').classList.remove('hidden');document.getElementById('generatedDoneStats').classList.add('hidden');document.getElementById('amrapDoneStats').classList.add('hidden');const best=document.getElementById('doneBest');best.classList.remove('hidden');best.textContent=isBest?'New personal best!':'Personal best: '+formatTime(previousBest);document.getElementById('doneBtn').textContent='Back to workouts';renderPersonalBest();showScreen('done');speak('Workout complete. 300 reps in '+formatSpokenTime(elapsedSeconds)+'.');
+  workoutState.elapsedMs=currentWorkoutElapsedMs();workoutState.running=false;clearInterval(workoutState.timer);workoutState.timer=null;releaseWake();playCompletionChime();const elapsedSeconds=Math.max(1,Math.floor(workoutState.elapsedMs/1000));state.doneDestination='workouts';
+  document.getElementById('doneTitle').textContent='300-Rep Challenge Complete';document.getElementById('doneSub').textContent='Every rep done. Strong work.';document.getElementById('doneTime').textContent=formatTime(elapsedSeconds);document.getElementById('doneStats').classList.remove('hidden');document.getElementById('generatedDoneStats').classList.add('hidden');document.getElementById('amrapDoneStats').classList.add('hidden');const best=document.getElementById('doneBest');best.classList.add('hidden');best.textContent='';document.getElementById('doneBtn').textContent='Back to workouts';if(workoutState.challenge)saveChallenge300Result(elapsedSeconds);renderPersonalBest();showScreen('done');speak('Workout complete. 300 reps in '+formatSpokenTime(elapsedSeconds)+'.');
 }
 function calculateAmrapResult(completedRounds,additionalReps,partialReps){return {completedRounds,additionalReps:additionalReps+partialReps,partialReps}}
 function saveAmrapResult(result){try{const history=JSON.parse(localStorage.getItem('gf_amrap_results')||'[]');history.unshift(result);localStorage.setItem('gf_amrap_results',JSON.stringify(history.slice(0,50)))}catch(e){}}

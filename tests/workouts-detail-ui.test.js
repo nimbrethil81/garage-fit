@@ -48,6 +48,7 @@ test('fixed workout detail model covers all current Workouts-mode entries', () =
       }
     },
     SEVEN_MINUTE_WORKOUT:[{ name:'Jumping jacks', work:30 }],
+    equipmentSummary(){return 'Bodyweight only';},
     fixedWorkoutExercises(workout) { return workout.exercises; }
   };
   context.window = context;
@@ -58,14 +59,12 @@ test('fixed workout detail model covers all current Workouts-mode entries', () =
   assert.ok(ui);
 
   const seven = ui.detailDefinition('sevenMinute');
-  assert.equal(seven.name, '7 Minute Workout');
+  assert.equal(seven.name, '7-Minute Bodyweight Circuit');
   assert.equal(seven.format, '7 min timed circuit');
   assert.deepEqual(Array.from(seven.exercises, exercise=>exercise.target), ['30 sec']);
 
   const cindy = ui.detailDefinition('cindy');
-  assert.equal(cindy.format, '20 min AMRAP');
-  assert.match(cindy.description, /Repeat the sequence/);
-  assert.deepEqual(Array.from(cindy.exercises, exercise=>exercise.target), ['5 reps','10 reps','15 reps']);
+  assert.equal(cindy, null, 'historical AMRAP has no public detail/new-start path');
 
   const abBlast = ui.detailDefinition('abBlast');
   assert.equal(abBlast.name, '5-Minute Ab Blast');
@@ -75,9 +74,12 @@ test('fixed workout detail model covers all current Workouts-mode entries', () =
   assert.equal(abBlast.exercises.reduce((total, exercise)=>total+Number.parseInt(exercise.target,10),0), 300);
 
   const workout300 = ui.detailDefinition('workout300');
-  assert.equal(workout300.format, 'For time');
-  assert.equal(workout300.personalBest, true);
-  assert.equal(workout300.exercises[0].target, '25 reps');
+  assert.equal(workout300.name, '300-Rep Challenge');
+  assert.equal(workout300.format, 'Generated · Hard · For time');
+  assert.equal(workout300.personalBest, undefined);
+  assert.equal(workout300.exercises.length, 0, 'historical fixed sequence never leaks into new preview');
+  assert.match(workout300.description,/mini-sets[\s\S]*elapsed clock keeps running/);
+  assert.match(workout300.description,/prescription then locks/);
 });
 
 test('opening workout detail is separate from starting a workout', () => {
@@ -112,9 +114,9 @@ test('generated cards share the exact decorative shuffle symbol and accessible d
   const source=fs.readFileSync(path.join(root,'js/workouts-ui.js'),'utf8');
   const context={document:{readyState:'loading'},addEventListener(){}};
   context.window=context;vm.createContext(context);vm.runInContext(source,context);
-  assert.deepEqual(Object.keys(context.GarageFitWorkoutUI.cardMeta).filter(id=>context.GarageFitWorkoutUI.cardMeta[id].generated),['postRunReset']);
+  assert.deepEqual(Object.keys(context.GarageFitWorkoutUI.cardMeta).filter(id=>context.GarageFitWorkoutUI.cardMeta[id].generated),['workout300','postRunReset']);
   assert.equal(context.GarageFitWorkoutUI.cardMeta.postRunReset.number,'6');
-  assert.deepEqual(Object.fromEntries(Object.entries(context.GarageFitWorkoutUI.cardMeta).filter(([id])=>id!=='postRunReset').map(([id,meta])=>[id,meta.number])),{sevenMinute:'7',abBlast:'5',cindy:'20',workout300:'300',eveningFullBodyReset:'7'});
+  assert.deepEqual(Object.fromEntries(Object.entries(context.GarageFitWorkoutUI.cardMeta).filter(([id])=>id!=='postRunReset').map(([id,meta])=>[id,meta.number])),{sevenMinute:'7',abBlast:'5',workout300:'300',eveningFullBodyReset:'7'});
   assert.match(source,/setAttribute\('aria-description','Generated workout'\)/);
   assert.match(source,/class="icon workout-generated-icon" aria-hidden="true"><use href="#icon-shuffle"/);
   const desk=source.slice(source.indexOf('function addDeskBreakCard'),source.indexOf('function cleanCatalogue'));

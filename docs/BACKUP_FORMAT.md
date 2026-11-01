@@ -24,7 +24,8 @@ an explicit bodyweight-only choice.
 | `gf_equipment` | Included legacy | String boolean still interpreted by equipment startup; preserved alongside modern keys when present |
 | `gf_generator_duration`, `gf_generator_focus`, `gf_generator_difficulty`, `gf_generator_body_focus` | Included | Existing selectable string values |
 | `gf_generator_history` | Included | JSON array of exercise-ID arrays; no export truncation |
-| `gf_300_pb_seconds` | Included | Non-negative integer string |
+| `gf_300_pb_seconds` | Included legacy | Non-negative integer string; retained for the historical fixed prescription and never overwritten by generated Challenges |
+| `gf_300_challenge_history_v1` | Included | Version 1 history with unique result identities, completion date/status/elapsed seconds and exact ordered versioned generated prescriptions (exercise IDs, reps, names, counting, load/setup and instruction snapshot) |
 | `gf_amrap_results` | Included | JSON array retaining workout identity, termination, duration, completed rounds, additional and partial reps, and completion date |
 | `gf_routine_variant` | Included | `bodyweight` or `equipment` |
 | `gf_routine_recent_v1` | Included | Version 1 warm-up and cool-down session lists; legacy exercise-ID arrays and dated `{ids, completedAt}` entries both retained |
@@ -148,3 +149,10 @@ persisted intermediate state. Physical iPhone installed-PWA native picker/share
 and VoiceOver checks remain unverified in this Linux environment and must be
 recorded explicitly in delivery evidence. Chromium emulation does not establish
 physical-device conformance.
+
+Generated Challenge history validates its versioned stored shape, not current
+catalogue availability. Retired or renamed exercises therefore remain portable
+historical evidence. New Starts separately revalidate equipment and construction
+policy before freezing a snapshot. Restore replaces the registered history
+verbatim, rather than replaying completions or awarding Coach credit; repeated
+restores cannot append duplicate results.

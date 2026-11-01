@@ -25,13 +25,13 @@ recovery status; EMOM continues to show its minute window and work/rest status.
 | Entry point | Player | Progression |
 | --- | --- | --- |
 | Prep & Recover Warm Up/Cool Down, bodyweight/equipment | `#player` | Get ready, timed work and any rest; Next skips the current interval |
-| 7 Minute Workout | `#player` | Work/rest circuit |
+| 7-Minute Bodyweight Circuit | `#player` | Work/rest circuit |
 | 5-Minute Ab Blast | `#player` through Workouts UI | Continuous timed sequence |
 | Evening Full-Body Reset | `#player` through Workouts UI | Timed sequence with changeovers |
 | Post-Run Reset | `#player` through Workouts UI | Fixed timed sequence with per-step transition rules |
 | Legacy ramp-up and snack callable entry points | `#player` | Existing timed routines; covered without adding navigation links |
 | Rep-based fixed-sequence support | `#player` through Workouts UI | Rep target/Next, then any timed work; no fabricated ring |
-| 300 Workout, Cindy | `#workoutPlayer` | Reps/rounds or AMRAP; existing Previous and explicit rep completion |
+| 300-Rep Challenge; historical AMRAP execution | `#workoutPlayer` | Reps/rounds or AMRAP; existing Previous and explicit rep completion |
 | Generator | `#workoutPlayer` | Timed skip/partial evidence versus confirmed reps; existing Previous |
 | Coach | `#workoutPlayer` | Same controls with actual-result inputs, durable saves, busy locks and feedback |
 
@@ -72,3 +72,40 @@ The old #164 pixel comparisons required identical ring dimensions and allowed
 short-screen scrolling. They are superseded by #166's proportional geometry and
 viewport-fit checks. Historical images remain under `images/player-timers/`;
 current evidence and reproduction details are in [PLAYER_VIEWPORT.md](PLAYER_VIEWPORT.md).
+
+## Generated 300-Rep Challenge
+
+The Workouts detail screen reuses the exercise-list disclosure and primary Start
+control. Before Start, Regenerate replaces all seven exercises and Swap revalidates
+the entire prescription for the owned equipment and the slot’s 25/50-rep target.
+Start freezes that exact prescription. The existing rep-based player provides
+Previous, Next, elapsed time and pause/exit; rapid Next taps are guarded.
+
+Mini-sets and self-chosen rests do not advance the player or stop the elapsed
+clock. Only tapping Next confirms an entire exercise target; individual mini-sets
+are not recorded. Pause remains available for safety and suspends elapsed time,
+as in the existing player. Completed generated results retain their ordered
+prescription separately from the historical fixed-workout best time. No equivalent
+performance comparison is made across generated prescriptions.
+
+First-use impact: minor contextual guidance in the existing Workouts detail.
+Equipment ownership is reused; no additional setup or account is required.
+
+Challenge policy version 1 uses a small rep-dose review in `js/challenge300.js`,
+reusing the canonical catalogue and shared equipment/family/pattern utilities.
+A generic Hard tag alone never admits an exercise. Reviewed controlled, countable
+primary movements allow 50 total reps in user-chosen mini-sets; impact, overhead
+and demanding suspended movements have a 25-rep ceiling where admitted. Timed
+holds, per-side prescriptions and odd alternating targets are excluded. The
+review records total-volume eligibility, not an instruction to perform unbroken
+sets or use a maximal load.
+
+Each composition requires push, hinge, trunk, squat/lunge and demanding conditioning
+work, at least three non-Easy movements with strength score 3 or higher, distinct
+exercise families, no adjacent shared major pattern, at most three lower-body
+slots, two push slots, two hinge slots, two isolated trunk slots and one high-impact
+slot. Pulling is required when a reviewed owned-equipment pulling movement is
+available; bodyweight-only compositions make no claim to supply pulling work.
+Both generation and swaps validate the whole sequence; infeasibility is reported
+without an easier fallback. Names, instructions and equipment metadata remain
+canonical; the rep-dose table is Challenge policy, not a duplicate catalogue.
