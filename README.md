@@ -79,6 +79,9 @@ For repeatable browser evidence, serve the checkout and run
 installation required). It reuses the shared viewport checks and exports resolved scripts,
 measurements and screenshots to `/tmp/family-player`; browser emulation does not certify physical devices.
 
+Shared startup/player/audio/instruction changes also use the targeted
+[player audio regression gate and installed-iPhone acceptance matrix](docs/PLAYER_AUDIO_ACCEPTANCE.md).
+
 See [AGENTS.md](AGENTS.md) for contribution, validation and delivery instructions.
 
 ## Contracts and diagnostics

@@ -38,3 +38,30 @@ test('a gesture retries resume even when an earlier browser-blocked request is s
   assert.equal(h.contexts[0].resumes,2);await h.resume();
   assert.equal(h.sounds.length,0);h.run('beep()');assert.equal(h.sounds.length,1);
 });
+test('WebKit playback session is selected before context creation; unsupported or denied session is non-fatal',async()=>{
+  for(const denied of [false,true]){
+    const order=[];
+    const app=loadAppContext(new Map(),{configure(c){
+      c.navigator.audioSession={get type(){return 'auto'},set type(value){order.push(value);if(denied)throw new TypeError('blocked')}};
+      c.AudioContext=class {constructor(){order.push('context');this.state='running';this.currentTime=0;this.destination={}}createOscillator(){return {frequency:{},connect(){},start(){},stop(){}}}createGain(){return {connect(){},gain:{setValueAtTime(){},exponentialRampToValueAtTime(){}}}}};
+    }});
+    app.beep();assert.deepEqual(order,['playback','context']);
+    const evidence=app.playerAudioDiagnostics();
+    assert.ok(evidence.some(e=>e.event===(denied?'session-failed':'session-playback')));
+    assert.equal(evidence.at(-1).event,'chime-scheduled');
+  }
+});
+test('diagnostics distinguish skipped, failed and scheduled audio without retaining sensitive data',async()=>{
+  const h=harness();h.run('beep()');await h.deny();
+  assert.ok(h.app.playerAudioDiagnostics().some(e=>e.event==='sound-skipped'));
+  assert.ok(h.app.playerAudioDiagnostics().some(e=>e.event==='resume-failed'));
+  h.event('click');await h.resume();
+  h.contexts[0].createOscillator=()=>{throw new TypeError('private detail')};h.run('beep()');
+  assert.equal(h.app.playerAudioDiagnostics().at(-1).event,'sound-failed');
+  assert.equal(h.app.playerAudioDiagnostics().at(-1).error,'TypeError');
+  for(let i=0;i<50;i++)h.run('beep()');
+  assert.equal(h.app.playerAudioDiagnostics().length,40);
+  const copy=h.app.playerAudioDiagnostics();copy[0].event='changed';
+  assert.notEqual(h.app.playerAudioDiagnostics()[0].event,'changed');
+  assert.ok(!JSON.stringify(copy).includes('private detail'));
+});

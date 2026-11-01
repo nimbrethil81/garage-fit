@@ -52,6 +52,7 @@ function loadAppContext(storage = new Map(), options = {}) {
   for (const file of ['data/equipment.js','js/equipment-icons.js','data/exercises.js','data/exercise-guidance.js','data/workouts.js','data/workout-families.js','js/workout-families.js','js/generator.js',...(options.familyPolicies===false?[]:['data/mobility-membership.js','data/athletic-membership.js','js/mobility-composer.js','js/athletic-composer.js','js/strength-cardio-composer.js','js/core-challenge-composer.js']),'js/routine-generator.js','js/timed-cues.js','js/speech-voices.js','js/completion-signal.js','data/sport-profiles.js','data/sport-capabilities.js','js/coach-model.js','js/coach-store.js','js/first-use.js','js/session-tracker.js','data/programmes.js','js/training-history.js','js/sport-coverage.js','js/coach-policies.js','js/coach-tennis-policy.js','js/coach-general-fitness-policy.js','js/coach-engine.js','js/coach-recovery.js','js/coach-tennis-ui.js','js/coach-progress-ui.js','js/coach-ui.js','js/workout-preview.js','js/workout-diagnostics.js','js/masthead.js','js/back-navigation.js','js/progress-ui.js']) {
     vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), context, { filename:file });
   }
+  if (options.beforeInline) options.beforeInline(context);
   const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].at(-1)[1];
   vm.runInContext(inline, context, { filename:'index-inline.js' });
   // Opt into the shipped post-inline Ramp-up timeline/preview extension for integrated runs.
