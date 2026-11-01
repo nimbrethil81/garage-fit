@@ -51,7 +51,7 @@ test('unreadable storage, failed marker writes and corrupt first-use markers fai
 });
 
 test('only saved completed performed sessions qualify, across sources, exactly once and after refresh',async()=>{
-  for(const [source,workoutId] of [['generator','generated'],['coach','workout-1'],['fixed','deskBreak'],['fixed','postRunReset']]){
+  for(const [source,workoutId] of [['generator','generated'],['coach','workout-1'],['fixed','deskBreak'],['fixed','postRunReset'],['fixed','abBlast']]){
     const h=setup();await h.ready;
     const result=sessionResult({source,workoutId});
     h.run(`var firstResult=GarageFitCoachModel.createSessionResult(${JSON.stringify(result)});var firstStore=GarageFitCoachStore.createStore(localStorage)`);

@@ -4,7 +4,7 @@
   // Presentation only. Equipment and completion remain owned by their existing stores.
   function eligible(result){
     return !!result && ['generator','coach','fixed'].includes(result.source)
-      && (result.source!=='fixed'||['deskBreak','postRunReset'].includes(result.workoutId))
+      && (result.source!=='fixed'||['deskBreak','postRunReset','abBlast'].includes(result.workoutId))
       && result.finalStatus==='completed' && (result.performedWork||[]).some(work=>
         ['completed','partial'].includes(work.status) && (!(work.sets||[]).some(set=>set.reps!=null||set.seconds!=null)
           || work.sets.some(set=>set.reps>0||set.seconds>0)));

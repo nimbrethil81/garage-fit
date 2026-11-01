@@ -15,7 +15,8 @@ test('fixed workout detail model covers all current Workouts-mode entries', () =
   const source = fs.readFileSync(path.join(root, 'js/workouts-ui.js'), 'utf8');
   const context = {
     console,
-    document: { readyState:'loading' },
+    document: { readyState:'loading', getElementById(){return {textContent:'',innerHTML:'',classList:{toggle(){}},appendChild(){}};}, createElement(){return {append(){},appendChild(){}};} },
+    createInstructionDisclosure(){return null;}, showScreen(){},
     addEventListener() {},
     FIXED_WORKOUTS: {
       cindy: {
@@ -66,6 +67,8 @@ test('fixed workout detail model covers all current Workouts-mode entries', () =
   const cindy = ui.detailDefinition('cindy');
   assert.equal(cindy, null, 'historical AMRAP has no public detail/new-start path');
 
+  context.GarageFitAbBlast={generate:()=>context.FIXED_WORKOUTS.abBlast};
+  ui.openWorkoutDetail('abBlast');
   const abBlast = ui.detailDefinition('abBlast');
   assert.equal(abBlast.name, '5-Minute Ab Blast');
   assert.equal(abBlast.format, '5 min continuous');
@@ -114,7 +117,7 @@ test('generated cards share the exact decorative shuffle symbol and accessible d
   const source=fs.readFileSync(path.join(root,'js/workouts-ui.js'),'utf8');
   const context={document:{readyState:'loading'},addEventListener(){}};
   context.window=context;vm.createContext(context);vm.runInContext(source,context);
-  assert.deepEqual(Object.keys(context.GarageFitWorkoutUI.cardMeta).filter(id=>context.GarageFitWorkoutUI.cardMeta[id].generated),['workout300','postRunReset']);
+  assert.deepEqual(Object.keys(context.GarageFitWorkoutUI.cardMeta).filter(id=>context.GarageFitWorkoutUI.cardMeta[id].generated),['abBlast','workout300','postRunReset']);
   assert.equal(context.GarageFitWorkoutUI.cardMeta.postRunReset.number,'6');
   assert.deepEqual(Object.fromEntries(Object.entries(context.GarageFitWorkoutUI.cardMeta).filter(([id])=>id!=='postRunReset').map(([id,meta])=>[id,meta.number])),{sevenMinute:'7',abBlast:'5',workout300:'300',eveningFullBodyReset:'7'});
   assert.match(source,/setAttribute\('aria-description','Generated workout'\)/);

@@ -75,7 +75,7 @@ test('exactly the 12 approved exercises are present, generated-Main only, with t
   assert.deepEqual(G.validateCatalogue(catalogue),[]);
 });
 
-test('Reverse crunch has one canonical definition behind the Ab Blast id, whose playback is unchanged',()=>{
+test('Reverse crunch has one canonical definition and the legacy Ab Blast remains playable',()=>{
   assert.deepEqual(Object.values(catalogue).filter(ex=>/reverse crunch/i.test(ex.name)).map(ex=>ex.id),['reverse-crunch']);
   const fixed=GarageFitData.fixedWorkouts;
   const uses=Object.values(fixed).flatMap(workout=>(workout.exercises||[]).filter(item=>item.id==='reverse-crunch').map(item=>[workout.id,item]));
@@ -85,12 +85,14 @@ test('Reverse crunch has one canonical definition behind the Ab Blast id, whose 
   ]);
   assert.equal(fixed.abBlast.termination.durationSeconds,300);
   // The timed sequence still plays 40 seconds with no cue; the player now shows the written instruction.
-  const app=loadAppContext();
+  const app=loadAppContext(new Map(),{ownIntrinsics:true});
   app.document.readyState='loading';
   vm.runInContext(fs.readFileSync(path.join(__dirname,'../js/workouts-ui.js'),'utf8'),app);
+  app.GarageFitAbBlast.generate=()=>JSON.parse(JSON.stringify(fixed.abBlast));
+  app.GarageFitWorkoutUI.openWorkoutDetail('abBlast');
   app.GarageFitWorkoutUI.startTimedSequenceWorkout('abBlast');
   const step=vm.runInContext("JSON.stringify(state.list.find(item=>item.id==='reverse-crunch'))",app);
-  assert.deepEqual(JSON.parse(step),{id:'reverse-crunch',name:'Reverse crunch',work:40,rest:0,timedCues:[]});
+  assert.deepEqual(JSON.parse(step),{id:'reverse-crunch',name:'Reverse crunch',side:null,work:40,rest:0,timedCues:[]});
   assert.equal(app.GarageFitData.exercises['reverse-crunch'].instruction,BATCH.find(row=>row[0]==='reverse-crunch')[10]);
 });
 

@@ -167,3 +167,13 @@ test('load relevance uses catalogue descriptors for loaded, band and bodyweight 
    assert.equal(p.run(`GarageFitProgressUI.loadRelevant(CATALOGUE[${JSON.stringify(id)}])`),expected,id);
  assert.equal(p.run('GarageFitProgressUI.loadRelevant(null)'),true);
 });
+
+
+test('Ab Blast keeps its identity and supporting core evidence without Main training counts',async()=>{
+  const p=await ui([fixture('abs',{source:'fixed',workoutId:'abBlast'})]);
+  await p.run("progressUI.open('more')");
+  assert.match(p.text('yourProgressContent'),/5-Minute Ab Blast/);
+  p.run(`globalThis.abs=${JSON.stringify(fixture('abs',{source:'fixed',workoutId:'abBlast'}))}`);
+  assert.equal(p.run('GarageFitProgressUI.classification(abs)'),'Core');
+  assert.deepEqual(p.json("GarageFitProgressUI.summary([abs],new Date('2026-10-30T12:00:00Z'))"),{week:0,fourWeeks:0});
+});
