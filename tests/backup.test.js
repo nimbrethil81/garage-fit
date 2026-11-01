@@ -28,7 +28,7 @@ function harness(initial = [], options = {}) {
   };
   const context = vm.createContext({TextEncoder, crypto: webcrypto});
   context.window = context;
-  for (const file of ['data/equipment.js', 'js/coach-model.js', 'js/coach-store.js', 'js/backup-registry.js', 'js/backup.js']) {
+  for (const file of ['data/equipment.js', 'js/coach-model.js', 'js/coach-store.js', 'js/challenge300.js', 'js/backup-registry.js', 'js/backup.js']) {
     vm.runInContext(fs.readFileSync(file, 'utf8'), context);
   }
   const coach = context.GarageFitCoachStore.createBackupAccess(storage, {
@@ -241,4 +241,27 @@ test('realistic quota permits the durable journal but rejects reserve before any
   assert.deepEqual(sorted(target.map), original);
   assert.equal(target.map.has('gf_restore_journal_v1'), false);
   assert.equal(target.map.has('gf_restore_reserve_v1'), false);
+});
+
+test('generated Challenge history restores exact prescriptions without touching legacy times or duplicating results', async () => {
+  const source=harness();
+  for (const file of ['data/exercises.js','js/generator.js']) vm.runInContext(fs.readFileSync(file,'utf8'),source.context);
+  const challenge=source.context.GarageFitChallenge300;
+  const prescription=challenge.freeze(challenge.generate({equipment:[],random:()=>0.4}));
+  const result=challenge.createResult(prescription,{resultId:'challenge-1',elapsedSeconds:842,completedAt:'2026-10-31T14:00:00Z'});
+  challenge.saveResult(source.storage,result);
+  source.storage.setItem('gf_300_pb_seconds','321');
+  source.storage.setItem('gf_amrap_results',JSON.stringify([{workoutId:'cindy',terminationType:'amrap',durationSeconds:1200,completedRounds:4,additionalReps:2,partialReps:0,completedAt:'2026-10-30T12:00:00Z'}]));
+  const file=await source.api.prepare(), target=harness();
+  await target.api.restore(file.text,{confirmed:true});
+  assert.equal(target.map.get(challenge.HISTORY_KEY),source.map.get(challenge.HISTORY_KEY));
+  assert.equal(target.map.get('gf_300_pb_seconds'),'321');
+  assert.equal(target.map.get('gf_amrap_results'),source.map.get('gf_amrap_results'));
+  await preservation(target);
+  await target.api.restore(file.text,{confirmed:true});
+  assert.equal(target.context.GarageFitChallenge300.readHistory(target.storage).results.length,1);
+  assert.equal(target.map.get(challenge.HISTORY_KEY),source.map.get(challenge.HISTORY_KEY));
+  const broken=JSON.parse(source.map.get(challenge.HISTORY_KEY)); broken.results[0].prescription.exercises[0].reps=50;
+  source.storage.setItem(challenge.HISTORY_KEY,JSON.stringify(broken));
+  await assert.rejects(source.api.prepare(),/damaged/);
 });

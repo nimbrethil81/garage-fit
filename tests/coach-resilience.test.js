@@ -121,7 +121,7 @@ test('unavailable localStorage loads a recoverable error and the rest of the app
   const p=pilot();p.run("localStorage.getItem=()=>{throw new Error('SecurityError');}");
   await p.run('pilot.load()'); assert.ok(p.run('pilot.snapshot().blocked'));
   assert.ok(p.json('pilot.snapshot().errors').some(error=>error.code==='storage-unavailable'));
-  p.run('startWorkout()');assert.equal(p.run("!document.getElementById('workoutPlayer').classList.contains('hidden')"),true);
+  p.run('startResolvedFixedWorkout(GarageFitData.fixedWorkouts.workout300)');assert.equal(p.run("!document.getElementById('workoutPlayer').classList.contains('hidden')"),true);
 });
 
 test('active reference switching preserves completed/paused history and pinned definitions', async () => {

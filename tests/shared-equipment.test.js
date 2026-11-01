@@ -57,14 +57,14 @@ test('visiting preserves onboarding, explicit empty choice and saved/legacy inve
 test('More and Generator persist the same IDs immediately, including bodyweight-only', () => {
   const storage=new Map(),app=loadAppContext(storage);
   app.openEquipment('more'); app.toggleEquipmentItem('trx');
-  assert.deepEqual(selected(app),['TRX']);
+  assert.deepEqual(selected(app),['Suspension straps']);
   assert.deepEqual(JSON.parse(storage.get('gf_equipment_inventory')),['trx']);
   app.closeEquipment(); app.openEquipment('generator');
-  assert.deepEqual(selected(app),['TRX']);
+  assert.deepEqual(selected(app),['Suspension straps']);
   app.toggleEquipmentItem('dumbbells');
-  assert.equal(app.document.getElementById('generatorEquipmentSummary').textContent,'Dumbbells · TRX');
+  assert.equal(app.document.getElementById('generatorEquipmentSummary').textContent,'Dumbbells · Suspension straps');
   const reloaded=loadAppContext(storage); reloaded.openEquipment('more');
-  assert.deepEqual(selected(reloaded),['Dumbbells','TRX']);
+  assert.deepEqual(selected(reloaded),['Dumbbells','Suspension straps']);
   reloaded.toggleEquipmentItem('trx'); reloaded.toggleEquipmentItem('dumbbells');
   assert.equal(storage.get('gf_equipment_inventory'),'[]');
   assert.equal(storage.get('gf_equipment_configured'),'true');
@@ -139,7 +139,7 @@ test('Coach available equipment uses the same independent rings inventory', asyn
   await run(app,"coachAction('Gymnastic rings').onclick()");
   assert.deepEqual(json(app,'state.ownedEquipment'),['dumbbells','rings']);
   assert.equal(run(app,"coachAction('Gymnastic rings').attributes['aria-pressed']"),'true');
-  for (const label of ['TRX','Pull-up bar']) assert.equal(run(app,`coachAction(${JSON.stringify(label)}).attributes['aria-pressed']`),'false');
+  for (const label of ['Suspension straps','Pull-up bar']) assert.equal(run(app,`coachAction(${JSON.stringify(label)}).attributes['aria-pressed']`),'false');
   await run(app,"coachAction('Gymnastic rings').onclick()");
   assert.deepEqual(json(app,'state.ownedEquipment'),['dumbbells']);
 });

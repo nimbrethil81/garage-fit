@@ -47,7 +47,7 @@ function loadApp() {
   };
   context.window=context;context.globalThis=context;
   vm.createContext(context);
-  for (const file of ['data/equipment.js','data/exercises.js','data/workouts.js','data/workout-families.js','js/workout-families.js','js/generator.js','js/routine-generator.js','js/timed-cues.js','js/speech-voices.js','js/completion-signal.js','js/coach-model.js','js/coach-store.js','js/session-tracker.js','js/workout-preview.js','js/masthead.js','js/back-navigation.js','js/progress-ui.js']) vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),context,{filename:file});
+  for (const file of ['data/equipment.js','data/exercises.js','data/workouts.js','data/workout-families.js','js/workout-families.js','js/generator.js','js/challenge300.js','js/routine-generator.js','js/timed-cues.js','js/speech-voices.js','js/completion-signal.js','js/coach-model.js','js/coach-store.js','js/session-tracker.js','js/workout-preview.js','js/masthead.js','js/back-navigation.js','js/progress-ui.js']) vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),context,{filename:file});
   const inline=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].at(-1)[1];
   vm.runInContext(inline,context,{filename:'index-inline.js'});
   return {context,elements,storage,html};
@@ -55,7 +55,8 @@ function loadApp() {
 
 test('Cindy is a canonical-catalogue 20-minute AMRAP with the established sequence',()=>{
   const {context,html}=loadApp(),cindy=context.GarageFitData.fixedWorkouts.cindy,catalogue=context.GarageFitData.exercises;
-  assert.match(html,/>Cindy</);
+  assert.doesNotMatch(html,/>Cindy</);
+  assert.equal(cindy.legacyOnly,true);
   assert.equal(cindy.subtitle,'20 min AMRAP');
   assert.deepEqual(JSON.parse(JSON.stringify(cindy.termination)),{type:'amrap',durationSeconds:1200});
   assert.deepEqual(JSON.parse(JSON.stringify(cindy.exercises.map(({id,reps})=>({id,reps})))),[
@@ -66,7 +67,7 @@ test('Cindy is a canonical-catalogue 20-minute AMRAP with the established sequen
 
 test('Cindy loops after Air squats, increments its round, and keeps one continuous clock',()=>{
   const {context,elements}=loadApp();
-  context.startFixedWorkout('cindy');
+  context.startResolvedFixedWorkout(context.GarageFitData.fixedWorkouts.cindy);
   const startedAt=vm.runInContext('workoutState.startedAt',context);
   assert.equal(elements.workoutElapsed.textContent,'20:00');
   assert.equal(elements.workoutExercise.textContent,'Pull-ups');
@@ -92,7 +93,7 @@ test('Cindy loops after Air squats, increments its round, and keeps one continuo
 
 test('pausing and resuming an AMRAP preserves rather than resets its overall countdown',()=>{
   const {context,elements}=loadApp();
-  context.startFixedWorkout('cindy');
+  context.startResolvedFixedWorkout(context.GarageFitData.fixedWorkouts.cindy);
   vm.runInContext('workoutState.elapsedMs=45000;workoutState.startedAt=Date.now()',context);
   context.pauseWorkoutClock();
   const pausedElapsed=vm.runInContext('workoutState.elapsedMs',context);
@@ -105,7 +106,7 @@ test('pausing and resuming an AMRAP preserves rather than resets its overall cou
 
 test('AMRAP expiry stops progression and accepts bounded partial reps for a structured score',()=>{
   const {context,elements,storage}=loadApp();
-  context.startFixedWorkout('cindy');
+  context.startResolvedFixedWorkout(context.GarageFitData.fixedWorkouts.cindy);
   context.completeWorkoutMovement();
   vm.runInContext('workoutState.completedRounds=6;workoutState.additionalReps=5;workoutState.elapsedMs=1200*1000;workoutState.startedAt=Date.now()',context);
   context.renderWorkoutElapsed();
@@ -129,7 +130,7 @@ test('AMRAP expiry stops progression and accepts bounded partial reps for a stru
 
 test('expiry exactly between exercises can finish without partial-rep entry',()=>{
   const {context,elements}=loadApp();
-  context.startFixedWorkout('cindy');
+  context.startResolvedFixedWorkout(context.GarageFitData.fixedWorkouts.cindy);
   vm.runInContext('workoutState.completedRounds=3;workoutState.additionalReps=15',context);
   context.expireAmrap(false);
   assert.equal(elements.partialRepsDialog.classList.contains('hidden'),true);
@@ -139,7 +140,7 @@ test('expiry exactly between exercises can finish without partial-rep entry',()=
 test('fixed-round and Generator models retain their existing termination behaviour',()=>{
   const {context}=loadApp(),fixed=context.GarageFitData.fixedWorkouts.workout300;
   assert.deepEqual(JSON.parse(JSON.stringify(fixed.termination)),{type:'fixed-rounds',rounds:1});
-  context.startWorkout();
+  context.startResolvedFixedWorkout(context.GarageFitData.fixedWorkouts.workout300);
   assert.equal(vm.runInContext('workoutState.workout.id',context),'workout300');
   context.showLanding('generator');context.generateWorkout();context.startGeneratedWorkout();
   assert.equal(vm.runInContext('workoutState.mode',context),'generated');

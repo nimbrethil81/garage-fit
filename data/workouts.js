@@ -53,7 +53,8 @@
   root.GarageFitData.fixedWorkouts = {
     workout300: {
       id: 'workout300',
-      name: '300 Workout',
+      name: '300-Rep Challenge',
+      legacyOnly: true, // Historical prescription only; new starts use the Challenge composer.
       termination: { type:'fixed-rounds', rounds:1 },
       exercises: [
         { id:'pull-up', name:'Pull-ups', reps:25 },
@@ -67,15 +68,15 @@
     },
     cindy: {
       id: 'cindy',
-      name: 'Cindy',
+      name: 'Legacy AMRAP',
+      legacyOnly: true, // Retained for historical records; never offer a new start.
       subtitle: '20 min AMRAP',
       termination: { type:'amrap', durationSeconds:20*60 },
       exercises: [
         { id:'pull-up', name:'Pull-ups', reps:5 },
         { id:'push-up', name:'Push-ups', reps:10 },
         { id:'air-squat', name:'Air squats', reps:15 }
-      ],
-      provenance: 'An established functional-fitness benchmark first published by CrossFit in 2004.'
+      ]
     },
     abBlast: {
       id: 'abBlast',
@@ -114,8 +115,9 @@
     },
     postRunReset: root.GarageFitPostRunStretch.generate({random:function(){return 0;}}),
     sevenMinute: [
-      'jumping-jacks','wall-sit','push-up','abdominal-crunch','chair-step-ups','air-squat',
-      'chair-triceps-dips','plank','high-knees','reverse-lunge','push-up-rotation','side-plank'
+      // GarageFit order: alternate on-feet, upper-body and trunk work.
+      'air-squat','push-up','high-knees','abdominal-crunch','reverse-lunge','chair-triceps-dips',
+      'jumping-jacks','side-plank','chair-step-ups','push-up-rotation','wall-sit','plank'
     ]
   };
 

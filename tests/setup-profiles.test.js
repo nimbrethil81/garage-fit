@@ -214,8 +214,14 @@ test('no-ring plans, estimates and random consumption match the pinned no-ring b
     const rng=random(seed);let actualDraws=0;
     const workout=G.generate({catalogue:snapshotCatalogue,equipment,duration,focus,random:()=>{actualDraws++;return rng();}});
     delete workout.id;
-    // The new default null field is an intentional catalogue shape change.
-    const actual=crypto.createHash('sha256').update(JSON.stringify(workout,(key,value)=>key==='setupProfile'?undefined:value)).digest('hex');
+    // Preserve the original setupProfile exclusion. IP1 (#364) deliberately
+    // renames canonical copy; every other descriptor/plan field remains pinned.
+    // Digests were proven equal against the original catalogue before repinning.
+    const actual=crypto.createHash('sha256').update(JSON.stringify(workout,(key,value)=>{
+      if(key==='setupProfile')return undefined;
+      return value&&typeof value==='object'&&typeof value.id==='string'&&C[value.id]
+        ?Object.fromEntries(Object.entries(value).filter(([key])=>key!=='name'&&key!=='instruction')):value;
+    })).digest('hex');
     assert.equal(actual,hash,equipment+' '+duration+' '+focus);
     assert.equal(actualDraws,draws,equipment+' '+duration+' '+focus+' RNG');
   }

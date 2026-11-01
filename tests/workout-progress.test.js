@@ -133,11 +133,11 @@ test('all protocols and Coach use the same read-only journey and concise context
 
 test('fixed reps advance on confirmation/Previous and fixed AMRAP follows time across rounds',()=>{
   const app=loadAppContext(),run=code=>vm.runInContext(code,app);
-  app.startFixedWorkout('workout300');const initial=copy(run('workoutJourney()'));
+  app.startResolvedFixedWorkout(app.GarageFitData.fixedWorkouts.workout300);const initial=copy(run('workoutJourney()'));
   assert.equal(initial.label,'Main workout');assert.equal(initial.segments.length,1);
   app.completeWorkoutMovement();assert.ok(run('workoutJourney().value')>initial.value);
   app.previousWorkoutMovement();assert.equal(run('workoutJourney().value'),initial.value);
-  app.startFixedWorkout('cindy');
+  app.startResolvedFixedWorkout(app.GarageFitData.fixedWorkouts.cindy);
   run('workoutState.elapsedMs=600000;workoutState.startedAt=workoutNow()');app.renderWorkoutElapsed();
   assert.ok(Math.abs(run('workoutJourney().value')-50)<.01);
   const half=run('workoutJourney().value');app.completeWorkoutMovement();

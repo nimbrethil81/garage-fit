@@ -212,7 +212,7 @@ test('Generator preview/player and both fixed players initialise without runtime
   context.startGeneratedWorkout();
   assert.equal(elements.workoutPlayerTitle.textContent,'Strength · 30 min');
 
-  context.startWorkout();
+  context.startResolvedFixedWorkout(context.GarageFitData.fixedWorkouts.workout300);
   assert.equal(vm.runInContext('workoutState.mode',context),'fixed');
   context.startSevenMinuteWorkout();
   assert.equal(vm.runInContext('state.key',context),'sevenMinute');

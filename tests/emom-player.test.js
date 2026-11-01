@@ -240,7 +240,7 @@ test('Coach supporting reps without Done stay skipped, including the generic tim
 
 test('leaving EMOM clears minute presentation before a fixed workout uses the shared player',async()=>{
   const h=harness();await h.start();await h.app.generatedPrimaryAction();
-  h.app.goHome();h.app.startFixedWorkout('workout300');
+  h.app.goHome();h.app.startResolvedFixedWorkout(h.app.GarageFitData.fixedWorkouts.workout300);
   assert.equal(h.el('workoutEmomStatus').classList.contains('hidden'),true);
   assert.equal(h.el('workoutSideNote').classList.contains('hidden'),false);
   assert.equal(h.el('previousWorkoutBtn').attributes['aria-label'],undefined);

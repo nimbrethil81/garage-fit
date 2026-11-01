@@ -1,5 +1,5 @@
 {
-  "baseline": "d454da9 (Balanced/Cardio entries re-pinned for #221 AMRAP selection; dumbbells+bench 20 Cardio re-pinned for #212; re-pinned for #255 shared catalogue additions; re-pinned for #255 shared catalogue additions)",
+  "baseline": "d454da9 (Balanced/Cardio entries re-pinned for #221 AMRAP selection; dumbbells+bench 20 Cardio re-pinned for #212; re-pinned for #255 shared catalogue additions; re-pinned for #255 shared catalogue additions); #364 hashes exclude canonical exercise name/instruction only (in addition to setupProfile), with original-catalogue seeded output and RNG counts verified unchanged",
   "fixtures": [
     {
       "equipment": [],
@@ -7,7 +7,7 @@
       "focus": "balanced",
       "seed": 1121,
       "draws": 71,
-      "hash": "9c571498c1e14f3bb41312fa520e35223bafcd76016e13c5a4dc323a8eef8daf"
+      "hash": "976de06ac23068a8d1b722e5ad8abd80fedbe00eaa681dc95497189a7691ec04"
     },
     {
       "equipment": [],
@@ -15,7 +15,7 @@
       "focus": "strength",
       "seed": 1121,
       "draws": 63,
-      "hash": "3aee59b8208ae20ca185b0222c156a932e226fd40f5c0ccda863d6a374d7b56b"
+      "hash": "196d9b641a201a49ce1855e5c38832f0fe2fa8f4e6314aa1ee30b2372e43fda2"
     },
     {
       "equipment": [],
@@ -23,7 +23,7 @@
       "focus": "cardio",
       "seed": 1119,
       "draws": 64,
-      "hash": "2558a51a0725b9c63945304a449755388bf98ecfa1877146cf1c90a8b4a88753"
+      "hash": "cf253399f94ea422f35c81683373c4fe3c0479c89b4a16f9eecdff6effe8457b"
     },
     {
       "equipment": [],
@@ -31,7 +31,7 @@
       "focus": "balanced",
       "seed": 1621,
       "draws": 90,
-      "hash": "51e8b4a8dac58c7ed2a45a8ccd01c1530028e96116a555b5b18630994230c8e2"
+      "hash": "36ba87a1cbade9794a8229f5cb278daae4d25d6896480c1e4fadac506f48f96e"
     },
     {
       "equipment": [],
@@ -39,7 +39,7 @@
       "focus": "strength",
       "seed": 1621,
       "draws": 85,
-      "hash": "143fd203a8f9c0894a55f0cf0290836a9a7c92f425da63a46d840411ff3c4311"
+      "hash": "29c136a40e210f36ab6d4c3bb86c7364ab215dc5d9dc30b92048f52a5d412f0a"
     },
     {
       "equipment": [],
@@ -47,7 +47,7 @@
       "focus": "cardio",
       "seed": 1619,
       "draws": 86,
-      "hash": "ded49a7afe645bae51d7a1b93e8516604ece1cc99a15fdc07f37ef38479145ff"
+      "hash": "fd560db287c375ebbc4811221e2d148bfa52a61ec7dbc6955f945e634e44b09b"
     },
     {
       "equipment": [],
@@ -55,7 +55,7 @@
       "focus": "balanced",
       "seed": 2121,
       "draws": 110,
-      "hash": "ae0f227b07272a225f39379fe8944e42a536c9361fe8de570b50e3bd09fee802"
+      "hash": "d77c9a9d0702147c16c714e4dd6e851b8f0249f0afb87a8470fb64204ce354b2"
     },
     {
       "equipment": [],
@@ -63,7 +63,7 @@
       "focus": "strength",
       "seed": 2121,
       "draws": 102,
-      "hash": "ac28c619684fa1a68cc0b81f53ff5a67c8f8fd0f81d2d97271f8e1461176dee3"
+      "hash": "0a92ded71bd31b3c55db1d1947392d1c6cf11deb6902d2489837216b4164c8dc"
     },
     {
       "equipment": [],
@@ -71,7 +71,7 @@
       "focus": "cardio",
       "seed": 2119,
       "draws": 100,
-      "hash": "df769ac2a00de1f3ba1a2b0a4b240a98bf6eae8b980785cab831020de978e372"
+      "hash": "fc32d8262d4259b9dfafdbffa965c981e4da358c5ed350d2f51321734b5b0883"
     },
     {
       "equipment": [],
@@ -79,7 +79,7 @@
       "focus": "balanced",
       "seed": 3121,
       "draws": 133,
-      "hash": "5f865e64200f104783b1d11781d3c0ae35b63ab10cf505924110d1534ec43b2c"
+      "hash": "c097c17c90e5b24f2c6c1c0aa79deb2e20c0f2f925fc8af28db37581bf1faf6c"
     },
     {
       "equipment": [],
@@ -87,7 +87,7 @@
       "focus": "strength",
       "seed": 3121,
       "draws": 138,
-      "hash": "01a928e143473315eb941d482e7b3fb64fd58f7cee1665f08df0ed8587fc0074"
+      "hash": "bf84158b0c0fee3acab996a38eafb83b5f001d9dc5b153bf06a0898d856f764c"
     },
     {
       "equipment": [],
@@ -95,7 +95,7 @@
       "focus": "cardio",
       "seed": 3119,
       "draws": 158,
-      "hash": "4beaa506e78125b51846ad1b18caa933b216825b07e14cf20c66297e39cb6382"
+      "hash": "50f054f3553c0dfdc683b2bca97be724f5734cf83906efb0945c2e9b0fbeffc0"
     },
     {
       "equipment": [],
@@ -103,7 +103,7 @@
       "focus": "balanced",
       "seed": 4621,
       "draws": 161,
-      "hash": "609e0b53221837504a9e6e586a10e68c434d457ccf22e7131361526084681496"
+      "hash": "d79610eaebb028054ec3c14c28bbec53a0df5ddde0873e4a2a166df36f654c5f"
     },
     {
       "equipment": [],
@@ -111,7 +111,7 @@
       "focus": "strength",
       "seed": 4621,
       "draws": 163,
-      "hash": "f094e247f6d2e71431fbbbf1d6544e0a07c0027de3f84f9150fb59bb6a22015a"
+      "hash": "4df20fe9b64d93e151c0b01de16a1a4189569fc44c77f0e29e3c0109e913aa7a"
     },
     {
       "equipment": [],
@@ -119,7 +119,7 @@
       "focus": "cardio",
       "seed": 4619,
       "draws": 185,
-      "hash": "fbbdcc4f8ac56c08475dfc2e686bde90cbb8b145f60126ecabc02fae5a80bd11"
+      "hash": "fda2133685518f7a47e57076bcd989bcb114d7f45a646381352a99ac57d989a6"
     },
     {
       "equipment": [
@@ -130,7 +130,7 @@
       "focus": "balanced",
       "seed": 1121,
       "draws": 71,
-      "hash": "598f7508db39cdfb2a52f856317c912389e2bbb2936bd8b82358c27108740427"
+      "hash": "42e01241f2b2cc09b825c54c11c46d47d560bf187dedeb44cba037c3d17e00af"
     },
     {
       "equipment": [
@@ -141,7 +141,7 @@
       "focus": "strength",
       "seed": 1121,
       "draws": 63,
-      "hash": "c0aba377b5e9924666fff2ec991b812c75cbf1cbff6da06b419a24c13ea387d0"
+      "hash": "0c5651873fba9cf8ce32ac874c75cf0939c7d3a96af2f9e3c10044e9551592a7"
     },
     {
       "equipment": [
@@ -152,7 +152,7 @@
       "focus": "cardio",
       "seed": 1119,
       "draws": 64,
-      "hash": "0942342633411e1783464451acd8bb643746360ca2a219d3cd0248d1e7186a0d"
+      "hash": "91904d61a1ec43ef49ef99e5fc1a59736a2fe64e9eed72b6494ec9237287c284"
     },
     {
       "equipment": [
@@ -163,7 +163,7 @@
       "focus": "balanced",
       "seed": 1621,
       "draws": 90,
-      "hash": "94eecf8ee855b3447e28853145c9769df510f3c0c65034a8f139e6896b100c56"
+      "hash": "97c01e46dd8a6e2751d4c813dade91bbea492ac6cb16762548a6b6b7c0a73644"
     },
     {
       "equipment": [
@@ -174,7 +174,7 @@
       "focus": "strength",
       "seed": 1621,
       "draws": 85,
-      "hash": "c94ad2c2c6ef93eafceeab2b63296e99758d28adb1ef4ab55a2c58df641477c9"
+      "hash": "695572a333a4ba9de577f139a489a583ff7671cf16c5d92ee2cf682c058b62fa"
     },
     {
       "equipment": [
@@ -185,7 +185,7 @@
       "focus": "cardio",
       "seed": 1619,
       "draws": 86,
-      "hash": "e3bece4d3c2e7b377815dd47792f47f558ef3b0655d60e119de5e4452d620f7e"
+      "hash": "2930e56ceb645075d50a8b306d497802cb9ce72fa7f24ad43f36e37fbf8674de"
     },
     {
       "equipment": [
@@ -196,7 +196,7 @@
       "focus": "balanced",
       "seed": 2121,
       "draws": 110,
-      "hash": "163e209d0d992e8d73d57ccd45c99e233d9ba296947da8637b244455fa7fb7e7"
+      "hash": "034a83498abe46a3dbeed4ad716399b9b05a471313bd36d1fad268a80829588c"
     },
     {
       "equipment": [
@@ -207,7 +207,7 @@
       "focus": "strength",
       "seed": 2121,
       "draws": 102,
-      "hash": "33b7a8b95e5584b68a9d1f2e2d92842e407cd1d07dfaa97aa6994b028f3aeb0b"
+      "hash": "4bfeaecd3355ccd01acbdbfac3835e96faa6f32d76c04b324d42f8e86118d1c8"
     },
     {
       "equipment": [
@@ -218,7 +218,7 @@
       "focus": "cardio",
       "seed": 2119,
       "draws": 194,
-      "hash": "f6b9f6ed1b979ed5308808d2d3bfda5dfe06e595195697282644a40d4dbffd52"
+      "hash": "4429ad3bbd57bc37e999bd11f7f1d7c3e3944fe0c52b9a87ed7b50cbfe69ea3e"
     },
     {
       "equipment": [
@@ -229,7 +229,7 @@
       "focus": "balanced",
       "seed": 3121,
       "draws": 133,
-      "hash": "08b4c8873a2da9bd894e22bd53a30c71aa4f050b771b164357a8f5b7c81d0d04"
+      "hash": "4cef32f98763311dd6deb2d185ffaaa68aff96be81d50b1334857cfb60e929f0"
     },
     {
       "equipment": [
@@ -240,7 +240,7 @@
       "focus": "strength",
       "seed": 3121,
       "draws": 138,
-      "hash": "f44b816f3cf486d283828062ddd6e4fec57f849d02b1ea3c4669b64252d18757"
+      "hash": "73b215d97fb4e9f5cd9940485858db297643c52a05703ab47cea79805b7f4dc4"
     },
     {
       "equipment": [
@@ -251,7 +251,7 @@
       "focus": "cardio",
       "seed": 3119,
       "draws": 158,
-      "hash": "723c0e891f112250d08e69f4060e102ce7d8302137fdaa5812b367645ca204f1"
+      "hash": "059dbbd2af4882d20a8774e8df3235690293dbf9a4366e3a190efea7fff5a8f9"
     },
     {
       "equipment": [
@@ -262,7 +262,7 @@
       "focus": "balanced",
       "seed": 4621,
       "draws": 161,
-      "hash": "fc10d960df867cf268f9340428d56f36bc39518287ada057d2d20ad16db580f5"
+      "hash": "e4202a934c64fa962ee2aac132dfaf076a4399901fec0e74dcb55b3fb857c8b4"
     },
     {
       "equipment": [
@@ -273,7 +273,7 @@
       "focus": "strength",
       "seed": 4621,
       "draws": 163,
-      "hash": "b4e70f48415963834c6eb271ece4e46af32c03936970b57a27fdea2472fdfd1a"
+      "hash": "6c89c27cfca91141edcd173a701d20f9c5359233b0b34b23331de24a74479a59"
     },
     {
       "equipment": [
@@ -284,7 +284,7 @@
       "focus": "cardio",
       "seed": 4619,
       "draws": 185,
-      "hash": "f68e1c684a177813a7053b0fe4073ff153931c4206f4b8c00c0911cf3e975d0e"
+      "hash": "b3e05c92859b08a32226ee8e3b6b87bd51cefa8dd961a9c157a82e08ecce6c32"
     },
     {
       "equipment": [
@@ -296,7 +296,7 @@
       "focus": "balanced",
       "seed": 1121,
       "draws": 71,
-      "hash": "838f2e11941d4ccc7da80d419df18c6c95f17bf1d766243ec2f1d518b568684b"
+      "hash": "61fa1e9c30276fd6b64d50065a7447aad95b79c6177a99469f4978d4d3c1145a"
     },
     {
       "equipment": [
@@ -308,7 +308,7 @@
       "focus": "strength",
       "seed": 1121,
       "draws": 69,
-      "hash": "272fe5de0489a24c8deeec92e83c5580ec9ee188dedfbaa157c65adc5bcf96a6"
+      "hash": "7cc90036c72881b255debcf45117022e50767b9fbdd32ccd6ec9ff4b30e0caf3"
     },
     {
       "equipment": [
@@ -320,7 +320,7 @@
       "focus": "cardio",
       "seed": 1119,
       "draws": 64,
-      "hash": "a62a38349e16f0e51d1cfc2218c4fa3ec732b8d5732a2b809d720e7f2f7b95d4"
+      "hash": "59ee6b25bba41e7db7751c2ec37f79855122c6dd433c7df7488f11c5eefa3487"
     },
     {
       "equipment": [
@@ -332,7 +332,7 @@
       "focus": "balanced",
       "seed": 1621,
       "draws": 90,
-      "hash": "7b8ce2b5bddd5593a337ac3287e800c615b3db39f07b0e686f50b381fed74d19"
+      "hash": "00cdd87dabf3bbec6cfdab75a910ca10d36ff75387775a160476f1536a4db10c"
     },
     {
       "equipment": [
@@ -344,7 +344,7 @@
       "focus": "strength",
       "seed": 1621,
       "draws": 85,
-      "hash": "9f6de45637256c0fa65827e630c3a1782def25bcf88db28d54882df9f7b563b8"
+      "hash": "5a2031e7ff17fb1d6945109e78ef9b49c0410571d1a65815e752dfaaecb8fa58"
     },
     {
       "equipment": [
@@ -356,7 +356,7 @@
       "focus": "cardio",
       "seed": 1619,
       "draws": 85,
-      "hash": "0b159b6e916d35d5580459e48a09b60f52e8f9a9f90b3f4daa265bdcdf2d1f4f"
+      "hash": "2bb0c733c862afae824db22b15699d4c3ed52f927cc0b086cd2c58be4a1bff5b"
     },
     {
       "equipment": [
@@ -368,7 +368,7 @@
       "focus": "balanced",
       "seed": 2121,
       "draws": 108,
-      "hash": "69af35f57428130c378e2681e75e502beb95a17df0509c83daec4e890f690adc"
+      "hash": "feba113f0f15e630c8b3b05c8cedc9afa5808e99dbea2e891feb9ebe3e52af86"
     },
     {
       "equipment": [
@@ -380,7 +380,7 @@
       "focus": "strength",
       "seed": 2121,
       "draws": 101,
-      "hash": "49cc3269c5441470024160e981ceb2ad0bab242cb5ee8473df34860ea08d4052"
+      "hash": "512ece3fc19e0f81868d9008aff6b680d6588520ad23aea991416bb7e8bd686d"
     },
     {
       "equipment": [
@@ -392,7 +392,7 @@
       "focus": "cardio",
       "seed": 2119,
       "draws": 100,
-      "hash": "04faa1a6b0e364d82a64e5366325124a271070f341c36acbff9882b969a65ea2"
+      "hash": "e7a6fe22ea2c48afa634ceea5b8e01d74b745604096721a0d1d6d84bc0404f54"
     },
     {
       "equipment": [
@@ -404,7 +404,7 @@
       "focus": "balanced",
       "seed": 3121,
       "draws": 135,
-      "hash": "0ff7d73c78ee634969407f51baad886b9685b964a02f79d38b40f161abf34117"
+      "hash": "6d243540c8bad15b922380aa72c57fa10c7a984e77cbc23b50be260a8e5b06e0"
     },
     {
       "equipment": [
@@ -416,7 +416,7 @@
       "focus": "strength",
       "seed": 3121,
       "draws": 141,
-      "hash": "48cbc00c24c938f566acc884a52b27ae0af695f438c9e1b36b28b2b9650383e4"
+      "hash": "fb06ef755fd8ee8908f9e55a5753a542a59ac5bc15b12d43a89303ba26ff267e"
     },
     {
       "equipment": [
@@ -428,7 +428,7 @@
       "focus": "cardio",
       "seed": 3119,
       "draws": 159,
-      "hash": "f7bdd8ca84338cf99dba175d82c3bf343a5245633b7faa1609c5a8eab5b48d82"
+      "hash": "bd939a001424f340ef7af48877b40f5b9562eef7d9630e9099b5dd8886f34a8c"
     },
     {
       "equipment": [
@@ -440,7 +440,7 @@
       "focus": "balanced",
       "seed": 4621,
       "draws": 153,
-      "hash": "7575eb1994abdba9cbbba040da495ba0309d2cd33fa10ab73b192398a97221e2"
+      "hash": "30f35f001d13844399a6ea01af8fa08df241d9d99ef32b1d61191becd4999962"
     },
     {
       "equipment": [
@@ -452,7 +452,7 @@
       "focus": "strength",
       "seed": 4621,
       "draws": 177,
-      "hash": "de6a104f6b2446e0122d126fe9f53e7c740d135353499a5248514e6eecef318e"
+      "hash": "682df323d4a378e10d62ef77ab27eb37ce78661e4a8b81d2f21163887cd76473"
     },
     {
       "equipment": [
@@ -464,7 +464,7 @@
       "focus": "cardio",
       "seed": 4619,
       "draws": 184,
-      "hash": "097377d1d2b6625cc690d33bf8baddd1c9eb8598fe930bcb334f966d6683f10a"
+      "hash": "60740b4be8147da66a6ce7e4bc26515078cb5a56ed8bd23c0706958b55e3a2e2"
     }
   ]
 }
