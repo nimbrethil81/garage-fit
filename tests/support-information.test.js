@@ -30,3 +30,22 @@ test('About reuses the canonical PickSetGo branding',()=>{
   app.openAbout();
   assert.equal(app.document.getElementById('aboutBrand').innerHTML,app.GarageFitMasthead.MARK+app.GarageFitMasthead.NAME);
 });
+
+test('privacy link follows About and reuses Settings link semantics',()=>{
+  const settings=screen('settings');
+  assert.match(settings,/openAbout\(\)[\s\S]*?<a class="settings-row settings-link" href="privacy\/">/);
+  assert.ok(settings.includes('<a class="settings-row settings-link" href="privacy/"><span>Privacy policy</span><span class="settings-chevron" aria-hidden="true">›</span></a>'));
+});
+
+test('approved privacy policy matches the frozen issue 383 text without a parallel copy',()=>{
+  const policy=fs.readFileSync('privacy/index.html','utf8');
+  const text=decode(policy.match(/<main>([\s\S]*?)<\/main>/)[1].replace(/<[^>]*>/g,' ')).replace(/\s+/g,' ').trim().replace('Last updated: 2 November 2026','Last updated: [set actual publication date when authorised]');
+  // Frozen issue #383 V1.0: normalise the approved publication date back to its editorial instruction.
+  assert.equal(require('node:crypto').createHash('sha256').update(text).digest('hex'),'216b05fddd107ea7ef92c4f0f6e17213e1b4dcae92909af1e360439d2d46c0ce');
+  assert.match(policy,/width=device-width, initial-scale=1/);
+  assert.doesNotMatch(policy,/maximum-scale|user-scalable|position:\s*fixed|overflow:\s*hidden/);
+  assert.deepEqual([...policy.matchAll(/<script[^>]*src="([^"]+)"/g)].map(m=>m[1]),['../js/appearance.js']);
+  assert.match(policy,/<a href="\.\.\/">Return to PickSetGo<\/a>/);
+  assert.match(policy,/<strong>Last updated: 2 November 2026<\/strong>/);
+  assert.doesNotMatch(policy,/UNPUBLISHED|\[set actual publication date|noindex/);
+});
