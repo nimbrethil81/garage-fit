@@ -88,7 +88,7 @@ test('Athletic v1 and v5 are one family for balance and variety; released defini
     assert.deepEqual(out.two, out.one, 'GF v'+version+': a v5 Athletic session earns exactly what a v1 session earns');
     assert.deepEqual(out.one.basis, ['family-identity']);
     assert.ok(out.one.families.find(item => item.workoutFamilyId === 'athletic-movement').varietyPenalty > 0, 'recency counts the family, not its version');
-    assert.deepEqual(Object.fromEntries(out.candidates), {'strength-control':2,'cardio-conditioning':1,'full-body-challenges':1,'athletic-movement':5,'core-stability':1,'mobility-movement-quality':3});
+    assert.deepEqual(Object.fromEntries(out.candidates), {'strength-control':3,'cardio-conditioning':1,'full-body-challenges':1,'athletic-movement':5,'core-stability':1,'mobility-movement-quality':3});
     assert.deepEqual(out.pinned, [1,1,1,1,1,1], 'the released definition is not edited');
     assert.equal(out.unchanged, true);
     const w=p.json(`(()=>{const plan=gfPlan(gfStart(${JSON.stringify(at(0))}),[],${JSON.stringify(at(30))});
@@ -389,5 +389,19 @@ test('General Fitness released plans deliver current Mobility v3 from ordinary h
     assert.equal(out.ranked[0],'mobility-movement-quality');assert.deepEqual(out.ranked.slice().sort(),FAMILIES.slice().sort());
     assert.equal(out.family,'mobility-movement-quality');assert.equal(out.version,3);assert.equal(out.seconds,1800);
     assert.equal(out.validation.valid,true);assert.equal(out.unchanged,true);assert.deepEqual(out.anchors,[]);
+  }
+});
+
+test('both General Fitness definitions deliver mixed Strength & Control v3 on a fresh 30-minute session',async()=>{
+  for(const version of [1,2]) {
+    const p=context(undefined,version);
+    await p.start();
+    const out=p.json(`(()=>{const plan=pilot.plan({equipment:['dumbbells'],duration:30});gfSeed=31;
+      const w=GarageFitGenerator.generate({catalogue:CATALOGUE,sessionPrescription:plan.prescription,random:seeded,equipment:['dumbbells']});
+      return {family:w.workoutFamilyId,version:w.workoutFamilyVersion,style:w.familyStyleId,blocks:w.main.blocks.map(b=>[b.protocol,b.exercises.length]),
+        check:GarageFitGenerator.validateFamilyWorkout(w,{catalogue:CATALOGUE,equipment:['dumbbells']})};})()`);
+    assert.deepEqual([out.family,out.version,out.style],['strength-control',3,'mixed-strength']);
+    assert.ok(new Set(out.blocks.map(([protocol,size])=>protocol+':'+(size===1?'single':'multiple'))).size>=2);
+    assert.deepEqual(out.check,{valid:true,technicalIssues:[],qualityIssues:[]});
   }
 });

@@ -351,7 +351,7 @@ test('C1 accessories reach all four Coach routes without replacing their anchors
     ['general-strength-4w',2,'dumbbell-suitcase-carry',['goblet-squat','dumbbell-floor-press','dumbbell-bent-over-row'],3],
     ['build-arms',1,'bridge-march',['dumbbell-biceps-curl','dumbbell-overhead-triceps-extension'],4],
     ['tennis-conditioning',8,'plank-arm-reaches',['dumbbell-reverse-lunge','dumbbell-romanian-deadlift','dumbbell-floor-press','dumbbell-bent-over-row'],2],
-    ['general-fitness',2,'bridge-march',[],2]
+    ['general-fitness',2,'bridge-march',[],1]
   ]){
     const p=pilot(new Map(),id,version);
     p.run("pilotOptions.equipment=['dumbbells','bands','bench'];pilotOptions.duration=45;pilotOptions.bodyFocus='core';");

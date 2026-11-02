@@ -28,7 +28,7 @@ test('every accepted family workout passes the shared technical gate and its fam
     assert.equal(w.workoutFamilyId,workoutFamilyId);
     // The preferred style passed: no fallback diagnostics and the label is the composer's own style.
     assert.equal(w.familyDiagnostics,undefined);
-    assert.ok(F.getDefinition(workoutFamilyId).styles.some(style=>style.id===w.familyStyleId));
+    assert.ok(F.getDefinition(workoutFamilyId,w.workoutFamilyVersion).styles.some(style=>style.id===w.familyStyleId));
   }
 });
 
@@ -141,7 +141,7 @@ test('Preview swaps revalidate the whole workout and keep each family label hone
   // Strength & Control v2 (#261): a session whose supporting route closes a later block swaps and edits through the same gate.
   let routed=null;
   for(let seed=1;seed<=60&&!routed;seed++) {
-    const candidate=generate('strength-control',{duration:45,equipment:EQUIPMENT.limited,random:rng(seed)});
+    const candidate=generate('strength-control',{duration:45,equipment:EQUIPMENT.limited,workoutFamilyVersion:2,random:rng(seed)});
     if(candidate.main.blocks.slice(1).some(b=>b.exercises.at(-1).mainRole==='supporting'))routed=candidate;
   }
   assert.ok(routed&&routed.workoutFamilyVersion===2&&validate(routed,EQUIPMENT.limited).valid,'a v2 supporting-route session passes the gate');
@@ -261,7 +261,7 @@ function fixture({reject=[],failStyle,ignoreExclusions=false}={}) {
       Object.assign(error,{reason:'phase-cannot-fit',familyStyleId:style});throw error;}
     return {familyStyleId:style,blocks:blocks()};
   },workout=>reject.includes(workout.familyStyleId)?['fixture-identity-lost']:[]);
-  const run=extra=>app.GarageFitGenerator.generate({workoutFamilyId:'strength-control',duration:10,catalogue:app.GarageFitData.exercises,equipment:[],random:rng(1),...extra});
+  const run=extra=>app.GarageFitGenerator.generate({workoutFamilyId:'strength-control',workoutFamilyVersion:1,duration:10,catalogue:app.GarageFitData.exercises,equipment:[],random:rng(1),...extra});
   return {app,calls,run};
 }
 
@@ -339,4 +339,60 @@ test('v5 shared gate rejects rotation-only Control, combined short-session groun
   replace(edge,e,['stationary-bear-crawl','alternating-lateral-lunge','reverse-lunge-knee-drive']);
   const edgeCheck=validate(edge);assert.deepEqual(edgeCheck.technicalIssues,[]);
   assert.ok(edgeCheck.qualityIssues.includes('quality:integrated-standing-bookends:'+e.id));
+});
+
+test('v3 strength edits cannot hide straight-set dominance behind mixed-strength, and swaps preserve the aggregate gate',()=>{
+  const equipment=EQUIPMENT.broad,w=generate('strength-control',{duration:30,equipment,random:rng(31)});
+  assert.equal(w.workoutFamilyVersion,3);assert.equal(w.familyStyleId,'mixed-strength');
+  for(let index=0;index<w.main.blocks.length;index++) {
+    G.swap(w,index,0,{catalogue:C,equipment,random:rng(index+9)});
+    assert.ok(validate(w,equipment).valid,'swap '+index);
+  }
+  const upperOnly=copy(w),used=new Set();
+  const upper=Object.values(C).filter(ex=>G.generatedPhaseEligible(ex,'main',equipment,'normal')&&ex.strength>=2&&ex.strength>=ex.cardio&&!ex.conditioning&&ex.impact!=='high'
+    &&!(ex.patterns||[]).some(p=>['squat','hinge','lunge'].includes(p)));
+  for(const b of upperOnly.main.blocks)for(let i=0;i<b.exercises.length;i++) {
+    const ex=upper.find(ex=>!used.has(ex.id)&&G.protocolCompatible(ex,b.protocol)&&G.sideCount(ex)===G.sideCount(b.exercises[i]));
+    assert.ok(ex);used.add(ex.id);b.exercises[i]=copy(ex);
+  }
+  G.normaliseWorkout(upperOnly);
+  assert.ok(validate(upperOnly,equipment).qualityIssues.includes('quality:missing-movement:squat-hinge-lunge'),'a full-body edit cannot erase lower-body coverage');
+  const edited=copy(w);
+  edited.main.blocks=edited.main.blocks.map((b,index)=>({id:'main-'+(index+1),protocol:'rounds',intent:'strength',exercises:[copy(b.exercises[0])],
+    prescription:{rounds:3,exerciseRestSeconds:0,roundRestSeconds:75}}));
+  G.normaliseWorkout(edited);
+  const result=validate(edited,equipment);
+  assert.equal(result.valid,false);
+  assert.ok(result.qualityIssues.includes('quality:straight-set-dominance'));
+  assert.ok(result.qualityIssues.includes('quality:style-structure-mismatch'));
+  // Equal block counts still fail when a long straight block dominates actual Main time.
+  const timeHeavy=copy(w);
+  timeHeavy.main.blocks=[
+    {id:'main-1',protocol:'rounds',intent:'strength',exercises:[copy(C['air-squat'])],prescription:{rounds:4,exerciseRestSeconds:0,roundRestSeconds:75}},
+    {id:'main-2',protocol:'paired_sets',intent:'accessory',exercises:[copy(C['push-up']),copy(C['leg-raises'])],
+      prescription:{sets:2,betweenExercisesSeconds:10,betweenSetsSeconds:60}}
+  ];
+  G.normaliseWorkout(timeHeavy);
+  assert.ok(G.estimateBlockDuration(timeHeavy.main.blocks[0],equipment)>G.estimateBlockDuration(timeHeavy.main.blocks[1],equipment));
+  assert.ok(validate(timeHeavy,equipment).qualityIssues.includes('quality:straight-set-dominance'));
+  // A truthful all-paired fallback is coherent; merely relabelling it mixed is not.
+  const paired=copy(w);
+  const pair=paired.main.blocks.find(b=>b.protocol==='paired_sets');
+  assert.ok(pair,'the representative session contains a pair');
+  paired.main.blocks=[copy(pair)];paired.familyStyleId='mixed-strength';G.normaliseWorkout(paired);
+  assert.ok(validate(paired,equipment).qualityIssues.includes('quality:style-structure-mismatch'));
+});
+
+test('v3 rejects an edited heavy squat and hinge pair that removes recovery between demanding lower-body lifts',()=>{
+  const equipment=EQUIPMENT.limited,w=generate('strength-control',{duration:20,equipment,random:rng(31)});
+  const pair=w.main.blocks.find(b=>b.protocol==='paired_sets');
+  assert.ok(pair);
+  pair.exercises=['goblet-squat','dumbbell-romanian-deadlift'].map(id=>copy(C[id]));
+  pair.prescription={sets:2,betweenExercisesSeconds:10,betweenSetsSeconds:90};
+  G.normaliseWorkout(w);
+  const result=validate(w,equipment);
+  assert.equal(result.valid,false);
+  assert.ok(result.qualityIssues.includes('quality:fatiguing-pair'));
+  assert.ok(!result.qualityIssues.includes('quality:unsuitable-exercise:goblet-squat'));
+  assert.ok(!result.qualityIssues.includes('quality:unsuitable-exercise:dumbbell-romanian-deadlift'));
 });

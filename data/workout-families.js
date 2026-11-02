@@ -64,6 +64,9 @@
   // Strength & Control v2 (#261) keeps v1's styles, structure and feasibility and lets paired sets and controlled
   // circuits of 30+ minutes draw the Generator's bounded supporting route. v1 stays composable and validatable.
   versions['strength-control'][2] = revision(versions['strength-control'][1], 2, 2);
+  // v3 (#373) composes formats within Main; old versions retain their published styles.
+  versions['strength-control'][3] = revision(versions['strength-control'][1], 3, 3);
+  versions['strength-control'][3].styles = [style('mixed-strength', 'Mixed strength'), style('paired-sets', 'Paired sets'), style('controlled-circuits', 'Controlled circuits')];
   // Mobility v2 (#263, #264) pairs reviewed membership v2 with composition v2 (regional emphasis, duration-sensitive
   // coverage, selective repetition). Both versions stay published, composable and validatable.
   versions['mobility-movement-quality'][2] = revision(versions['mobility-movement-quality'][1], 2, 2, 2);
@@ -73,7 +76,7 @@
   // stored records keep the version they name; `getDefinition`'s default remains version 1.
   const current = Object.fromEntries(definitions.map(item => [item.id, 1]));
   current['athletic-movement'] = 5;
-  current['strength-control'] = 2;
+  current['strength-control'] = 3;
   current['mobility-movement-quality'] = 3;
   function freeze(value) {
     Object.values(value).forEach(item => { if (item && typeof item === 'object') freeze(item); });

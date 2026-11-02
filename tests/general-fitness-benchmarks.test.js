@@ -102,8 +102,8 @@ test('a benchmark is offered rarely, only where it fits, and declining or missin
   assert.deepEqual([offer.offered.status, offer.offered.reason, offer.offered.occasions], ['offered', 'offered', 0]);
   assert.deepEqual(offer.rx.items.map(item => item.exerciseId), IDS);
   assert.deepEqual([offer.rx.workoutFamilyId, offer.rx.exerciseRestSeconds], ['strength-control', 30]);
-  // The released policy names Strength & Control v1; the plan composes the current v2 and the benchmark follows that one identity (#261).
-  assert.deepEqual([offer.pinned, offer.firstVersion, offer.rx.workoutFamilyVersion], [1, 2, 2]);
+  // The released policy names Strength & Control v1; the plan composes the current v3 and the benchmark follows that one identity (#261).
+  assert.deepEqual([offer.pinned, offer.firstVersion, offer.rx.workoutFamilyVersion], [1, 3, 3]);
   assert.deepEqual(offer.context, {status: 'offered', optional: true, benchmarkIds: IDS});
   assert.equal(offer.easy, 'easy-today'); assert.equal(offer.short, 'short-session'); assert.equal(offer.fiveteen, 'offered');
 
@@ -653,4 +653,24 @@ test('legacy anchor programmes and standalone workouts are untouched by benchmar
   const standalone = pilot(new Map(), 'general-fitness', 2);
   const workout = standalone.json("GarageFitGenerator.generate({catalogue:CATALOGUE,duration:20,workoutFamilyId:'strength-control',equipment:[],random:()=>0.4})");
   assert.ok(workout.main.blocks.every(block => !block.benchmark), 'a standalone family request never carries a benchmark');
+});
+
+test('v3 mixed strength excludes the optional measurement block from its structural accounting',()=>{
+  const p=context();
+  const out=p.json(`(()=>{
+    const version=GarageFitWorkoutFamilies.currentVersion('strength-control');
+    const spec={...policy.benchmarkSpec(GF),workoutFamilyVersion:version};
+    gfSeed=31;
+    const workout=GarageFitGenerator.generate({catalogue:CATALOGUE,random:seeded,
+      sessionPrescription:GarageFitCoachModel.createSessionPrescription({prescriptionId:'v3-benchmark',programmeInstanceId:'gf',sessionRole:'general-fitness',
+        duration:30,difficulty:'normal',equipment:[],workoutFamilyPlan:{candidates:[{workoutFamilyId:'strength-control',workoutFamilyVersion:version,rationale:'Strength first'}],benchmark:spec}})});
+    const blocks=workout.main.blocks.filter(b=>!b.benchmark),straight=blocks.filter(b=>b.protocol==='rounds'&&b.exercises.length===1);
+    return {version:workout.workoutFamilyVersion,style:workout.familyStyleId,first:workout.main.blocks[0].benchmark,
+      seconds:workout.estimatedSeconds,count:blocks.length,straight:straight.length,
+      straightSeconds:straight.reduce((s,b)=>s+GarageFitGenerator.estimateBlockDuration(b),0),
+      mainSeconds:GarageFitGenerator.mainSeconds(blocks),check:GarageFitGenerator.validateFamilyWorkout(workout,{catalogue:CATALOGUE,equipment:[]})};
+  })()`);
+  assert.equal(out.version,3);assert.ok(out.first);assert.equal(out.style,'mixed-strength');
+  assert.ok(out.seconds<=1800);assert.ok(out.straight*2<=out.count);assert.ok(out.straightSeconds*2<=out.mainSeconds);
+  assert.deepEqual(out.check,{valid:true,technicalIssues:[],qualityIssues:[]});
 });
