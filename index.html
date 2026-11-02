@@ -261,6 +261,16 @@ layout: null
   .first-use button{background:var(--ink);border:1px solid var(--surface-2);border-radius:8px;padding:9px 12px;white-space:normal}
   .first-use summary{color:var(--text);display:list-item;padding:10px 0}.first-use summary:focus-visible{outline:3px solid var(--rest);outline-offset:3px}
   .first-use-actions{display:flex;flex-wrap:wrap;gap:8px}#firstUseFull:not(:first-child){margin-top:14px}
+
+  .support-content{line-height:1.5;overflow-wrap:anywhere}
+  .support-content h2{font-size:18px;color:var(--rest);margin:24px 0 12px}
+  .support-content p{margin:12px 0}
+  .support-content details{margin:12px 0;border-radius:14px;background:var(--surface);padding:0 16px}
+  .support-content summary{cursor:pointer;min-height:48px;padding:12px 0;font-weight:800;box-sizing:border-box}
+  .support-content summary:focus-visible,.support-contact:focus-visible{outline:2px solid var(--rest);outline-offset:3px;border-radius:4px}
+  .support-content pre{max-width:100%;max-height:50vh;overflow:auto}
+  .support-content .brand{margin:20px 0}
+  .support-contact{display:block;text-decoration:none;box-sizing:border-box}
 </style>
 <link rel="stylesheet" href="css/player-layout.css?rev={{ site.github.build_revision }}">
 <link rel="stylesheet" href="css/progress.css">
@@ -595,9 +605,11 @@ layout: null
       <div class="settings-group"><button id="backupRestoreEntry" class="settings-row settings-link" type="button" onclick="openBackupRestore()"><span>Backup &amp; Restore</span><span class="settings-chevron" aria-hidden="true">›</span></button></div>
     </section>
     <section class="settings-section" aria-labelledby="settingsAbout">
-      <h2 id="settingsAbout">About</h2>
+      <h2 id="settingsAbout">Support &amp; information</h2>
       <div class="settings-group">
-        <button class="settings-row settings-link" type="button" onclick="openAbout()"><span>About</span><span class="settings-chevron" aria-hidden="true">›</span></button>
+        <button class="settings-row settings-link" type="button" onclick="showScreen('howToUse')"><span>How to use PickSetGo</span><span class="settings-chevron" aria-hidden="true">›</span></button>
+<button class="settings-row settings-link" type="button" onclick="openHelp()"><span>Help &amp; troubleshooting</span><span class="settings-chevron" aria-hidden="true">›</span></button>
+<button class="settings-row settings-link" type="button" onclick="openAbout()"><span>About PickSetGo</span><span class="settings-chevron" aria-hidden="true">›</span></button>
       </div>
     </section>
   </main>
@@ -605,11 +617,58 @@ layout: null
     <header class="page-header"><button class="back-btn" type="button" aria-label="Back" onclick="appBack()">←</button><h1 id="backupRestoreTitle">Backup &amp; Restore</h1><span class="header-spacer"></span></header>
     <div id="backupRestoreContent"></div>
   </main>
-  <main id="about" class="screen info-detail hidden">
-    <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Settings" onclick="appBack()">←</button><h1>About</h1><span class="header-spacer"></span></header>
-    <section class="library-detail-section"><h2>PickSetGo</h2><p>Build <strong id="aboutBuild" data-commit="{{ site.github.build_revision }}">{{ site.github.build_revision | slice: 0, 7 }}</strong></p><p id="aboutMode"></p><p>This identifies the page loaded on this device.</p></section>
-    <details><summary>App diagnostics</summary><pre id="aboutDiagnostics" style="white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;font:inherit;font-size:13px;line-height:1.5"></pre><button class="library-entry" type="button" onclick="copyAboutDetails()">Copy app diagnostics</button><p id="aboutCopyStatus" role="status"></p></details>
-    <details><summary>Workout diagnostics</summary><pre id="workoutDiagnostics" style="white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;font:inherit;font-size:13px;line-height:1.5"></pre><button class="library-entry" type="button" onclick="copyWorkoutDiagnostics()">Copy workout diagnostics</button><p id="workoutCopyStatus" role="status"></p></details>
+  <main id="about" class="screen info-detail support-content hidden">
+<header class="page-header"><button class="back-btn" type="button" aria-label="Back to Settings" onclick="appBack()">←</button><h1>About PickSetGo</h1><span class="header-spacer"></span></header>
+<div class="brand" id="aboutBrand"></div><h2>Workouts that keep things interesting.</h2>
+<p>PickSetGo started with a simple frustration. I wanted an app that could generate varied, interesting and challenging workouts using the equipment I already owned.</p>
+<p>Most of the fitness apps I tried offered fixed workouts, often limited to bodyweight exercises or a small selection of equipment. Others offered workout generation, but I struggled to find anything that combined enough variety, flexibility and challenge without an expensive subscription.</p>
+<p>I wanted something different.</p>
+<p>Something that could make the most of whatever equipment I had available, keep workouts fresh and adapt to the time I had and how hard I wanted to train.</p>
+<p>So I started building PickSetGo for myself — a workout generator designed around the way I actually wanted to train.</p>
+<h2>Fitness on your terms.</h2>
+<p>PickSetGo has grown beyond workout generation to include structured training programmes, warm-ups, mobility and recovery sessions.</p>
+<p>But the original idea remains the same: make it easy to get a varied, worthwhile workout without having to spend time planning it yourself.</p><section class="library-detail-section"><p>Build <strong id="aboutBuild" data-commit="{{ site.github.build_revision }}">{{ site.github.build_revision | slice: 0, 7 }}</strong></p><p id="aboutMode"></p><p>This identifies the page loaded on this device.</p></section>
+  </main>
+  <main id="howToUse" class="screen info-detail support-content hidden">
+<header class="page-header"><button class="back-btn" type="button" aria-label="Back to Settings" onclick="appBack()">←</button><h1>How to use PickSetGo</h1><span class="header-spacer"></span></header>
+<details><summary>How does PickSetGo generate workouts?</summary><p>PickSetGo builds workouts around your available time, equipment, chosen focus and difficulty level.</p>
+<p>It selects exercises from its library and combines them into a structured workout, aiming for a good balance of variety, challenge and recovery.</p>
+<p>Each workout is generated for you, rather than selected from a fixed collection of prerecorded sessions.</p></details>
+<details><summary>How does workout difficulty work?</summary><p>PickSetGo offers three difficulty levels: Easy, Normal and Hard.</p>
+<ul><li><strong>Easy:</strong> A gentler workout, with more accessible exercises and a manageable level of effort.</li><li><strong>Normal:</strong> A balanced workout with a moderate level of challenge.</li><li><strong>Hard:</strong> A more demanding workout, using more challenging exercises and workout combinations where appropriate.</li></ul>
+<p>Difficulty influences how workouts are generated, but how hard a session feels will also depend on your fitness, the equipment available and the type of workout.</p>
+<p>Choose the level that suits you, and adjust it as your fitness and confidence develop.</p></details>
+<details><summary>What's the difference between Generator and Coach?</summary><p><strong>Generator</strong> lets you create an individual workout whenever you want. Choose your available time, equipment, workout focus and difficulty, and PickSetGo puts together a session for you.</p>
+<p><strong>Coach</strong> provides a more structured approach to training. Choose a programme based on your goals, and PickSetGo plans a sequence of workouts designed to help you develop over time.</p></details>
+<details><summary>How does PickSetGo track my progress?</summary><p>PickSetGo records your completed workouts, including the exercises performed, so you can look back at your training history.</p>
+<p>Coach also uses your workout history to help plan future sessions and track your progress through a programme.</p>
+<p>You can review your activity in <strong>Your progress</strong>, found under More.</p></details>
+<details><summary>How do I back up and restore my data?</summary><p>PickSetGo saves your training information on your device rather than automatically syncing it between devices.</p>
+<p>To keep a copy of your data, go to <strong>Settings → Backup &amp; Restore</strong> and follow the instructions to create a backup file.</p>
+<p>You can use the same screen to restore your data from a previously saved backup, including when moving to a new device.</p></details>
+  </main>
+  <main id="help" class="screen info-detail support-content hidden">
+<header class="page-header"><button class="back-btn" type="button" aria-label="Back to Settings" onclick="appBack()">←</button><h1>Help &amp; troubleshooting</h1><span class="header-spacer"></span></header>
+<p>Something not working as expected?</p>
+<p>Find help with common problems below, or use the diagnostics tools to collect information that can help investigate an issue.</p><h2>Common problems</h2><details><summary>A workout won't start or load</summary><p>If a workout isn't loading or won't start, try the following:</p>
+<ol><li>Close and reopen PickSetGo.</li><li>If you're using PickSetGo in a browser, try refreshing the page.</li><li>Try generating or opening the workout again.</li></ol>
+<p>If the problem continues, go to <strong>Help &amp; troubleshooting → Diagnostics</strong> and copy the relevant diagnostic information to help report the issue.</p>
+<p><strong>Important:</strong> Avoid clearing your browser or app data, as this could remove your saved training history.</p></details>
+<details><summary>Timer or sound isn't working</summary><p>If the workout timer or audio isn't working as expected:</p>
+<ol><li>Try pausing and resuming the workout.</li><li>If there's no sound, check your device's volume and sound settings.</li><li>If spoken instructions aren't working, go to <strong>Settings → Spoken Cues</strong> and try previewing a voice.</li><li>If the problem continues, close and reopen PickSetGo after finishing or exiting your workout.</li></ol>
+<p>If the issue persists, go to <strong>Help &amp; troubleshooting → Diagnostics</strong> and copy the app diagnostics to help report the problem.</p></details>
+<details><summary>My training history looks wrong</summary><p>If your training history appears incomplete or incorrect:</p>
+<ol><li>Open <strong>More → Your progress</strong> and check whether the workout appears in your training history.</li><li>Make sure you're using the same device and browser where you completed your workouts. PickSetGo doesn't automatically synchronise training data between devices.</li><li>If you've recently restored a backup, check whether it contains the workouts you're expecting.</li></ol>
+<p>If your training history still looks incorrect, go to <strong>Help &amp; troubleshooting → Diagnostics</strong> and copy the app diagnostics to help report the problem.</p>
+<p><strong>Important:</strong> Don't clear your browser data, reinstall PickSetGo or restore another backup without first making a backup of your current data, as these actions could result in data loss.</p></details>
+<details><summary>The app isn't displaying correctly</summary><p>If PickSetGo looks unusual, parts of the screen are missing, or buttons aren't displaying correctly:</p>
+<ol><li>Close and reopen PickSetGo.</li><li>If you're using PickSetGo in a browser, try refreshing the page.</li><li>Check whether the problem also occurs when switching between light and dark mode under <strong>Settings → Appearance</strong>.</li></ol>
+<p>If the problem continues, go to <strong>Help &amp; troubleshooting → Diagnostics</strong> and copy the app diagnostics to help report the issue.</p>
+<p><strong>Important:</strong> Avoid clearing your browser or app data, as this could remove your saved training history.</p></details><h2>Report a problem</h2><p>If you've encountered a problem with PickSetGo that you haven't been able to resolve, please get in touch.</p>
+<p>When reporting a problem, it helps to include:</p>
+<ul><li>A brief description of what went wrong.</li><li>What you were doing when it happened.</li><li>A screenshot, if relevant.</li><li>Diagnostic information, which you can copy from the section below.</li></ul>
+<p>Please don't include passwords or other sensitive personal information.</p><a class="library-entry support-contact" href="mailto:picksetgoapp@gmail.com?subject=PickSetGo%20%E2%80%94%20Problem%20report">Contact support</a><h2>Diagnostics</h2><p>Diagnostic reports contain technical information that can help investigate problems with PickSetGo. Nothing is sent automatically.</p><details><summary>App diagnostics</summary><p>Information about the current build, device and display. Useful when reporting problems with how PickSetGo runs or appears.</p><pre id="aboutDiagnostics" style="white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;font:inherit;font-size:13px;line-height:1.5"></pre><button class="library-entry" type="button" onclick="copyAboutDetails()">Copy app diagnostics</button><p id="aboutCopyStatus" role="status"></p></details>
+<details><summary>Workout diagnostics</summary><p>Information about the latest generated workout, including its exercises and structure. A generated workout may not have been started or completed.</p><pre id="workoutDiagnostics" style="white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;font:inherit;font-size:13px;line-height:1.5"></pre><button class="library-entry" type="button" onclick="copyWorkoutDiagnostics()">Copy workout diagnostics</button><p id="workoutCopyStatus" role="status"></p></details>
   </main>
   <main id="spokenCues" class="screen hidden">
     <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Settings" onclick="appBack()">←</button><h1>Spoken Cues</h1><span class="header-spacer"></span></header>
@@ -925,8 +984,9 @@ function previewSpokenVoice(){
   if(currentScreen!=='spokenCues'||state.running||workoutState.running||!speechVoices.supported())return;
   voicePreviewPlaying=true;speak('Get ready. Squats. Keep your chest up and move steadily.');
 }
-function openAbout(){
-  showScreen('about');
+function openAbout(){GarageFitMasthead.fill(document.getElementById('aboutBrand'));showScreen('about');refreshAboutDetails()}
+function openHelp(){
+  showScreen('help');
   refreshAboutDetails();
   refreshWorkoutDiagnostics();
   document.getElementById('workoutCopyStatus').textContent='';
@@ -991,7 +1051,7 @@ function showScreen(id){
   currentScreen=id;
   if(id==='spokenCues')speechVoices.refresh();
   document.getElementById('app').classList.toggle('active-player',id==='player'||id==='workoutPlayer');
-  ['home','workouts','generator','equipment','generatedPreview','snackpick','player','workoutPlayer','done','more','settings','about','spokenCues','workoutPatterns','workoutPatternDetail','exerciseLibrary','exerciseDetail','coach','coachPreview','coachProgress','coachSettings','coachSubstitute','coachResult','yourProgress','trainingHistory','sessionDetails','backupRestore'].forEach(s=>document.getElementById(s).classList.toggle('hidden',s!==id));
+  ['home','workouts','generator','equipment','generatedPreview','snackpick','player','workoutPlayer','done','more','settings','about','howToUse','help','spokenCues','workoutPatterns','workoutPatternDetail','exerciseLibrary','exerciseDetail','coach','coachPreview','coachProgress','coachSettings','coachSubstitute','coachResult','yourProgress','trainingHistory','sessionDetails','backupRestore'].forEach(s=>document.getElementById(s).classList.toggle('hidden',s!==id));
   const sharedProgress=['yourProgress','trainingHistory','sessionDetails'].includes(id), navScreen=sharedProgress?progressUI.origin():id==='backupRestore'?'more':id;
   const landing=sharedProgress||id==='backupRestore'||['home','workouts','generator','more','coach'].includes(id),nav=document.getElementById('bottomNav');nav.classList.toggle('hidden',!landing);
   [['home','routinesNav'],['workouts','workoutsNav'],['coach','coachNav'],['generator','generatorNav'],['more','moreNav']].forEach(pair=>{const active=navScreen===pair[0],button=document.getElementById(pair[1]);button.classList.toggle('active',active);active?button.setAttribute('aria-current','page'):button.removeAttribute('aria-current')});
@@ -2026,7 +2086,7 @@ backNav=GarageFitBackNav.create({
   getView:()=>currentScreen==='coach'?(coachUI&&coachUI.inOverview()?'coachOverview':null):currentScreen,
   routes:{
     equipment:()=>closeEquipment(),generatedPreview:()=>showLanding('generator'),
-    backupRestore:()=>backupUI.back(),settings:()=>showScreen('more'),about:()=>showScreen('settings'),spokenCues:()=>showScreen('settings'),workoutPatterns:()=>showScreen('more'),workoutPatternDetail:backToWorkoutPatterns,
+    backupRestore:()=>backupUI.back(),settings:()=>showScreen('more'),about:()=>showScreen('settings'),howToUse:()=>showScreen('settings'),help:()=>showScreen('settings'),spokenCues:()=>showScreen('settings'),workoutPatterns:()=>showScreen('more'),workoutPatternDetail:backToWorkoutPatterns,
     exerciseLibrary:()=>showScreen('more'),exerciseDetail:()=>showScreen('exerciseLibrary'),
     coachOverview:()=>coachUI.backFromOverview(),coachPreview:()=>coachUI.back(),coachProgress:()=>{if(!progressUI.backProgramme())coachUI.back()},
     yourProgress:()=>progressUI.backOverview(),trainingHistory:()=>progressUI.backHistory(),sessionDetails:()=>progressUI.backDetail(),
