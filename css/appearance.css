@@ -31,6 +31,7 @@
 .settings-section{margin:0 0 22px}
 .settings-section h2{margin:0 0 8px;font-size:14px;font-weight:750;color:var(--text-muted)}
 .settings-group{border-radius:14px;background:var(--surface)}
+.settings-group + .settings-group{margin-top:10px}
 .settings-row{width:100%;min-height:58px;padding:16px;color:var(--text);font:inherit;font-size:16px;text-align:left;overflow-wrap:anywhere}
 .settings-row + .settings-row{border-top:1px solid var(--surface-2)}
 .settings-link{display:flex;align-items:center;justify-content:space-between;gap:16px;border:0;border-radius:14px;background:transparent;font-weight:750;cursor:pointer}
