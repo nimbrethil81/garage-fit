@@ -56,6 +56,8 @@ with sync_playwright() as p:
                                'more': "showScreen('more')"}[screen])
                 page.locator('#' + screen).evaluate('e=>e.scrollTop=0')
                 host = page.locator('#' + screen + ' [data-masthead]')
+                host.evaluate('e=>{for(let p=e;p;p=p.parentElement)p.scrollTop=0;window.scrollTo(0,0)}')
+                assert host.bounding_box()['y'] >= 0, 'Masthead must be visible'
                 assert host.get_attribute('aria-label') == 'PickSetGo'
                 assert host.inner_text() == 'PickSetGo'
                 metrics = host.evaluate('''e=>{
