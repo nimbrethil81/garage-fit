@@ -49,7 +49,7 @@ test('Settings groups actual preferences with decorative navigation chevrons and
   const settings=html.match(/<main id="settings"[\s\S]*?<\/main>/)[0];
   const sections=[...settings.matchAll(/<section class="settings-section" aria-labelledby="([^"]+)">([\s\S]*?)<\/section>/g)];
   assert.equal(sections.length,4);
-  for(const [i,label] of ['Appearance','Audio','Your data','About'].entries()){
+  for(const [i,label] of ['Appearance','Audio','Your data','Support &amp; information'].entries()){
     const [,id,body]=sections[i];
     assert.ok(body.includes('<h2 id="'+id+'">'+label+'</h2>'));
     assert.match(body,/class="settings-group"/);
@@ -57,7 +57,7 @@ test('Settings groups actual preferences with decorative navigation chevrons and
   }
   assert.match(sections[0][2],/<label for="appearance">Appearance<select id="appearance" aria-describedby="appearanceHelp appearanceStatus" onchange="GarageFitAppearance.choose\(this.value\)"/);
   assert.doesNotMatch(sections[0][2],/settings-chevron/);
-  for(const [label,handler] of [['Spoken Cues',"showScreen('spokenCues')"],['Backup &amp; Restore','openBackupRestore()'],['About','openAbout()']]){
+  for(const [label,handler] of [['Spoken Cues',"showScreen('spokenCues')"],['Backup &amp; Restore','openBackupRestore()'],['About PickSetGo','openAbout()'],['How to use PickSetGo',"showScreen('howToUse')"],['Help &amp; troubleshooting','openHelp()']]){
     assert.ok(settings.includes('onclick="'+handler+'"><span>'+label+'</span><span class="settings-chevron" aria-hidden="true">›</span></button>'));
   }
   assert.doesNotMatch(settings,/→/);

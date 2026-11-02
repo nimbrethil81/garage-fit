@@ -25,8 +25,8 @@ test('About identifies loaded HTML and CSS separately and does not fetch a lates
   app.visualViewport={width:393,height:793,offsetTop:0,scale:1};
   app.getComputedStyle=()=>({getPropertyValue:()=> '"older-layout"',paddingTop:'59px',paddingBottom:'8px'});
   app.fetch=()=>{throw new Error('About must identify loaded files without fetching')};
-  app.openAbout();
-  assert.equal(el('about').classList.contains('hidden'),false);
+  app.openHelp();
+  assert.equal(el('help').classList.contains('hidden'),false);
   assert.equal(el('bottomNav').classList.contains('hidden'),true);
   assert.match(el('aboutDiagnostics').textContent,new RegExp('Page build: '+build.replaceAll('.','\\.')));
   assert.match(el('aboutDiagnostics').textContent,/Layout build: older-layout/);
@@ -41,7 +41,7 @@ test('copy diagnostics handles supported and unavailable clipboard without alter
   app.matchMedia=()=>({matches:false});
   el('app').getBoundingClientRect=()=>({top:0,bottom:852,height:852});
   el('appearance').value='automatic';
-  app.openAbout();
+  app.openHelp();
   app.innerWidth=852;app.innerHeight=393;
   app.visualViewport={width:800,height:350,offsetTop:12,scale:1.2};
   el('appearance').value='dark';
@@ -74,7 +74,7 @@ test('diagnostics groups technical fields, labels reported platform and handles 
   app.document.documentElement.setAttribute('data-appearance','light');
   app.fetch=()=>{throw new Error('No network allowed')};
   app.localStorage.getItem=app.localStorage.setItem=()=>{throw new Error('No storage allowed')};
-  app.openAbout();
+  app.openHelp();
   let report=el('aboutDiagnostics').textContent;
   assert.match(report,/^Build\nPage build:/);
   assert.match(report,/\n\nDevice\nMode: Browser tab/);
@@ -86,21 +86,24 @@ test('diagnostics groups technical fields, labels reported platform and handles 
   assert.equal(el('aboutMode').textContent,'Browser tab');
   el('appearance').value='light';
   app.navigator.userAgentData={platform:'Android'};
-  app.openAbout();
+  app.openHelp();
   assert.match(el('aboutDiagnostics').textContent,/Reported OS\/platform: Android/);
   assert.match(el('aboutDiagnostics').textContent,/Appearance preference: Light/);
   delete app.navigator.userAgentData;delete app.navigator.platform;delete app.navigator.userAgent;
-  app.openAbout();
+  app.openHelp();
   report=el('aboutDiagnostics').textContent;
   assert.match(report,/Reported OS\/platform: unavailable\nUser agent: unavailable/);
   assert.equal(storage.size,0);
 });
 
-test('About keeps diagnostics in a native collapsed disclosure with concise copy',()=>{
+test('Help keeps two diagnostics in native collapsed disclosures; About retains build information',()=>{
   const html=fs.readFileSync('index.html','utf8');
   const about=html.match(/<main id="about"[\s\S]*?<\/main>/)[0];
-  assert.match(about,/<details><summary>App diagnostics<\/summary>/);
-  assert.match(about,/>Copy app diagnostics<\/button>/);
+  const help=html.match(/<main id="help"[\s\S]*?<\/main>/)[0];
+  assert.match(help,/<details><summary>App diagnostics<\/summary>/);
+  assert.equal((help.match(/<details>/g)||[]).length,6);
+  assert.doesNotMatch(about,/<details>/);
+  assert.match(help,/>Copy app diagnostics<\/button>/);
   assert.match(about,/id="aboutMode"/);
 });
 

@@ -111,3 +111,15 @@ Changes may be committed and pushed directly to `main` when explicitly authorise
 For direct-to-main work, complete the required validation before pushing and report the resulting commit.
 
 If repository permissions, unavailable tooling, failed checks or other safeguards prevent completing the workflow, stop at the furthest safe point and explain the blocker. Do not repeatedly ask for approval for routine delivery steps already covered by the original implementation authorisation.
+
+## FAQ and information copy governance
+
+Whenever a material change is made to PickSetGo's functionality, the existing FAQs must be reviewed to determine whether any answers need updating, or whether questions should be added or removed.
+
+The review is mandatory, but changes to the FAQ content are not automatic.
+
+Any proposed additions, deletions or substantive wording changes must receive explicit user approval before implementation.
+
+If no changes are needed, the development review should explicitly record "FAQ reviewed — no changes required."
+
+The five FAQs approved in #375 are the controlled baseline. About and Help copy also require explicit user approval for substantive changes or expansion. PR checklists must record the FAQ review separately from approval for any proposed copy changes.
