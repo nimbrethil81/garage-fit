@@ -14,7 +14,7 @@
 * { box-sizing:border-box; }
 body { margin:0; background:var(--paper); color:var(--text); font:1rem/1.65 system-ui,sans-serif; overflow-wrap:anywhere; }
 main,nav { max-width:46rem; margin:auto; padding:1.25rem; }
-nav a { display:inline-block; padding:.5rem 0; min-height:44px; }
+.back-btn { display:inline-flex; align-items:center; min-width:44px; min-height:44px; padding:0; border:0; background:transparent; color:var(--text); font-size:25px; text-align:left; text-decoration:none; }
 h1 { font-size:2rem; line-height:1.2; }
 h2 { margin-top:2rem; font-size:1.35rem; line-height:1.35; }
 h3 { font-size:1.15rem; }
@@ -23,7 +23,7 @@ a:focus-visible { outline:3px solid var(--link); outline-offset:4px; }
 </style>
 </head>
 <body>
-<nav aria-label="Return"><a href="../">Return to PickSetGo</a></nav>
+<nav aria-label="Return"><a class="back-btn" href="../" aria-label="Back to PickSetGo">←</a></nav>
 <main>
 <h1>PickSetGo Privacy Policy</h1>
 <p><strong>Last updated: 2 November 2026</strong></p>

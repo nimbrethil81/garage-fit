@@ -45,7 +45,7 @@ test('approved privacy policy matches the frozen issue 383 text without a parall
   assert.match(policy,/width=device-width, initial-scale=1/);
   assert.doesNotMatch(policy,/maximum-scale|user-scalable|position:\s*fixed|overflow:\s*hidden/);
   assert.deepEqual([...policy.matchAll(/<script[^>]*src="([^"]+)"/g)].map(m=>m[1]),['../js/appearance.js']);
-  assert.match(policy,/<a href="\.\.\/">Return to PickSetGo<\/a>/);
+  assert.match(policy,/<a class="back-btn" href="\.\.\/" aria-label="Back to PickSetGo">←<\/a>/);
   assert.match(policy,/<strong>Last updated: 2 November 2026<\/strong>/);
   assert.doesNotMatch(policy,/UNPUBLISHED|\[set actual publication date|noindex/);
 });
