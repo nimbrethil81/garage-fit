@@ -303,8 +303,8 @@ test('Strength & Control v1 compositions stay exactly as released, and all three
   assert.deepEqual([...styles].sort(),['controlled-circuits','paired-sets','straight-sets']);
 });
 
-test('new Strength & Control workouts use v2 (standalone and Coach family plans) while v1 stays published and pinned records keep it',()=>{
-  assert.equal(F.currentVersion(STRENGTH),2);assert.equal(F.currentVersion(CARDIO),1);
+test('new Strength & Control workouts use v3 (standalone and Coach family plans) while v1/v2 stay published and pinned records keep them',()=>{
+  assert.equal(F.currentVersion(STRENGTH),3);assert.equal(F.currentVersion(CARDIO),1);
   const [one,two]=[1,2].map(version=>F.getDefinition(STRENGTH,version));
   assert.equal(F.getDefinition(STRENGTH),one,'the default lookup stays v1');
   assert.deepEqual({...copy(two),version:1,compositionPolicy:one.compositionPolicy},copy(one),'v2 is the same family: only the composition policy differs');
@@ -314,7 +314,7 @@ test('new Strength & Control workouts use v2 (standalone and Coach family plans)
   const app=loadAppContext(new Map());
   app.input=STRENGTH;vm.runInContext('selectGeneratorFamily(input);generateWorkout()',app);
   const delivered=vm.runInContext('generatorState.workout',app);
-  assert.equal(delivered.workoutFamilyId,STRENGTH);assert.equal(delivered.workoutFamilyVersion,2);
+  assert.equal(delivered.workoutFamilyId,STRENGTH);assert.equal(delivered.workoutFamilyVersion,3);
   assert.equal(app.GarageFitGenerator.validateFamilyWorkout(delivered,{catalogue:app.GarageFitData.exercises,equipment:vm.runInContext('state.ownedEquipment',app)}).valid,true);
 });
 
@@ -540,7 +540,7 @@ test('v5 preparation and lower-body support reach Coach without changing anchors
     ['general-strength-4w',2,31,'transverse-lunge-to-balance','main',['goblet-squat','dumbbell-floor-press','dumbbell-bent-over-row']],
     ['build-arms',1,2,'split-stance-step-switches','warmup',['dumbbell-biceps-curl','dumbbell-overhead-triceps-extension']],
     ['tennis-conditioning',8,15,'tandem-step-and-hold','warmup',['dumbbell-reverse-lunge','dumbbell-romanian-deadlift','dumbbell-floor-press','dumbbell-bent-over-row']],
-    ['general-fitness',2,10,'tandem-step-and-hold','warmup',[]]
+    ['general-fitness',2,25,'tandem-step-and-hold','warmup',[]]
   ]) {
     const p=pilot(new Map(),id,version);
     p.run("pilotOptions.equipment=['dumbbells','bands','bench'];pilotOptions.duration=45;pilotOptions.bodyFocus='lower';");await p.start();
@@ -553,4 +553,49 @@ test('v5 preparation and lower-body support reach Coach without changing anchors
     for(const exerciseId of ['reverse-lunge-with-rotation','transverse-lunge-to-balance','split-step-preparation'])
       assert.equal(sport.classifyExercise(exerciseId).status,'unmapped',exerciseId+' earns no inferred sporting credit');
   }
+});
+
+// v3's aggregate contract is based on actual shapes and time, never the displayed style alone.
+const strengthShape=b=>b.protocol==='paired_sets'?'pair':b.protocol==='rounds'?(b.exercises.length===1?'straight':'circuit'):b.protocol;
+function assertV3(w,equipment,{mixed=false}={}) {
+  assert.equal(w.workoutFamilyVersion,3);
+  assert.deepEqual(G.validateFamilyWorkout(w,{catalogue:C,equipment}),{valid:true,technicalIssues:[],qualityIssues:[]});
+  assert.ok(w.estimatedSeconds<=w.duration*60);
+  const blocks=w.main.blocks.filter(b=>!b.benchmark),straight=blocks.filter(b=>strengthShape(b)==='straight');
+  assert.ok(straight.length*2<=blocks.length,'straight blocks cannot dominate by count');
+  assert.ok(straight.reduce((s,b)=>s+G.estimateBlockDuration(b,equipment),0)*2<=G.mainSeconds(blocks,equipment),'straight blocks cannot dominate by time');
+  const shapes=new Set(blocks.map(strengthShape));
+  if(w.familyStyleId==='mixed-strength'||mixed)assert.ok(shapes.size>=2,'mixed strength contains distinct actual block formats');
+  assert.notEqual(w.familyStyleId,'straight-sets');
+  const list=blocks.flatMap(b=>b.exercises);
+  assert.equal(new Set(list.map(ex=>ex.id)).size,list.length,'no repeat exercise across blocks');
+  assert.ok(list.filter(ex=>ex.mainRole==='supporting').length*3<=list.length,'supporting work stays a minor part');
+}
+
+test('Strength & Control v3 practical fixtures cover every duration, difficulty and kit with honest non-dominant shapes',()=>{
+  // Fifteen fixtures cover all axes without adding another expensive Cartesian frequency sweep.
+  for(const [di,duration] of DURATIONS.entries())for(const [ki,key] of Object.keys(EQUIPMENT).entries()) {
+    const difficulty=DIFFICULTIES[(di+ki)%3],equipment=EQUIPMENT[key];
+    const options={duration,difficulty,equipment,workoutFamilyVersion:3,random:rng(31+di*19+ki)};
+    const w=generate(STRENGTH,options);
+    assertV3(w,equipment);
+    assert.equal(w.duration,duration);assert.equal(w.difficulty,difficulty);
+    for(const ex of exercisesOf(w))assert.ok(G.generatedPhaseEligible(ex,'main',equipment,difficulty));
+    if(duration>=20&&key==='broad')assertV3(w,equipment,{mixed:true});
+    // Reproducibility includes prescriptions, estimates and published family identity.
+    assert.deepEqual({...w,id:0},{...generate(STRENGTH,{...options,random:rng(31+di*19+ki)}),id:0});
+  }
+});
+
+test('Strength & Control v3 respects position and impact constraints and reports infeasibility without straight-set fallback',()=>{
+  for(const extra of [{bodyPositions:['standing']},{excludedImpact:['medium','high']},{bodyPositions:['floor','supported'],bodyFocus:'core'}]) {
+    const equipment=EQUIPMENT.limited,w=generate(STRENGTH,{duration:30,equipment,workoutFamilyVersion:3,...extra,random:rng(43)});
+    assertV3(w,equipment);
+    for(const ex of exercisesOf(w)) {
+      if(extra.bodyPositions)assert.ok(extra.bodyPositions.includes(ex.bodyPosition));
+      assert.ok(!(extra.excludedImpact||[]).includes(ex.impact));
+    }
+  }
+  for(const extra of [{bodyPositions:['hanging']},{excludedImpact:['low','medium','high']}])
+    assert.throws(()=>generate(STRENGTH,{workoutFamilyVersion:3,...extra}),error=>error.code==='family-not-feasible'&&error.reasons.length>0);
 });

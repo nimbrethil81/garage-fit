@@ -4,11 +4,11 @@
 `GarageFitData.workoutFamilies[workoutFamilyId][version]`. Definitions and nested
 values are immutable. Released versions remain available unchanged; a material
 policy change needs a new definition version and versioned policy reference.
-A later version of the same family keeps its id, name, purpose, styles and feasibility; it is the
+A later version of the same family keeps its id, name and purpose; supported styles and composition may evolve by version, while family feasibility remains explicit; it is the
 same family for training balance and recency, while composition and history keep the version.
 `GarageFitData.workoutFamilyCurrentVersions` names the version new workouts use; today that is
 version 1 for every family except Athletic Movement (current version 5; #244, #255, #271), Strength & Control
-(current version 2; #261) and Mobility & Movement Quality (current version 3; #272).
+(current version 3; #261, #373) and Mobility & Movement Quality (current version 3; #272).
 
 Each definition owns its display name, purpose, supported internal styles, Body
 Focus compatibility, composition/membership policy references, suitability criteria
@@ -696,7 +696,7 @@ No-family generation, explicit-family Coach prescriptions (still `family-prescri
 eligibility and fixed workouts are untouched. Final family quality validation and fallback
 belong to the shared gate below.
 
-### Strength & Control composition v2 (#261, current)
+### Strength & Control composition v2 (#261)
 
 Strength & Control was audited (#256) as using supporting-role drills (curls, raises, reverse flies, face
 pulls, Pallof presses and similar) far less than the Generator's own Strength: the Generator's bounded
@@ -731,10 +731,42 @@ styles, feasibility, suitability, quality gate and v1 membership, which is none)
 
 v1 stays registered and composes exactly as released (pinned by a structural digest in
 `tests/strength-cardio-composer.test.js`). Explicit generation without a `workoutFamilyVersion` still composes v1;
-the standalone Generator and General Fitness compose v2. Because General Fitness v2's benchmark policy was released
+the standalone Generator and General Fitness now compose v3. Because General Fitness v2's benchmark policy was released
 naming Strength & Control v1, the plan offers the benchmark for the same family at its current version and the
 benchmark spec carries the composed version; the released definition is not edited
 ([Coach engine](COACH_ENGINE.md#optional-comparable-benchmarks-192-v2)).
+
+### Strength & Control composition v3 (#373, current)
+
+v3 uses the same family composer for the standalone Generator and General Fitness, with purposeful
+sequences of canonical blocks. `mixed-strength` truthfully identifies at least two actual block shapes:
+single-exercise straight sets, paired sets and controlled circuits. Straight sets may supply a heavy
+compound anchor, but cannot exceed half the ordinary Main blocks **or** half their estimated time.
+Optional benchmark measurements are separately validated and excluded from that accounting.
+
+Short sessions can use a coherent pair or circuit. The published `paired-sets` and `controlled-circuits`
+styles also provide bounded same-family fallback when a mixed sequence cannot fit the selected constraints;
+there is no predominantly straight-set fallback. Validity depends on resolved protocols and exercise counts,
+not style names. Infeasible requests retain the shared diagnostic/verified-adjustment behaviour.
+
+Selection reuses the Generator's recipe picker, quality scoring and bounded supporting route, preserving
+Body Focus preferences, kit/setup, difficulty, impact, position, sidedness and recovery constraints. Full-body
+sessions from 20 minutes cover lower, upper and trunk/carry patterns; from 30 minutes they include push
+and pull, where the constrained eligible pool can supply each. Paired
+blocks use 2–4 sets and circuits 2–4 rounds; straight sets retain 3–4 sets. Straight/pair rest is exercise-sensitive
+and capped at the usual base plus 15 seconds; controlled circuits use 20–30 second exercise transitions and
+60–90 second round recovery. Fitting varies sensible volume and composition rather than stretching rests to
+fill the clock. Pairs reject two demanding lifts (strength ≥ 4 each) sharing a major movement pattern,
+or both using squat/hinge/lunge patterns: a ten-second changeover must not replace recovery between
+heavy lower-body lifts. The same rule applies after edits and swaps. Supporting work stays a minor part of the session. No ladder eligibility or prescription
+rules change, and ladders are not required for mixed strength.
+
+The v3 quality gate checks actual aggregate structure after construction and preview swaps/edits, alongside
+controlled resistance suitability, non-repetition and truthful style. v1/v2 remain registered with their
+released composition and quality rules; saved workouts/results and immutable programme definitions are not
+rewritten. General Fitness v1/v2 resolve the current family version, and optional benchmark specs follow that
+same composed identity while preserving measurement conditions and comparability. Specialised General
+Strength, Build Arms, Tennis and legacy no-family Generator paths remain unchanged.
 
 ### Core & Stability and Full-Body Challenges composition v1
 

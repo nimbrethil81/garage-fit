@@ -1,5 +1,5 @@
 (function (root) {
-  // Strength & Control composition v1 and v2 and Cardio & Conditioning composition v1 (docs/WORKOUT_FAMILIES.md).
+  // Strength & Control composition v1–v3 and Cardio & Conditioning composition v1 (docs/WORKOUT_FAMILIES.md).
   // Exercises come from the canonical catalogue's reviewed strength/cardio/impact/protocol
   // metadata through the Generator's own recipes and selection, never a family table.
   const G=root.GarageFitGenerator,F=root.GarageFitWorkoutFamilies;
@@ -169,6 +169,59 @@
   const SUPPORTING_ROUTE_STYLES=['paired-sets','controlled-circuits'];
   const STRENGTH_WEIGHTS={'straight-sets':{10:.5,15:1,20:2,30:3,45:4},'paired-sets':{10:4,15:4,20:4,30:3,45:3},'controlled-circuits':{10:3,15:3,20:3,30:2,45:2}};
 
+  // v3 chooses a sequence of purposes, rather than a whole-workout straight-set style.
+  // The shared picker still owns recipes, focus, setup, fatigue, sidedness and recency.
+  // Alternation should provide recovery, not stack two demanding movements on the
+  // same pattern or lower-body musculature with only a ten-second changeover.
+  const fatiguingPair=exercises=>exercises.length===2&&exercises.every(ex=>ex.strength>=4)&&
+    (G.sharedPatterns(...exercises).some(p=>['squat','hinge','lunge','push','pull'].includes(p))||
+      exercises.every(ex=>(ex.patterns||[]).some(p=>['squat','hinge','lunge'].includes(p))));
+  function strengthBlockV3(ctx,kind,index,share,state,size) {
+    const intent=index?'accessory':'strength',protocol=kind==='pair'?'paired_sets':'rounds';
+    // Full recovery on a single heavy compound is useful, but never an accessory-only block.
+    const pool=ctx.pool.filter(ex=>!state.usedIds.has(ex.id)&&(kind!=='single'||
+      ex.mainRole!=='supporting'&&ex.strength>=4&&(ex.patterns||[]).some(p=>['squat','hinge','push','pull'].includes(p))));
+    const exercises=pick(ctx,state,pool,kind==='single'?1:kind==='pair'?2:size,'strength',intent,protocol);
+    if(exercises.length!==(kind==='single'?1:kind==='pair'?2:size)||kind==='pair'&&fatiguingPair(exercises))return null;
+    const base=Math.max(...exercises.map(restFor)),candidates=[];
+    for(const repeats of kind==='single'?[3,4]:[2,3,4]) {
+      if(kind==='pair')for(let rest=base-15;rest<=base+15;rest+=5)
+        candidates.push({prescription:{sets:repeats,betweenExercisesSeconds:10,betweenSetsSeconds:rest},cost:Math.abs(rest-base)+Math.abs(repeats-3)*12});
+      else if(kind==='single')for(let rest=base-15;rest<=base+15;rest+=5)
+        candidates.push({prescription:{rounds:repeats,exerciseRestSeconds:0,roundRestSeconds:rest},cost:Math.abs(rest-base)+Math.abs(repeats-3)*12});
+      else for(const exercise of [20,25,30])for(const round of [60,75,90])
+        candidates.push({prescription:{rounds:repeats,exerciseRestSeconds:exercise,roundRestSeconds:round},cost:Math.abs(round-base)*.5+Math.abs(exercise-25)+Math.abs(repeats-3)*12});
+    }
+    const fit=fitted(ctx,protocol,intent,exercises,candidates,share);
+    return fit&&{estimate:fit.estimate,block:{protocol,intent,exercises,prescription:fit.prescription}};
+  }
+  const strengthKind=b=>b.protocol==='paired_sets'?'pair':b.protocol==='rounds'?(b.exercises.length===1?'single':'circuit'):'other';
+  const straightDominates=(blocks,owned)=>{
+    const singles=blocks.filter(b=>strengthKind(b)==='single');
+    // Use actual setup-aware block time; transitions and optional measurements cannot hide dominance.
+    return singles.length>blocks.length/2||sum(singles.map(b=>G.estimateBlockDuration(b,owned)))>
+      sum(blocks.map(b=>G.estimateBlockDuration(b,owned)))/2;
+  };
+  function strengthStyleV3(style) {
+    return ctx=>{
+      const attempts=[];
+      for(const count of counts(ctx.target,700,260))for(const size of [3,4]) {
+        const plans=style==='mixed-strength'?(count<2?[]:[
+          Array.from({length:count},(_,i)=>i%2?'circuit':'pair'),
+          ...(count>=3?[Array.from({length:count},(_,i)=>i===0?'single':i%2?'pair':'circuit')]:[])
+        ]):[Array(count).fill(style==='paired-sets'?'pair':'circuit')];
+        for(const plan of plans)attempts.push({plan,size});
+      }
+      return bestOf(attempts,({plan,size})=>{
+        const blocks=sequence(ctx,plan.length,(index,share,state)=>strengthBlockV3(ctx,plan[index],index,share,state,size));
+        if(!blocks||straightDominates(blocks,ctx.owned)||strengthCoverage(blocks,ctx.pool,ctx.duration,ctx.bodyFocus).length
+          ||blocks.some(b=>b.exercises.filter(ex=>ex.mainRole==='supporting').length>b.exercises.length/2))return null;
+        return accept(ctx,blocks,1);
+      },ctx.supportingRoute);
+    };
+  }
+  const STRENGTH_V3=Object.fromEntries(['mixed-strength','paired-sets','controlled-circuits'].map(id=>[id,strengthStyleV3(id)]));
+
   // ---- Cardio & Conditioning ----
   const INTERVALS={easy:[[30,30],[30,20]],normal:[[40,20],[30,30],[30,20]],hard:[[40,20],[45,15],[30,15]]};
   function intervalBlock(ctx,pool,index,share,state,intent,size) {
@@ -242,10 +295,10 @@
   // `routeStyles` (Strength & Control v2) names the styles that take the Generator's single seeded
   // supporting-route draw (G.drawSupportingRoute: duration, candidate supply and probability) over this
   // composition's own suitable pool. Without it nothing is drawn, so v1 and Cardio keep their draw stream.
-  function build(label,styles,weights,suitable,focus,routeStyles=[]) {
+  function build(label,styles,weights,suitable,focus,routeStyles=[],styleOrder=null) {
     return (options,request,attempt)=>{
       const ctx=context(options,request,label,suitable,focus),excluded=attempt&&attempt.excludedStyleIds||[];
-      const ranked=ordered(Object.keys(styles).map(id=>({id,weight:weights(ctx)[id]})),ctx.random);
+      const ranked=styleOrder?styleOrder.map(id=>({id})):ordered(Object.keys(styles).map(id=>({id,weight:weights(ctx)[id]})),ctx.random);
       // Same-family fallback: styles the shared gate rejected are skipped; the draw stream is unchanged.
       for(const {id} of ranked.filter(entry=>!excluded.includes(entry.id))) {
         const made=styles[id](routeStyles.includes(id)&&G.drawSupportingRoute(ctx.pool,ctx.duration,focus,ctx.random)?{...ctx,supportingRoute:true}:ctx);
@@ -274,6 +327,39 @@
     if(meanOf(list,'strength')-meanOf(list,'cardio')<.5)issues.push('not-resistance-led');
     issues.push(...repeated(list,1));
     if(!blocks.every(STRENGTH_STRUCTURE[workout.familyStyleId]))issues.push('style-structure-mismatch');
+    return issues;
+  }
+  // Demand coverage only where the permitted pool can supply it. Focused sessions retain
+  // their preference; a kit without a pull movement cannot acquire one through invented data.
+  function strengthCoverage(blocks,pool,duration,bodyFocus) {
+    if(duration<20||bodyFocus&&bodyFocus!=='full-body')return [];
+    const list=blocks.flatMap(b=>b.exercises),has=(items,patterns)=>items.some(ex=>(ex.patterns||[]).some(p=>patterns.includes(p)));
+    const groups=[['squat','hinge','lunge'],['push','pull'],['core','carry']];
+    if(duration>=30)groups.push(['push'],['pull']);
+    return groups.filter(patterns=>has(pool,patterns)&&!has(list,patterns)).map(patterns=>'missing-movement:'+patterns.join('-'));
+  }
+  function strengthQualityV3(workout,{equipment=[],catalogue={}}={}) {
+    const blocks=workout.main.blocks,list=blocks.flatMap(b=>b.exercises),issues=[];
+    if(blocks.some(b=>b.familyContext!=null))issues.push('unexpected-family-context');
+    list.filter(ex=>!controlled(ex)).forEach(ex=>issues.push('unsuitable-exercise:'+ex.id));
+    if(meanOf(list,'strength')-meanOf(list,'cardio')<.5)issues.push('not-resistance-led');
+    issues.push(...repeated(list,1));
+    if(straightDominates(blocks,equipment))issues.push('straight-set-dominance');
+    const allowed=constraints(workout.familyConstraints||{}),pool=Object.values(catalogue).filter(ex=>controlled(ex)&&allowed(ex)&&G.generatedPhaseEligible(ex,'main',equipment,workout.difficulty));
+    issues.push(...strengthCoverage(blocks,pool,workout.duration,workout.bodyFocus));
+    const kinds=blocks.map(strengthKind),style=workout.familyStyleId;
+    if(style==='mixed-strength'?new Set(kinds).size<2:!kinds.every(k=>k===(style==='paired-sets'?'pair':'circuit')))
+      issues.push('style-structure-mismatch');
+    for(const b of blocks) {
+      const kind=strengthKind(b),p=b.prescription,base=Math.max(...b.exercises.map(restFor));
+      const shaped=kind==='pair'?b.exercises.length===2&&between(p.sets,2,4)&&p.betweenExercisesSeconds===10&&between(p.betweenSetsSeconds,base-15,base+15):
+        kind==='single'?b.exercises[0].mainRole!=='supporting'&&b.exercises[0].strength>=4&&
+          (b.exercises[0].patterns||[]).some(p=>['squat','hinge','push','pull'].includes(p))&&between(p.rounds,3,4)&&p.exerciseRestSeconds===0&&between(p.roundRestSeconds,base-15,base+15):
+        kind==='circuit'&&between(b.exercises.length,3,4)&&between(p.rounds,2,4)&&between(p.exerciseRestSeconds,20,30)&&between(p.roundRestSeconds,60,90);
+      if(!shaped)issues.push('style-structure-mismatch');
+      if(kind==='pair'&&fatiguingPair(b.exercises))issues.push('fatiguing-pair');
+      if(b.exercises.filter(ex=>ex.mainRole==='supporting').length>b.exercises.length/2)issues.push('supporting-dominance');
+    }
     return issues;
   }
   const workShare=block=>{
@@ -314,5 +400,6 @@
   // v2 (#261): identical styles, weights, structure and quality gate; paired sets and controlled circuits of
   // 30+ minutes may also draw the Generator's supporting route. v1 stays composable exactly as released.
   G.registerFamilyComposer('strength-control',2,build('Strength & Control',STRENGTH_STYLES,strengthWeights,controlled,'strength',SUPPORTING_ROUTE_STYLES),strengthQuality);
+  G.registerFamilyComposer('strength-control',3,build('Strength & Control',STRENGTH_V3,null,controlled,'strength',['mixed-strength','paired-sets','controlled-circuits'],['mixed-strength','paired-sets','controlled-circuits']),strengthQualityV3);
   G.registerFamilyComposer('cardio-conditioning',1,build('Cardio & Conditioning',CARDIO_STYLES,cardioWeights,cardioLed,'cardio'),cardioQuality);
 })(typeof window==='undefined'?globalThis:window);

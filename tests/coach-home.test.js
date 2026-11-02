@@ -249,7 +249,7 @@ test('General Fitness is offered and runs home → preview/edit → player → s
   // Preview shows the delivered family, style and purpose; one Edit control; swaps only in edit mode.
   await p.click('View today’s workout');
   const workout = p.json('coachUI.controller.snapshot().preview.workout');
-  const family = p.json(`GarageFitData.workoutFamilies[${JSON.stringify(workout.workoutFamilyId)}][1]`), style = family.styles.find(item => item.id === workout.familyStyleId);
+  const family = p.json(`GarageFitData.workoutFamilies[${JSON.stringify(workout.workoutFamilyId)}][${workout.workoutFamilyVersion}]`), style = family.styles.find(item => item.id === workout.familyStyleId);
   assert.equal(p.run("nodes('coachPreviewContent').find(node=>node.className==='preview-rounds').textContent"), family.name+' — '+style.name);
   assert.equal(p.run("nodes('coachPreviewContent').find(node=>node.className==='equipment-note coach-preview-purpose').textContent"), family.purpose);
   assert.deepEqual(p.json("nodes('coachPreviewContent').filter(node=>/Edit Workout|Done Editing/.test(node.textContent)&&node.onclick).map(node=>node.textContent)"), ['Edit Workout']);
