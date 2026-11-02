@@ -1,15 +1,26 @@
 # Programme artwork
 
-Issue #341 uses the user-supplied `garagefit-coach-artwork-v1.zip`. All four PNG masters and runtime WebPs are copied byte-for-byte from that archive, without regeneration, recolouring, resizing or re-encoding. The manifest records the archive SHA-256 and each file hash; the supplied manifest and README are retained unchanged alongside it. The supplied JPEG is a review aid only and is not shipped in the UI.
+Issue #341 uses the user-supplied `garagefit-coach-artwork-v1.zip`. The initial four PNG masters and runtime WebPs were copied byte-for-byte from that archive, without regeneration, recolouring, resizing or re-encoding. The current manifest records the original archive SHA-256, each current file hash and any approved replacement; the supplied manifest and README are retained unchanged alongside it. The supplied JPEG is a review aid only and is not shipped in the UI.
 
-The supplied objects and geometric backdrops carry the colour. Following the subsequent user-approved Coach visual reference, cards use soft programme-specific peach, mint, coral and sage surfaces in Light, with muted dark equivalents. The supplied artwork is still unchanged and has no extra coloured image container. Display preserves the full composition and original aspect ratio with `object-fit:contain`. Missing images hide only the decorative image and leave programme selection usable.
+The supplied objects and geometric backdrops carry the colour. Following the subsequent user-approved Coach visual reference, cards use soft programme-specific peach, mint, coral and sage surfaces in Light, with muted dark equivalents. The artwork has no extra coloured image container. Display preserves the full composition and original aspect ratio with `object-fit:contain`. Missing images hide only the decorative image and leave programme selection usable.
 
-PNG/WebP dimensions and pixel-identical alpha were verified with Pillow. Node tests verify exact supplied hashes, formats and byte limits. The user instructed use of this exact supplied artwork and explicitly approved the final real-app layout on 2026-10-30 after reviewing the Light, Dark and Tennis captures. No physical installed-iPhone check is available in this environment.
+PNG/WebP dimensions and pixel-identical alpha were verified with Pillow. Node tests verify current file hashes, formats and byte limits, linking unchanged assets and approved replacements to the retained supplied hashes. The user instructed use of this exact supplied artwork and explicitly approved the final real-app layout on 2026-10-30 after reviewing the Light, Dark and Tennis captures. No physical installed-iPhone check is available in this environment.
+
+## Tennis correction (issue #365, PR #372)
+
+The owner supplied corrected Tennis Conditioning PNG and WebP files to remove an
+unwanted horizontal line. PR #372 replaced both assets. They remain 887 × 444,
+retain transparency and have pixel-identical alpha between source and runtime.
+The current manifest records their replacement hashes, the issue/PR provenance,
+and the original hashes in `replacesSha256`. The original archive hash,
+`supplied-manifest.json` and `supplied-README.md` remain historical evidence of
+the initial delivery; they do not describe the replacement bytes. The other
+three programme illustrations remain byte-for-byte identical to that delivery.
 
 ## Rights provenance review (issue #364, 31 October 2026)
 
 The four Coach compositions (`general-fitness`, `general-strength-4w`, `build-arms`
-and `tennis-conditioning`) are from the supplied archive above. Its retained
+and `tennis-conditioning`) originated in the supplied archive above; Tennis later received the owner-supplied correction documented above. Its retained
 `supplied-README.md` identifies the parent image as
 `a_clean_vector_illustration_style_composition_with.png` and describes extraction
 into quadrants. The original creator, generation operator, tool terms and any

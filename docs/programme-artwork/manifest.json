@@ -1,5 +1,5 @@
 {
-  "provenance": "Supplied garagefit-coach-artwork-v1.zip; all PNG/WebP files copied byte-for-byte",
+  "provenance": "Original artwork supplied in garagefit-coach-artwork-v1.zip; unchanged assets retain the supplied bytes. Approved replacements are recorded per asset.",
   "archiveSha256": "c87b6ff8b8f16d6464dedb83e9f7818144994187b13f54f8c9d6f422b9a09c40",
   "humanApproval": "Exact supplied artwork and final in-app layout approved by user on 2026-10-30",
   "assets": [
@@ -64,19 +64,26 @@
       "id": "tennis-conditioning",
       "source": {
         "path": "docs/programme-artwork/tennis-conditioning.png",
-        "sha256": "0c1be4a4ffb832b3eb9a5b76005449eda0050b410144622c346b7171ad528fcf",
+        "sha256": "793ca057ee224ad62ecc3ccb14ececfcd4a9636d422b1efd108d2f4d44659b20",
         "dimensions": [
           887,
           444
-        ]
+        ],
+        "replacesSha256": "0c1be4a4ffb832b3eb9a5b76005449eda0050b410144622c346b7171ad528fcf"
       },
       "runtime": {
         "path": "assets/programmes/tennis-conditioning.webp",
-        "sha256": "1cac4c0ed37c01db4e1aab31a864307e55dc4a012fbbf23ddf75bf732bb3e28d",
+        "sha256": "eb5d52d3e2fa84242d613cc6be242fa5f5a9c0972f41ff943eb393cf4890900a",
         "dimensions": [
           887,
           444
-        ]
+        ],
+        "replacesSha256": "1cac4c0ed37c01db4e1aab31a864307e55dc4a012fbbf23ddf75bf732bb3e28d"
+      },
+      "revision": {
+        "issue": 365,
+        "pullRequest": 372,
+        "provenance": "Owner-supplied corrected PNG and WebP replacing the originals to remove the stray horizontal line; dimensions and transparency preserved."
       }
     }
   ]
