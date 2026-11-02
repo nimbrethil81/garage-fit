@@ -58,10 +58,10 @@ test('the logo SVG and wordmark have one canonical source, filled into every hos
   const hosts=Object.keys(NAV).map(makeHost);
   assert.equal(M.mount({querySelectorAll:selector=>{assert.equal(selector,'[data-masthead]');return hosts}}),5);
   for(const host of hosts){
-    assert.equal(host.attrs['aria-label'],'GarageFit');
+    assert.equal(host.attrs['aria-label'],'PickSetGo');
     assert.equal(host.innerHTML,M.MARK+M.NAME);
   }
-  assert.match(M.NAME,/Garage<strong>Fit<\/strong>/);
+  assert.match(M.NAME,/Pick<strong>Set<\/strong>Go/);
 });
 
 test('startup mounts the shared masthead before the first screen is shown',()=>{
@@ -189,4 +189,15 @@ test('Backup & Restore retains More navigation and a secondary back header witho
   const body=screens.find(screen=>screen.id==='backupRestore').body;
   assert.match(body,/class="back-btn"/);assert.doesNotMatch(body,/data-masthead/);
   assert.equal(Object.keys(NAV).length,5);
+});
+
+// Installation identity remains stable so an in-place rename keeps the same app.
+test('PickSetGo display metadata preserves the installed identity and icon paths',()=>{
+  const manifest=JSON.parse(fs.readFileSync(path.join(root,'manifest.webmanifest'),'utf8'));
+  assert.equal(manifest.name,'PickSetGo');assert.equal(manifest.short_name,'PickSetGo');
+  for(const key of ['id','start_url','scope'])assert.equal(manifest[key],'./');
+  assert.deepEqual(manifest.icons.map(icon=>icon.src),['icons/icon-192.png','icons/icon-512.png','icons/icon-maskable-512.png']);
+  assert.match(html,/<title>PickSetGo<\/title>/);
+  assert.match(html,/<meta name="apple-mobile-web-app-title" content="PickSetGo">/);
+  assert.match(fs.readFileSync(path.join(root,'favicon.svg'),'utf8'),/<title id="title">PickSetGo<\/title>/);
 });

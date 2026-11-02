@@ -56,7 +56,7 @@
     function fileChooser(purpose) {
       if(busy)return;
       const input=node('input');input.type='file';input.accept='.json,application/json';
-      input.className='backup-file-input';input.setAttribute('aria-label',purpose==='restore'?'Choose GarageFit backup file':'Reselect saved backup file');
+      input.className='backup-file-input';input.setAttribute('aria-label',purpose==='restore'?'Choose PickSetGo backup file':'Reselect saved backup file');
       input.onchange=()=>{
         const file=input.files?.[0];
         if(file)return selectFile(file,purpose);
@@ -111,7 +111,7 @@
       });
     }
     function confirm() {
-      return operation('Replacing GarageFit data safely…',async()=>{
+      return operation('Replacing PickSetGo data safely…',async()=>{
         await backup.restore(selected.text,{confirmed:true});view='complete';
       });
     }
@@ -138,7 +138,7 @@
       content.innerHTML='';title.textContent=(restoring&&view==='error')||['preview','preservation','confirm','complete','recovery','active'].includes(view)?'Restore backup':'Backup & Restore';
       content.setAttribute('data-backup-view',view);
       if(view==='home') {
-        content.append(paragraph('Keep a copy of your GarageFit data or move it to another device.'),
+        content.append(paragraph('Keep a copy of your PickSetGo data or move it to another device.'),
           card('Your data','Stored on this device. Backups are manual; devices do not sync.'),
           node('h2','Create a backup','backup-kicker'),paragraph('Save training history, Coach programmes, equipment and preferences.'),
           button('Create backup',()=>prepare()),paragraph(verified?'A prepared backup file was independently verified. It is a snapshot, not a live backup.':reportedSaved?'You reported saving a file. It has not been independently verified.':'No saved backup confirmed.',true),
@@ -151,7 +151,7 @@
           button(preservation?'Save preservation file':'Save backup file',save),
           paragraph('Preparing a file does not mean it has been saved.',true),button('Cancel',()=>transition(preservation?'preservation':'home'),'secondary'));
       } else if(view==='offered') {
-        content.append(card('Check your saved file','GarageFit offered the file to your device. Saving has not been verified.'),
+        content.append(card('Check your saved file','PickSetGo offered the file to your device. Saving has not been verified.'),
           paragraph('Open Files or your chosen location and check that the file is there.'),
           button('Verify saved file',()=>fileChooser(preservation?'preserve':'verify')),
           button('Save again',save,'secondary'));
@@ -174,10 +174,10 @@
         content.append(card('Save your current data first. Restoring replaces it.',null,true),
           paragraph('A separately saved, verified preservation backup is mandatory before continuing.'),node('h2','Current device','backup-kicker'));
         if(destination?.summary)content.append(row('Recorded sessions',destination.summary.sessions),row('Coach programmes',destination.summary.programmes));
-        else content.append(card('Existing GarageFit records','Your history, programme, equipment and preference records will be preserved.'));
+        else content.append(card('Existing PickSetGo records','Your history, programme, equipment and preference records will be preserved.'));
         content.append(button('Create preservation backup',()=>prepare(true)),paragraph('Replacement remains locked until the saved copy is verified.',true),button('Cancel restore',cancel,'secondary'));
       } else if(view==='confirm') {
-        content.append(card(preservation?'Preservation backup verified':'This device has no saved GarageFit data'));selectedCard();
+        content.append(card(preservation?'Preservation backup verified':'This device has no saved PickSetGo data'));selectedCard();
         if(destination?.summary)content.append(row('Current sessions',destination.summary.sessions));
         content.append(row('Backup sessions',selected.summary.sessions),card('Existing records will be replaced, not combined.',null,true));
         const label=node('label',undefined,'backup-confirm-label'),check=node('input');check.type='checkbox';check.id='backupReplacementConsent';
@@ -185,22 +185,22 @@
         const replace=button('Replace data and restore',confirm,'danger');replace.disabled=true;
         check.onchange=()=>{replace.disabled=!check.checked;};content.append(replace,button('Cancel',cancel,'secondary'));
       } else if(view==='complete') {
-        content.append(card('Restore complete'),paragraph('Your GarageFit backup has been restored on this device.'),
-          card('Training records restored','Continue to reload GarageFit and make these records available.'),
-          paragraph('Devices do not sync automatically. Active workouts are not restored.',true),button('Continue to GarageFit',onRestored));
+        content.append(card('Restore complete'),paragraph('Your PickSetGo backup has been restored on this device.'),
+          card('Training records restored','Continue to reload PickSetGo and make these records available.'),
+          paragraph('Devices do not sync automatically. Active workouts are not restored.',true),button('Continue to PickSetGo',onRestored));
       } else if(view==='recovery') {
-        content.append(card('Data recovery needed',null,true),paragraph(error?.message||'GarageFit cannot safely confirm which data is available.'),
+        content.append(card('Data recovery needed',null,true),paragraph(error?.message||'PickSetGo cannot safely confirm which data is available.'),
           card('Training is temporarily unavailable to protect your records.',null,true),button('Retry recovery',retryRecovery),
           button('Recovery guidance',()=>transition('recoveryHelp'),'secondary'),paragraph('Never continue into mixed or partially restored data.',true));
       } else if(view==='recoveryHelp') {
         content.append(card('Protect your records','Keep the original browser data and your saved backup files.'),
-          paragraph('Close other GarageFit tabs, free browser storage without clearing GarageFit data, and retry recovery. Do not clear website data or uninstall the app while recovery is unresolved.'),button('Retry recovery',retryRecovery));
+          paragraph('Close other PickSetGo tabs, free browser storage without clearing PickSetGo data, and retry recovery. Do not clear website data or uninstall the app while recovery is unresolved.'),button('Retry recovery',retryRecovery));
       } else if(view==='active') {
         content.append(card('Finish or end your workout first',null,true),paragraph('Backup & Restore is unavailable while an activity is active or its records are still being saved.'),
           card('Keep performed evidence','Return to the workout and use the existing completion or exit process.'),button('Return to workout',returnToActivity),button('Cancel restore',cancel,'secondary'));
       } else if(view==='help') {
         content.append(node('h2','On your old device','backup-kicker'),paragraph('Create a backup, save it using Files or another provider, and verify the saved copy.'),
-          node('h2','On your new device','backup-kicker'),paragraph('Transfer the file to the new device. Open GarageFit, choose the backup, review its contents and follow the restore safeguards.'),
+          node('h2','On your new device','backup-kicker'),paragraph('Transfer the file to the new device. Open PickSetGo, choose the backup, review its contents and follow the restore safeguards.'),
           card('Manual transfer','Devices do not sync. A backup is a snapshot, not a live connection.'),paragraph('Active workouts never transfer.',true));
       } else if(view==='error') {
         const unchanged=error?.code!=='restore-rolled-back';

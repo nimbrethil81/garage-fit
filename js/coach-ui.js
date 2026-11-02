@@ -173,7 +173,7 @@
       const scoped = {programmeInstanceId: state.programmeInstanceId};
       const queries = [await store.listSessionResults({...scoped, since}), await store.listSessionResults({...scoped, limit: 8})];
       if (def.coverageTargets.includeStandaloneHistory) queries.push(await store.listSessionResults({source: 'generator', since}));
-      // Performed context from every GarageFit source (bounded). It informs planning only:
+      // Performed context from every PickSetGo source (bounded). It informs planning only:
       // the engine credits this instance's own Coach results and nothing else.
       if (def.coverageTargets.includeCrossSourceHistory) queries.push(await store.listSessionResults({sources: ['coach','generator','fixed'],
         performedOnly: true, since, limit: root.GarageFitTrainingHistory.MAX_RECENT_SESSION_LIMIT, candidateLimit: root.GarageFitTrainingHistory.MAX_RECENT_SESSION_LIMIT}));
@@ -538,7 +538,7 @@
       details.append(heading('My Equipment'));
       const kit = document.createElement('div'); kit.className = 'equipment-list';
       equipment.forEach(item => { const control = button(item.name, () => { const owned=getEquipment(); setEquipment(owned.includes(item.id) ? owned.filter(id => id !== item.id) : [...owned,item.id]); adjustmentOpen=true; renderToday(item.name); }); control.setAttribute('aria-pressed',String(options.equipment.includes(item.id))); kit.append(control); });
-      details.append(kit,help('About My Equipment','Saved across GarageFit for future workouts. Already prepared workouts and workouts in progress keep their original equipment and exercises.')); wrap.append(details);
+      details.append(kit,help('About My Equipment','Saved across PickSetGo for future workouts. Already prepared workouts and workouts in progress keep their original equipment and exercises.')); wrap.append(details);
     }
     // Accessible tappable help rather than long inline explanations.
     function help(label,copy) {
@@ -764,7 +764,7 @@
         const config=state.currentTargets.programmeSettings, development=state.currentTargets.tennisDevelopment;
         readOnlyRows(plan,[['Training phase',development?.phase==='consolidation'?'Consolidation':'Development'],
           ['Strength targets',state.anchors.length+' stable targets keep their progress when settings change']]);
-        if (locked) readOnlyRows(plan,[['Training focus',tennisViews.focusName(config.focus)],['GarageFit sessions per week',String(config.weeklyCoachFrequency)],
+        if (locked) readOnlyRows(plan,[['Training focus',tennisViews.focusName(config.focus)],['PickSetGo sessions per week',String(config.weeklyCoachFrequency)],
           ['Usual tennis playing days',config.usualPlayingDays.length?config.usualPlayingDays.map(day=>day.charAt(0).toUpperCase()+day.slice(1,3)).join(', '):'Irregular / no fixed days'],
           ['Typical tennis intensity',config.typicalSportIntensity.charAt(0).toUpperCase()+config.typicalSportIntensity.slice(1)],
           ['Training intent',config.intent==='event'?'Event · '+(config.significantEventLabel?config.significantEventLabel+' · ':'')+config.significantEventDate:'Ongoing development']]);
@@ -815,13 +815,13 @@
       }
       wrap.append(manageSection);
     }
-    // Optional usual activities outside GarageFit, shared Coach preferences edited in the
+    // Optional usual activities outside PickSetGo, shared Coach preferences edited in the
     // existing settings screen. Approximate planning context only: never sessions or credit.
     let activityDraft=null;
     function usualActivities(current, locked) {
       const wrap=progressViews.section('Usual activities (optional)','coach-settings-activities');
       const saved=current.externalPreferences?.usualExternalActivities || [];
-      wrap.append(paragraph('Other activities you usually do each week, such as running, cycling or a sport. Approximate is fine. They gently guide which workouts Coach suggests and never count as GarageFit sessions.'));
+      wrap.append(paragraph('Other activities you usually do each week, such as running, cycling or a sport. Approximate is fine. They gently guide which workouts Coach suggests and never count as PickSetGo sessions.'));
       if (!current.externalPreferences) wrap.append(paragraph('Your saved usual activities could not be read. Saving or clearing replaces them; nothing else is changed.'));
       if (locked) {
         readOnlyRows(wrap,saved.length ? saved.map(item=>[item.activityType,item.sessionsPerWeek+' per week']) : [['Usual activities','None added']]);
@@ -895,7 +895,7 @@
           phase.append(paragraph('Event · '+(event.label ? event.label+' · ' : '')+event.eventDate+' · '+(event.daysUntil<0?'date passed':event.daysUntil+' days away')),paragraph(event.rationale));
           if (event.holdProgression) hold='Event preparation holds established resistance and reps.';
         } else phase.append(paragraph('Ongoing development · no fixed end date'));
-        phase.append(paragraph(config.weeklyCoachFrequency+' GarageFit sessions per week · '+state.meaningfulSessionsCompleted+' meaningful sessions in total'));
+        phase.append(paragraph(config.weeklyCoachFrequency+' PickSetGo sessions per week · '+state.meaningfulSessionsCompleted+' meaningful sessions in total'));
       } else if (def.openEnded) {
         const frequency=def.recommendedFrequency;
         phase.append(paragraph('Open-ended programme · '+(frequency.aimSessionsPerWeek ? 'aim for '+frequency.aimSessionsPerWeek+' sessions per week; '+frequency.minSessionsPerWeek+' is acceptable'

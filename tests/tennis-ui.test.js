@@ -154,10 +154,10 @@ test('Coach selection groups existing programmes and Tennis; minimal setup saves
   assert.doesNotMatch(p.run('copyText()'),/Cycling|Running/);
   await p.click('Tennis');
   assert.equal(p.run("field('Training focus').value"),'balanced');
-  assert.equal(p.run("field('GarageFit sessions per week').value"),'2');
+  assert.equal(p.run("field('PickSetGo sessions per week').value"),'2');
   assert.equal(p.run("field('Training intent').value"),'ongoing');
   assert.equal(p.run("field('Irregular / no fixed days').checked"),true);
-  await p.change('Training focus','power'); await p.change('GarageFit sessions per week','3');
+  await p.change('Training focus','power'); await p.change('PickSetGo sessions per week','3');
   p.run("field('Irregular / no fixed days').checked=false;field('Irregular / no fixed days').onchange();field('Monday').checked=true;field('Friday').checked=true");
   await p.change('Typical tennis intensity','hard'); await p.change('Training intent','event');
   await p.change('Important event date','2026-11-20'); await p.click('Start programme');
@@ -190,7 +190,7 @@ test('settings use Store, preserve targets through failure/retry and pause/resum
   const before=p.state();assert.ok(p.run('coachUI.controller.snapshot().preview'));
   await p.run('coachUI.back()');await p.click('Programme settings');
   assert.equal(p.run("document.getElementById('bottomNav').classList.contains('hidden')"),true,'secondary screen');
-  await p.change('Training focus','movement');await p.change('GarageFit sessions per week','1');
+  await p.change('Training focus','movement');await p.change('PickSetGo sessions per week','1');
   p.run("const write=localStorage.setItem;let fail=true;localStorage.setItem=(key,value)=>{if(fail){fail=false;throw new Error('quota');}write(key,value);}");
   await p.click('Save tennis settings');assert.deepEqual(p.state(),before);
   assert.match(p.run("document.getElementById('coachSettingsError').textContent"),/Could not write/);
@@ -203,7 +203,7 @@ test('settings use Store, preserve targets through failure/retry and pause/resum
   assert.equal(p.run('coachUI.controller.snapshot().preview'),null);
   await p.click('Pause');assert.equal(p.state().status,'paused');await p.click('Resume');
   assert.equal(p.state().status,'active');assert.deepEqual(p.state().anchors,before.anchors);
-  await p.change('GarageFit sessions per week','7');await p.click('Save tennis settings');
+  await p.change('PickSetGo sessions per week','7');await p.click('Save tennis settings');
   assert.equal(p.state().currentTargets.programmeSettings.weeklyCoachFrequency,1);
   assert.match(p.run("document.getElementById('coachSettingsError').textContent"),/programme-settings/);
   const q=await ui(p.storage);assert.equal(q.state().currentTargets.programmeSettings.focus,'movement');

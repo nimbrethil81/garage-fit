@@ -62,7 +62,7 @@
   }
   function parse(text, limit = MAX_BYTES) {
     if (typeof text !== 'string' || bytes(text) > limit) fail('file-too-large', 'This file is too large to restore safely.');
-    try { checkJson(text); return JSON.parse(text); } catch (error) { throw new BackupError('invalid-file', 'Choose a complete GarageFit JSON backup file.', error); }
+    try { checkJson(text); return JSON.parse(text); } catch (error) { throw new BackupError('invalid-file', 'Choose a complete PickSetGo JSON backup file.', error); }
   }
   function create({storage, coach, registry = root.GarageFitBackupRegistry, isBlocked = () => false,
     withExclusive, now = () => new Date().toISOString()} = {}) {
@@ -70,11 +70,11 @@
     let busy = false, preservation = null, prepared = null;
     function available() {
       if (!storage || !['getItem', 'setItem', 'removeItem', 'key'].every(name => typeof storage[name] === 'function'))
-        fail('storage-unavailable', 'GarageFit storage is unavailable. Existing data has not been replaced.');
+        fail('storage-unavailable', 'PickSetGo storage is unavailable. Existing data has not been replaced.');
     }
     function read(key) {
       available();
-      try { return storage.getItem(key); } catch (error) { throw new BackupError('storage-unavailable', 'GarageFit data could not be read.', error); }
+      try { return storage.getItem(key); } catch (error) { throw new BackupError('storage-unavailable', 'PickSetGo data could not be read.', error); }
     }
     function write(key, value) {
       try { storage.setItem(key, value); }
@@ -109,7 +109,7 @@
       coach.replaceRaw([]);
       raw.preferences.forEach(([key, value]) => write(key, value));
       coach.replaceRaw(raw.coach);
-      if (canonical(snapshot()) !== canonical(raw)) fail('concurrent-change', 'GarageFit data changed during replacement. Original data will be recovered.');
+      if (canonical(snapshot()) !== canonical(raw)) fail('concurrent-change', 'PickSetGo data changed during replacement. Original data will be recovered.');
     }
     function portable(raw) {
       registry.validate(raw.preferences);
@@ -118,9 +118,9 @@
     }
     async function validate(text) {
       const archive = parse(text);
-      if (!exactKeys(archive, ['app', 'formatVersion', 'createdAt', 'sections', 'checksum']) || archive.app !== 'GarageFit')
-        fail('invalid-file', 'Choose a complete GarageFit backup.');
-      if (archive.formatVersion !== FORMAT) fail('incompatible-version', 'This backup format is not supported by this version of GarageFit.');
+      if (!exactKeys(archive, ['app', 'formatVersion', 'createdAt', 'sections', 'checksum']) || archive.app !== 'PickSetGo')
+        fail('invalid-file', 'Choose a complete PickSetGo backup.');
+      if (archive.formatVersion !== FORMAT) fail('incompatible-version', 'This backup format is not supported by this version of PickSetGo.');
       if (typeof archive.createdAt !== 'string' || !Number.isFinite(Date.parse(archive.createdAt))
         || !exactKeys(archive.sections, ['preferences', 'coach'])) fail('invalid-file', 'The backup date or sections are invalid.');
       for (const section of Object.values(archive.sections)) {
@@ -151,13 +151,13 @@
       return run(async () => {
         requireSettled();
         const original = snapshot(), sections = portable(original);
-        const payload = {app: 'GarageFit', formatVersion: FORMAT, createdAt: now(), sections};
+        const payload = {app: 'PickSetGo', formatVersion: FORMAT, createdAt: now(), sections};
         const archive = {...payload, checksum: await fingerprint(payload)}, text = JSON.stringify(archive);
         if (bytes(text) > MAX_BYTES) fail('data-too-large', 'Your data is too large for this backup format. Nothing has been omitted.');
         await validate(text);
         requireSettled();
-        if (canonical(original) !== canonical(snapshot())) fail('concurrent-change', 'GarageFit changed while preparing the file. Please create a new backup.');
-        const result = {text, filename: 'GarageFit-backup-' + payload.createdAt.slice(0, 10) + '.json',
+        if (canonical(original) !== canonical(snapshot())) fail('concurrent-change', 'PickSetGo changed while preparing the file. Please create a new backup.');
+        const result = {text, filename: 'PickSetGo-backup-' + payload.createdAt.slice(0, 10) + '.json',
           checksum: archive.checksum, identity: await fingerprint(sections), status: 'prepared'};
         if (preserve) preservation = {original: canonical(original), checksum: result.checksum, verified: false};
         prepared = result;
@@ -180,7 +180,7 @@
     }
     async function restore(text, {confirmed = false} = {}) {
       return run(async () => {
-        if (!confirmed) fail('confirmation-required', 'Confirm that the selected file will replace existing GarageFit data.');
+        if (!confirmed) fail('confirmation-required', 'Confirm that the selected file will replace existing PickSetGo data.');
         requireSettled();
         const incoming = await validate(text), original = snapshot();
         if ((original.preferences.length || original.coach.length)
@@ -215,8 +215,8 @@
           return {status: 'restored', reloadRequired: true, summary: incoming.summary};
         } catch (error) {
           try { replace(original); remove(JOURNAL); }
-          catch (recoveryError) { throw new BackupError('recovery-required', 'Restore stopped. Reload to recover the original data before using GarageFit.', recoveryError); }
-          throw new BackupError('restore-rolled-back', 'Restore did not finish. Your original GarageFit data has been recovered.', error);
+          catch (recoveryError) { throw new BackupError('recovery-required', 'Restore stopped. Reload to recover the original data before using PickSetGo.', recoveryError); }
+          throw new BackupError('restore-rolled-back', 'Restore did not finish. Your original PickSetGo data has been recovered.', error);
         }
       }, {exclusive: true});
     }

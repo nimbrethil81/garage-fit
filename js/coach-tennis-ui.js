@@ -17,7 +17,7 @@
       const wrap = document.createElement('div'); wrap.className = 'coach-settings';
       const profile = root.GarageFitData.sportProfiles.tennis.configuration;
       const focus = selectField('Training focus', profile.focuses.map(value => [value,focusNames[value]]), settings.focus);
-      const frequency = selectField('GarageFit sessions per week', profile.weeklyCoachFrequencies.map(value => [value,String(value)]), settings.weeklyCoachFrequency);
+      const frequency = selectField('PickSetGo sessions per week', profile.weeklyCoachFrequencies.map(value => [value,String(value)]), settings.weeklyCoachFrequency);
       const intensity = selectField('Typical tennis intensity', profile.sportIntensities.map(value => [value,title(value)]), settings.typicalSportIntensity);
       wrap.append(focus.field, frequency.field);
       const days = document.createElement('fieldset'), legend = document.createElement('legend'); legend.textContent = 'Usual tennis playing days'; days.append(legend);

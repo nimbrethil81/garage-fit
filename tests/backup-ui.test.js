@@ -28,7 +28,7 @@ function harness(options={}){
   const archive={createdAt:'2026-10-24T12:00:00Z',sections:{preferences:{entries:[['gf_equipment_inventory','[]'],['gf_equipment_configured','true']]}}};
   const validated={archive,summary:{sessions:4,completed:2,partial:1,programmes:1,preferences:2}};
   const backup={
-    async prepare(opts){calls.prepare.push(opts);return {text:'prepared',filename:'GarageFit-backup.json',status:'prepared'};},
+    async prepare(opts){calls.prepare.push(opts);return {text:'prepared',filename:'PickSetGo-backup.json',status:'prepared'};},
     async validate(text){if(text==='bad')throw Object.assign(new Error('The backup is incomplete or changed.'),{code:'integrity-failed'});return validated;},
     async verify(text,opts){calls.verify.push([text,opts]);if(text!=='prepared')throw Object.assign(new Error('Choose the file you just prepared.'),{code:'verification-mismatch'});if(opts.preserve)preservationVerified=true;},
     inspectDestination(){return {meaningful,preservationVerified,summary:{sessions:3,programmes:1}};},
@@ -85,7 +85,7 @@ test('meaningful destinations require verified preservation and an independent c
   const check=h.content.querySelectorAll('input').find(n=>n.id==='backupReplacementConsent');check.checked=true;check.onchange();
   await replace.click();assert.equal(h.calls.restore.length,1);assert.equal(h.calls.restore[0][0],'incoming');assert.equal(h.calls.restore[0][1].confirmed,true);
   assert.equal(h.view(),'complete');assert.equal(h.api.canLeave(),false);assert.equal(h.api.back(),false);
-  assert.equal(h.calls.reload,0);await h.click('Continue to GarageFit');assert.equal(h.calls.reload,1);
+  assert.equal(h.calls.reload,0);await h.click('Continue to PickSetGo');assert.equal(h.calls.reload,1);
 });
 
 test('changed current data invalidates a previously verified preservation before confirmation',async()=>{
@@ -118,7 +118,7 @@ test('pending operations block duplicate actions/back and native save cancellati
 test('empty destinations still require a separate explicit replacement confirmation',async()=>{
   const h=harness();h.meaningful(false);h.api.open();await h.api.selectFile({text:'incoming'});
   await h.click('Continue to protect data');assert.equal(h.view(),'confirm');
-  assert.match(h.text(),/no saved GarageFit data/);assert.equal(h.calls.prepare.length,0);
+  assert.match(h.text(),/no saved PickSetGo data/);assert.equal(h.calls.prepare.length,0);
   assert.equal(h.buttons().find(n=>n.textContent==='Replace data and restore').disabled,true);
 });
 

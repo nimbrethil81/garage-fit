@@ -40,12 +40,12 @@
     }
     function storageReady() {
       if (!storage || !['getItem', 'setItem', 'removeItem', 'key'].every(name => native[name]))
-        throw problem('storage-unavailable', 'GarageFit storage is unavailable. Existing data has not been replaced.');
+        throw problem('storage-unavailable', 'PickSetGo storage is unavailable. Existing data has not been replaced.');
     }
     const rawRead = key => { storageReady(); return native.getItem.call(storage, key); };
     function pendingRecovery() { return rawRead(journalKey) !== null || rawRead(reserveKey) !== null; }
     function allowOrdinaryWrite() {
-      if (state !== 'ready') throw problem('operation-in-progress', 'GarageFit data is protected while backup recovery or replacement is in progress.');
+      if (state !== 'ready') throw problem('operation-in-progress', 'PickSetGo data is protected while backup recovery or replacement is in progress.');
     }
     // The coordinator alone receives this bypass adapter. Ordinary clients keep
     // localStorage and cannot race a late microtask into a protected replacement.
@@ -55,12 +55,12 @@
       getItem: rawRead,
       setItem(key, value) {
         storageReady();
-        if (!exclusive) throw problem('exclusive-required', 'A protected data operation must own the GarageFit storage lease.');
+        if (!exclusive) throw problem('exclusive-required', 'A protected data operation must own the PickSetGo storage lease.');
         native.setItem.call(storage, key, value);
       },
       removeItem(key) {
         storageReady();
-        if (!exclusive) throw problem('exclusive-required', 'A protected data operation must own the GarageFit storage lease.');
+        if (!exclusive) throw problem('exclusive-required', 'A protected data operation must own the PickSetGo storage lease.');
         native.removeItem.call(storage, key);
       }
     };
@@ -97,19 +97,19 @@
     }
     async function sharedLease() {
       shared = await lease('shared');
-      if (!shared) throw problem('another-tab', 'Another GarageFit data operation is running. Close other GarageFit tabs, then reload.');
+      if (!shared) throw problem('another-tab', 'Another PickSetGo data operation is running. Close other PickSetGo tabs, then reload.');
     }
     async function releaseShared() { const previous = shared; shared = null; if (previous) await previous.release(); }
     async function releaseExclusive() { const previous = exclusive; exclusive = null; if (previous) await previous.release(); }
     async function start(recover) {
-      if (operating) throw problem('operation-in-progress', 'Wait for the current GarageFit data operation to finish.');
+      if (operating) throw problem('operation-in-progress', 'Wait for the current PickSetGo data operation to finish.');
       if (state === 'ready') return {status: 'none', supported};
-      if (state === 'reload-required') throw problem('reload-required', 'Reload GarageFit to use the restored data.');
+      if (state === 'reload-required') throw problem('reload-required', 'Reload PickSetGo to use the restored data.');
       operating = true; state = 'starting'; notify(true);
       try {
         storageReady();
         if (!supported) {
-          if (pendingRecovery()) throw problem('recovery-required', 'An interrupted restore needs a browser with protected storage access. Open GarageFit in an up-to-date supported browser.');
+          if (pendingRecovery()) throw problem('recovery-required', 'An interrupted restore needs a browser with protected storage access. Open PickSetGo in an up-to-date supported browser.');
           state = 'ready';
           return {status: 'none', supported: false};
         }
@@ -118,14 +118,14 @@
         if (pendingRecovery()) {
           await releaseShared();
           if (!exclusive) exclusive = await lease('exclusive');
-          if (!exclusive) throw problem('another-tab', 'Close other GarageFit tabs before recovering this interrupted restore, then reload.');
-          if (typeof recover !== 'function') throw problem('recovery-required', 'GarageFit could not start recovery. Reload to try again.');
+          if (!exclusive) throw problem('another-tab', 'Close other PickSetGo tabs before recovering this interrupted restore, then reload.');
+          if (typeof recover !== 'function') throw problem('recovery-required', 'PickSetGo could not start recovery. Reload to try again.');
           state = 'recovering';
           recovery = await recover();
-          if (pendingRecovery()) throw problem('recovery-required', 'Recovery is not complete. Reload before using GarageFit.');
+          if (pendingRecovery()) throw problem('recovery-required', 'Recovery is not complete. Reload before using PickSetGo.');
           await releaseExclusive();
           await sharedLease();
-          if (pendingRecovery()) throw problem('recovery-required', 'Another restore was interrupted. Reload to recover before using GarageFit.');
+          if (pendingRecovery()) throw problem('recovery-required', 'Another restore was interrupted. Reload to recover before using PickSetGo.');
         }
         state = 'ready';
         return {...recovery, supported: true};
@@ -143,7 +143,7 @@
       try {
         await releaseShared();
         exclusive = await lease('exclusive');
-        if (!exclusive) throw problem('another-tab', 'Close other GarageFit tabs or windows before restoring, then try again.');
+        if (!exclusive) throw problem('another-tab', 'Close other PickSetGo tabs or windows before restoring, then try again.');
         state = 'exclusive';
         if (isBlocked()) throw problem('active-session', 'Finish or save your current activity before restoring a backup.');
         const result = await action();
@@ -162,16 +162,16 @@
           try { await sharedLease(); state = 'ready'; }
           catch (error) {
             state = 'blocked';
-            throw problem('recovery-required', 'GarageFit changed in another tab. Close other GarageFit tabs and reload before continuing.', error);
+            throw problem('recovery-required', 'PickSetGo changed in another tab. Close other PickSetGo tabs and reload before continuing.', error);
           }
         }
         operating = false; notify(false);
       }
     }
     async function readFile(file) {
-      if (!file) throw problem('no-file', 'No file was selected. Choose a GarageFit JSON backup.');
+      if (!file) throw problem('no-file', 'No file was selected. Choose a PickSetGo JSON backup.');
       const limit = root.GarageFitBackup?.MAX_BYTES || 8 * 1024 * 1024;
-      if (!Number.isSafeInteger(file.size) || file.size < 1) throw problem('invalid-file', 'Choose a non-empty GarageFit JSON backup file.');
+      if (!Number.isSafeInteger(file.size) || file.size < 1) throw problem('invalid-file', 'Choose a non-empty PickSetGo JSON backup file.');
       if (file.size > limit) throw problem('file-too-large', 'This file is too large to restore safely.');
       try {
         if (typeof file.text === 'function') return await file.text();
@@ -196,11 +196,11 @@
         const file = typeof win.File === 'function' ? new win.File([prepared.text], prepared.filename, {type: 'application/json'}) : null;
         // Invoke each native picker directly from the user's Save button gesture.
         if (file && typeof nav.share === 'function' && typeof nav.canShare === 'function' && nav.canShare({files: [file]})) {
-          await nav.share({files: [file], title: 'GarageFit backup'});
+          await nav.share({files: [file], title: 'PickSetGo backup'});
           return {status: 'offered', method: 'share'};
         }
         if (typeof win.showSaveFilePicker === 'function') {
-          const handle = await win.showSaveFilePicker({suggestedName: prepared.filename, types: [{description: 'GarageFit JSON backup', accept: {'application/json': ['.json']}}]});
+          const handle = await win.showSaveFilePicker({suggestedName: prepared.filename, types: [{description: 'PickSetGo JSON backup', accept: {'application/json': ['.json']}}]});
           const stream = await handle.createWritable();
           try { await stream.write(prepared.text); await stream.close(); }
           catch (error) { try { await stream.abort(); } catch (_) {} throw error; }

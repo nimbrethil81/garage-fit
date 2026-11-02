@@ -46,7 +46,7 @@
       && (value.acknowledged == null || typeof value.acknowledged === 'string'))
   });
   function invalid(key) {
-    const error = new Error('The backup contains an unsupported or damaged GarageFit preference or history record.');
+    const error = new Error('The backup contains an unsupported or damaged PickSetGo preference or history record.');
     error.code = 'invalid-backup-record';
     error.key = key;
     return error;

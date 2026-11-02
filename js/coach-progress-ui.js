@@ -196,14 +196,14 @@
       wrap.append(list, paragraph('Active weeks · '+active+' of '+weeks.length+'. Only sessions with performed main work count. Missed weeks create no catch-up.'));
       return wrap;
     }
-    // Capability balance: which training effects were actually performed recently, from every GarageFit source.
+    // Capability balance: which training effects were actually performed recently, from every PickSetGo source.
     const balanceStatus = {performed: ['✓', 'Performed'], 'not-performed': ['○', 'Not performed']};
     function balance({summary}) {
       const wrap = section('Capability balance · last '+summary.windowDays+' days'), grid = node('div', 'coach-progress-grid');
       summary.effects.forEach(effect => {
         const [icon, status] = balanceStatus[effect.status];
         const lines = [status, effect.sessionCount ? plural(effect.sessionCount, 'session') : 'None recorded'];
-        const detail = [paragraph(effect.sessionCount ? 'Performed in '+plural(effect.sessionCount, 'session')+' in the last '+summary.windowDays+' days, across all your GarageFit workouts.'
+        const detail = [paragraph(effect.sessionCount ? 'Performed in '+plural(effect.sessionCount, 'session')+' in the last '+summary.windowDays+' days, across all your PickSetGo workouts.'
           : 'No performed '+effect.label+' work in the last '+summary.windowDays+' days.')];
         grid.append(card({key: 'balance-'+effect.effect, label: title(effect.label), lines, detail, icon,
           className: 'coach-capability-card coverage-'+(effect.status === 'performed' ? 'observed' : 'not-observed')}));

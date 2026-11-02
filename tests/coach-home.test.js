@@ -347,7 +347,7 @@ test('programme setups share accurate facts and concise, optional progression he
     assert.equal(help.length,1); assert.equal(help[0].open,false);
     assert.ok(p.has('Set up usual equipment')); assert.ok(p.has('Start programme'));
     if(key==='arms') assert.match(p.text(),/Aim for 3; 2 is acceptable/);
-    if(key==='tennis') assert.ok(p.run("field('GarageFit sessions per week')"));
+    if(key==='tennis') assert.ok(p.run("field('PickSetGo sessions per week')"));
     await p.run("field('Back to Coach programmes').onclick()"); assert.ok(p.has(names[key]));
     await p.click(names[key]); await p.click('Start programme'); assert.ok(p.state());
   }

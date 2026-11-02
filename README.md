@@ -1,6 +1,6 @@
-# GarageFit
+# PickSetGo
 
-Simple dependency-free PWA for fixed and generated garage workouts.
+Simple dependency-free PWA for fixed and generated workouts using the equipment you have.
 
 Use fixed workouts, generate sessions for your equipment, or follow General Strength,
 Build Arms or Tennis Conditioning in Coach. Prep & Recover provides five-minute
