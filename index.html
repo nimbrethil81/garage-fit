@@ -8,13 +8,13 @@ layout: null
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="GarageFit">
+<meta name="apple-mobile-web-app-title" content="PickSetGo">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#263238">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<title>Garage Fit</title>
+<title>PickSetGo</title>
 <script src="js/appearance.js"></script>
 <script>if(navigator.standalone===true)document.documentElement.classList.add('ios-standalone');</script>
 <link rel="stylesheet" href="css/appearance.css">
@@ -378,7 +378,7 @@ layout: null
     <div class="equipment-list" id="equipmentList"></div>
     <p class="equipment-note hidden" id="ringsSetupGuidance"><strong>Gymnastic rings setup:</strong> Use secure, load-rated overhead mounting and straps suitable for the chosen exercise; not all mounts are suitable for dynamic loading. Allow enough clearance, adjust and check the setup before loading, and enter and exit under control.</p>
     <p class="equipment-note">A mat is not listed because it isn’t mechanically required. Leaving everything unselected gives you bodyweight workouts.</p>
-    <p class="equipment-note">Saved across GarageFit for future workouts. Already prepared workouts and workouts in progress keep their original equipment and exercises.</p>
+    <p class="equipment-note">Saved across PickSetGo for future workouts. Already prepared workouts and workouts in progress keep their original equipment and exercises.</p>
     <button class="generator-primary equipment-done" type="button" onclick="closeEquipment(true)">Done</button>
   </main>
 
@@ -607,7 +607,7 @@ layout: null
   </main>
   <main id="about" class="screen info-detail hidden">
     <header class="page-header"><button class="back-btn" type="button" aria-label="Back to Settings" onclick="appBack()">←</button><h1>About</h1><span class="header-spacer"></span></header>
-    <section class="library-detail-section"><h2>GarageFit</h2><p>Build <strong id="aboutBuild" data-commit="{{ site.github.build_revision }}">{{ site.github.build_revision | slice: 0, 7 }}</strong></p><p id="aboutMode"></p><p>This identifies the page loaded on this device.</p></section>
+    <section class="library-detail-section"><h2>PickSetGo</h2><p>Build <strong id="aboutBuild" data-commit="{{ site.github.build_revision }}">{{ site.github.build_revision | slice: 0, 7 }}</strong></p><p id="aboutMode"></p><p>This identifies the page loaded on this device.</p></section>
     <details><summary>App diagnostics</summary><pre id="aboutDiagnostics" style="white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;font:inherit;font-size:13px;line-height:1.5"></pre><button class="library-entry" type="button" onclick="copyAboutDetails()">Copy app diagnostics</button><p id="aboutCopyStatus" role="status"></p></details>
     <details><summary>Workout diagnostics</summary><pre id="workoutDiagnostics" style="white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;font:inherit;font-size:13px;line-height:1.5"></pre><button class="library-entry" type="button" onclick="copyWorkoutDiagnostics()">Copy workout diagnostics</button><p id="workoutCopyStatus" role="status"></p></details>
   </main>
@@ -620,7 +620,7 @@ layout: null
   </main>
   <main id="workoutPatterns" class="screen hidden">
     <header class="page-header"><button class="back-btn" type="button" aria-label="Back to More" onclick="appBack()">←</button><h1>Workout Patterns</h1><span class="header-spacer"></span></header>
-    <p class="page-header-copy">GarageFit chooses the pattern for you. Not every pattern appears in every workout or difficulty. Tap a pattern to learn how it works.</p>
+    <p class="page-header-copy">PickSetGo chooses the pattern for you. Not every pattern appears in every workout or difficulty. Tap a pattern to learn how it works.</p>
     <ul class="library-list" id="patternList"></ul>
   </main>
   <main id="workoutPatternDetail" class="screen info-detail hidden">
@@ -838,9 +838,9 @@ function renderExerciseLibrary(){
   items.forEach(exercise=>{const li=document.createElement('li'),button=document.createElement('button'),icon=document.createElement('span'),name=document.createElement('strong'),equipmentLabel=document.createElement('span');button.type='button';button.className='library-row';icon.className='equipment-icon';icon.setAttribute('aria-hidden','true');icon.innerHTML=GarageFitEquipmentIcons.svg(GarageFitEquipmentIcons.primaryEquipmentId(exercise));name.className='library-name';name.textContent=exercise.name;equipmentLabel.className='sr-only';equipmentLabel.textContent=', '+libraryEquipmentLabel(exercise);button.append(icon,name,equipmentLabel);button.onclick=()=>openExerciseDetail(exercise.id);li.appendChild(button);list.appendChild(li)});
   document.getElementById('libraryEmpty').classList.toggle('hidden',items.length!==0);
 }
-const WORKOUT_PATTERN_HEADINGS=['What is it?','How does it work?','Why does GarageFit use it?','Example'];
+const WORKOUT_PATTERN_HEADINGS=['What is it?','How does it work?','Why does PickSetGo use it?','Example'];
 const WORKOUT_PATTERNS=[
-  {id:"mini-circuit",name:"Mini-circuit",sections:["A short circuit: you move through a handful of exercises in order, then go round again.","Do each exercise once in the order shown, take the short recovery GarageFit plans between movements, then rest between rounds. The workout preview shows the number of rounds and the recovery.","It is a flexible, time-efficient way to cover several movements and keep the effort steady without long waits.","Three rounds of air squats, push-ups and glute bridges, with a short recovery between each."]},
+  {id:"mini-circuit",name:"Mini-circuit",sections:["A short circuit: you move through a handful of exercises in order, then go round again.","Do each exercise once in the order shown, take the short recovery PickSetGo plans between movements, then rest between rounds. The workout preview shows the number of rounds and the recovery.","It is a flexible, time-efficient way to cover several movements and keep the effort steady without long waits.","Three rounds of air squats, push-ups and glute bridges, with a short recovery between each."]},
   {id:"superset",name:"Superset",sections:["Two exercises are paired and done back to back, A then B, as one set.","Do A, change over to B, then rest only after the pair is complete. Repeat for the planned number of sets. The player labels each step with the set and whether it is A or B.","Pairing exercises keeps the session moving and makes good use of the time you would otherwise spend resting between single exercises.","Three sets of A: split squat, then B: push-up, with recovery after each pair."]},
   {id:"timed-intervals",name:"Timed intervals",sections:["Each exercise runs against the clock for a fixed work interval rather than a rep count.","Work until the timer ends, use the short transition to get ready for the next exercise, and keep going through the planned cycles.","The clock sets the pace, so you can concentrate on moving well without counting reps.","Four cycles of 40 seconds on squat jumps, mountain climbers and plank, with a short transition between them."]},
   {id:"emom",name:"EMOM",sections:["EMOM stands for every minute on the minute. Each minute starts a new exercise window.","Complete the rep or time target for that minute. Once you finish, rest until the next minute begins. For rep targets, tap Done when you finish. The player can let you skip the rest and start the next minute straight away with a fresh one-minute window. Some EMOMs rotate between up to three exercises.","It gives clear structure and built-in recovery: the faster you finish the target, the more rest you get before the next minute.","Eight minutes alternating air squats and push-ups, with a set rep target each minute and the remainder of the minute to recover."]},

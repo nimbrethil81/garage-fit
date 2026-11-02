@@ -1,4 +1,4 @@
-# GarageFit portable backup records
+# PickSetGo portable backup records
 
 The Settings → Your data → Backup & Restore flow implements the approved
 BR1–BR6 and BR-UI1–BR-UI8 Option B decisions. Visual references are the approved
@@ -71,7 +71,10 @@ state, never portable data.
 isBlocked, withExclusive, now})`. The Coach argument is the synchronous
 `GarageFitCoachStore.createBackupAccess(storage)` boundary. The browser bridge and screen are mounted by the existing inline app bootstrap.
 
-Format 1 archives contain `app: "GarageFit"`, an ISO `createdAt`, separate
+New archives use PickSetGo identity; historic GarageFit archives are not supported.
+See [the upgrade checklist](PICKSETGO_UPGRADE.md) before rollout or rollback.
+
+Format 1 archives contain `app: "PickSetGo"`, an ISO `createdAt`, separate
 version-1 `preferences` and `coach` sections, and a lowercase SHA-256 `checksum`
 over the canonical archive excluding the checksum field. Canonical JSON sorts
 object property names while retaining array order. Each section uses unique
@@ -108,7 +111,7 @@ reinitialisation of every stateful client before any other app mutation.
 first-use classification, history query or equipment migration. Recovery upgrades
 to exclusive ownership before touching a pending journal. Export preparation and
 restore both upgrade to an exclusive lease with bounded `ifAvailable` acquisition;
-other live GarageFit tabs must be closed before continuing. A failed downgrade
+other live PickSetGo tabs must be closed before continuing. A failed downgrade
 also blocks app use until reload, rather than leaving a stale client unprotected.
 
 The bridge guards this localStorage instance's normal set/remove/clear methods
@@ -118,7 +121,7 @@ also blocks late asynchronous app writes. Shared leases stay held while a page i
 in the back-forward cache; successful restore retains exclusive ownership and
 blocks navigation/writes until the success screen's Continue reloads every client.
 No localStorage transaction or cross-device synchronisation is claimed. Protection
-requires the app's lease-aware implementation; close older loaded GarageFit tabs
+requires the app's lease-aware implementation; close older loaded PickSetGo tabs
 before upgrading/restoring as well.
 
 The `isBlocked` callback covers live/paused routines and players, Coach operations,

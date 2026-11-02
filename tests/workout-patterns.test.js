@@ -63,7 +63,7 @@ test('each pattern opens the one reusable detail view with name and the four sec
     assert.equal(el(app,'workoutPatterns').classList.contains('hidden'),true);
     assert.equal(el(app,'patternDetailName').textContent,pattern.name);
     const sections=el(app,'patternDetailSections').children;
-    assert.deepEqual(sections.map(s=>s.children[0].textContent),['What is it?','How does it work?','Why does GarageFit use it?','Example']);
+    assert.deepEqual(sections.map(s=>s.children[0].textContent),['What is it?','How does it work?','Why does PickSetGo use it?','Example']);
     assert.deepEqual(sections.map(s=>s.children[1].textContent),[...pattern.sections]);
     sections.forEach(s=>{assert.equal(s.className,'library-detail-section');assert.ok(s.children[1].textContent.length>20)});
     app.showScreen('workoutPatterns');

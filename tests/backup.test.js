@@ -65,6 +65,8 @@ async function archive() { const source = harness(); await seed(source); return 
 test('portable archive round-trips completed/partial immutable evidence, credit, first-use and exact preferences on a new device', async () => {
   const {source, file} = await archive();
   assert.equal(file.status, 'prepared');
+  assert.equal(JSON.parse(file.text).app, 'PickSetGo');
+  assert.equal(file.filename, 'PickSetGo-backup-2026-10-30.json');
   assert.equal((await source.api.verify(file.text)).status, 'verified');
   const inspected = await source.api.validate(file.text);
   assert.equal(inspected.summary.completed, 1); assert.equal(inspected.summary.partial, 1);
@@ -112,7 +114,7 @@ test('unmodified wrong files, corrupt, future versions and duplicate entries rej
   const target = harness([['gf_appearance_v1', 'light']]);
   await preservation(target);
   await assert.rejects(target.api.verify(file.text, {preserve: true}), {code: 'preservation-mismatch'});
-  const tests = ['{', '{}', file.text.replace('"formatVersion":1', '"formatVersion":2'), file.text.replace('"GarageFit"', '"AnotherApp"')];
+  const tests = ['{', '{}', file.text.replace('"formatVersion":1', '"formatVersion":2'), file.text.replace('"PickSetGo"', '"AnotherApp"')];
   const tampered = JSON.parse(file.text); tampered.sections.preferences.entries.push(tampered.sections.preferences.entries[0]); tests.push(JSON.stringify(tampered));
   const damaged = JSON.parse(file.text); damaged.sections.coach.entries.pop(); tests.push(JSON.stringify(damaged));
   const before = sorted(target.map), writes = target.mutations;
@@ -134,8 +136,8 @@ test('checksummed archives accept record permutations and mixed-case identities 
 
 test('duplicate JSON member names and excessive nesting are rejected, including escaped keys and embedded stored JSON', async () => {
   const {file} = await archive(), target = harness();
-  const duplicate = file.text.replace('"app":"GarageFit"', '"app":"Other","app":"GarageFit"');
-  const escaped = file.text.replace('"app":"GarageFit"', '"a\\u0070p":"Other","app":"GarageFit"');
+  const duplicate = file.text.replace('"app":"PickSetGo"', '"app":"Other","app":"PickSetGo"');
+  const escaped = file.text.replace('"app":"PickSetGo"', '"a\\u0070p":"Other","app":"PickSetGo"');
   const nested = '['.repeat(65) + '0' + ']'.repeat(65);
   for (const text of [duplicate, escaped, nested]) await assert.rejects(target.api.validate(text), {code: 'invalid-file'});
   const document = JSON.parse(file.text);
@@ -264,4 +266,17 @@ test('generated Challenge history restores exact prescriptions without touching 
   const broken=JSON.parse(source.map.get(challenge.HISTORY_KEY)); broken.results[0].prescription.exercises[0].reps=50;
   source.storage.setItem(challenge.HISTORY_KEY,JSON.stringify(broken));
   await assert.rejects(source.api.prepare(),/damaged/);
+});
+
+test('reopening rebranded storage preserves populated records and an unresolved draft without migration', async () => {
+  const source = harness(); await seed(source);
+  await source.store.saveSessionDraft(source.record(sessionDraft()));
+  const before = sorted(source.map), draft = copy(await source.store.loadSessionDraft());
+  const reloaded = harness(source.map);
+  assert.deepEqual(copy(await reloaded.store.loadSessionDraft()), draft);
+  assert.equal((await reloaded.store.listSessionResults()).results.length, 2);
+  assert.deepEqual(sorted(reloaded.map), before);
+  assert.equal(reloaded.mutations, 0, 'no rename or migration writes on reopen');
+  await assert.rejects(reloaded.api.prepare(), {code: 'active-session'});
+  assert.deepEqual(sorted(reloaded.map), before, 'draft protection leaves all data intact');
 });

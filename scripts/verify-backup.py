@@ -104,7 +104,7 @@ with sync_playwright() as p:
    page.evaluate('appBack()');view(page,'home')
    page.get_by_role('button',name='Create backup',exact=True).click();view(page,'ready');shot(page,'03-file-ready',mode,width)
    exported=save(page,'Save backup file',out/f'{mode}-{width}-ordinary.json');shot(page,'04-save-unverified',mode,width)
-   parsed=json.loads(exported.read_text());assert parsed['app']=='GarageFit';assert len(parsed['sections']['coach']['entries'])>=4
+   parsed=json.loads(exported.read_text());assert parsed['app']=='PickSetGo';assert len(parsed['sections']['coach']['entries'])>=4
    choose(page,'Verify saved file',exported);view(page,'verified');shot(page,'04-file-verified',mode,width)
    page.get_by_role('button',name='Done',exact=True).click();view(page,'home')
    choose(page,'Choose backup file',exported);view(page,'preview');shot(page,'05-restore-preview',mode,width)
@@ -131,13 +131,13 @@ with sync_playwright() as p:
    peer=context.new_page();peer.goto(url);ready(peer)
    page.get_by_label('I understand that my data will be replaced.',exact=True).check()
    page.get_by_role('button',name='Replace data and restore',exact=True).click();view(page,'error')
-   assert 'Close other GarageFit tabs' in page.locator('#backupRestoreContent').inner_text()
+   assert 'Close other PickSetGo tabs' in page.locator('#backupRestoreContent').inner_text()
    peer.close();page.get_by_role('button',name='Try again',exact=True).click();view(page,'confirm')
    page.get_by_label('I understand that my data will be replaced.',exact=True).check()
    page.get_by_role('button',name='Replace data and restore',exact=True).click();view(page,'complete');shot(page,'09-restore-complete',mode,width)
    assert page.evaluate("backupBrowser.status().retained")
    assert page.evaluate("(()=>{try{localStorage.setItem('late-write','stale');return false}catch(e){return e.code==='operation-in-progress'}})()")
-   page.get_by_role('button',name='Continue to GarageFit',exact=True).click();ready(page)
+   page.get_by_role('button',name='Continue to PickSetGo',exact=True).click();ready(page)
    assert page.evaluate("localStorage.getItem('gf_first_use_v1')")==marker
    assert page.evaluate("GarageFitCoachStore.createBackupAccess(localStorage).snapshotRaw()")==original_state
    assert page.evaluate("localStorage.getItem('gf_generator_focus')") is None
@@ -184,7 +184,7 @@ with sync_playwright() as p:
  context.close();browser.close()
  assert not failures,failures
 (out/'manifest.json').write_text(json.dumps({
- 'app':'GarageFit','scope':'backup-restore',
+ 'app':'PickSetGo','scope':'backup-restore',
  'captured_at':datetime.now(timezone.utc).isoformat(),
  'source_commit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
  'source_branch':subprocess.check_output(['git','branch','--show-current'],text=True).strip(),

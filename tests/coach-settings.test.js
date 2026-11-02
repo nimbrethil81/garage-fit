@@ -55,7 +55,7 @@ test('General Strength shows its read-only plan and keeps maintenance, pause and
   assert.match(p.text(), /Four-week block Week 1 of 4 · aim for 8 meaningful sessions/);
   assert.match(p.text(), /Session length 30 min by default; 20, 45 min also supported/);
   assert.match(p.text(), /Strength targets 3 stable targets/);
-  assert.equal(p.field('Training focus'), undefined); assert.equal(p.field('GarageFit sessions per week'), undefined);
+  assert.equal(p.field('Training focus'), undefined); assert.equal(p.field('PickSetGo sessions per week'), undefined);
   assert.equal(p.field('Important event date'), undefined, 'no irrelevant event settings');
   const instance = p.state().programmeInstanceId, anchors = p.state().anchors;
   await p.click('Move to maintenance');
@@ -105,17 +105,17 @@ test('Tennis settings edit only permitted values, keep targets and inventory, an
   const p = await ui(new Map(), ['dumbbells']); await start(p, 'tennis');
   const before = p.state(), inventory = p.json('state.ownedEquipment');
   await p.click('Programme settings');
-  for (const label of ['Training focus', 'GarageFit sessions per week', 'Typical tennis intensity', 'Irregular / no fixed days', 'Important event date', 'Event label (optional)'])
+  for (const label of ['Training focus', 'PickSetGo sessions per week', 'Typical tennis intensity', 'Irregular / no fixed days', 'Important event date', 'Event label (optional)'])
     assert.ok(p.field(label), label);
   assert.match(p.text(), /Training phase Development/);
   assert.doesNotMatch(p.text(), /Move to maintenance/);
-  p.run("field('GarageFit sessions per week').value='3';field('Typical tennis intensity').value='light'");
+  p.run("field('PickSetGo sessions per week').value='3';field('Typical tennis intensity').value='light'");
   await p.click('Save tennis settings');
   const saved = p.state();
   assert.equal(saved.currentTargets.programmeSettings.weeklyCoachFrequency, 3);
   assert.equal(saved.currentTargets.programmeSettings.typicalSportIntensity, 'light');
   assert.deepEqual(saved.anchors, before.anchors); assert.equal(saved.programmeInstanceId, before.programmeInstanceId);
-  assert.equal(p.field('GarageFit sessions per week').value, '3', 'saved values are shown after save');
+  assert.equal(p.field('PickSetGo sessions per week').value, '3', 'saved values are shown after save');
   assert.match(p.text(), /Tennis settings saved/);
   assert.deepEqual(p.json('state.ownedEquipment'), inventory, 'settings never change equipment ownership');
   // A past date is rejected without changing the programme.
@@ -137,7 +137,7 @@ test('a live workout locks settings with a reason and leaves the draft untouched
     assert.match(p.text(), /Save or finish your current workout before changing programme settings/);
     for (const label of ['Save tennis settings', 'Pause', 'Finish programme', 'Move to maintenance', 'Prepare for event']) assert.equal(p.has(label), false, label);
     assert.equal(p.field('Training focus'), undefined);
-    if (key === 'tennis') assert.match(p.text(), /GarageFit sessions per week 2/, 'current values remain readable');
+    if (key === 'tennis') assert.match(p.text(), /PickSetGo sessions per week 2/, 'current values remain readable');
     await assert.rejects(p.run("coachUI.controller.manage('pause')"), /Save the session/);
     await p.run('coachUI.back()');
     assert.deepEqual(await p.run('pilotStore.loadSessionDraft()'), draft); assert.deepEqual(p.state(), state);
@@ -152,7 +152,7 @@ test('General Fitness settings stay anchor-free and edit optional usual activiti
   assert.match(p.text(), /Sessions per week 2–5 recommended/);
   assert.match(p.text(), /Mode Open-ended · no maintenance mode/);
   assert.doesNotMatch(p.text(), /Strength targets|stable targets|Four-week|Move to maintenance|Save tennis settings/);
-  assert.match(p.text(), /Usual activities \(optional\).*never count as GarageFit sessions.*None added/);
+  assert.match(p.text(), /Usual activities \(optional\).*never count as PickSetGo sessions.*None added/);
   assert.equal(storage.has('gf_coach_preferences'), false, 'opening settings writes nothing');
   // Optional and non-blocking: Coach home already offers today's workout.
   await p.run('coachUI.back()'); assert.ok(p.has('View today’s workout')); await p.click('Programme settings');
