@@ -14,6 +14,11 @@ capabilities:
     enabled: true
   security_access_control:
     enabled: true
+  feedback_triage:
+    enabled: true
+    sources:
+      - source: 'Gmail: picksetgoapp@gmail.com'
+        authority: docs/FEEDBACK_TRIAGE.md
 
 security_boundaries:
   - Static GitHub Pages publication of the repository root; no workflow or deploy config in the repo, so publication source and repository permissions are hosted settings (see exclusions).
