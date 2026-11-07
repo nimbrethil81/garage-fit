@@ -129,6 +129,39 @@ test('preview launches the same plan and completes every timed step exactly once
   assert.equal(elements.doneTitle.textContent,'Post Run Stretch Complete');
 });
 
+test('the timed-sequence player suppresses Ab Blast instructions but retains them for Evening Full-Body Reset',()=>{
+  const ab=loadApp(),abUi=ab.context.GarageFitWorkoutUI;
+  let seed=1;
+  ab.context.Math=Object.create(Math);
+  ab.context.Math.random=()=>((seed=(Math.imul(seed,1664525)+1013904223)>>>0)/4294967296);
+  abUi.openWorkoutDetail('abBlast');abUi.startSelectedWorkout();
+  const abList=vm.runInContext('state.list',ab.context);
+  const abTarget=abList.find(ex=>ab.context.GarageFitData.exercises[ex.id].voiceInstruction);
+  assert.ok(abTarget,'seeded Ab Blast includes a voice-instruction exercise');
+  assert.equal(ab.context.GarageFitData.exercises[abTarget.id].voiceInstruction,true);
+  let guard=0;
+  while(vm.runInContext('state.list[state.idx].id',ab.context)!==abTarget.id){
+    assert.ok(guard++<20,'player reaches the selected Ab Blast exercise');
+    const timer=vm.runInContext('state.timer',ab.context),remaining=vm.runInContext('state.remaining',ab.context);
+    tick(ab.intervals,timer,remaining);
+  }
+  const abCue=abTarget.name+'. '+abTarget.work+' seconds';
+  assert.ok(ab.spoken.includes(abCue));
+  assert.ok(!ab.spoken.includes(ab.context.GarageFitData.exercises[abTarget.id].instruction));
+
+  const evening=loadApp(),eveningUi=evening.context.GarageFitWorkoutUI;
+  eveningUi.startTimedSequenceWorkout('eveningFullBodyReset');
+  guard=0;
+  while(vm.runInContext('state.list[state.idx].id',evening.context)!=='dead-bug'){
+    assert.ok(guard++<20,'player reaches Dead bug in Evening Full-Body Reset');
+    const timer=vm.runInContext('state.timer',evening.context),remaining=vm.runInContext('state.remaining',evening.context);
+    tick(evening.intervals,timer,remaining);
+  }
+  const deadBug=evening.context.GarageFitData.exercises['dead-bug'];
+  assert.equal(deadBug.voiceInstruction,true);
+  assert.ok(evening.spoken.includes(deadBug.instruction));
+});
+
 test('fixed stretch timer ignores queued callbacks and rapid Next at boundaries',()=>{
   const {context,intervals}=loadApp();
   const ui=context.GarageFitWorkoutUI;
