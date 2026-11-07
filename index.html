@@ -1224,8 +1224,8 @@ function exerciseCountdownTick(tracker,remaining,active){
 function playCompletionChime(){beep(880,.12)}
 function exerciseCueParts(name,quantity,side){if(!side){const m=/^(.*?)\s+[-\u2013\u2014]\s+(Left|Right)$/i.exec(name);if(m){name=m[1];side=m[2]}}return side?[name+', '+String(side).toLowerCase()+' side.',quantity]:[name+'. '+quantity]}
 function speak(text,followup){manualInstructionSpeech=null;try{if(!('speechSynthesis'in window))return;window.speechSynthesis.cancel();const voice=speechVoices.selected();/* each part is its own queued utterance: the engine's boundary gives the pause, with no timers */for(const part of [].concat(text,followup).filter(Boolean)){const u=new SpeechSynthesisUtterance(part);u.rate=1;u.pitch=1;if(voice)u.voice=voice;window.speechSynthesis.speak(u)}}catch(e){}}function cancelSpeech(){manualInstructionSpeech=null;try{if('speechSynthesis'in window)window.speechSynthesis.cancel()}catch(e){}}
-function announceExercise(exercise,announcement,seconds){const entry=exercise&&CATALOGUE[exercise.id],instruction=entry&&entry.instruction;let followup=null;
-  if(entry&&entry.voiceInstruction&&instruction&&!instructionSeen.has(entry.id)){
+function announceExercise(exercise,announcement,seconds,options){const entry=exercise&&CATALOGUE[exercise.id],instruction=entry&&entry.instruction;let followup=null;
+  if(!(options&&options.suppressInstruction)&&entry&&entry.voiceInstruction&&instruction&&!instructionSeen.has(entry.id)){
     const cues=exercise.timedCues||entry.timedCues||[],firstCue=seconds==null?Infinity:Math.min(seconds,...cues.map(cue=>cue.at.type==='fraction'?seconds*cue.at.value:cue.at.value));
     // Leave room for the name, explanation and a brief gap before the next cue/transition.
     const speechSeconds=([].concat(announcement).join(' ')+' '+instruction).trim().split(/\s+/).length/2.5+2;

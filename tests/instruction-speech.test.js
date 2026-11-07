@@ -89,6 +89,29 @@ test('unsupported speech keeps instructions readable and manual activation inert
   }
 });
 
+test('Ab Blast can suppress automatic instructions while preserving manual read-aloud and other workout defaults', () => {
+  const h = setup();
+  const catalogue = h.app.GarageFitData.exercises;
+  const eligible = ['dead-bug','hollow-body-hold','plank-up-downs'];
+  for (const id of eligible) assert.equal(catalogue[id].voiceInstruction, true, id);
+  for (let session = 0; session < 2; session++) {
+    h.app.beginInstructionSession();
+    for (const id of eligible) {
+      const exercise = {id,name:catalogue[id].name};
+      const cue = exercise.name+'. 40 seconds';
+      h.app.announceExercise(exercise,cue,40,{suppressInstruction:true});
+      assert.equal(h.queue.at(-1).text,cue);
+    }
+  }
+  h.app.beginInstructionSession();
+  h.app.announceExercise({id:'dead-bug',name:'Dead bug'},'Dead bug. 40 seconds',40);
+  assert.equal(h.queue.at(-1).text,catalogue['dead-bug'].instruction);
+  h.app.setInstructionDisclosure('routineInstruction',{id:'dead-bug'});
+  h.el('routineInstruction').open = true;
+  h.app.speakDisplayedInstruction('routineInstruction');
+  assert.equal(h.queue.at(-1).text,catalogue['dead-bug'].instruction);
+});
+
 for(const [player,id] of [['player','routineInstruction'],['workoutPlayer','workoutInstruction']]){
   test(`${player}: artwork uses shared canonical paths, loads silently and ignores stale callbacks`,()=>{
     const h=setup();h.app.showScreen(player);
