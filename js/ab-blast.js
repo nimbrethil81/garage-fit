@@ -8,8 +8,16 @@
     ['dead-bug','contralateral',false], ['bicycle-crunch','rotation',false],
     ['flutter-kicks','leg-work',false], ['hollow-body-hold','brace',true],
     ['leg-raises','leg-work',false], ['seated-knee-tucks','hip-curl',false],
-    ['bear-plank-hold','brace',true], ['plank-up-downs','arm-support',false]
+    ['bear-plank-hold','brace',true], ['plank-up-downs','arm-support',false],
+    ['bodyweight-russian-twist','rotation',false], ['heel-touches','lateral',false],
+    ['supine-arm-pulses','brace',true], ['v-ups','curl',false],
+    ['bird-dog','contralateral',false], ['superman','extension',false]
   ];
+  // Specialist intensity is independent of global difficulty (e.g. dead bug).
+  var LOWER_INTENSITY = ['bird-dog','superman'];
+  function lowerCount(sequence) {
+    return sequence.filter(function (p) { return LOWER_INTENSITY.includes(p[0]); }).length;
+  }
   function eligible(catalogue) {
     return POLICY.filter(function (p) {
       var ex = catalogue[p[0]];
@@ -48,6 +56,7 @@
       if (last && (last[1] === policy[1] || (ex.repetitionClass && ex.repetitionClass === catalogue[last[0]].repetitionClass))) errors.push('Adjacent overlapping movements');
       sequence.push(policy);
     });
+    if (lowerCount(sequence) > 1) errors.push('Too many lower-intensity movements');
     if (!balanced(sequence)) errors.push('Insufficient core movement balance');
     return {valid:errors.length === 0,errors:errors};
   }
@@ -55,7 +64,10 @@
     options = options || {};
     var catalogue = options.catalogue || root.GarageFitData.exercises, random = options.random || Math.random;
     function rank(items) { return items.map(function (value) { return {value:value,rank:random()}; }).sort(function (a,b) { return a.rank-b.rank; }).map(function (x) { return x.value; }); }
+    // Draw once per composition, including Regenerate; no session counters.
+    var desiredLower = random() < 0.2 ? 1 : 0;
     var targets = rank([7,8,9]), pool = rank(eligible(catalogue));
+    if (!pool.some(function (p) { return LOWER_INTENSITY.includes(p[0]); })) desiredLower = 0;
     function slots(p) { return catalogue[p[0]].sidedness === 'per-side' ? 2 : 1; }
     function allocate(sequence) {
       var choices = sequence.map(function () { return rank([30,35,40,45]); });
@@ -74,13 +86,13 @@
     }
     function search(sequence,count,target) {
       if (count === target) {
-        if (!balanced(sequence)) return null;
+        if (!balanced(sequence) || lowerCount(sequence) !== desiredLower) return null;
         var durations = allocate(sequence);
         return durations ? {sequence:sequence,durations:durations} : null;
       }
       for (var p of pool) {
         var last = sequence[sequence.length-1], ex = catalogue[p[0]];
-        if (count+slots(p)>target || sequence.includes(p) || (last && (last[1] === p[1] ||
+        if (lowerCount(sequence) + (LOWER_INTENSITY.includes(p[0]) ? 1 : 0) > desiredLower || count+slots(p)>target || sequence.includes(p) || (last && (last[1] === p[1] ||
             (ex.repetitionClass && ex.repetitionClass === catalogue[last[0]].repetitionClass)))) continue;
         var found = search(sequence.concat([p]),count+slots(p),target);
         if (found) return found;
@@ -89,6 +101,12 @@
     }
     var selected;
     if (pool.length >= 6) for (var target of targets) { selected = search([],0,target); if (selected) break; }
+    // A constrained catalogue may lack a feasible lower-intensity composition.
+    // Fall back to demanding work without relaxing timing or balance.
+    if (!selected && desiredLower === 1 && pool.length >= 6) {
+      desiredLower = 0;
+      for (var fallbackTarget of targets) { selected = search([],0,fallbackTarget); if (selected) break; }
+    }
     if (!selected) throw new Error('Ab Blast is unavailable: not enough suitable movements for a balanced five-minute workout.');
     var exercises = [];
     selected.sequence.forEach(function (p,i) {
