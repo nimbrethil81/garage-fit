@@ -46,6 +46,7 @@ test('copy diagnostics handles supported and unavailable clipboard without alter
   app.visualViewport={width:800,height:350,offsetTop:12,scale:1.2};
   el('appearance').value='dark';
   app.document.documentElement.setAttribute('data-appearance','dark');
+  app.recordPlayerAudio('created');
   let copied;
   app.navigator.clipboard={writeText:async text=>{copied=text}};
   await app.copyAboutDetails();
@@ -54,6 +55,8 @@ test('copy diagnostics handles supported and unavailable clipboard without alter
   assert.match(copied,/Viewport top \/ scale: 12 \/ 1.2/);
   assert.match(copied,/Appearance preference: Dark/);
   assert.match(copied,/Resolved theme: Dark/);
+  assert.match(copied, /\n\nAudio\nAudioContext: unavailable/);
+  assert.match(copied, /Device audibility: unknown — scheduled does not mean heard/);
   assert.match(el('aboutCopyStatus').textContent,/copied/);
   app.navigator.clipboard.writeText=async()=>{throw new Error('Permission denied')};
   await app.copyAboutDetails();
@@ -94,6 +97,8 @@ test('diagnostics groups technical fields, labels reported platform and handles 
   report=el('aboutDiagnostics').textContent;
   assert.match(report,/Reported OS\/platform: unavailable\nUser agent: unavailable/);
   assert.equal(storage.size,0);
+  assert.match(report,/No audio events recorded yet/);
+  assert.match(report,/Device audibility: unknown — scheduled does not mean heard/);
 });
 
 test('Help keeps two diagnostics in native collapsed disclosures; About retains build information',()=>{

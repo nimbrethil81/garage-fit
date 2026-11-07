@@ -65,3 +65,51 @@ test('diagnostics distinguish skipped, failed and scheduled audio without retain
   assert.notEqual(h.app.playerAudioDiagnostics()[0].event,'changed');
   assert.ok(!JSON.stringify(copy).includes('private detail'));
 });
+
+test('audio history correlates two anonymous exercise phases with skipped then scheduled countdowns',async()=>{
+  const h=harness();
+  h.run(`workoutState.mode='generated';workoutState.running=true;
+    generatorState.timeline=[{kind:'exercise',timed:true,protocol:'ordinary'},{kind:'exercise',timed:true,protocol:'ordinary'}];generatorState.timelineIndex=0;
+    var firstCountdown=GarageFitTimedCues.createCountdown();exerciseCountdownTick(firstCountdown,3,true);exerciseCountdownTick(firstCountdown,2,true);exerciseCountdownTick(firstCountdown,1,true);`);
+  assert.deepEqual(Array.from(h.app.playerAudioDiagnostics().filter(e=>e.event==='sound-skipped'),e=>e.position),[3,2,1]);
+  await h.resume();
+  h.run(`generatorState.timelineIndex=1;var secondCountdown=GarageFitTimedCues.createCountdown();exerciseCountdownTick(secondCountdown,3,true);exerciseCountdownTick(secondCountdown,2,true);exerciseCountdownTick(secondCountdown,1,true);`);
+  const events=h.app.playerAudioDiagnostics(),eligible=events.filter(e=>e.event==='tick-eligible'),scheduled=events.filter(e=>e.event==='tick-scheduled');
+  assert.deepEqual(Array.from(eligible,e=>e.position),[3,2,1,3,2,1]);
+  assert.deepEqual(Array.from(scheduled,e=>e.position),[3,2,1]);
+  assert.notEqual(eligible[0].phase,eligible[3].phase);
+  h.run(`workoutState={mode:'generated',running:true,paused:false};generatorState.timeline=[{kind:'exercise',timed:true,protocol:'ordinary'}];generatorState.timelineIndex=0;var nextRunCountdown=GarageFitTimedCues.createCountdown();exerciseCountdownTick(nextRunCountdown,3,true);`);
+  assert.equal(h.app.playerAudioDiagnostics().filter(e=>e.event==='tick-eligible').at(-1).phase,1);
+  assert.ok(events.every(e=>!('exerciseId'in e)&&!('name'in e)));
+  assert.match(h.app.playerAudioReport(),/Device audibility: unknown — scheduled does not mean heard/);
+  assert.match(h.app.playerAudioReport(),/Audio clock: event-time samples only/);
+});
+
+test('countdown history marks intentional and stale suppression and bounds report output',()=>{
+  const h=harness();
+  h.run(`workoutState.mode='generated';workoutState.running=true;generatorState.timelineIndex=0;generatorState.timeline=[{kind:'exercise',timed:true,protocol:'ordinary'}];for(let i=0;i<60;i++)recordPlayerAudio('statechange');
+    generatorState.timeline[0]={kind:'rest',protocol:'ordinary'};
+    var restCountdown=GarageFitTimedCues.createCountdown();exerciseCountdownTick(restCountdown,3,false);
+    generatorState.timeline[0]={kind:'exercise',timed:true,protocol:'ordinary'};var staleCountdown=GarageFitTimedCues.createCountdown();
+    staleCountdown.observedAt=Date.now()-2000;exerciseCountdownTick(staleCountdown,3,true);
+    generatorState.timeline[0]={kind:'exercise',timed:false,protocol:'density'};var capCountdown=GarageFitTimedCues.createCountdown();exerciseCountdownTick(capCountdown,3,false);
+    `);
+  const events=h.app.playerAudioDiagnostics(),report=h.app.playerAudioReport();
+  assert.ok(events.some(e=>e.event==='tick-suppressed'&&e.category==='rest'&&e.outcome==='ineligible'));
+  assert.ok(events.some(e=>e.event==='tick-suppressed'&&e.outcome==='stale-position'));
+  assert.ok(events.some(e=>e.event==='tick-suppressed'&&e.category==='protocol-cap'&&e.outcome==='ineligible'));
+  assert.equal(events.length,40);
+  assert.match(report,/History discarded by 40-event buffer: yes/);
+  assert.match(report,/Formatted history truncated to fit 8 KB Audio-section limit: no/);
+  assert.ok(Buffer.byteLength(report,'utf8')<=8192);
+  assert.doesNotMatch(report,/exerciseId|workoutId|private detail/);
+});
+
+test('formatted audio history truncates to 8 KB independently of the event ring',()=>{
+  const h=harness();
+  h.run(`playerAudioEvents.push({event:'x'.repeat(9000),state:'running',visibility:'visible',elapsedMs:1,phase:1,category:'timed-exercise',error:null});`);
+  const report=h.app.playerAudioReport();
+  assert.match(report,/History discarded by 40-event buffer: no/);
+  assert.match(report,/Formatted history truncated to fit 8 KB Audio-section limit: yes/);
+  assert.ok(Buffer.byteLength(report,'utf8')<=8192);
+});

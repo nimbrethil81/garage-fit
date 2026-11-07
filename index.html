@@ -1029,7 +1029,8 @@ function refreshAboutDetails(){
     'Root height: '+getComputedStyle(document.documentElement).height,
     'App positioning: '+getComputedStyle(app).position,
     'Top padding: '+getComputedStyle(app).paddingTop,
-    'Menu bottom padding: '+getComputedStyle(document.getElementById('bottomNav')).paddingBottom
+    'Menu bottom padding: '+getComputedStyle(document.getElementById('bottomNav')).paddingBottom,
+    '',playerAudioReport()
   ].join('\n');
 }
 async function copyAboutDetails(){
@@ -1171,13 +1172,60 @@ let audioCtx=null;
 // Bounded, memory-only technical evidence. No workout, speech, device identifiers
 // or telemetry; scheduled does not certify that the device made an audible sound.
 const playerAudioEvents=[];
-function recordPlayerAudio(event,error){
-  playerAudioEvents.push({event,state:audioCtx?.state||'absent',visibility:document.visibilityState||'unknown',error:error?.name||null});
-  if(playerAudioEvents.length>40)playerAudioEvents.shift();
+let playerAudioStartedAt=Date.now(),playerAudioDiscarded=0,playerAudioLastClock=null,playerAudioRun=null,playerAudioLastPhase={key:null,category:null},playerAudioPhaseOrdinal=0,playerAudioSessionUnavailableRecorded=false;
+let playerAudioCue=null;
+function audioPhaseContext(){
+  if(workoutState?.running&&workoutState.mode==='generated'){
+    const phase=currentGeneratedPhase?.();
+    if(phase){const protocol=String(phase.protocol||'ordinary').toLowerCase();const category=phase.kind==='rest'?'rest':phase.kind!=='exercise'?'setup':protocol==='emom'?'emom-work':protocol==='density'||protocol==='amrap'?'protocol-cap':protocol==='ordinary'?'timed-exercise':'specialist-work';return {run:workoutState,key:phase,category}}
+  }
+  if(workoutState?.running&&workoutState.mode==='fixed'){
+    const phase=workoutState.workout?.exercises?.[workoutState.idx]||workoutState;return {run:workoutState,key:phase,category:workoutState.paused?'paused':workoutState.expired?'protocol-cap':Number.isFinite(phase.work)?'timed-exercise':'rep-work'}
+  }
+  if(state?.running){const phase=state.list?.[state.idx]||state;return {run:state.list||state,key:phase,category:state.phase==='work'?'timed-exercise':state.phase==='rest'?'rest':state.phase==='reps'?'rep-work':'setup'}}
+  return {run:null,key:null,category:'outside-workout'}
+}
+function audioPhaseOrdinal(){
+  const phase=audioPhaseContext();
+  if(phase.run&&phase.run!==playerAudioRun){playerAudioRun=phase.run;playerAudioPhaseOrdinal=0;playerAudioLastPhase={key:null,category:null}}
+  if(phase.key&&phase.key!==playerAudioLastPhase.key)playerAudioPhaseOrdinal++;
+  if(phase.key)playerAudioLastPhase=phase;
+  return {ordinal:phase.key?playerAudioPhaseOrdinal:null,category:phase.category};
+}
+function safeAudioErrorName(error){const name=error?.name;return typeof name==='string'&&/^[A-Za-z][A-Za-z0-9]{0,39}$/.test(name)?name:error?'Error':null}
+function safeAudioSessionType(value){return ['auto','ambient','playback','play-and-record'].includes(value)?value:'other'}
+function recordPlayerAudio(event,error,details={}){
+  try{
+    const phase=audioPhaseOrdinal(),now=Date.now(),clock=Number.isFinite(audioCtx?.currentTime)?audioCtx.currentTime:null;
+    const safeEvent=typeof event==='string'&&/^[a-z-]{1,48}$/.test(event)?event:'event';
+    const state=['running','suspended','interrupted','closed'].includes(audioCtx?.state)?audioCtx.state:audioCtx?'unknown':'absent';
+    const entry={event:safeEvent,state,visibility:['visible','hidden','prerender','unloaded'].includes(document.visibilityState)?document.visibilityState:'unknown',elapsedMs:Math.min(864000000,Math.max(0,now-playerAudioStartedAt)),phase:phase.ordinal,category:phase.category,error:safeAudioErrorName(error)};
+    if([1,2,3].includes(details.position))entry.position=details.position;
+    if(['attempted','ineligible','stale-position','already-consumed','not-scheduled','scheduled','failed'].includes(details.outcome))entry.outcome=details.outcome;
+    if(['countdown-tick','chime','phase-cue'].includes(details.role))entry.role=details.role;
+    if(clock!==null&&playerAudioLastClock!==null)entry.clockDelta=Number((clock-playerAudioLastClock).toFixed(3));
+    if(clock!==null)playerAudioLastClock=clock;
+    playerAudioEvents.push(entry);if(playerAudioEvents.length>40){playerAudioEvents.shift();playerAudioDiscarded++}
+  }catch(_){/* Diagnostic collection must never affect playback. */}
 }
 function playerAudioDiagnostics(){return playerAudioEvents.map(entry=>({...entry}))}
+function playerAudioReport(){
+  const contextState=(()=>{try{const value=audioCtx?.state;return ['running','suspended','interrupted','closed'].includes(value)?value:audioCtx?'unknown':'unavailable'}catch(_){return 'unknown'}})();
+  const session=(()=>{try{return navigator.audioSession?safeAudioSessionType(navigator.audioSession.type):'unavailable'}catch(_){return 'unknown'}})();
+  const lines=['Audio','AudioContext: '+contextState, 'Audio session type (requested / available): '+session,'Retained events: '+playerAudioEvents.length,'History discarded by 40-event buffer: '+(playerAudioDiscarded?'yes ('+playerAudioDiscarded+' earlier events)':'no'),'Device audibility: unknown — scheduled does not mean heard','Audio clock: event-time samples only; progression is opportunistic, not proof of audibility.'];
+  if(!playerAudioEvents.length)lines.push('No audio events recorded yet. Continue the workout, then copy diagnostics again.');
+  const format=entry=>{let line='+'+entry.elapsedMs+'ms '+entry.event+' ['+entry.state+'; '+entry.visibility+'; '+(entry.phase===null?'no phase':'phase '+entry.phase)+' '+entry.category;
+    if(entry.role)line+='; '+entry.role;if(entry.position)line+='; position '+entry.position;if(entry.outcome)line+='; '+entry.outcome;if(entry.error)line+='; '+entry.error;if(entry.clockDelta!==undefined)line+='; sampled clock '+(entry.clockDelta>=0?'+':'')+entry.clockDelta+'s';return line+']'};
+  const eventLines=playerAudioEvents.map(format);let omitted=0;
+  const byteLength=value=>unescape(encodeURIComponent(value)).length;
+  let output=()=>lines.concat(['Formatted history truncated to fit 8 KB Audio-section limit: '+(omitted?'yes ('+omitted+' earlier formatted events omitted)':'no'),...eventLines.slice(omitted)]).join('\n');
+  while(byteLength(output())>8192&&omitted<eventLines.length)omitted++;
+  if(byteLength(output())>8192){const fixed=['Audio','Formatted history truncated to fit 8 KB Audio-section limit: yes','Audio report shortened.'];return fixed.join('\n').slice(0,8192)}
+  return output();
+}
 function prepareAudioSession(){
   try{
+    if(!navigator.audioSession){if(!playerAudioSessionUnavailableRecorded){playerAudioSessionUnavailableRecorded=true;recordPlayerAudio('session-unavailable')}return}
     // WebKit's default ambient session may obey the iPhone silent switch while
     // Web Speech remains audible. Use media playback routing for workout sounds.
     if(navigator.audioSession&&navigator.audioSession.type!=='playback'){
@@ -1205,21 +1253,30 @@ function prepareAudio(create=false){
 }
 function unlockAudio(event){if(event.isTrusted){prepareAudioSession();prepareAudio(true)}}
 for(const event of ['click','touchend','keydown'])document.addEventListener(event,unlockAudio,{capture:true});
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')prepareAudio()});
-function beep(freq=880,dur=.12,volume=.15){
+document.addEventListener('visibilitychange',()=>{recordPlayerAudio(document.visibilityState==='visible'?'visibility-return':'visibility-hidden');if(document.visibilityState==='visible')prepareAudio()});
+window.addEventListener?.('pageshow',event=>{if(event?.persisted)recordPlayerAudio('page-return')});
+function beep(freq=880,dur=.12,volume=.15,role=freq===660?'phase-cue':'chime',position=null){
+  const previousCue=playerAudioCue;playerAudioCue={role,position:role==='countdown-tick'?position:null};
   try{
     const ctx=prepareAudio(true);
-    if(!ctx||ctx.state!=='running'){recordPlayerAudio('sound-skipped');return;}
+    if(!ctx||ctx.state!=='running'){recordPlayerAudio('sound-skipped',null,{role:playerAudioCue.role,position:playerAudioCue.position,outcome:'not-scheduled'});return;}
     const o=ctx.createOscillator(),g=ctx.createGain();
     o.frequency.value=freq;o.type='sine';o.connect(g);g.connect(ctx.destination);
     g.gain.setValueAtTime(volume,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+dur);
     o.start();o.stop(ctx.currentTime+dur);
-    recordPlayerAudio(freq===520?'tick-scheduled':'chime-scheduled');
+    recordPlayerAudio(freq===520?'tick-scheduled':'chime-scheduled',null,{role:playerAudioCue.role,position:playerAudioCue.position,outcome:'scheduled'});
     o.onended=()=>{o.disconnect();g.disconnect()};
-  }catch(error){recordPlayerAudio('sound-failed',error)}
+  }catch(error){recordPlayerAudio('sound-failed',error,{role:playerAudioCue.role,position:playerAudioCue.position,outcome:'failed'})}
+  finally{playerAudioCue=previousCue}
 }
 function exerciseCountdownTick(tracker,remaining,active){
-  if(GarageFitTimedCues.takeCountdownTick(tracker,remaining,active,Date.now()))beep(520,.07,.08);
+  const now=Date.now(),position=Math.ceil(remaining),previous=tracker?.lowest??Infinity;
+  const fresh=tracker?.observedAt===null||tracker?.observedAt===undefined||now-tracker.observedAt<=1250;
+  const newBoundary=Number.isFinite(remaining)&&position>=1&&position<=3&&position<previous;
+  const eligible=GarageFitTimedCues.takeCountdownTick(tracker,remaining,active,now);
+  if(!newBoundary)return;
+  if(eligible){recordPlayerAudio('tick-eligible',null,{position,outcome:'attempted',role:'countdown-tick'});beep(520,.07,.08,'countdown-tick',position)}
+  else recordPlayerAudio('tick-suppressed',null,{position,outcome:!active?'ineligible':!fresh?'stale-position':'already-consumed',role:'countdown-tick'});
 }
 function playCompletionChime(){beep(880,.12)}
 function exerciseCueParts(name,quantity,side){if(!side){const m=/^(.*?)\s+[-\u2013\u2014]\s+(Left|Right)$/i.exec(name);if(m){name=m[1];side=m[2]}}return side?[name+', '+String(side).toLowerCase()+' side.',quantity]:[name+'. '+quantity]}
