@@ -37,6 +37,8 @@ test('AB2 approved shared metadata preserves roles, time protocols and exactly t
 });
 
 test('AB2 shared entries reach valid general Main, non-Core Strength, complementary Cardio and Ramp-up through ordinary selection',()=>{
+  // Current-catalogue player/tracker plans stay covered independently of historical UI fixtures.
+  const app=require('./helpers/app-context').loadAppContext(new Map(),{ownIntrinsics:true});
   // Small end-to-end fixtures found in bounded samples (at most 200 seeds).
   const fixtures=[
     ['main','v-ups','strength','core','hard',30,1],
@@ -56,6 +58,10 @@ test('AB2 shared entries reach valid general Main, non-Core Strength, complement
     const w=G.generate({catalogue:C,equipment:[],focus,bodyFocus,difficulty,duration,random:rng(seed)});
     assert.ok((phase==='main'?mainIds(w):w.rampup.exercises.map(ex=>ex.id)).includes(id),phase+' '+id);
     assert.deepEqual(G.validateMain(w.main,C,[]),[],id);
+    if(phase==='main'){
+      const work=app.GarageFitSessionTracker.plannedWorkFromTimeline(app.buildGeneratedTimeline(w));
+      assert.ok(work.some(item=>item.exerciseId===id&&item.section==='main'&&item.prescription.timed),id+' player/tracker work');
+    }
     assert.deepEqual(G.validatePreparation(w.warmup,w.rampup,w.main.blocks.flatMap(b=>b.exercises)),[],id);
     assert.ok(!w.warmup.exercises.concat(w.cooldown.exercises).some(ex=>ids.includes(ex.id)));
   }
