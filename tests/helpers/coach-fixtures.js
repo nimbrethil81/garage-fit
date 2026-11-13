@@ -101,6 +101,12 @@ function sessionDraft(overrides) {
   }, overrides);
 }
 
+// Fixed input for player/protocol characterisation; live AB2 selection is tested separately.
+function catalogueBeforeAB2(catalogue) {
+  const added=new Set(['bodyweight-russian-twist','heel-touches','supine-arm-pulses','v-ups','superman']);
+  return JSON.parse(JSON.stringify(Object.fromEntries(Object.entries(catalogue).filter(([id])=>!added.has(id)))));
+}
+
 // Restore the approved pre-P1 catalogue for historical policy snapshots only.
 // Live-catalogue reachability and coverage tests continue to use production metadata.
 function catalogueBeforePrepP1(catalogue) {
@@ -161,4 +167,4 @@ function catalogueBeforeC1(catalogue) {
   return copy;
 }
 
-module.exports = { programmeState, anchor, prescription, sessionResult, sessionDraft, catalogueBeforeCD1, catalogueBeforeC1, catalogueBeforePrepP1 };
+module.exports = { programmeState, anchor, prescription, sessionResult, sessionDraft, catalogueBeforeAB2, catalogueBeforeCD1, catalogueBeforeC1, catalogueBeforePrepP1 };

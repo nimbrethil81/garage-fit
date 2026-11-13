@@ -255,7 +255,9 @@ test('a fitting legal two-identity ten-minute setup alternative survives before 
 
 test('setup fitting still tries a fitting diversity reserve before deleting dose',()=>{
   const equipment=['rings','pullup-bar'],reserves=new Set(),results=[];
-  const workout=G.generate({catalogue:C,equipment,duration:15,focus:'strength',random:random(7),trace:event=>{
+  // This exact reserve-branch characterisation uses its original catalogue input.
+  const fixtureCatalogue=require('./helpers/coach-fixtures').catalogueBeforeAB2(C);
+  const workout=G.generate({catalogue:fixtureCatalogue,equipment,duration:15,focus:'strength',random:random(7),trace:event=>{
     if(event.type==='main-attempt'&&event.issues?.length&&event.issues.every(issue=>issue==='main:equipment-diversity-below-minimum'))reserves.add(event.attempt);
     if(event.type==='main-result')results.push(event.attempt);
   }});

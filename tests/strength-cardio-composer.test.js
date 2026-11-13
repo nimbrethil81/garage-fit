@@ -430,12 +430,17 @@ test('every S1 addition retains an observed standalone Generator Main route',()=
   // Ring scapular row is controlled, easy support. #366 replaces its incidental
   // Hard Cardio draw with an Easy Strength route; Strength v2 is proved below.
   for(const [id,kit,duration,focus,seed,style='strength',difficulty='hard'] of [
-    ['single-leg-glute-bridge',[],30,'lower',4],['hand-release-push-up',['rings'],30,'upper',6],
-    ['wall-push-up',[],30,'upper',2],['reverse-nordic',[],30,'upper',6],
-    ['side-lying-hip-adduction',[],45,'lower',22],['prone-swimmer-raise',['kettlebell'],30,'lower',10],
-    ['dumbbell-suitcase-march',['dumbbells'],45,'core',2],['dumbbell-half-kneeling-press',['dumbbells'],30,'upper',1],
-    ['dumbbell-lateral-lunge',['dumbbells'],30,'lower',1],['ring-scapular-row',['rings'],30,'upper',15,'strength','easy'],
-    ['dumbbell-staggered-stance-row',['dumbbells'],45,'upper',4]
+    ["single-leg-glute-bridge",[],30,"lower",5],
+    ["hand-release-push-up",["rings"],30,"upper",6],
+    ["wall-push-up",[],30,"upper",2],
+    ["reverse-nordic",[],30,"upper",9],
+    ["side-lying-hip-adduction",[],45,"lower",2],
+    ["prone-swimmer-raise",["kettlebell"],30,"lower",10],
+    ["dumbbell-suitcase-march",["dumbbells"],45,"core",2],
+    ["dumbbell-half-kneeling-press",["dumbbells"],30,"upper",1],
+    ["dumbbell-lateral-lunge",["dumbbells"],30,"lower",1],
+    ["ring-scapular-row",["rings"],30,"upper",15,"strength","easy"],
+    ["dumbbell-staggered-stance-row",["dumbbells"],45,"upper",4]
   ]){
     const w=s1Generate(null,kit,duration,focus,seed,difficulty,style);assert.ok(s1Main(w).some(e=>e.id===id),id);
     assert.deepEqual(G.validateMain(w.main,C,kit),[],id);
@@ -444,22 +449,22 @@ test('every S1 addition retains an observed standalone Generator Main route',()=
 
 test('S1 Strength v2 and deliberate secondary-family routes preserve shared quality gates',()=>{
   for(const [family,id,kit,duration,focus,seed,difficulty,constraints={}] of [
-    ['strength-control','single-leg-glute-bridge',[],30,'upper',1],
-    ['strength-control','hand-release-push-up',[],30,'upper',1],
-    ['strength-control','prone-swimmer-raise',[],30,'upper',1],
-    ['strength-control','reverse-nordic',[],30,'lower',1],
-    ['strength-control','wall-push-up',['kettlebell'],30,'upper',22],
-    ['strength-control','side-lying-hip-adduction',['rings'],30,'core',9],
-    ['strength-control','dumbbell-suitcase-march',['dumbbells'],30,'upper',3],
-    ['strength-control','dumbbell-lateral-lunge',['dumbbells'],30,'upper',3],
-    ['strength-control','dumbbell-half-kneeling-press',['dumbbells'],45,'upper',6],
-    ['strength-control','dumbbell-staggered-stance-row',['dumbbells'],30,'core',3],
-    ['strength-control','ring-scapular-row',['rings'],45,'upper',95,'easy'],
-    ['core-stability','dumbbell-suitcase-march',['dumbbells'],30,'core',1],
-    ['full-body-challenges','hand-release-push-up',[],30,'upper',1],
-    ['full-body-challenges','wall-push-up',[],30,'upper',3],
-    ['full-body-challenges','prone-swimmer-raise',[],30,'upper',3],
-    ['full-body-challenges','dumbbell-suitcase-march',['dumbbells'],45,'upper',2,'hard',{bodyPositions:['standing']}]
+    ["strength-control","single-leg-glute-bridge",[],30,"upper",1],
+    ["strength-control","hand-release-push-up",[],30,"upper",1],
+    ["strength-control","prone-swimmer-raise",[],30,"upper",1],
+    ["strength-control","reverse-nordic",[],30,"lower",1],
+    ["strength-control","wall-push-up",["kettlebell"],30,"upper",54],
+    ["strength-control","side-lying-hip-adduction",["rings"],30,"core",10],
+    ["strength-control","dumbbell-suitcase-march",["dumbbells"],30,"upper",25],
+    ["strength-control","dumbbell-lateral-lunge",["dumbbells"],30,"upper",3],
+    ["strength-control","dumbbell-half-kneeling-press",["dumbbells"],45,"upper",6],
+    ["strength-control","dumbbell-staggered-stance-row",["dumbbells"],30,"core",37],
+    ["strength-control","ring-scapular-row",["rings"],45,"upper",111,"easy"],
+    ["core-stability","dumbbell-suitcase-march",["dumbbells"],30,"core",3],
+    ["full-body-challenges","hand-release-push-up",[],30,"upper",1],
+    ["full-body-challenges","wall-push-up",[],30,"upper",3],
+    ["full-body-challenges","prone-swimmer-raise",[],30,"upper",3],
+    ["full-body-challenges","dumbbell-suitcase-march",["dumbbells"],45,"upper",2,"hard",{"bodyPositions":["standing"]}]
   ]){
     const w=G.generate({catalogue:C,equipment:kit,duration,bodyFocus:focus,difficulty:difficulty||'hard',workoutFamilyId:family,workoutFamilyVersion:family==='strength-control'?2:1,random:s1Random(seed),...constraints});
     assert.ok(s1Main(w).some(e=>e.id===id),family+' '+id);
@@ -470,16 +475,16 @@ test('S1 Strength v2 and deliberate secondary-family routes preserve shared qual
 
 test('new resistance work reaches all four Coach routes while programme anchors and reviewed memberships stay pinned',async()=>{
   const {pilot}=require('./helpers/coach-pilot');
-  for(const [id,version,expected,anchors] of [
-    ['general-strength-4w',2,'dumbbell-staggered-stance-row',['goblet-squat','dumbbell-floor-press','dumbbell-bent-over-row']],
-    ['build-arms',1,'dumbbell-staggered-stance-row',['dumbbell-biceps-curl','dumbbell-overhead-triceps-extension']],
-    ['tennis-conditioning',8,'dumbbell-half-kneeling-press',['dumbbell-reverse-lunge','dumbbell-romanian-deadlift','dumbbell-floor-press','dumbbell-bent-over-row']],
-    ['general-fitness',2,'dumbbell-half-kneeling-press',[]]
+  for(const [id,version,expected,anchors,seed] of [
+    ["general-strength-4w",2,"dumbbell-staggered-stance-row",["goblet-squat","dumbbell-floor-press","dumbbell-bent-over-row"],3],
+    ["build-arms",1,"dumbbell-staggered-stance-row",["dumbbell-biceps-curl","dumbbell-overhead-triceps-extension"],1],
+    ["tennis-conditioning",8,"dumbbell-half-kneeling-press",["dumbbell-reverse-lunge","dumbbell-romanian-deadlift","dumbbell-floor-press","dumbbell-bent-over-row"],1],
+    ["general-fitness",2,"dumbbell-half-kneeling-press",[],2]
   ]){
     const p=pilot(new Map(),id,version);
     p.run("pilotOptions.equipment=['dumbbells','bands','bench'];pilotOptions.duration=45;pilotOptions.bodyFocus='upper';");await p.start();
     assert.deepEqual(p.json('pilot.snapshot().state.anchors.map(a=>a.exerciseId)'),anchors,id);
-    p.run('let s1Seed=1;Math.random=()=>{s1Seed=(s1Seed*1664525+1013904223)>>>0;return s1Seed/4294967296;};pilot.prepare(pilotOptions);');
+    p.run(`let s1Seed=${seed};Math.random=()=>{s1Seed=(s1Seed*1664525+1013904223)>>>0;return s1Seed/4294967296;};pilot.prepare(pilotOptions);`);
     const w=p.json('pilot.snapshot().preview.workout');assert.ok(s1Main(w).some(e=>e.id===expected),id);
     for(const anchor of p.json('(pilot.snapshot().preview.plan.prescription.requiredAnchors||[])'))assert.ok(s1Main(w).some(e=>e.id===anchor.exerciseId));
     const sport=p.app.GarageFitSportCoverage.createPolicy(p.app.GarageFitData.sportCapabilityPolicies.tennis[4],p.app.GarageFitData.exercises);
@@ -495,16 +500,16 @@ test('new resistance work reaches all four Coach routes while programme anchors 
 // role promotion or a larger supporting-route probability.
 test('reviewed existing resistance accessories and unilateral work remain selectable',()=>{
   for(const [family,id,kit,duration,focus,seed,difficulty] of [
-    [null,'ring-face-pull',['rings'],45,'upper',43],
-    ['strength-control','ring-biceps-curl',['rings'],30,'upper',42,'easy'],
-    ['strength-control','ring-triceps-extension',['rings'],45,'upper',4,'easy'],
-    [null,'dumbbell-plank-pull-through',['dumbbells'],45,'core',16],
-    [null,'kettlebell-rack-march',['kettlebell'],30,'core',1],
-    [null,'kettlebell-single-leg-deadlift',['kettlebell'],45,'upper',6],
-    [null,'kettlebell-suitcase-deadlift',['kettlebell'],30,'lower',1],
-    ['strength-control','dumbbell-split-squat',['dumbbells'],30,'lower',3],
-    [null,'single-arm-dumbbell-floor-press',['dumbbells'],45,'lower',2],
-    [null,'kettlebell-half-kneeling-press',['kettlebell'],30,'upper',1]
+    [null,"ring-face-pull",["rings"],45,"upper",29],
+    ["strength-control","ring-biceps-curl",["rings"],30,"upper",42,"easy"],
+    ["strength-control","ring-triceps-extension",["rings"],45,"upper",4,"easy"],
+    [null,"dumbbell-plank-pull-through",["dumbbells"],45,"core",1],
+    [null,"kettlebell-rack-march",["kettlebell"],30,"core",94],
+    [null,"kettlebell-single-leg-deadlift",["kettlebell"],45,"upper",6],
+    [null,"kettlebell-suitcase-deadlift",["kettlebell"],30,"lower",1],
+    ["strength-control","dumbbell-split-squat",["dumbbells"],30,"lower",3],
+    [null,"single-arm-dumbbell-floor-press",["dumbbells"],45,"lower",2],
+    [null,"kettlebell-half-kneeling-press",["kettlebell"],30,"upper",1]
   ]){
     const w=s1Generate(family,kit,duration,focus,seed,difficulty);
     assert.ok(s1Main(w).some(ex=>ex.id===id),id);
@@ -516,8 +521,12 @@ test('reviewed existing resistance accessories and unilateral work remain select
 // Athletic v5 (#271): shared routes use existing selection and programme contracts.
 test('v5 controlled lunges reach standalone and Strength v2 while technical floor and footwork stay family-scoped',()=>{
   require('../data/mobility-membership');require('../js/mobility-composer');
-  for(const [family,id,duration,seed] of [[null,'transverse-lunge-to-balance',15,28],[null,'reverse-lunge-with-rotation',20,19],
-    [STRENGTH,'transverse-lunge-to-balance',30,7],[STRENGTH,'reverse-lunge-with-rotation',45,2]]) {
+  for(const [family,id,duration,seed] of [
+    [null,"transverse-lunge-to-balance",15,18],
+    [null,"reverse-lunge-with-rotation",20,70],
+    ["strength-control","transverse-lunge-to-balance",30,3],
+    ["strength-control","reverse-lunge-with-rotation",45,2]
+  ]) {
     const w=G.generate({catalogue:C,equipment:[],focus:'strength',difficulty:'normal',duration,random:s1Random(seed),
       ...(family?{workoutFamilyId:family,workoutFamilyVersion:2}:{})});
     assert.ok(exercisesOf(w).some(e=>e.id===id),id);assert.deepEqual(G.validateMain(w.main,C,[]),[]);
@@ -540,7 +549,7 @@ test('v5 preparation and lower-body support reach Coach without changing anchors
     ['general-strength-4w',2,31,'transverse-lunge-to-balance','main',['goblet-squat','dumbbell-floor-press','dumbbell-bent-over-row']],
     ['build-arms',1,2,'split-stance-step-switches','warmup',['dumbbell-biceps-curl','dumbbell-overhead-triceps-extension']],
     ['tennis-conditioning',8,15,'tandem-step-and-hold','warmup',['dumbbell-reverse-lunge','dumbbell-romanian-deadlift','dumbbell-floor-press','dumbbell-bent-over-row']],
-    ['general-fitness',2,25,'tandem-step-and-hold','warmup',[]]
+    ['general-fitness',2,5,'tandem-step-and-hold','warmup',[]]
   ]) {
     const p=pilot(new Map(),id,version);
     p.run("pilotOptions.equipment=['dumbbells','bands','bench'];pilotOptions.duration=45;pilotOptions.bodyFocus='lower';");await p.start();
