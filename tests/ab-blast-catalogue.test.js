@@ -63,14 +63,15 @@ test('AB2 shared entries reach valid general Main, non-Core Strength, complement
 
 test('AB2 compatible Coach routes keep anchors and reviewed family memberships intact',async()=>{
   const {pilot}=require('./helpers/coach-pilot');
-  for(const [programme,version,seed,expected] of [
+  for(const [programme,version,seed,expected,equipment=['dumbbells','bands','bench']] of [
     ['general-strength-4w',2,1,'v-ups'],['build-arms',1,2,'v-ups'],
     ['tennis-conditioning',8,1,'v-ups'],['general-fitness',2,1,'v-ups'],
     ['general-fitness',2,4,'bodyweight-russian-twist'],
-    ['general-fitness',2,9,'heel-touches'],['general-fitness',2,25,'supine-arm-pulses']
+    ['general-fitness',2,9,'heel-touches'],['general-fitness',2,25,'supine-arm-pulses'],
+    ['general-fitness',2,3,'superman',[]]
   ]){
     const p=pilot(new Map(),programme,version);
-    p.run("pilotOptions.equipment=['dumbbells','bands','bench'];pilotOptions.duration=45;pilotOptions.bodyFocus='core';");
+    p.run(`pilotOptions.equipment=${JSON.stringify(equipment)};pilotOptions.duration=45;pilotOptions.bodyFocus='core';`);
     await p.start();
     const anchors=p.json('pilot.snapshot().state.anchors');
     p.run(`var abSeed=${seed};Math.random=()=>{abSeed=(Math.imul(abSeed,1664525)+1013904223)>>>0;return abSeed/4294967296;};pilot.prepare(pilotOptions)`);
