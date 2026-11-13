@@ -135,6 +135,10 @@ test('the timed-sequence player suppresses Ab Blast instructions but retains the
   ab.context.Math=Object.create(Math);
   ab.context.Math.random=()=>((seed=(Math.imul(seed,1664525)+1013904223)>>>0)/4294967296);
   abUi.openWorkoutDetail('abBlast');abUi.startSelectedWorkout();
+  // The expanded pool can put a narrated exercise first: enter work before
+  // checking its cue, rather than relying on an earlier non-narrated activity.
+  tick(ab.intervals,vm.runInContext('state.timer',ab.context),3);
+  assert.equal(vm.runInContext('state.phase',ab.context),'work');
   const abList=vm.runInContext('state.list',ab.context);
   const abTarget=abList.find(ex=>ab.context.GarageFitData.exercises[ex.id].voiceInstruction);
   assert.ok(abTarget,'seeded Ab Blast includes a voice-instruction exercise');
