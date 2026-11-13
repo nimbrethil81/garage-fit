@@ -78,8 +78,10 @@ blocks. It reuses existing attempt/reserve/fallback mechanisms, without a new so
 penalty or selection bias. Ordinary swaps reject prospective edits that violate
 this ceiling and return the unchanged plan if no valid alternative exists. Full
 Body remains neutral. The separate two-in-a-row **bonus credit** rule is unchanged.
-This is not a saved-workout validator: family composers, Coach prescriptions,
-historical validation and playback are unchanged. Setup fitting changes repeat
+This is not a saved-workout validator. Dedicated prescribed/Coach and family
+composition and validation are unchanged. Empty prescriptions retain their exact
+ordinary-generation alias and inherit its new-output rule. Historical validation
+and playback are unchanged. Setup fitting changes repeat
 counts only; captured alternatives already pass the ceiling; the existing
 last-resort fallback contains at most three exercise identities.
 
@@ -158,8 +160,11 @@ complete preparation. The original published-era positive proxy fixture remains
 checked against its frozen definitions, with current metadata correctly failing
 that same proxy. This does not relax the feasible-pool quality matrix above.
 
-The original neutral recent-history In-in-out route has not yet been recovered
-in bounded probes; its assertion remains intact pending exhaustive evidence.
+The neutral recent-history In-in-out route remains genuine: three actual
+traditional Cardio sessions (45 minutes, seeds 1/2/3), followed by 30-minute Cardio
+seed 3, select it as supporting work. The fixture now uses that history instead
+of Cardio-v1 history, whose coverage changed with the accepted nine losses. No
+eligibility or role was changed.
 
 ## Review and validation status
 
