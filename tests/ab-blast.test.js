@@ -29,7 +29,7 @@ test('the unchanged legacy composition validates and is generated through ordina
   // Target order 8,7,9; catalogue pool order is the legacy followed by alternatives.
   // Ranking all ordinary choices makes the exact historical ordering and timing
   // reachable without any original-plan bypass or special generation branch.
-  const draws = [0.4,0,0.8,...Array.from({length:12},(_,i)=>i/12)];
+  const draws = [0.8,0.4,0,0.8,...Array.from({length:18},(_,i)=>i/18)];
   for(let i=0;i<7;i++) draws.push(...(i===1 ? [0,0.3,0.5,0.7] : [0.5,0.3,0,0.7]));
   const plan=composer.generate({random:()=>draws.shift() ?? 0.5});
   assert.deepEqual(plan.exercises,legacy.exercises);
@@ -54,4 +54,52 @@ test('infeasible catalogues fail clearly without duration padding', () => {
   assert.throws(()=>composer.generate({catalogue:{},random:()=>0}),/unavailable/);
   const subset=Object.fromEntries(['sit-up','reverse-crunch','dead-bug','bicycle-crunch','flutter-kicks','leg-raises'].map(id=>[id,catalogue[id]]));
   assert.throws(()=>composer.generate({catalogue:subset,random:()=>0}),/unavailable/);
+});
+
+test('expanded pool is reachable, specialist-only and varied with about 20% lower-intensity plans', () => {
+  const added = ['bodyweight-russian-twist','heel-touches','supine-arm-pulses','v-ups','superman'];
+  const low = ['bird-dog','superman'];
+  const reached = new Set(), compositions = new Set(), appearances = {};
+  let lowerPlans = 0;
+  // 1,000 independent deterministic seeds, 16–24% tolerance: about three
+  // binomial standard errors around 20%, without asserting an exact quota.
+  for (let seed=1;seed<=1000;seed++) {
+    const plan = composer.generate({random:seeded(Math.imul(seed,2654435761) >>> 0)});
+    assert.equal(composer.validate(plan).valid,true);
+    const ids = [...new Set(plan.exercises.map(s=>s.id))];
+    const count = ids.filter(id=>low.includes(id)).length;
+    assert.ok(count<=1);
+    lowerPlans += count;
+    compositions.add([...ids].sort().join(','));
+    for (const id of ids) { reached.add(id); appearances[id]=(appearances[id]||0)+1; }
+  }
+  assert.ok(lowerPlans>=160 && lowerPlans<=240, String(lowerPlans));
+  assert.equal(reached.size,18);
+  assert.ok(compositions.size>500);
+  assert.ok(Math.max(...Object.values(appearances))<800);
+  for (const id of [...added,'bird-dog','hollow-body-hold']) assert.ok(reached.has(id),id);
+  for (const id of added) {
+    const ex = catalogue[id];
+    for (const phase of ['generator','main','warmup','rampup','cooldown']) assert.equal(ex[phase],false,id+': '+phase);
+    assert.deepEqual(ex.equipment,[]);
+    assert.equal(ex.bodyPosition,'floor');
+    assert.equal(ex.bodyFocus,'core');
+    assert.ok(ex.instruction.length<=180);
+  }
+});
+
+test('validator caps specialist lower intensity without restricting easy legacy movements', () => {
+  const one = JSON.parse(JSON.stringify(legacy));
+  one.exercises[0].id='bird-dog';
+  assert.equal(composer.validate(one).valid,true);
+  const two = JSON.parse(JSON.stringify(one));
+  two.exercises[6].id='superman';
+  assert.ok(composer.validate(two).errors.includes('Too many lower-intensity movements'));
+  assert.equal(composer.validate(legacy).valid,true);
+});
+
+test('lower-intensity draw falls back safely when the catalogue has none', () => {
+  const subset=Object.fromEntries(Object.entries(catalogue).filter(([id])=>!['bird-dog','superman'].includes(id)));
+  const plan=composer.generate({catalogue:subset,random:()=>0.1});
+  assert.equal(composer.validate(plan,{catalogue:subset}).valid,true);
 });
