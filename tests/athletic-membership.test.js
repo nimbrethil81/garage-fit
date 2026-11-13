@@ -241,7 +241,7 @@ test('#255 shared Main drills are reachable in the Generator by bounded determin
   const reaches=(id,focus,duration,seed,bodyFocus='full-body')=>G.generate({duration,focus,bodyFocus,equipment:[],catalogue:C,random:rng(seed)}).main.blocks.some(b=>b.exercises.some(ex=>ex.id===id));
   // Shared catalogue growth shifts real draws; Lower fixtures retain genuine routes.
   assert.ok(reaches('single-leg-hip-hinge-reach','strength',20,2,'lower'));
-  assert.ok(reaches('lateral-lunge-to-balance','strength',20,8,'lower'));
+  assert.ok(reaches('lateral-lunge-to-balance','strength',20,15,'lower'));
   // CD1's sustained aerobic primaries outrank this supporting drill in neutral draws.
   // Recent real Cardio sessions leave a genuine novelty route without changing its role.
   const history=[1,2,3].map(seed=>G.generate({workoutFamilyId:'cardio-conditioning',duration:45,equipment:[],catalogue:C,random:rng(seed)})

@@ -1840,16 +1840,36 @@
     'warmupAreas','kneeMobility','rampup','rampupPrescription','rampupEstimatedSeconds',
     'prepIntensity','prepFatigue','prepComplexity','cooldown','stretchTargets']);
   function familyMetadataDiffers(source, exercise) {
+    const history=root.GarageFitData&&root.GarageFitData.historicalExerciseDefinitions;
+    if(history&&history[source.id]===source)return !completeDefinitionMatches(source,exercise);
     return Object.keys(source).some(key=>!FAMILY_PREPARATION_FIELDS.has(key) &&
       // Older catalogue copies can predate an explicit relationship or difficulty.
       // Eligibility and quality always use today's canonical values for these fields.
       !(!source.main&&!source.generator&&['family','difficulty'].includes(key)&&exercise[key]==null&&source[key]!=null) &&
       JSON.stringify(source[key])!==JSON.stringify(exercise[key]));
   }
+  // Unmarked records predate catalogue v2. This recognises published definitions,
+  // not their origin: legacy storage contains no authenticated provenance (#407).
+  // A complete era is selected; fields from different eras are never combined.
+  function historicalCatalogue(record, catalogue, exercises) {
+    if(record.exerciseCatalogueVersion!=null)return catalogue;
+    const history=root.GarageFitData&&root.GarageFitData.historicalExerciseDefinitions||{};
+    if(!exercises.some(ex=>ex&&history[ex.id]&&catalogue[ex.id]&&['cardio','strength','difficulty','conditioning'].some(key=>catalogue[ex.id][key]!==ex[key])))return catalogue;
+    // A restricted catalogue remains restricted; history cannot add identities.
+    return Object.fromEntries(Object.entries(catalogue).map(([id,source])=>[id,history[id]||source]));
+  }
+  function completeDefinitionMatches(source, exercise) {
+    const keys=new Set([...Object.keys(source),...Object.keys(exercise)]);
+    // Preserve the existing independent preparation-evolution contract. Every
+    // Main descriptor (including extra keys) must match the complete era definition.
+    return [...keys].every(key=>FAMILY_PREPARATION_FIELDS.has(key)||JSON.stringify(source[key])===JSON.stringify(exercise[key]));
+  }
   function validateFamilyBlock(block, catalogue, owned) {
     if(block.familyContext==null)return [];
     catalogue=catalogue||root.GarageFitData&&root.GarageFitData.exercises||{};
     const issues=[],exercises=block.exercises||[];
+    if(block.exerciseCatalogueVersion!=null&&block.exerciseCatalogueVersion!==2)issues.push('family:unknown-catalogue-version');
+    if(Array.isArray(exercises))catalogue=historicalCatalogue(block,catalogue,exercises);
     if(!Array.isArray(exercises)||!exercises.length)return ['family:no-exercises'];
     for(const [index,exercise] of exercises.entries()){
       const source=catalogue[exercise&&exercise.id];
@@ -3324,11 +3344,14 @@
       entry=familyEntry(definition);
     }catch(error){technicalIssues.push('identity:'+(error.code||'invalid'));return result();}
     if(!entry){technicalIssues.push('identity:family-composer-unavailable');return result();}
-    const catalogue=options.catalogue||root.GarageFitData&&root.GarageFitData.exercises;
+    let catalogue=options.catalogue||root.GarageFitData&&root.GarageFitData.exercises;
     const owned=options.equipment||workout.setupEquipment||[],duration=workout.duration,difficulty=workout.difficulty;
     if(!catalogue){technicalIssues.push('catalogue:unavailable');return result();}
     if(!definition.feasibilityRequirements.supportedDurations.includes(duration)||!definition.feasibilityRequirements.supportedDifficulties.includes(difficulty))
       technicalIssues.push('configuration:unsupported');
+    if(workout.exerciseCatalogueVersion!=null&&workout.exerciseCatalogueVersion!==2)technicalIssues.push('catalogue:unknown-version');
+    if(mainBlocks(workout).some(block=>block.exerciseCatalogueVersion!==workout.exerciseCatalogueVersion))technicalIssues.push('catalogue:block-version-mismatch');
+    catalogue=historicalCatalogue(workout,catalogue,[...mainBlocks(workout).flatMap(block=>block.exercises||[]),...['warmup','rampup','cooldown'].flatMap(section=>workout[section]&&workout[section].exercises||[])]);
     // Use canonical relationship/difficulty enrichment for validation without rewriting
     // saved occurrences or their prescriptions. Missing old descriptors cannot bypass caps.
     const sourceBlocks=mainBlocks(workout);
@@ -3483,8 +3506,8 @@
       const empty=()=>({exercises:[],restSeconds:0,estimatedSeconds:0});
       // Only composers that fill the traditional Main budget honour the reservation.
       const placed=bench&&result.generalPreparation!=null?[jsonCopy(bench),...result.blocks]:result.blocks;
-      const assemble=sections=>normaliseWorkout({schemaVersion:2,id:'generated-'+Date.now(),...identity,
-        duration,difficulty,focus:'balanced',setupEquipment:owned.slice(),...sections,main:{blocks:result.generalPreparation==null?result.blocks:JSON.parse(JSON.stringify(placed))}});
+      const assemble=sections=>normaliseWorkout({schemaVersion:2,exerciseCatalogueVersion:2,id:'generated-'+Date.now(),...identity,
+        duration,difficulty,focus:'balanced',setupEquipment:owned.slice(),...sections,main:{blocks:(result.generalPreparation==null?result.blocks:JSON.parse(JSON.stringify(placed))).map(block=>({...block,exerciseCatalogueVersion:2}))}});
       let workout;
       if(result.generalPreparation==null){
         workout=assemble({warmup:empty(),rampup:empty(),cooldown:empty()});
