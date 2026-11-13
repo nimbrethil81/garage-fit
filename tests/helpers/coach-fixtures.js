@@ -104,7 +104,8 @@ function sessionDraft(overrides) {
 // Restore the approved pre-P1 catalogue for historical policy snapshots only.
 // Live-catalogue reachability and coverage tests continue to use production metadata.
 function catalogueBeforePrepP1(catalogue) {
-  const added=new Set(['seated-knee-extensions','wall-ankle-dorsiflexion-rocks','ankle-alphabet',
+  // Later AB2 additions are absent from every historical catalogue projection.
+  const added=new Set(['bodyweight-russian-twist','heel-touches','supine-arm-pulses','v-ups','superman','seated-knee-extensions','wall-ankle-dorsiflexion-rocks','ankle-alphabet',
     'standing-lateral-weight-shifts','standing-scapular-protraction-retraction','wall-push-up-plus',
     'wrist-circles','standing-forearm-rotations','standing-thoracic-rotation-with-reach',
     'standing-cross-body-reaches','alternating-overhead-reach-side-shift',
