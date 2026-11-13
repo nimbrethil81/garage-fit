@@ -134,6 +134,24 @@ workouts. Both are primary and now strength 4; the former 2:1 ratio is replaced 
 actual reachability of both, primary-role assertions and no duplicate Main
 occurrences. Other quotas and supporting-versus-primary protections remain.
 
+Late catalogue/protocol checks also retain their substantive protections. Kick-
+through is absent from the original 150-workout neutral sample but remains
+reachable through existing Core-focused Balanced bodyweight generation at 30
+minutes, seed 25. The original sample and Curtsy threshold remain. The no-ring
+snapshot retains its original metadata input without changing hashes or draw
+counts. Ladder fixtures retain all five durations, all three focuses, both
+directions, validity, budget, identity variety and determinism; explicit dimension
+assertions protect that coverage. Original ten-minute Balanced seeds 1–400 and
+Cardio seeds 1–200/280 were unobserved, not proved impossible. Their unchanged
+positive routing weights/share bounds and one-ladder limit are separately checked;
+the previous specific automatic contexts are not claimed restored.
+
+The additional paired **243-case** review spans all three workout focuses on the
+same body-focus/difficulty/kit/duration grid. Maximum run changed 5→4; fallback,
+technical-error and exception counts remained zero. The count below 82% nominal
+duration remained one before and after; this comparison does not introduce a new
+82% hard gate. No case changed from suitable to unsuitable Hard Cardio due to R1.
+
 ## Remaining quality evidence
 
 The broad, currently feasible Hard Cardio pool still exposes an unchanged quality
@@ -145,6 +163,22 @@ deficit **0.01**, unsuitable. Pre-#407 metadata at the same configuration yielde
 The quality matrix and threshold have not been weakened. It needs an authorised
 quality resolution, potentially coordinated with #402, rather than a silent test
 refresh or rating inflation.
+
+A complete paired run of the existing 120-case Hard Cardio matrix found **0/120
+unsuitable before metadata correction, 8/120 after**, all bodyweight; both runs had
+zero high-impact adjacency, technical errors and exceptions. Failing current
+configurations (Full Body/default body focus, Hard Cardio; seed is the actual LCG seed):
+
+| Minutes | Seed | Cardio demand | Conditioning share |
+| --- | --- | --- | --- |
+| 10 | 169 | 3.7500 | 0.7500 |
+| 15 | 333 | 3.7368 | 0.7368 |
+| 15 | 386 | 3.7586 | 0.6552 |
+| 30 | 242 | 3.4769 | 0.7385 |
+| 30 | 295 | 3.4903 | 0.6194 |
+| 45 | 98 | 3.3521 | 0.6197 |
+| 45 | 257 | 3.5280 | 0.6818 |
+| 45 | 416 | 3.6415 | 0.6981 |
 
 The pool is genuinely feasible: Jumping jacks, Fast feet and Mountain climbers,
 three rounds with 10-second exercise rests and 30-second round rests, form a valid
