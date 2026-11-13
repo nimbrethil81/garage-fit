@@ -10,8 +10,8 @@
     ['leg-raises','leg-work',false], ['seated-knee-tucks','hip-curl',false],
     ['bear-plank-hold','brace',true], ['plank-up-downs','arm-support',false],
     ['bodyweight-russian-twist','rotation',false], ['heel-touches','lateral',false],
-    ['supine-arm-pulses','brace',true], ['v-ups','curl',false],
-    ['bird-dog','contralateral',false], ['superman','extension',false]
+    ['supine-arm-pulses','arm-pulses',false], ['v-ups','curl',false],
+    ['bird-dog','contralateral',false], ['superman','posterior-extension',false]
   ];
   // Specialist intensity is independent of global difficulty (e.g. dead bug).
   var LOWER_INTENSITY = ['bird-dog','superman'];
