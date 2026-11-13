@@ -63,76 +63,118 @@ metadata. Means describe selected exercise occurrences, not a new quality rule.
 | General Strength v2 Coach | 1,752 s | 1,757 s | Goblet squat, Floor press and Bent-over row anchors retained; supporting selection changes. |
 | Tennis v8 Coach | 1,753 s | 1,753 s | Same Main IDs and timing; mean strength/cardio changes from 3.91/2.18 to 3.64/2.00. |
 
-## Review
+## GF-META-R1 continuation
 
-FAQ reviewed — no changes required. The five controlled answers still describe
-Generator, difficulty, Coach, history and backup accurately. No FAQ/About/Help
-copy or graphics were modified. First-use and visual impact: none.
+Authority: [owner approval R1-A–F](https://github.com/nimbrethil81/garage-fit/pull/408#issuecomment-6858917597).
+The nine cardio-2 CD1 entries no longer qualify for Cardio v1's unchanged minimum
+of 3. This loss is explicitly accepted. Tests distinguish the original eighteen
+from the current nine suitable entries, assert exclusion of the other nine across
+ninety family sessions, and retain all original traditional Main, preparation and
+Full-Body crossover route checks. No Cardio v2 work or threshold changes were made.
 
-Independent review identified a preparation-field tolerance regression; corrected
-and covered by regression. It also requested an unconditional mixed-era fixture
-assertion. A final review also found and corrected historical lookup restoring
-IDs excluded from a supplied catalogue; a rejection regression covers it. Validation results are recorded in the implementation PR.
+Ordinary Generator construction now rejects candidate attempts containing more
+than four consecutive selected Upper/Lower/Core exercises in Main order across
+blocks. It reuses existing attempt/reserve/fallback mechanisms, without a new soft
+penalty or selection bias. Ordinary swaps reject prospective edits that violate
+this ceiling and return the unchanged plan if no valid alternative exists. Full
+Body remains neutral. The separate two-in-a-row **bonus credit** rule is unchanged.
+This is not a saved-workout validator: family composers, Coach prescriptions,
+historical validation and playback are unchanged. Setup fitting changes repeat
+counts only; captured alternatives already pass the ceiling; the existing
+last-resort fallback contains at most three exercise identities.
 
-## Implementation stop: current policy conflict
+### Body-focus evidence
 
-The full suite revealed a structural conflict with the existing CD1 Cardio-family
-membership contract. Cardio v1's `cardioLed` predicate requires `cardio >= 3`.
-Nine of the eighteen CD1 entries now correctly have cardio 2: Power march,
-Step jacks, Standing knee drive march, Alternating hamstring curl steps,
-Side step knee lift, Forward/back aerobic steps, Alternating straight punches,
-Alternating hooks and Dumbbell alternating punch-out. They cannot satisfy the
-existing all-eighteen Cardio-family reachability regression under that policy.
-Changing seeds cannot restore these memberships. The Cardio threshold and the
-membership regression have deliberately been left unchanged.
+Mandatory fixture: Dumbbells, 20 minutes, Balanced, Lower, Normal, LCG seed 569.
+Before R1: Goblet squat → Dumbbell Romanian deadlift → High knees → Walking lunge
+→ High-knee power steps → Plank up-downs; longest Lower run **5**, 1,153 seconds.
+After R1: Dumbbell sumo squat → Dumbbell kickstand Romanian deadlift → Burpees →
+V-ups → Skater jumps; longest Lower run **2**, 1,218 seconds.
+The latter is 18 seconds over nominal duration, inside the existing ordinary
+Generator tolerance of ±max(3 minutes, 18%). No duration limit was changed.
 
-This requires the separate policy review prescribed by #407. Independent review
-confirmed the conflict and recommends coordinating delivery with #402, retaining
-published v1 policy. Explicit owner acceptance of interim membership loss would
-be an alternative product decision; it has not been assumed. No #402 policy,
-threshold or family version has been implemented here.
+A paired 81-case comparison (three body focuses × three difficulties × bodyweight,
+Dumbbells and all equipment × 10/20/45 minutes, Balanced, seed 569) found:
 
-Other failing assertions remain visible for diagnosis, including the established
-body-focus run safeguard and fixed-seed CD1 preparation/Full-Body samples. A missing
-Full-Body fixed-seed selection is not proof of structural exclusion: that family
-has a broader selection pool. The PR is blocked, not ready to merge.
+| Measure | Before R1 | After R1 |
+| --- | --- | --- |
+| Maximum selected-focus run | 5 | 4 |
+| Last-resort fallbacks | 0 | 0 |
+| Underfilled below 82% duration | 0 | 0 |
+| Technical Main errors | 0 | 0 |
+| Generation exceptions | 0 | 0 |
 
-Independent reproduction of the body-focus regression: Dumbbells, 20 minutes,
-Balanced, Lower body, Normal, LCG seed **569** (existing matrix index 9).
-Before metadata: Goblet squat → Dumbbell deadlift → Single-arm dumbbell row →
-Dumbbell lateral lunge → Low pogo hops → V-ups (longest lower run **2**).
-After metadata: Goblet squat → Dumbbell Romanian deadlift → High knees →
-Walking lunge → High-knee power steps → Plank up-downs (longest lower run **5**,
-against the existing maximum **4**). This occurs in ordinary Generator selection,
-independently of historical compatibility. No seed or safeguard was changed to
-conceal this regression. It needs an authorised policy resolution before delivery.
+The committed regression also checks the existing duration tolerance, complete
+preparation, actual rejection of the seed-569 attempt, and an otherwise eligible
+swap that would create a fifth Lower exercise. The original body-focus matrix
+retains its preference, diversity, fatigue, difficulty, timing and bonus tests.
 
-## Validation status at the stop
+### Evidence-backed test corrections
 
-- `node --test tests/metadata-407.test.js tests/family-validation.test.js`:
-  **20 passed**, including all 73 deltas, whole-catalogue baseline reversal,
-  all fourteen published family versions (plus the second Cardio difficulty),
-  unchanged player timelines, mixed-era/current-marker rejection, extra descriptor
-  rejection, restricted-catalogue rejection and Coach durable recovery.
-- `node --test tests/ab-blast-catalogue.test.js`: **3 passed** after refreshing
-  shifted fixed seeds and retaining the real bodyweight Supine arm pulses route.
-- `node --test tests/bear-crawl-batch.test.js`: **10 passed**, including its Full
-  samples. Bear crawl's expected cardio is now the approved 3. The original
-  360-workout accessory sample remains, with one bounded Upper-body Dumbbells
-  fixture added to demonstrate the rare curl route; no frequency threshold changed.
-- Focused CD1 suite: **3 passed, 6 failed**. Includes obsolete literal metadata
-  expectations and the structural all-eighteen Cardio-family membership conflict.
-- Focused body-focus safeguard: **failed**, independently reproduced above.
-- `node --test tests/*.test.js` was started and **interrupted at the confirmed
-  material stop**, after approximately 20 minutes. Runner totals at interruption:
-  **767 passed, 39 failed, 71 cancelled**. These are partial-run totals, not final
-  results for the latest branch: some fixed fixtures had already been loaded before
-  their corrections. Remaining output snapshots/metadata literals and shifted
-  samples were not bulk rewritten to force a green result.
-- `node scripts/audit-exercise-reachability.js` was started and interrupted at the
-  same stop. It had not emitted its completion report; **no audit result exists**.
-- `git diff --check`: passed. No graphics or illustration files changed.
+No snapshot JSON was refreshed. Existing decision-flow snapshots now explicitly
+receive their original pre-#407 metadata input, alongside existing membership
+projections. Current catalogue behavior remains checked in live tests. Thirteen
+snapshot cases still pass unchanged under the current runtime.
 
-The full suite and exhaustive audit must be rerun to completion after the material
-policy conflicts are resolved. This branch is a reviewable, blocked implementation,
-not acceptance-complete delivery.
+Approved literal expectations were corrected for conditioning, difficulty and
+ratings. Bounded fixed seeds were refreshed while retaining route, anchor, dose,
+protocol, safety, style and membership assertions. Supine arm pulses retains a
+real General Fitness bodyweight route. All eighteen original CD1 identities still
+have traditional Main proof, with all six generated/standalone preparation routes
+and all seven intended Full-Body crossover identities retained.
+
+Only two incidental frequency assertions changed, following independent review
+against the catalogue's explicit “reachability is not frequency equalisation”
+rule. Hollow hold's identical 91-workout sample changed from **5 to 2** appearances;
+it must still actually appear, and its stronger Core-route/supporting-role checks
+remain. TRX high row/standard row changed from **11/48 to 15/26** in the same eighty
+workouts. Both are primary and now strength 4; the former 2:1 ratio is replaced by
+actual reachability of both, primary-role assertions and no duplicate Main
+occurrences. Other quotas and supporting-versus-primary protections remain.
+
+## Remaining quality evidence
+
+The broad, currently feasible Hard Cardio pool still exposes an unchanged quality
+assertion: bodyweight, 10 minutes, Hard Cardio, Full Body/default body focus, LCG seed
+169 (existing matrix index 3). Current metadata produces Fast feet, Air squat and
+Mountain climbers, cardio demand **3.75** against the unchanged **3.8** floor,
+deficit **0.01**, unsuitable. Pre-#407 metadata at the same configuration yielded
+**4.04348**, suitable. This occurs with Full Body, independently of R1's ceiling.
+The quality matrix and threshold have not been weakened. It needs an authorised
+quality resolution, potentially coordinated with #402, rather than a silent test
+refresh or rating inflation.
+
+The pool is genuinely feasible: Jumping jacks, Fast feet and Mountain climbers,
+three rounds with 10-second exercise rests and 30-second round rests, form a valid
+390-second Main. The existing proxy reports cardio demand **4**, conditioning
+share **1**, zero weak work and high-impact adjacency, and no Main validation
+errors. This is diagnostic proof, not a special-case generation recipe.
+
+Separately, the **low-impact bodyweight** pool is now mathematically intensity-
+infeasible: all eligible cardio scores are at most 3, below 3.8. Its existing
+fallback test now explicitly proves that bound and expects an honest unsuitable
+proxy result while retaining bounded attempts, low impact, valid playback and
+complete preparation. The original published-era positive proxy fixture remains
+checked against its frozen definitions, with current metadata correctly failing
+that same proxy. This does not relax the feasible-pool quality matrix above.
+
+The original neutral recent-history In-in-out route has not yet been recovered
+in bounded probes; its assertion remains intact pending exhaustive evidence.
+
+## Review and validation status
+
+FAQ reviewed — no changes required. The five controlled answers still accurately
+describe Generator, difficulty, Coach, history and backup. No FAQ/About/Help copy,
+graphics, instructions or programme definitions changed. First-use/visual impact:
+none.
+
+Independent review confirmed ordinary-only scope isolation and unchanged saved,
+family and Coach validation. It requested a true cap-causing swap test and
+established duration-tolerance assertion; both are implemented. It approved the
+two incidental-frequency corrections with the safeguards above. No outstanding
+R1 adapter/runtime findings remain; separate current quality evidence remains
+visible.
+
+Fast, Full and exhaustive audit are running to completion with saved exit-status
+files. Final results will replace this status before delivery. PR #408 remains
+draft; no merge or deployment is authorised or performed.

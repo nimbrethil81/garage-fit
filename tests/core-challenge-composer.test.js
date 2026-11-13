@@ -282,7 +282,7 @@ test('C1 metadata keeps controlled dynamic work, unilateral doses and deliberate
     assert.equal(ex.cooldown,false,id);
     assert.ok(ex.instruction.length<=180,id);
     assert.deepEqual(ex.mainProtocols,['rounds','paired_sets'],id);
-    assert.equal(G.generatedPhaseEligible(ex,'main',EQUIPMENT.broad,'easy'),id!=='dumbbell-dead-bug-hold',id);
+    assert.equal(G.generatedPhaseEligible(ex,'main',EQUIPMENT.broad,'easy'),true,id); // #407: dead-bug hold is now Moderate.
     if(ex.sidedness==='per-side')assert.match(ex.prescription.type,/^unilateral-/);
     if(timed(ex))assert.equal(ex.estimatedSeconds,ex.prescription.value*(ex.sidedness==='per-side'?2:1),id);
   }
@@ -305,14 +305,21 @@ test('C1 metadata keeps controlled dynamic work, unilateral doses and deliberate
 test('all 15 C1 identities are selected in appropriate Core sessions, including accessible supporting work',()=>{
   // AB2 expands the shared pool: refreshed bounded fixtures retain all fifteen routes, no frequency quota.
   const fixtures=[
-    ['side-plank-knees',[],10,'easy',2],['bent-knee-fallout',[],30,'easy',12],
-    ['tabletop-toe-taps',[],30,'easy',1],['dumbbell-suitcase-carry',['dumbbells'],30,'hard',2],
-    ['side-plank-hip-lifts',[],30,'hard',3],['supine-heel-slides',[],15,'easy',18],
-    ['plank-arm-reaches',[],30,'hard',2],['bridge-march',[],30,'hard',1],
-    ['bent-knee-windshield-wipers',[],30,'hard',32],['dead-bug-isometric-press',[],10,'easy',25],
-    ['bear-plank-hold',[],30,'hard',1],['seated-knee-tucks',[],30,'hard',2],
+    ['side-plank-knees',[],10,'easy',1],
+    ['bent-knee-fallout',[],30,'easy',12],
+    ['tabletop-toe-taps',[],30,'easy',3],
+    ['dumbbell-suitcase-carry',['dumbbells'],30,'hard',2],
+    ['side-plank-hip-lifts',[],30,'hard',6],
+    ['supine-heel-slides',[],15,'easy',111],
+    ['plank-arm-reaches',[],30,'hard',2],
+    ['bridge-march',[],30,'hard',2],
+    ['bent-knee-windshield-wipers',[],30,'hard',1],
+    ['dead-bug-isometric-press',[],10,'easy',2],
+    ['bear-plank-hold',[],30,'hard',3],
+    ['seated-knee-tucks',[],30,'hard',1],
     ['kettlebell-suitcase-march',['kettlebell'],30,'hard',1],
-    ['half-kneeling-band-pallof-press',['bands'],30,'hard',58],['dumbbell-dead-bug-hold',['dumbbells'],30,'hard',1]
+    ['half-kneeling-band-pallof-press',['bands'],30,'hard',1],
+    ['dumbbell-dead-bug-hold',['dumbbells'],30,'hard',1]
   ];
   for(const [id,equipment,duration,difficulty,seed] of fixtures){
     const w=generate(CORE,{equipment,duration,difficulty,random:c1Random(seed)});
@@ -329,15 +336,15 @@ test('all 15 C1 identities are selected in appropriate Core sessions, including 
 
 test('C1 supporting and loaded work reaches secondary families under their unchanged quality gates',()=>{
   for(const [family,version,id,equipment,duration,seed,constraints] of [
-    ['strength-control',2,'bent-knee-fallout',[],30,37,{difficulty:'easy'}],
-    ['strength-control',2,'supine-heel-slides',[],30,64],
-    ['strength-control',2,'dumbbell-suitcase-carry',['dumbbells'],30,2],
-    ['strength-control',2,'half-kneeling-band-pallof-press',['bands'],30,6],
+    ['strength-control',2,'bent-knee-fallout',[],30,37,{'difficulty':'easy'}],
+    ['strength-control',2,'supine-heel-slides',[],30,38],
+    ['strength-control',2,'dumbbell-suitcase-carry',['dumbbells'],30,1],
+    ['strength-control',2,'half-kneeling-band-pallof-press',['bands'],30,8],
     ['strength-control',2,'plank-shoulder-taps',[],30,31],
-    [CHALLENGE,1,'plank-arm-reaches',[],30,1],
-    [CHALLENGE,1,'bridge-march',[],30,2],
-    [CHALLENGE,1,'seated-knee-tucks',[],30,3],
-    [CHALLENGE,1,'kettlebell-suitcase-march',['kettlebell'],15,8,{bodyPositions:['standing']}]
+    ['full-body-challenges',1,'plank-arm-reaches',[],30,1],
+    ['full-body-challenges',1,'bridge-march',[],30,2],
+    ['full-body-challenges',1,'seated-knee-tucks',[],30,3],
+    ['full-body-challenges',1,'kettlebell-suitcase-march',['kettlebell'],15,108,{'bodyPositions':['standing']}]
   ]){
     const w=generate(family,{workoutFamilyVersion:version,equipment,duration,difficulty:'hard',bodyFocus:'core',random:c1Random(seed),...constraints});
     assert.ok(exercisesOf(w).some(ex=>ex.id===id),family+' '+id);
@@ -351,7 +358,7 @@ test('C1 accessories reach all four Coach routes without replacing their anchors
     ['general-strength-4w',2,'dumbbell-suitcase-carry',['goblet-squat','dumbbell-floor-press','dumbbell-bent-over-row'],3],
     ['build-arms',1,'bridge-march',['dumbbell-biceps-curl','dumbbell-overhead-triceps-extension'],7],
     ['tennis-conditioning',8,'plank-arm-reaches',['dumbbell-reverse-lunge','dumbbell-romanian-deadlift','dumbbell-floor-press','dumbbell-bent-over-row'],2],
-    ['general-fitness',2,'bridge-march',[],1]
+    ['general-fitness',2,'bridge-march',[],2]
   ]){
     const p=pilot(new Map(),id,version);
     p.run("pilotOptions.equipment=['dumbbells','bands','bench'];pilotOptions.duration=45;pilotOptions.bodyFocus='core';");

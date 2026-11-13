@@ -1948,6 +1948,19 @@
     return issues;
   }
 
+  // GF-META-R1: construction/edit rule for ordinary Generator output only.
+  // This is separate from the two-in-a-row score-credit limit, and deliberately
+  // absent from shared validation so legitimate saved/family/Coach plans still play.
+  function ordinaryBodyFocusRunIssues(blocks, bodyFocus) {
+    if(!['upper','lower','core'].includes(bodyFocus))return [];
+    let run=0;
+    for(const exercise of blocks.flatMap(block=>block.exercises)){
+      run=exercise.bodyFocus===bodyFocus?run+1:0;
+      if(run>4)return ['main:body-focus-run'];
+    }
+    return [];
+  }
+
   function composeMain(catalogue, eligible, budget, duration, focus, owned, history, rest, random, difficulty, bodyFocus, recentProtocols, captureAlternatives) {
     const attempts=[],reserve=[],hardCardio=focus==='cardio'&&difficulty==='hard';
     const diversityTarget=EQUIPMENT_DIVERSITY[duration]||EQUIPMENT_DIVERSITY[20];
@@ -1988,7 +2001,7 @@
       const estimated=mainSeconds(state.blocks,owned);
       const varietyCredit=protocolVarietyCredit(state.blocks,budget.main);
       const issues=validateMain({blocks:state.blocks},catalogue,owned,budget.main);
-      const varietyIssues=mainVarietyIssues(state.blocks,duration,eligible);
+      const varietyIssues=mainVarietyIssues(state.blocks,duration,eligible).concat(ordinaryBodyFocusRunIssues(state.blocks,bodyFocus));
       const malformed=issues.filter(issue=>issue!=='main:duration-out-of-tolerance').concat(varietyIssues);
       // The equipment-diversity minimum is a preference. An attempt that misses only it is kept
       // in reserve (see below) instead of being discarded outright.
@@ -3686,6 +3699,8 @@
     const ownTarget=block.protocol==='complex'?complexDefaultTarget:block.protocol==='amrap'?amrapDefaultTarget:null;
     const replaced=exercise=>({...block,exercises:block.exercises.map((item,index)=>index===exerciseIndex?exercise:item),
       ...(ownTarget?{prescription:{...block.prescription,targets:block.prescription.targets.map((target,index)=>index===exerciseIndex?ownTarget(exercise):target)}}:{})});
+    if(workout.workoutFamilyId==null&&!workout.sessionPrescription)eligible=eligible.filter(exercise=>
+      !ordinaryBodyFocusRunIssues(blocks.map(item=>item===block?replaced(exercise):item),bodyFocus).length);
     if(block.familyContext!=null)eligible=eligible.filter(exercise=>!validateFamilyBlock(replaced(exercise),catalogue,owned).length);
     eligible=eligible.filter(exercise=>blockSetupCompatible(replaced(exercise),catalogue,owned));
     const prospective=exercise=>setupBudgetCandidate({...workout,setupEquipment:owned},blocks.map(item=>item===block?replaced(exercise):item));

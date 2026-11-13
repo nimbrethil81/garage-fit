@@ -10,6 +10,10 @@ const IDS=['power-march','step-jacks','standing-knee-drive-march','alternating-h
   'forward-back-aerobic-steps','low-impact-speed-skaters','alternating-straight-punches','boxer-step-and-punches','alternating-hooks',
   'boxing-slip-and-punch','step-back-burpee','squat-to-alternating-knee-drive','high-knee-power-steps','low-pogo-hops',
   'dumbbell-alternating-punch-out','dumbbell-squat-to-calf-raise','kettlebell-deadlift-to-calf-raise'];
+// GF-META-R1 accepts only these nine losses under unchanged Cardio v1 policy.
+const CARDIO_V1_EXCLUDED=['power-march','step-jacks','standing-knee-drive-march','alternating-hamstring-curl-steps',
+  'side-step-knee-lift','forward-back-aerobic-steps','alternating-straight-punches','alternating-hooks','dumbbell-alternating-punch-out'];
+const CARDIO_V1_IDS=IDS.filter(id=>!CARDIO_V1_EXCLUDED.includes(id));
 const SHORT=new Set([IDS[11],...IDS.slice(14)]),PREP=[IDS[0],IDS[1],...IDS.slice(3,6),IDS[7]];
 const EQUIPMENT=['dumbbells','kettlebell'];
 const rng=seed=>()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
@@ -26,13 +30,17 @@ function checkDoses(w){
   }
 }
 
-test('CD1 has eighteen distinct cardio-led entries, fifteen bodyweight, with reviewed continuous timed doses',()=>{
+test('CD1 retains eighteen published entries and nine current Cardio-v1-suitable entries with reviewed continuous doses',()=>{
   assert.equal(new Set(IDS).size,18);assert.equal(IDS.filter(id=>!C[id].equipment.length).length,15);
   assert.deepEqual(G.validateCatalogue(C),[]);
+  assert.equal(CARDIO_V1_IDS.length,9);
+  const cardio=[2,2,2,2,2,2,3,2,3,2,3,3,3,3,3,2,4,4];
   for(const [i,id] of IDS.entries()){
     const ex=C[id];
-    assert.ok(ex.generator&&ex.main&&ex.conditioning,id);
-    assert.ok(ex.cardio>=3&&ex.cardio>ex.strength,id);
+    assert.ok(ex.generator&&ex.main,id);
+    assert.equal(ex.conditioning,i<15,id);
+    assert.equal(ex.cardio,cardio[i],id);
+    assert.equal(ex.cardio>=3&&ex.cardio>=ex.strength,CARDIO_V1_IDS.includes(id),id);
     assert.equal(ex.difficulty,i<8?'easy':'moderate',id);
     assert.equal(ex.impact,id==='low-pogo-hops'?'medium':'low',id);
     assert.deepEqual(ex.prescription,{type:'timed',value:SHORT.has(id)?30:40});
@@ -57,14 +65,16 @@ test('CD1 has eighteen distinct cardio-led entries, fifteen bodyweight, with rev
 });
 
 test('CD1 preserves a complete short Easy Cardio interval with squat and conditioning selection roles',()=>{
-  const w=G.generate({catalogue:C,duration:10,focus:'cardio',difficulty:'easy',bodyFocus:'full-body',equipment:[],random:rng(41)});
-  assert.equal(w.estimatedSeconds,540);
-  assert.equal(w.main.estimatedDurationSeconds,390,'catalogue growth changes preparation, not the full Main interval');
+  const w=G.generate({catalogue:C,duration:10,focus:'cardio',difficulty:'easy',bodyFocus:'full-body',equipment:[],random:rng(14)});
+  // #407 reprioritises the live catalogue: retain the complete timed Main and
+  // squat/conditioning roles, rather than the old low-cardio exercise draw.
+  assert.equal(w.estimatedSeconds,590);
+  assert.equal(w.main.estimatedDurationSeconds,420);
   assert.deepEqual(G.validateMain(w.main,C,[],G.BUDGETS[10].main),[]);
   const list=exercises(w);
   assert.ok(new Set(list.map(ex=>ex.id)).size>=3);
   assert.deepEqual([...new Set(list.flatMap(G.selectionTags))].sort(),['conditioning','squat']);
-  assert.ok(list.some(ex=>ex.id==='standing-knee-drive-march')&&list.some(ex=>ex.id==='step-jacks'));
+  assert.ok(list.some(ex=>ex.id==='air-squat')&&list.some(ex=>ex.id==='low-impact-speed-skaters'));
   checkDoses(w);
 });
 
@@ -86,7 +96,7 @@ test('walk-to-plank push-up retains specific Ramp-up rehearsal and leaves gentle
   assert.equal(ex.warmup,false);assert.equal(G.generatedPhaseEligible(ex,'warmup',[]),false);
   assert.equal(ex.rampup,true);assert.deepEqual(ex.rampupPrescription,{type:'timed',value:35,minValue:25,maxValue:45});
   assert.deepEqual(ex.prescription,{type:'timed',value:20});
-  const w=G.generate({catalogue:C,equipment:['dumbbells'],duration:30,focus:'strength',bodyFocus:'upper',random:rng(4)});
+  const w=G.generate({catalogue:C,equipment:['dumbbells'],duration:30,focus:'strength',bodyFocus:'upper',random:rng(1)});
   assert.ok(w.rampup.exercises.some(ex=>ex.id==='walk-plank-push-up'));
   assert.ok(!w.warmup.exercises.some(ex=>ex.id==='walk-plank-push-up'));
 });
@@ -101,9 +111,11 @@ test('[Full] CD1 additions are observed across all three Cardio styles and all d
     checkDoses(w);styles.add(w.familyStyleId);
     for(const id of new Set(exercises(w).map(ex=>ex.id)))if(id in counts){seen.add(id);counts[id]++;}
   }
-  assertSeen(seen,IDS);assert.deepEqual([...styles].sort(),['endurance','intervals','mixed-conditioning']);
+  assertSeen(seen,CARDIO_V1_IDS);
+  for(const id of CARDIO_V1_EXCLUDED)assert.equal(counts[id],0,id+' retains Cardio v1 exclusion');
+  assert.deepEqual([...styles].sort(),['endurance','intervals','mixed-conditioning']);
   t.diagnostic('CD1 selections per 90 Cardio sessions '+JSON.stringify(counts));
-  const easy=family({equipment:[],difficulty:'easy',duration:45,excludedImpact:['medium','high'],random:rng(7)});
+  const easy=family({equipment:[],difficulty:'easy',duration:45,excludedImpact:['medium','high'],random:rng(6)});
   assert.ok(exercises(easy).every(ex=>ex.impact==='low'));
   assert.ok(exercises(easy).filter(ex=>ex.bodyPosition==='standing').length>=exercises(easy).length*.75);
   assert.ok(new Set(exercises(easy).filter(ex=>IDS.includes(ex.id)).map(ex=>ex.id)).size>=5);
@@ -115,6 +127,9 @@ test('[Full] legacy Cardio and Mixed Main, generated Warm-up and Prep & Recover 
   // additions, including the rarer full-body boxing and light loaded routes.
   const fixtures=[
     {"focus":"balanced","bodyFocus":"full-body","equipment":[],"duration":45,"seed":1},
+    // GF-META-R1: retained gentle routes after the nine Cardio-v1 losses,
+    // found in a bounded bank of the first 86 Easy short-session seeds.
+    ...[1,21,22,28,44,86].map(seed=>({focus:'cardio',bodyFocus:'full-body',difficulty:'easy',equipment:[],duration:10,seed})),
     {"focus":"cardio","bodyFocus":"upper","equipment":[],"duration":45,"seed":2024},
     {"focus":"cardio","bodyFocus":"full-body","equipment":[],"duration":30,"seed":20186},
     {"focus":"cardio","bodyFocus":"upper","equipment":[],"duration":45,"seed":13123},
@@ -154,7 +169,7 @@ test('[Full] legacy Cardio and Mixed Main, generated Warm-up and Prep & Recover 
 
 test('[Full] Full-Body crossover stays purposeful and Core, Mobility, Athletic and Strength Main stay outside CD1',()=>{
   const seen=new Set();
-  for(const seed of [12,14,15]){
+  for(const seed of [12,14,15,17,41,46]){
     const w=family({workoutFamilyId:'full-body-challenges',random:rng(seed)});
     assert.equal(G.validateFamilyWorkout(w,{catalogue:C,equipment:EQUIPMENT}).valid,true);
     checkDoses(w);exercises(w).forEach(ex=>seen.add(ex.id));

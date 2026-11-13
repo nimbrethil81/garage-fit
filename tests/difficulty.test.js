@@ -176,9 +176,13 @@ test('Hard Cardio rejects the reported Main by work time without banning its exe
   assert.equal(result.workSeconds,465); // Includes both sides of the 55-second bridge.
   assert.equal(result.conditioningShare,60/155);
   assert.equal(result.suitable,false);
-  // A low-impact alternative is sufficient; jumping is never required.
-  const lowImpact={...block,exercises:['step-jacks','boxer-step-and-punches','power-march'].map(id=>catalogue[id])};
+  // Preserve the published-era proxy fixture; its original ratings made this
+  // low-impact alternative sufficient. #407 truthfully lowers those ratings.
+  // Current generated Hard Cardio adequacy remains asserted in the matrices below.
+  const ids=['step-jacks','boxer-step-and-punches','power-march'];
+  const lowImpact={...block,exercises:ids.map(id=>GarageFitData.historicalExerciseDefinitions[id])};
   assert.equal(G.cardioChallenge([lowImpact]).suitable,true);
+  assert.equal(G.cardioChallenge([{...lowImpact,exercises:ids.map(id=>catalogue[id])}]).suitable,false);
 });
 
 test('cardio challenge weights resolved interval, rep and per-side targets rather than rest or slots', () => {
@@ -228,7 +232,11 @@ test('Hard Cardio remains playable with low-impact-only and intensity-infeasible
     assert.ok(attempts<=G.HARD_CARDIO_POLICY.maxAttempts);
     assert.deepEqual(G.validateMain(workout.main,constrained,[],G.BUDGETS[15].main),[]);
     const result=G.cardioChallenge(workout.main.blocks);
-    assert.equal(result.suitable,kind==='low-impact');
+    // #407 leaves both constrained bodyweight pools below the unchanged 3.8
+    // floor. Preserve honest playable fallback, not the obsolete feasibility claim.
+    const pool=Object.values(constrained).filter(e=>G.generatedPhaseEligible(e,'main',[],'hard'));
+    assert.ok(Math.max(...pool.map(e=>e.cardio))<G.HARD_CARDIO_POLICY.cardioDemand);
+    assert.equal(result.suitable,false);
     if(kind==='low-impact')assert.ok(mainOf(workout).every(e=>e.impact==='low'));
     assert.ok(workout.warmup.exercises.length&&workout.rampup.exercises.length&&workout.cooldown.exercises.length);
   }
