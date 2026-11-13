@@ -170,3 +170,16 @@ test('a sole knee qualifier cannot be swapped at the expense of its other region
   assert.equal(workout.warmup.exercises.filter(meaningful).length,2);
   assert.ok(workout.warmup.exercises.some(G.kneeMobilityQualified));
 });
+
+test('short warm-up selection fits per-side minimums without shortening authored doses or losing coverage',()=>{
+  const pool=Object.fromEntries(['supine-heel-slides','bent-knee-fallout','leg-swings-forward-back','body-twists'].map(id=>[id,catalogue[id]]));
+  const w=GarageFitGenerator.selectWarmup(pool,65,[],[catalogue['hollow-body-hold']],()=>0.999,{focus:'balanced'});
+  assert.equal(w.exercises.length,3);
+  assert.ok(Math.abs(w.estimatedSeconds-65)<=10);
+  assert.ok(w.exercises.some(ex=>ex.kneeMobility));
+  assert.ok(w.exercises.some(meaningful));
+  assert.ok(w.exercises.some(ex=>ex.warmupAreas.includes('trunk')));
+  assert.ok(!w.exercises.some(ex=>ex.id==='bent-knee-fallout'),'its 40-second per-side minimum cannot fit this three-exercise budget');
+  for(const ex of w.exercises)if(ex.warmupPrescription.minValue!=null)
+    assert.ok(ex.prescription.value>=ex.warmupPrescription.minValue);
+});

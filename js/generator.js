@@ -2365,6 +2365,11 @@
     return 4;
   }
 
+  function minimumTimedValue(exercise, kind) {
+    const p=kind==='rampup'?exercise.rampupPrescription:exercise.warmupPrescription||exercise.prescription;
+    return Number.isFinite(p.minValue)?p.minValue:Math.min(p.value,roundToFive((kind==='rampup'?20:15)/sideCount(exercise)));
+  }
+
   function fitTimedDurations(exercises, targetSeconds, restSeconds, kind) {
     if (!exercises.length) return {exercises:[],estimatedSeconds:0};
     const available = Math.max(0,targetSeconds - restSeconds*Math.max(0,exercises.length-1));
@@ -2373,7 +2378,7 @@
     // costs time, so budgeting multiplies by the number of sides. Default bounds describe a
     // whole exercise and are shared between the sides of per-side work.
     const sides = exercises.map(sideCount);
-    const mins = defaults.map((p,i)=>Number.isFinite(p.minValue)?p.minValue:Math.min(p.value,roundToFive((kind==='rampup'?20:15)/sides[i])));
+    const mins = exercises.map(exercise=>minimumTimedValue(exercise,kind));
     const maxs = defaults.map((p,i)=>Number.isFinite(p.maxValue)?p.maxValue:Math.max(p.value,roundToFive((kind==='rampup'?45:30)/sides[i])));
     const desired = defaults.map(p=>p.value);
     const cost = list => list.reduce((sum,value,i)=>sum+value*sides[i],0);
@@ -2407,6 +2412,7 @@
     const lowerDemand=lowerBodyDemand(options.mainDemandExercises||mainExercises,focus);
     const context={lowerDemand,lowerDemandThreshold:LOWER_DEMAND_THRESHOLD[focus]||LOWER_DEMAND_THRESHOLD.balanced,lowerTarget:lowerPrepTarget(targetCount,lowerDemand,focus)};
     const upperCap=upperTrunkOnlyCap(targetCount), upperTarget=upperTrunkTarget(targetCount);
+    const minimums=new Map(eligible.map(ex=>[ex,minimumTimedValue(ex,'warmup')*sideCount(ex)]));
     for(let slot=0;slot<targetCount && candidates.length;slot++) {
       const stages=activeTrace?[]:null;
       // Exercises an earlier pick removed as a duplicate or direct variant.
@@ -2435,6 +2441,18 @@
         const lowerInvolved=slotCandidates.filter(ex=>lowerJointCoverage(ex).length);
         if (lowerInvolved.length) slotCandidates=narrow(stages,'upper-trunk-cap',slotCandidates,lowerInvolved);
       }
+      // A per-side prescription can consume two intervals. Reject prefixes whose
+      // minimum work cannot fit the established budget tolerance, when a fitting
+      // choice preserves the coverage rules above; never shorten an authored dose.
+      const remaining=targetCount-slot-1;
+      const selectedMinimum=selected.reduce((sum,ex)=>sum+minimums.get(ex),0);
+      const futureOrder=candidates.slice().sort((a,b)=>minimums.get(a)-minimums.get(b));
+      const fitting=slotCandidates.filter(ex=>{
+        const future=futureOrder.filter(other=>!sameExerciseOrFamily(other,ex)).slice(0,remaining);
+        return future.length===remaining && selectedMinimum+minimums.get(ex)+
+          future.reduce((sum,other)=>sum+minimums.get(other),0)+restSeconds*(targetCount-1)<=targetSeconds+10;
+      });
+      if (fitting.length) slotCandidates=narrow(stages,'budget-fit',slotCandidates,fitting);
       // Intensity ordering follows selection, so any two warm-up exercises may end up adjacent:
       // prefer candidates that repeat no major pattern already selected (soft-mandatory, below coverage).
       const freshPatterns=slotCandidates.filter(ex=>!selected.some(item=>sharesMajorPattern(item,ex)));
