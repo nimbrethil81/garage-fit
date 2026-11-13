@@ -56,7 +56,7 @@ test('infeasible catalogues fail clearly without duration padding', () => {
   assert.throws(()=>composer.generate({catalogue:subset,random:()=>0}),/unavailable/);
 });
 
-test('expanded pool is reachable, specialist-only and varied with about 20% lower-intensity plans', () => {
+test('expanded pool is reachable and varied with about 20% lower-intensity plans', () => {
   const added = ['bodyweight-russian-twist','heel-touches','supine-arm-pulses','v-ups','superman'];
   const low = ['bird-dog','superman'];
   const reached = new Set(), compositions = new Set(), appearances = {};
@@ -80,7 +80,8 @@ test('expanded pool is reachable, specialist-only and varied with about 20% lowe
   for (const id of [...added,'bird-dog','hollow-body-hold']) assert.ok(reached.has(id),id);
   for (const id of added) {
     const ex = catalogue[id];
-    for (const phase of ['generator','main','warmup','rampup','cooldown']) assert.equal(ex[phase],false,id+': '+phase);
+    for (const phase of ['generator','main']) assert.equal(ex[phase],true,id+': '+phase);
+    for (const phase of ['warmup','cooldown']) assert.equal(ex[phase],false,id+': '+phase);
     assert.deepEqual(ex.equipment,[]);
     assert.equal(ex.bodyPosition,'floor');
     assert.equal(ex.bodyFocus,'core');
@@ -102,4 +103,12 @@ test('lower-intensity draw falls back safely when the catalogue has none', () =>
   const subset=Object.fromEntries(Object.entries(catalogue).filter(([id])=>!['bird-dog','superman'].includes(id)));
   const plan=composer.generate({catalogue:subset,random:()=>0.1});
   assert.equal(composer.validate(plan,{catalogue:subset}).valid,true);
+});
+
+test('approved arm pulses are dynamic and may sit beside a brace without replacing the required holds',()=>{
+  const plan=JSON.parse(JSON.stringify(legacy));
+  plan.exercises[5].id='supine-arm-pulses';
+  assert.equal(composer.validate(plan).valid,true);
+  plan.exercises[4].id='dead-bug';
+  assert.ok(composer.validate(plan).errors.includes('Insufficient core movement balance'));
 });

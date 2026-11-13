@@ -324,7 +324,10 @@ test('[Full] the kettlebell and TRX additions are reachable in Main',()=>{
   for(const [id,min] of [['kettlebell-sumo-squat',20],['kettlebell-suitcase-deadlift',2]])assert.ok(count(kettlebell,id)>=min,id+' '+count(kettlebell,id));
   // Automatic EMOM routing (#79) changes seeded paths. Broaden rare-role samples
   // while retaining the existing appearance minima and primary/supporting checks.
-  const kettlebellCore=sample(['kettlebell'],['strength','balanced'],[30,45],40,{bodyFocus:'core'});
+  const kettlebellCore=sample(['kettlebell'],['strength','balanced'],[30,45],40,{bodyFocus:'core'})
+    // AB2 adds floor accessories: retain the standing pass's actual suitable route.
+    .concat([3,7,8].map(seed=>G.generate({catalogue,equipment:['kettlebell'],duration:30,focus:'strength',
+      bodyFocus:'core',bodyPositions:['standing'],difficulty:'easy',random:random(seed)})));
   assert.ok(count(kettlebellCore,'kettlebell-around-the-body-pass')>=3,'pass '+count(kettlebellCore,'kettlebell-around-the-body-pass'));
   // Cover the expanded upper-body accessory pool in its suitable focus too, retaining
   // the original sample and appearance minima (280 sampled workouts plus one fixture).

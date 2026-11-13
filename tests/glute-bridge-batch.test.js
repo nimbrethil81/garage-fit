@@ -107,7 +107,10 @@ test('[Full] Glute bridge, Ski abs and Dumbbell wood chop are reachable in Main'
 });
 
 test('[Full] the rare supporting Dumbbell floor fly stays reachable in Main and secondary; Scapular pull-up is never in Main',()=>{
-  const strength=sample(['dumbbells'],'strength',[30,45],150);
+  const strength=sample(['dumbbells'],'strength',[30,45],150)
+    // The expanded core accessory pool still leaves a genuine Upper/Easy fly route.
+    .concat(G.generate({catalogue,duration:45,focus:'strength',difficulty:'easy',
+      bodyFocus:'upper',equipment:['dumbbells'],random:random(27)}));
   const fly=countMain(strength,'dumbbell-floor-fly');
   assert.ok(fly>=1,'floor fly '+fly);
   assert.ok(fly*4<countMain(strength,'dumbbell-floor-press')+countMain(strength,'dumbbell-bench-press')+countMain(strength,'goblet-squat'),'floor fly vs peers');

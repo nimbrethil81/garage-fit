@@ -6,6 +6,8 @@ const {loadAppContext} = require('./helpers/app-context');
 
 function harness() {
   const app=loadAppContext(new Map(),{ownIntrinsics:true}),run=code=>vm.runInContext(code,app);
+  // Keep this linear-player fixture stable; bounded AMRAP playback has its own suite.
+  app.playerFixtureCatalogue=require('./helpers/coach-fixtures').catalogueBeforeAB2(app.GarageFitData.exercises);
   run('var testNow=Date.now();Date.now=()=>testNow');
   const timers=new Map();let id=0;
   app.setInterval=callback=>{timers.set(++id,callback);return id;};
@@ -15,7 +17,7 @@ function harness() {
     time(ms){run(`testNow+=${ms}`);},
     tick(ms=1000){run(`testNow+=${ms}`);timers.get(run('generatorState.phaseTimer'))();},
     tap(){app.toggleWorkoutPause();},
-    generated(){run("state.ownedEquipment=['dumbbells','kettlebell','bench','trx','bands'];generatorState.workout=GarageFitGenerator.generate({catalogue:CATALOGUE,duration:30,focus:'balanced',equipment:state.ownedEquipment,random:(seed=>()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;})(7)})");app.startStandaloneGeneratedWorkout();},
+    generated(){run("state.ownedEquipment=['dumbbells','kettlebell','bench','trx','bands'];generatorState.workout=GarageFitGenerator.generate({catalogue:playerFixtureCatalogue,duration:30,focus:'balanced',equipment:state.ownedEquipment,random:(seed=>()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;})(7)})");app.startStandaloneGeneratedWorkout();},
     phase:()=>run('currentGeneratedPhase()'),
     timeline:()=>run('generatorState.timeline')};
 }

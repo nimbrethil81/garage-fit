@@ -57,7 +57,7 @@ test('CD1 has eighteen distinct cardio-led entries, fifteen bodyweight, with rev
 });
 
 test('CD1 preserves a complete short Easy Cardio interval with squat and conditioning selection roles',()=>{
-  const w=G.generate({catalogue:C,duration:10,focus:'cardio',difficulty:'easy',bodyFocus:'full-body',equipment:[],random:rng(260931851)});
+  const w=G.generate({catalogue:C,duration:10,focus:'cardio',difficulty:'easy',bodyFocus:'full-body',equipment:[],random:rng(41)});
   assert.equal(w.estimatedSeconds,540);
   assert.equal(w.main.estimatedDurationSeconds,390,'catalogue growth changes preparation, not the full Main interval');
   assert.deepEqual(G.validateMain(w.main,C,[],G.BUDGETS[10].main),[]);
@@ -86,7 +86,7 @@ test('walk-to-plank push-up retains specific Ramp-up rehearsal and leaves gentle
   assert.equal(ex.warmup,false);assert.equal(G.generatedPhaseEligible(ex,'warmup',[]),false);
   assert.equal(ex.rampup,true);assert.deepEqual(ex.rampupPrescription,{type:'timed',value:35,minValue:25,maxValue:45});
   assert.deepEqual(ex.prescription,{type:'timed',value:20});
-  const w=G.generate({catalogue:C,equipment:['dumbbells'],duration:30,focus:'strength',bodyFocus:'upper',random:rng(2)});
+  const w=G.generate({catalogue:C,equipment:['dumbbells'],duration:30,focus:'strength',bodyFocus:'upper',random:rng(4)});
   assert.ok(w.rampup.exercises.some(ex=>ex.id==='walk-plank-push-up'));
   assert.ok(!w.warmup.exercises.some(ex=>ex.id==='walk-plank-push-up'));
 });
@@ -126,6 +126,9 @@ test('[Full] legacy Cardio and Mixed Main, generated Warm-up and Prep & Recover 
     {"focus":"cardio","bodyFocus":"lower","difficulty":"hard","equipment":["dumbbells","kettlebell"],"duration":30,"seed":11},
     {"focus":"cardio","bodyFocus":"lower","difficulty":"easy","equipment":["dumbbells","kettlebell"],"duration":30,"seed":7},
     {"focus":"cardio","bodyFocus":"lower","difficulty":"hard","equipment":["dumbbells","kettlebell"],"duration":30,"seed":1},
+    // Shared catalogue growth shifts draws; retain the real loaded/boxing routes.
+    {"focus":"cardio","bodyFocus":"upper","bodyPositions":["standing"],"equipment":["dumbbells","kettlebell"],"duration":30,"seed":7},
+    {"focus":"cardio","bodyFocus":"lower","difficulty":"hard","equipment":["dumbbells","kettlebell"],"duration":30,"seed":67},
     // #366 retains cardio-sufficient routes for both low-impact full-body boxing moves.
     {"focus":"cardio","bodyFocus":"lower","difficulty":"hard","equipment":["dumbbells","kettlebell"],"duration":30,"seed":52},
     {"focus":"cardio","bodyFocus":"lower","difficulty":"hard","equipment":["dumbbells","kettlebell"],"duration":30,"seed":8}

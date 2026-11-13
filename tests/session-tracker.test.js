@@ -98,6 +98,7 @@ test('occurrence ids come from timeline structure, never display text', () => {
 function appWithWorkout(options = {}) {
   const storage = new Map();
   const app = loadAppContext(storage, {ownIntrinsics: true});
+  app.playerFixtureCatalogue=require('./helpers/coach-fixtures').catalogueBeforeAB2(app.GarageFitData.exercises);
   if (options.rampupUi !== false) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'rampup-ui.js'), 'utf8'), app, {filename: 'js/rampup-ui.js'});
   const intervals = new Map(); let nextInterval = 1;
   vm.runInContext('var timerNow=Date.now();Date.now=()=>timerNow',app);
@@ -105,7 +106,7 @@ function appWithWorkout(options = {}) {
   app.clearInterval = id => intervals.delete(id);
   vm.runInContext(`
     state.ownedEquipment=${JSON.stringify(options.equipment || ['dumbbells','kettlebell','bench','trx','bands'])};
-    generatorState.workout=GarageFitGenerator.generate({catalogue:CATALOGUE,duration:${options.duration || 30},focus:'${options.focus || 'balanced'}',equipment:state.ownedEquipment,random:(seed=>()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;})(${options.seed || 7})});
+    generatorState.workout=GarageFitGenerator.generate({catalogue:playerFixtureCatalogue,duration:${options.duration || 30},focus:'${options.focus || 'balanced'}',equipment:state.ownedEquipment,random:(seed=>()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;})(${options.seed || 7})});
   `, app);
   const run = code => vm.runInContext(code, app);
   return {

@@ -148,3 +148,36 @@ test('a catalogue and equipment list with no overlap adds exactly the pairs',()=
   assert.deepEqual(configs.map(config=>config.key),['bodyweight','all-equipment','p+q','p+r','q+r']);
   assert.deepEqual(configs.find(config=>config.key==='q+r').equipment,['q','r']);
 });
+
+test('default audit contexts retain the equipment matrix and add general Easy seed banks',()=>{
+  const base=audit.representativeConfigs(catalogue,['dumbbells','bands']);
+  const contexts=audit.auditConfigs(catalogue,['dumbbells','bands']);
+  assert.deepEqual(contexts.slice(0,base.length),base);
+  assert.deepEqual(contexts.slice(base.length),[
+    {key:'bodyweight-easy',equipment:[],difficulty:'easy'},
+    {key:'bodyweight-easy-direct-seeds',equipment:[],difficulty:'easy',seedBank:'direct'}
+  ]);
+});
+
+test('Easy audit contexts pass real difficulty to eligibility and selection without waiving zero appearances',()=>{
+  const pool={
+    accessible:ex('accessible',{generator:true,main:true}),
+    hard:ex('hard',{generator:true,main:true}),
+    never:ex('never',{generator:true,main:true})
+  };
+  const rolls=[];
+  const result=audit.runAudit({
+    catalogue:pool,durations:[20],focuses:['balanced'],seeds:2,
+    configs:[{key:'normal',equipment:[]},{key:'easy',equipment:[],difficulty:'easy',seedBank:'direct'}],
+    isEligible:(exercise,phase,equipment,difficulty)=>phase==='main'&&(difficulty!=='easy'||exercise.id!=='hard'),
+    generate:options=>{
+      if(options.difficulty==='easy')rolls.push(options.random());
+      return {main:{blocks:[{exercises:[pool[options.difficulty==='easy'?'accessible':'hard']]}]}};
+    }
+  });
+  assert.equal(result.workouts,4);
+  assert.deepEqual(rolls,[1015568748/4294967296,1017233273/4294967296]);
+  assert.equal(result.phases.main.find(row=>row.id==='hard').workouts,2);
+  assert.equal(result.phases.main.find(row=>row.id==='accessible').appearances,2);
+  assert.deepEqual(ids(result.failures),['main:never']);
+});

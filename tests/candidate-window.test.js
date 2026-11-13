@@ -108,7 +108,11 @@ test('constrained catalogues keep the fixed window and still generate',()=>{
   for(const id of ['push-up','air-squat','plank'])tiny[id]=catalogue[id];
   for(const small of [bodyweight,tiny])for(let seed=1;seed<=4;seed++){
     const sizes=new Set();
-    const workout=G.generate({catalogue:small,duration:30,focus:'balanced',equipment:[],random:random(seed),trace:event=>{if(event.type==='pick'&&event.phase==='main')sizes.add(event.window.ranks);}});
+    const workout=G.generate({catalogue:small,duration:30,focus:'balanced',equipment:[],random:random(seed),trace:event=>{if(event.type==='pick'&&event.phase==='main'){
+      // The accessory route intentionally spans its whole bounded pool.
+      if(event.route)assert.equal(event.window.ranks,Math.max(G.SHORTLIST_SIZE,event.scored.length));
+      else sizes.add(event.window.ranks);
+    }}});
     assert.ok(workout.main.blocks.length>0);
     assert.deepEqual([...sizes],[G.SHORTLIST_SIZE]);
   }

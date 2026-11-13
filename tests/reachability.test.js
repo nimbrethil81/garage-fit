@@ -139,34 +139,34 @@ test('Core C1 additions and plank taps reach legacy Main; preparation has its ow
   // Catalogue growth shifts draws; these keep the live catalogue and suitable focus/style routes.
   const fixtures=[
     ['side-plank-knees',[],10,'easy',34],
-    ['bent-knee-fallout',[],30,'easy',24],
+    ['bent-knee-fallout',[],30,'easy',46],
     ['tabletop-toe-taps',[],20,'easy',4],
-    ['dumbbell-suitcase-carry',['dumbbells'],30,'hard',1],
-    ['side-plank-hip-lifts',[],30,'hard',10],
+    ['dumbbell-suitcase-carry',['dumbbells'],30,'hard',3],
+    ['side-plank-hip-lifts',[],30,'hard',3],
     ['supine-heel-slides',[],30,'easy',2],
-    ['plank-arm-reaches',[],30,'hard',3],
+    ['plank-arm-reaches',[],30,'hard',2],
     ['bridge-march',[],30,'hard',7],
-    ['bent-knee-windshield-wipers',[],45,'normal',6,'balanced'],
-    ['dead-bug-isometric-press',[],10,'easy',18],
-    ['bear-plank-hold',[],30,'hard',18],
-    ['seated-knee-tucks',[],30,'hard',1],
+    ['bent-knee-windshield-wipers',[],45,'normal',4,'balanced'],
+    ['dead-bug-isometric-press',[],10,'easy',8],
+    ['bear-plank-hold',[],30,'hard',5],
+    ['seated-knee-tucks',[],30,'hard',7],
     ['kettlebell-suitcase-march',['kettlebell'],30,'hard',1],
-    ['half-kneeling-band-pallof-press',['bands'],30,'hard',25],
+    ['half-kneeling-band-pallof-press',['bands'],30,'hard',29],
     ['dumbbell-dead-bug-hold',['dumbbells'],30,'hard',3],
-    ['plank-shoulder-taps',[],10,'easy',67]
+    ['plank-shoulder-taps',[],10,'easy',24]
   ];
   for(const [id,equipment,duration,difficulty,seed,focus='strength'] of fixtures){
     const w=G.generate({catalogue,equipment,duration,difficulty,bodyFocus:'core',focus,random:random(seed)});
     assert.ok(mainIds(w).includes(id),id);
     assert.deepEqual(G.validateMain(w.main,catalogue,equipment),[],id);
   }
-  for(const [phase,id,duration,difficulty,seed] of [
+  for(const [phase,id,duration,difficulty,seed,equipment=[],bodyFocus='core'] of [
     ['warmup','bent-knee-fallout',10,'easy',1],
     ['warmup','supine-heel-slides',15,'easy',1],
     ['warmup','tabletop-toe-taps',30,'easy',51],
-    ['rampup','tabletop-toe-taps',20,'easy',12]
+    ['rampup','tabletop-toe-taps',45,'normal',4055784811,['rings'],'full-body']
   ]){
-    const w=G.generate({catalogue,equipment:[],duration,difficulty,bodyFocus:'core',focus:'strength',random:random(seed)});
+    const w=G.generate({catalogue,equipment,duration,difficulty,bodyFocus,focus:'strength',random:random(seed)});
     assert.ok(w[phase].exercises.some(ex=>ex.id===id),phase+' '+id);
     const ex=catalogue[id],dose=ex[phase+'Prescription'];
     assert.ok(dose.value*(ex.sidedness==='per-side'?2:1)<ex.estimatedSeconds,id+' lighter preparation');
@@ -175,7 +175,7 @@ test('Core C1 additions and plank taps reach legacy Main; preparation has its ow
 });
 
 test('Athletic v5 light tandem placement and split-stance stepping have their own selectable warm-up doses',()=>{
-  for(const [id,seed] of [['tandem-step-and-hold',34],['split-stance-step-switches',23]]) {
+  for(const [id,seed] of [['tandem-step-and-hold',34],['split-stance-step-switches',71]]) {
     const w=G.generate({catalogue,equipment:[],duration:20,focus:'strength',random:random(seed)});
     assert.ok(w.warmup.exercises.some(ex=>ex.id===id),id);
     assert.ok(!w.rampup.exercises.some(ex=>ex.id===id));assert.ok(!w.cooldown.exercises.some(ex=>ex.id===id));
@@ -184,7 +184,7 @@ test('Athletic v5 light tandem placement and split-stance stepping have their ow
 });
 
 test('Mobility v3 crossover reaches only reviewed light preparation and low-load recovery routes (#272)',()=>{
-  const fixtures=[['warmup','standing-wall-slides',10],['warmup','standing-hinge-and-reach',42],
+  const fixtures=[['warmup','standing-wall-slides',11],['warmup','standing-hinge-and-reach',42],
     ['cooldown','standing-calf-stretch',31],['cooldown','bent-knee-calf-stretch',4],['cooldown','supine-hamstring-stretch',24]];
   for(const [phase,id,seed] of fixtures) {
     const w=G.generate({catalogue,duration:10,difficulty:'normal',equipment:[],focus:'balanced',random:random(seed)});

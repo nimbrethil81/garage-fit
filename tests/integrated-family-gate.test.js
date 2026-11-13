@@ -131,9 +131,9 @@ test('[Full] actual 20-session General Fitness v2 experiences at 2/3/5 weekly: c
   const summaries=[];
   for(const weekly of [2,3,5]) {
     const p=pilot(new Map(),'general-fitness',2,{rampupUi:true});
-    // Seed 2027 since #264: Mobility v2 draws a different number of random values, which shifts this shared stream;
-    // under the previous seed a three-exercise Full-Body pyramid happened to repeat. The assertions are unchanged.
-    p.run(`Math.random=(${rng.toString()})(2027);`);
+    // AB2 expands shared Main/Ramp-up choices and shifts this continuous random stream.
+    // Retain the same 20-session variety, attendance and performed-evidence assertions.
+    p.run(`Math.random=(${rng.toString()})(2028);`);
     await p.run('pilot.start(pilotDef,[])');
     await p.run("pilot.saveExternalActivityPreferences([{activityType:'Tennis',sessionsPerWeek:2},{activityType:'Cycling',sessionsPerWeek:2}])");
     // A real saved standalone workout is training context, never programme attendance.

@@ -16,7 +16,8 @@
 // DEFAULT_SEEDS seeded workouts per combination. Configurations are bodyweight only, the
 // minimal equipment set of each distinct catalogue requirement, all equipment, and every
 // two-equipment combination (so exercises that need a particular mix are exercised without
-// naming any). The configuration count is derived from the catalogue and equipment list; the
+// naming any). Supplemental bodyweight Easy contexts use decorrelated and dense seed banks.
+// The configuration count is derived from the catalogue and equipment list; the
 // report prints the total workout count and runtime.
 //
 // Exit status is 1 when an exercise eligible for a generated phase has zero appearances across
@@ -75,6 +76,17 @@ function representativeConfigs(catalogue, equipmentIds) {
   if (equipmentIds && equipmentIds.length) configs.set('all-equipment',equipmentIds.slice().sort());
   for (const pair of equipmentPairs(equipmentIds)) if (!configs.has(pair.join('+'))) configs.set(pair.join('+'),pair);
   return [...configs].map(([key,equipment]) => ({key,equipment}));
+}
+
+// Easy sessions expose accessible Main and gentle preparation roles that can be
+// crowded out at Normal. Keep the full equipment matrix, then add two small
+// bodyweight Easy samples: decorrelated seeds and a dense 1..N seed bank.
+// Neither sample names exercises or changes the generator's selection rules.
+function auditConfigs(catalogue, equipmentIds) {
+  return representativeConfigs(catalogue,equipmentIds).concat([
+    {key:'bodyweight-easy',equipment:[],difficulty:'easy'},
+    {key:'bodyweight-easy-direct-seeds',equipment:[],difficulty:'easy',seedBank:'direct'}
+  ]);
 }
 
 // ---- Diagnostic evidence ----
@@ -228,10 +240,12 @@ function runAudit(options) {
 
   configs.forEach((config, configIndex) => {
     const eligible = {};
-    for (const phase of PHASES) eligible[phase] = exercises.filter(exercise => isEligible(exercise,phase,config.equipment));
+    for (const phase of PHASES) eligible[phase] = exercises.filter(exercise => isEligible(exercise,phase,config.equipment,config.difficulty));
     focuses.forEach((focus, focusIndex) => durations.forEach(duration => {
       for (let sample=0; sample<seeds; sample++) {
-        const request = { catalogue, duration, focus, equipment:config.equipment, random:lcg(workoutSeed(configIndex,focusIndex,duration,sample)) };
+        const request = { catalogue, duration, focus, equipment:config.equipment,
+          random:lcg(config.seedBank==='direct' ? sample+1 : workoutSeed(configIndex,focusIndex,duration,sample)) };
+        if (config.difficulty) request.difficulty = config.difficulty;
         if (collector) { collector.begin([config.key,focus,duration].join('|')); request.trace = collector.trace; }
         const workout = generate(request);
         if (collector) collector.end(workout);
@@ -534,7 +548,7 @@ function main(argv) {
     isEligible: generator.generatedPhaseEligible,
     durations: Object.keys(generator.BUDGETS).map(Number),
     focuses: Object.keys(generator.RESTS),
-    configs: representativeConfigs(catalogue,equipmentIds),
+    configs: auditConfigs(catalogue,equipmentIds),
     requirementsMet: generator.requirementsMet,
     selectionRanks: generator.selectionRanks,
     shortlistSize: generator.SHORTLIST_SIZE,
@@ -546,6 +560,6 @@ function main(argv) {
   return result.failures.length ? 1 : 0;
 }
 
-module.exports = { DEFAULT_SEEDS, PHASES, RARE_RATIO, DOMINANT_RATIO, equipmentPairs, representativeConfigs, runAudit, formatReport, formatDiagnosis, classify, workoutSeed, main };
+module.exports = { DEFAULT_SEEDS, PHASES, RARE_RATIO, DOMINANT_RATIO, equipmentPairs, representativeConfigs, auditConfigs, runAudit, formatReport, formatDiagnosis, classify, workoutSeed, main };
 
 if (require.main===module) process.exitCode = main(process.argv.slice(2));

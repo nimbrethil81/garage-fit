@@ -138,7 +138,9 @@ test('[Full] the expanded accessory pool retains old and new supporting opportun
   // S1: preserve rare floor-fly and triceps routes with two Easy fixtures,
   // keeping the original distribution sample and every uniqueness assertion.
   const workouts=sample(['dumbbells','trx','pullup-bar'],'upper',['strength','balanced'],60)
-    .concat([6,15].map(seed=>G.generate({catalogue,duration:45,focus:'strength',difficulty:'easy',bodyFocus:'upper',equipment:['dumbbells','trx','pullup-bar'],random:random(seed)})));
+    .concat([6,15].map(seed=>G.generate({catalogue,duration:45,focus:'strength',difficulty:'easy',bodyFocus:'upper',equipment:['dumbbells','trx','pullup-bar'],random:random(seed)})))
+    .concat(G.generate({catalogue,duration:45,focus:'strength',difficulty:'easy',bodyFocus:'upper',
+      bodyPositions:['standing'],equipment:['dumbbells','trx','pullup-bar'],random:random(17)}));
   reachable(workouts,['dumbbell-floor-fly','dumbbell-hammer-curl','dumbbell-overhead-triceps-extension',
     'dumbbell-lateral-raise','dumbbell-alternating-front-raise','dumbbell-pullover','trx-face-pull','trx-chest-fly']);
   for(const workout of workouts){
