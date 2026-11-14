@@ -217,3 +217,164 @@ visible.
 Fast, Full and exhaustive audit are running to completion with saved exit-status
 files. Final results will replace this status before delivery. PR #408 remains
 draft; no merge or deployment is authorised or performed.
+
+## GF-META-R2 bounded correction handover (14 November 2026)
+
+Owner authorised execution and **up to two additional correction cycles** in chat.
+Both are consumed across this continuation. One primary agent and one independent
+read-only reviewer were used; no specialist agents or broad seed searches.
+No further corrective editing is authorised by this handover. PR #408 must remain
+open and draft; no merge, auto-merge, deployment, closure or publication.
+
+### Frozen diagnostic baseline
+
+Baseline head: `96225197f5c61e384f17673ede6fd5d5c3c1d514`.
+
+- [Fast](https://github.com/nimbrethil81/garage-fit/actions/runs/43574437176):
+  completed failure, 1,482 passed / 5 failed. Runner checked out synthetic merge
+  `a4305b692cb3936e714b0acd48b9c3fbf484836b`, explicitly merging this head into
+  `f36fe20e7f113f6bb084f2d351bd755c8a48887e`; not a raw-head result.
+- [Full and audit](https://github.com/nimbrethil81/garage-fit/actions/runs/43575179157):
+  both completed failure, direct checkout of baseline head. Full: 1,530 passed /
+  7 failed. Audit: one unreachable phase/exercise. Workflow summary shell quoting
+  is defective, but checkout logs independently establish the tested SHA.
+  No workflow changes were made here.
+
+These supersede the earlier R1 text saying validation was still running.
+
+### Exact changed files since the frozen baseline
+
+- `js/generator.js`: after ten ordinary Hard Cardio attempts, the remaining
+  existing bounded search can narrow already-filtered candidates to fresh,
+  credible conditioning work where available. Eligibility, 3.8 demand, 65%
+  conditioning share, weak-work limit, impact spacing and 40-attempt bound remain.
+  Also adds a repeat-above-three supporting-dose penalty for ordinary repetition
+  protocols. This helper is shared with Coach and families: downstream effects
+  remain a validation concern, not an assertion of isolation.
+- `js/core-challenge-composer.js`: tries smaller already-published rounds circuit
+  sizes after the original sizes fail; attempts to avoid impact-unsafe prefixes.
+  **Review found the prefix check over-restrictive; do not accept as finished.**
+- `tests/strength-cardio-composer.test.js`: replaces strict sampled session
+  prevalence with optionality plus direct protection of the unchanged 25% route
+  draw, its exact boundary and short-session non-applicability. Existing minor
+  supporting share, suitability, uniqueness and family gates remain.
+- `tests/reachability.test.js`: replaces Twist/Deadlift frequency ratio with both
+  roles, both real routes, a per-session secondary-role share and executable Main
+  validation. Replaces warm-up expansion frequency quotas with reachability plus
+  actual timed doses, equipment, metadata and uniqueness. Existing phase exclusion,
+  knee mobility and major-pattern protections remain.
+- `tests/supersets.test.js`: distinguishes a primary five-set pair with a separate
+  varied block from a repetitive circuit. **Review found the replacement lacks a
+  sufficient duration bound; do not accept as finished.**
+- `docs/ISSUE_407_VALIDATION.md`: this evidence, review and explicit stop state.
+
+No changes to canonical metadata, history definitions/adapter, GF-META-R1 ceiling
+or swaps, published thresholds, family validators, Coach code/programmes, playback,
+prescriptions, timing machinery, artwork, dependencies or infrastructure.
+The new selection paths nevertheless need the unresolved review corrections below.
+FAQ reviewed — no changes required. No first-use or visual impact.
+
+### Reproduction and expectation evidence
+
+Runtime correction revision: `1ab6e17` (documentation-only commits may follow).
+
+| Failure / unchanged configuration | Before | After / disposition |
+| --- | --- | --- |
+| Hard Cardio existing 120-case matrix | 8 unsuitable; first 10m bodyweight seed169 demand 3.75 | Matrix passes. Seed169 demand 4, conditioning share 1, weak work 0, high-impact adjacency 0. A separate Hard variety safeguard now fails; not accepted. |
+| Jumping Jacks, original 20m Cardio sample seed23 | four exposures | seed23 now chooses other exercises; original 80-seed exposure test passes, including genuine isolated selection route and relative supporting penalty. No blanket exclusion. |
+| Full-Body 45m Hard standing Dumbbells, Upper, LCG seed2 | family-not-feasible | Original S1 fixture passes; valid 2,678s rounds session includes Suitcase march, 985s and 1,010s Main blocks, five rounds each, unchanged gate passes. Prefix review issue still blocks acceptance. |
+| Tiny-loop 30m Strength, KB/TRX/Bands, LCG104 | one of 72 classified dominated | Exact workout unchanged: five-set Single-leg deadlift/Goblet squat pair 665s; three-round Ski abs/TRX curl/TRX knee tuck/Band triceps circuit 660s; whole session 1,803s. Six unique IDs. Legitimate paired prescription, but revised test needs a stronger duration protection. |
+| Strength v2 supporting prevalence, same 40 configs | published metadata 17/40, 17/284 slots | corrected metadata 20/40, 21/294 slots. Strict session-majority assertion is not the 25% route contract; replacement checks that contract directly, retaining slot/dose/suitability/uniqueness protections. |
+| Russian Twist / KB Deadlift, same original sample | 1 / 57 | 4 / 13 after Deadlift strength 5→4. Retained real reachability, supporting role, non-repetition, added per-session secondary share and executable doses instead of fixed fourfold ratio. |
+| Band External Rotation warm-ups, same sample | 8 | 2. No prescribed three-appearance contract; actual route retained with dose, equipment, uniqueness and phase-exclusion protections. Uniform expansion reachability replaces uniform frequency quota; no sample or seed changes. |
+
+Before/after frequency counts use the complete published affected definitions versus
+current definitions in identical existing sample configurations. No metadata was
+edited to obtain these counts. Tests were not given favourable seeds or larger samples.
+Hard Cardio and Jumping Jacks quality assertions and all family quality gates remain
+unchanged; the tiny-loop replacement is expressly not independently approved.
+
+### Cycles and independent review
+
+1. Bounded recovery candidate search, supporting-dose penalty and impact prefix
+   filtering. Focused retest: Jumping Jacks passed; Hard Cardio moved to an exact-ID
+   reuse failure; Full-Body remained infeasible. No acceptance claimed.
+2. Recovery prefers fresh IDs; smaller circuit fallback; evidence-backed expectation
+   batch above. Two-test exact reproduction passed Hard Cardio matrix and S1 family
+   fixture. Wider six-suite validation exposed a separate Hard variety regression.
+
+Independent reviewer inspected stable `1ab6e17`, without edits or extra test sweeps:
+
+- `core-challenge-composer.js`: cyclic `impactSafe` is unsuitable for an incomplete
+  prefix. A first high-impact exercise is compared with itself and rejected although
+  a completed high/low/low circuit is legal. Material unresolved finding.
+- `supersets.test.js`: under 45 minutes, an arbitrarily dominant primary pair could
+  pass with a separate three-ID block. Needs meaningful exposure/duration protection.
+- New Hard variety/fatigue test failure remains. Candidate narrowing can displace
+  soft adjacent-pattern scoring; exact cause requires the recorded failure evidence.
+- Shared supporting penalty needs downstream Coach/family evidence.
+- Catalogue, history, programme definitions, thresholds and audit semantics remain
+  untouched. Group 2 replacements retain substantive protections.
+
+**Review disposition: not approved. Two cycles consumed; stop corrective editing.**
+
+### Separate read-only Tabletop Toe Taps audit proposal — owner decision only
+
+Frozen audit reports Ramp-up **0/35,280**, eligible in all 49 equipment contexts.
+Its funnel passes filters in 99.9% of slots but enters the window in only 0.1%;
+35 constructed sequences lose to fitter sequences. This is not a phase-flag or
+eligibility failure. Existing focused regression demonstrates Rings, 45m Normal,
+Core body focus, Balanced, LCG seed `831056492` as a real Ramp-up route.
+
+The audit's ordinary matrix leaves body focus at default Full Body. Smallest
+purposeful general coverage proposal: retain that matrix and diagnostics, and add
+one bounded supplemental matrix for every non-default body focus (Upper, Lower,
+Core), using existing supported durations, workout focuses and equipment contexts
+with a fixed small deterministic seed bank. Derive focuses from the Generator's
+public supported-focus values; name no exercises, special seeds or exemptions.
+Report default and focused counts separately and a clearly-labelled combined
+reachability result. Any acceptance based on combined coverage requires explicit
+owner approval. Keep 0/35,280 visible; do not reinterpret the completed failed run.
+
+No audit code, acceptance semantics, exercise scores or phase flags changed.
+Do not dispatch another exhaustive audit to conceal the reserved policy decision.
+
+### Completed focused validation and outstanding work
+
+Command on the cycle-2 runtime revision (Node v24.19.0 locally; CI uses Node 22):
+
+```sh
+node --test tests/difficulty.test.js tests/main-blocks.test.js tests/supersets.test.js tests/strength-cardio-composer.test.js tests/reachability.test.js tests/metadata-407.test.js
+```
+
+Completed: **89 tests, 87 passed, 2 failed**, exit 1, approximately 177 seconds.
+Both failures were passing in the frozen CI baseline and are new blockers:
+
+1. `difficulty.test.js:114`: Hard variety/fatigue safeguard reports adjacent shared
+   major pattern **Burpees → Dumbbell push press** (`:124`). The original assertion
+   is retained, not weakened.
+2. `strength-cardio-composer.test.js:509`: original ordinary Generator fixture for
+   **Kettlebell single-leg deadlift**, 45m Upper, Kettlebell, LCG45, no longer selects
+   that identity (`:523`). No favourable replacement seed or expectation edit.
+
+All original handover failures addressed by this batch pass in these six suites,
+including the unchanged Hard Cardio 120-case matrix, 80-seed Jumping Jacks test,
+S1 Full-Body fixture, revised supporting/frequency checks, tiny-loop sample, and
+exact metadata/history regressions. This does **not** establish task acceptance:
+two new test failures and the independent review findings remain unresolved.
+A separate two-test reproduction of Hard Cardio matrix / S1 family fixture also
+completed successfully; it is narrower than the six-suite result and does not
+supersede its failures. Local logs remain at `/tmp/407-cycle2.log` and
+`/tmp/407-cycle2-repro.log` in the execution workspace.
+
+`git diff --check` passes. No claim of successful current Full or audit validation.
+Push the preserved correction and evidence to the existing draft branch for
+review and automatic Fast tests; do not mark ready. Do not supervise CI by polling.
+Required Full and reachability remain outstanding for the eventual accepted
+revision. Owner coordination for manual `PickSetGo Deep validation` dispatch
+(`validation: both`) belongs after correction/review blockers are resolved, using
+the existing branch and exact tested SHA. The audit policy remains reserved.
+
+Immediate owner decision: assess the stopped, unapproved correction batch and
+its concrete remaining defects. No further edits, changed assertions, policy
+relaxations or additional correction cycle are implied by this report.
