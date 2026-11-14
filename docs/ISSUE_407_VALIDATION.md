@@ -556,3 +556,130 @@ final Full/reachability audit or independent final review is claimed. Those rema
 for separately authorised continuation. PR #408 must remain open, draft and
 unmerged. No auto-merge, deployment or issue closure is authorised.
 FAQ reviewed — no changes required. No customer-facing copy changed.
+
+## GF-META Stage C — stopped after authorised attempts (14 November 2026)
+
+Starting local and remote head both matched
+`ac38c2d56f6a5012e9d97aa84d7bc5b2dcb613a9`; main matched
+`f36fe20e7f113f6bb084f2d351bd755c8a48887e`. Owner separately authorised
+one initial implementation attempt and one narrowly scoped correction for Stage C.
+Both are consumed. Stage C is not accepted; no further corrective code edits are
+authorised by this continuation. Stage D was not started.
+
+The existing seed-2, 45-minute Hard Full-Body Challenges v1, Dumbbells,
+Standing-only, supplied Upper fixture was traced without changing its requirements.
+The published family resolves body focus to Full Body. The rounds search tests
+five/six exercises and at most two blocks, retaining four minimum rounds.
+Most selected combinations cannot fit their legal minimum prescription into
+sequence's approximately 998-second first-block share. One original first block
+fits 990 seconds, but its second block needs at least 1,050 against 1,007 seconds.
+Some sampled six-exercise combinations fail the existing complete-circuit impact
+check. Seeds 9, 14 and 15 demonstrate valid five-exercise/four-round alternatives.
+
+Initial implementation: refactor the local Full-Body rounds builder and, only
+when its existing search fails at 45 minutes, try a bounded additional bank of
+the same count/size plans with unchanged prescriptions and acceptance. The
+original test still returned `family-not-feasible` (1 failed / 0 passed).
+Successful existing searches retain their exact draw streams.
+
+Single corrective attempt: make that failure-only recovery search reject an
+exercise prefix only when its minimum legal rounds/rest dose plus the cheapest
+remaining distinct eligible exercises cannot fit the block share. This is an
+optimistic work-duration bound; it does not perform cyclic impact validation on
+an incomplete prefix. Complete fitting and family validation remain unchanged.
+The recovery bank has twice the original plan entries and still uses the shared
+bestOf's three repetitions; no shared composer-kit behaviour is changed.
+
+The same focused test now fails its unchanged exercise assertion:
+`full-body-challenges dumbbell-suitcase-march` at
+`tests/strength-cardio-composer.test.js:478` (1 failed / 0 passed).
+Seed 2 produces a technically and qualitatively valid 2,678-second session:
+
+- Four rounds of Push press, Split squat, Suitcase carry, Jumping Jacks, Air squat.
+- Four rounds of Bent-over row, High-knee power steps, Wood chop, Step Jacks,
+  Arnold press.
+
+Both blocks contain five exercises, all preparation/Main/cool-down exercises are
+standing, body focus is Full Body, and family validation reports no issues. It
+selects Suitcase Carry rather than the required Suitcase March, so it does not
+satisfy the authorised acceptance fixture. No expectation, exercise ID or seed
+was changed to hide this failure. Read-only reproductions of seeds 9/14/15 remain
+valid with the published structure and standing-only constraint.
+
+Logs: `/tmp/407-c-initial.log`, `/tmp/407-c-correction.log`; original instrumented
+fitting evidence: `/tmp/407-c-diagnosis.jsonl`. The failed recovery code remains
+uncommitted in `js/core-challenge-composer.js`, with this factual evidence update.
+No new Stage C commit or push was made. Tests and accepted A2/B code were not
+edited. Broader focused tests and Fast were not run after the failed focused gate;
+no claim of Stage C success or renewed A2/B validation is made. No final Full,
+audit, independent review, merge, deployment, readiness change or closure occurred.
+
+Next authority needed: owner assessment of this failed, budget-exhausted attempt
+and fresh bounded direction before any further general composition/search repair.
+Preserve the original required exercise and published contracts. PR #408 remains
+draft and unmerged. No metadata, canonical instructions, family thresholds or
+customer-facing copy changed.
+
+## GF-META-C-REC1 Option A — approved test alignment and validation
+
+Owner explicitly approved separating the Stage C requirements: seed 2 must prove
+valid constrained Full-Body Challenges v1 composition; independently reproduced
+seeds 14 and 15 must prove genuine final-workout Dumbbell Suitcase March selection,
+canonical dose and safety under the same configuration. This supersedes the
+requirement that seed 2 itself contain March. It does not erase the failed
+attempts or reset their exhausted runtime correction budget recorded above.
+
+Read-only diagnosis established that both Carry and March remain eligible under
+the canonical standing-only, Dumbbells, Hard and rounds constraints. Carry uses
+25 seconds per side (50 seconds per occurrence); March uses 20 per side (40
+seconds). In seed 2's recovery search their exercise-selection scores are equal.
+Two accepted Main candidates containing March have fitness cost 12; the selected
+Carry candidate has cost 2 because it fills ten more seconds of Main. The existing
+fitness ranking correctly prefers the latter. No exercise-specific preference,
+rating, prescription or ranking change is required or included.
+
+March is actually selected in the final workouts from seeds 14 and 15 in both the
+committed pre-C composer and the preserved uncommitted implementation. Those
+45-minute Hard, Dumbbells, Standing-only sessions remain valid at 2,668 and 2,663
+seconds respectively, with two five-exercise/four-round blocks. Supplied Upper
+resolves to published Full Body. This distinguishes genuine reachability from
+appearance in a candidate later discarded by ranking.
+
+The single REC1 pass updates only the necessary test alignment and this evidence;
+the preserved composer runtime is unchanged from the exhausted corrective attempt.
+The historical seed-2 March assertion was removed from the general route table
+and replaced by dedicated coverage of seeds 2/9/14/15. It checks published family
+identity, five/six-exercise blocks, at least four rounds, at most two blocks,
+whole-session and Main duration, standing-only preparation/Main/recovery, complete
+family/preparation validation, canonical definitions, exposure/distinctness limits,
+resolved playback impact spacing including circuit boundaries, and seeded
+determinism. Seeds 14 and 15 additionally require actual March selection with its
+canonical unilateral-timed 20-second-per-side dose, two sides and 40-second estimate.
+Seed 2 is not required to prefer March over Carry.
+
+Completed local validation on the preserved runtime and aligned tests:
+
+- Focused family and A2/B regression suites: strength/cardio composer,
+  core/challenge composer, difficulty, supersets, Main blocks, P1 preparation
+  expansion: **101 passed, 0 failed**, exit 0, approximately 164 seconds.
+- Prescribed Fast: `node --test --test-skip-pattern='\[Full\]' tests/*.test.js`:
+  **1,494 passed, 0 failed**, exit 0, approximately 1,075 seconds.
+- The former S1 family failure and dedicated REC1 test pass in Fast. Stage A2's
+  seed-267 paired-set recovery, seed-104 exception, Jumping Jacks work-share and
+  Four-square steps preparation protections pass. Stage B's unchanged 120-case
+  Hard Cardio matrix, eight failing-seed regressions and honest fallback pass.
+- Logs and corresponding exit files remain at `/tmp/407-c-rec1-focused.log` and
+  `/tmp/407-c-rec1-fast.log`. `git diff --check` passes.
+
+Stage C's local acceptance gate is satisfied under the owner's revised requirements
+and is ready for owner acceptance review. The original initial/corrective runtime
+attempts remain consumed; REC1 used one authorised test-alignment/validation pass
+and no further runtime corrections. Previous failures remain historical evidence,
+not current failures. No Stage D implementation, final Full/exhaustive audit or
+independent final review is claimed. Those remain outstanding. PR #408 stays
+open, draft and unmerged; no readiness change, merge, auto-merge, deployment or
+issue closure is authorised. GitHub Actions evidence is reported separately from
+the completed local checks above.
+
+FAQ reviewed — no changes required. No canonical metadata, family thresholds,
+exercise instructions, customer-facing copy, dependencies or workflows changed.

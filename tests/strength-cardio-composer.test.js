@@ -471,13 +471,59 @@ test('S1 Strength v2 and deliberate secondary-family routes preserve shared qual
     ["core-stability","dumbbell-suitcase-march",["dumbbells"],30,"core",3],
     ["full-body-challenges","hand-release-push-up",[],30,"upper",1],
     ["full-body-challenges","wall-push-up",[],30,"upper",3],
-    ["full-body-challenges","prone-swimmer-raise",[],30,"upper",3],
-    ["full-body-challenges","dumbbell-suitcase-march",["dumbbells"],45,"upper",2,"hard",{"bodyPositions":["standing"]}]
+    ["full-body-challenges","prone-swimmer-raise",[],30,"upper",3]
   ]){
     const w=G.generate({catalogue:C,equipment:kit,duration,bodyFocus:focus,difficulty:difficulty||'hard',workoutFamilyId:family,workoutFamilyVersion:family==='strength-control'?2:1,random:s1Random(seed),...constraints});
     assert.ok(s1Main(w).some(e=>e.id===id),family+' '+id);
     assert.equal(G.validateFamilyWorkout(w,{catalogue:C,equipment:kit}).valid,true,id);
     if(family==='core-stability')assert.equal(w.familyStyleId,'dynamic-core');
+  }
+});
+
+test('GF-META-C-REC1 separates constrained composition from canonical March reachability',()=>{
+  const make=seed=>G.generate({catalogue:C,equipment:['dumbbells'],duration:45,difficulty:'hard',
+    bodyFocus:'upper',bodyPositions:['standing'],workoutFamilyId:'full-body-challenges',workoutFamilyVersion:1,random:s1Random(seed)});
+  for(const seed of [2,9,14,15]){
+    const w=make(seed),blocks=w.main.blocks,list=s1Main(w),label='seed '+seed;
+    assert.equal(w.workoutFamilyId,'full-body-challenges',label);
+    assert.equal(w.workoutFamilyVersion,1,label);
+    assert.equal(w.bodyFocus,'full-body',label+' published identity overrides supplied Upper');
+    assert.equal(w.familyStyleId,'rounds',label);
+    assert.ok(blocks.length>=1&&blocks.length<=2,label);
+    assert.ok(blocks.every(b=>[5,6].includes(b.exercises.length)&&b.prescription.rounds>=4),label);
+    assert.ok(w.estimatedSeconds<=2700&&w.estimatedSeconds>=2700*.85,label);
+    assert.ok(w.main.estimatedDurationSeconds<=G.BUDGETS[45].main&&w.main.estimatedDurationSeconds>=G.BUDGETS[45].main*.85,label);
+    assert.ok([...list,...w.warmup.exercises,...w.rampup.exercises,...w.cooldown.exercises].every(e=>e.bodyPosition==='standing'),label);
+    assert.ok(w.warmup.exercises.length&&w.rampup.exercises.length&&w.cooldown.exercises.length,label);
+    assert.equal(G.validateFamilyWorkout(w,{catalogue:C,equipment:['dumbbells']}).valid,true,label);
+    assert.deepEqual(G.validatePreparation(w.warmup,w.rampup,list),[],label);
+    const counts=new Map();let previous=null;
+    for(const b of blocks){
+      assert.ok(b.exercises.filter(e=>e.impact==='high').length<=1,label);
+      assert.equal(b.occurrenceTargets,undefined,label+' canonical doses');
+      for(const e of b.exercises){
+        assert.deepEqual(e,C[e.id],label);
+        counts.set(e.id,(counts.get(e.id)||0)+1);
+      }
+      for(const step of G.resolveBlockSteps(b).filter(step=>step.kind==='exercise')){
+        const e=b.exercises[step.exerciseIndex];
+        assert.ok(!previous||previous.impact!=='high'||e.impact!=='high',label+' playback including circuit boundaries');
+        previous=e;
+      }
+    }
+    assert.ok(Math.max(...counts.values())<=2,label);
+    assert.equal(new Set(blocks.map(b=>b.exercises.map(e=>e.id).sort().join('+'))).size,blocks.length,label);
+    // Approved separation: seed 2 proves composition, while both independently
+    // reproduced routes prove March's final selection without biasing ranking.
+    if(seed===14||seed===15){
+      const march=list.find(e=>e.id==='dumbbell-suitcase-march');
+      assert.ok(march,label+' actual final-workout March selection');
+      assert.deepEqual(march.prescription,{type:'unilateral-timed',value:20},label);
+      assert.equal(G.sideCount(march),2,label);
+      assert.equal(march.estimatedSeconds,40,label);
+    }
+    const second=make(seed);
+    for(const section of ['main','warmup','rampup','cooldown'])assert.deepEqual(second[section],w[section],label+' deterministic '+section);
   }
 });
 

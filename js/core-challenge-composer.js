@@ -153,10 +153,23 @@
       const rest=ROUNDS_REST[ctx.difficulty],sizes={10:[3],15:[3,4],20:[4,5],30:[4,5],45:[5,6]}[ctx.duration],minimumRounds=ctx.duration>=20?4:3;
       const ok=ex=>ex.load!=='Heavy'&&ex.strength<5&&(ex.impact!=='high'||ctx.difficulty==='hard')&&ex.estimatedSeconds<=60;
       const attempts=counts(ctx.target,1200,330).filter(count=>count<=2).flatMap(count=>sizes.map(size=>({count,size})));
-      return bestOf(attempts,({count,size})=>challengeAccept(ctx,sequence(ctx,count,(index,share,state)=>{
+      const buildAttempt=({count,size,recovery=false})=>challengeAccept(ctx,sequence(ctx,count,(index,share,state)=>{
         const exercises=[];
         for(let slot=0;slot<size;slot++) {
-          const ex=choose(ctx,state,exercises,WHOLE[slot%4],'rounds','conditioning',ok);
+          const fitsMinimum=ex=>{
+            if(!ok(ex))return false;
+            if(!recovery)return true;
+            const prefix=exercises.concat(ex),left=size-prefix.length;
+            // Optimistic remaining work: ignore region/setup costs here, then
+            // retain the ordinary complete-block fitting and acceptance gates.
+            const remaining=ctx.pool.filter(item=>ok(item)&&G.protocolCompatible(item,'rounds')&&!prefix.some(chosen=>chosen.id===item.id))
+              .map(item=>item.estimatedSeconds).sort((a,b)=>a-b).slice(0,left);
+            if(remaining.length<left)return false;
+            const minimum=minimumRounds*(sum(prefix.map(item=>item.estimatedSeconds))+sum(remaining)+(size-1)*rest.exercise)
+              +(minimumRounds-1)*rest.round;
+            return minimum<=share;
+          };
+          const ex=choose(ctx,state,exercises,WHOLE[slot%4],'rounds','conditioning',fitsMinimum);
           if(!ex)return null;
           exercises.push(ex);
         }
@@ -167,7 +180,12 @@
         const usable=candidates.filter(item=>impactSafe(exercises,item.prescription.rounds));
         const fit=fitted(ctx,'rounds','conditioning',exercises,usable,share);
         return fit&&{estimate:fit.estimate,block:blockOf('rounds','conditioning',exercises,fit.prescription,rounded(fit.prescription))};
-      }),exposure));
+      }),exposure);
+      const made=bestOf(attempts,buildAttempt);
+      // Long circuits have a narrow four-round dose window. If the original
+      // search misses it, sample more legal combinations of the same plans.
+      // Successful searches keep their exact draw stream and prescription.
+      return made||(ctx.duration===45?bestOf(attempts.flatMap(plan=>[{...plan,recovery:true},{...plan,recovery:true}]),buildAttempt):null);
     },
     // Whole minutes rotating upper, lower and core work; every minute leaves recovery inside it.
     emom:(ctx,exposure)=>{
