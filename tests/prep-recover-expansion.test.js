@@ -41,23 +41,36 @@ const FIXTURES=[
   ["warmup","standing-scapular-protraction-retraction",45,"strength",6,"easy",[]],
   ["warmup","standing-hinge-and-reach",45,"strength",10,"normal",[]],
   ["rampup","ring-scapular-row",10,"strength",4,"easy",["rings"]],
-  ["rampup","four-square-steps",45,"strength",4077198353,"normal",["barbell"]],
+  // A2 changes Main context at the former Barbell seed 4077198353, not RNG consumption.
+  // First actual Ramp-up match in the bounded Lower-route matrix documented in #407 validation.
+  ["rampup","four-square-steps",45,"strength",16,"normal",[],"lower"],
   ["rampup","alternating-overhead-reach-side-shift",45,"balanced",2823943735,"normal",["bands","box"]],
   ["rampup","standing-scapular-protraction-retraction",45,"balanced",28,"easy",[]]
 ];
 
 test('Prep & Recover P1 additions and phase reuse really reach every flagged generated preparation phase',()=>{
   const seen=new Set();
-  for(const [phase,id,duration,focus,seed,difficulty,equipment] of FIXTURES){
-    const w=G.generate({catalogue:C,equipment,duration,focus,difficulty,random:random(seed)});
+  for(const [phase,id,duration,focus,seed,difficulty,equipment,bodyFocus='full-body'] of FIXTURES){
+    const w=G.generate({catalogue:C,equipment,duration,focus,difficulty,bodyFocus,random:random(seed)});
     const selected=w[phase].exercises.find(ex=>ex.id===id);
     assert.ok(selected,phase+' '+id);seen.add(phase+':'+id);
     assert.equal(selected.prescription.type,C[id].sidedness==='per-side'?'unilateral-timed':'timed',id);
+    if(id==='four-square-steps'&&phase==='rampup'){
+      assert.ok(selected.prescription.value>=C[id].rampupPrescription.minValue);
+      assert.ok(selected.prescription.value<=C[id].rampupPrescription.maxValue);
+      assert.equal(selected.estimatedSeconds,selected.prescription.value);
+    }
     assert.ok(!w.warmup.exercises.concat(w.rampup.exercises).some(ex=>ex.id==='star-jumps'));
     assert.deepEqual(G.validatePreparation(w.warmup,w.rampup,w.main.blocks.flatMap(b=>b.exercises)),[]);
   }
   for(const id of ADDED.concat(REUSED))for(const phase of ['warmup','rampup','cooldown'])
     if(C[id][phase])assert.ok(seen.has(phase+':'+id),phase+' '+id+' lacks real selection proof');
+});
+
+test('A2 original Barbell preparation context remains valid after Main recovery',()=>{
+  const w=G.generate({catalogue:C,equipment:['barbell'],duration:45,focus:'strength',difficulty:'normal',random:random(4077198353)});
+  assert.ok(w.warmup.exercises.length&&w.rampup.exercises.length);
+  assert.deepEqual(G.validatePreparation(w.warmup,w.rampup,w.main.blocks.flatMap(b=>b.exercises)),[]);
 });
 
 test('Prep & Recover P1 expands genuine knee mobility and preserves unrelated Main and recovery roles',()=>{

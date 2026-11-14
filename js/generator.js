@@ -2048,7 +2048,21 @@
     // route must not displace an attempt that fits with an underfilled one.
     const fitting=pool.filter(fits);
     if(fitting.length)pool=fitting;
-    const chosen=pool.find(item=>item.routeFilled)||pool[0];
+    let chosen=pool.find(item=>item.routeFilled)||pool[0];
+    // Multiple five-set pairs must not collectively dominate Main. Recover from
+    // existing valid attempts, retaining the separate tiny-loop protection and
+    // any drawn supporting route. Single primary pairs keep their existing rank.
+    const excessivePairedShare=item=>{
+      const pairs=item.blocks.filter(block=>block.protocol==='paired_sets'&&blockRepeatCount(block)>=5);
+      const total=item.blocks.reduce((sum,block)=>sum+estimateBlockDuration(block),0);
+      return pairs.length>1&&pairs.reduce((sum,block)=>sum+estimateBlockDuration(block),0)>total*.55;
+    };
+    if(chosen&&excessivePairedShare(chosen)){
+      const recovered=pool.find(item=>!excessivePairedShare(item)&&(!chosen.routeFilled||item.routeFilled)&&item.blocks.every(block=>
+        ['paired_sets','ladder','pyramid'].includes(block.protocol)||block.exercises.length>3||
+        (block.protocol==='emom'?Math.ceil(blockRepeatCount(block)/block.exercises.length):blockRepeatCount(block))<5));
+      if(recovered)chosen=recovered;
+    }
     if(activeTrace)activeTrace({type:'main-result',attempt:chosen?chosen.attempt:null,supportingRoute});
     if(chosen){
       // Setup fitting may use a diversity-only reserve before deleting a whole

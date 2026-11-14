@@ -378,3 +378,100 @@ the existing branch and exact tested SHA. The audit policy remains reserved.
 Immediate owner decision: assess the stopped, unapproved correction batch and
 its concrete remaining defects. No further edits, changed assertions, policy
 relaxations or additional correction cycle are implied by this report.
+
+## GF-META-A-REC1 / Stage A2 recovery and corrective evidence (14 November 2026)
+
+This section supplements the historical R1/R2 evidence above; it does not replace
+it or accept the rejected R2 runtime changes. R3 restored the pre-R2 runtime at
+`5eca8a6241908e78328934fe17864b8f357b0fe1`. The recovered local Stage A/A2 work
+was verified against that head and main `f36fe20e7f113f6bb084f2d351bd755c8a48887e`.
+The owner separately authorised A2's initial pass and one corrective attempt.
+Both are now used. Interrupted validation recovery consumed no correction.
+
+### Initial A2 composition repair
+
+Seed 267, 45-minute Balanced, Kettlebell/TRX/Bands, previously selected two
+five-set paired blocks totalling 1,360/1,880 block seconds. Existing candidate
+fitness ranked that attempt at 532, ahead of a valid one-pair/circuit alternative
+at approximately 682. Simply adding a penalty would promote a five-pass tiny
+interval loop. The narrow recovery therefore selects an existing validated
+alternative only when the original winner has multiple repeated paired blocks
+over 55% cumulative block duration. It retains duration filtering, supporting-route
+selection and the existing tiny-loop protection; it adds no attempts or exercise
+score changes. If no suitable alternative exists, the existing candidate remains.
+
+The seed-267 result is a 630-second five-set pair plus a varied four-exercise
+circuit (1,713 Main seconds including the transition). Seed 104 retains its
+665-second five-set primary pair plus a four-exercise circuit, six distinct
+exercises overall. Seed 23 still plays Jumping Jacks four times: supporting work
+is 120/556 resolved planned exercise seconds. Structural, duration, variety and
+supporting-work counterexamples remain tested.
+
+### Corrective attempt: distinguish seeded context from reachability
+
+The recovered implementation passed 77 focused tests. Its first completed Fast
+run returned **1,488 passed / 3 failed**, exit 1. Two failures were baseline;
+the new failure was `tests/prep-recover-expansion.test.js`, Ramp-up
+`four-square-steps`, 45-minute Strength, Barbell, Normal, seed `4077198353`.
+The same test passes when loading the original Generator from the baseline head.
+That original failed fixture is deliberately recorded here.
+
+Trace comparison of that exact configuration:
+
+- Original Main attempt 1: Air squat/Glute bridge ladder, followed by two
+  five-set pairs (Overhead press/Side plank hip lifts and Lateral lunge to
+  balance/Low pogo hops). A2 instead selects attempt 9: a four-exercise circuit
+  followed by a Tabletop toe taps/Reverse Nordic pair.
+- Both versions finish Main selection at random draw 99, Warm-up at draw 108,
+  eight Ramp-up attempts at draw 140, and generation at draw 151. The recovery
+  consumes no additional random draws. Different Main context changes Warm-up
+  and Ramp-up scoring at the same random positions.
+- Original final Ramp-up: Air squat, Four-square steps, Bum kicks, Switch kicks.
+  A2 final Ramp-up: Bum kicks, Walk to plank and push up, Jumping Jacks, Skater jumps.
+  Both final preparation plans pass `validatePreparation`.
+
+The same-context dense seed bank 1–128 and decorrelated bank
+`imul(i,2654435761) >>> 0`, i=1–256, did not select Four-square steps in Ramp-up.
+This is not evidence of global unreachability. A bounded legitimate Lower-focus
+route matrix then examined difficulty Easy/Normal, equipment bodyweight/Barbell,
+duration 30/45, focus Strength/Balanced, and seeds 1–16 in that order (maximum 256
+contexts). Its first actual final-workout match was context 176: 45-minute
+Strength, Normal, bodyweight, Lower focus, seed 16. Four-square steps has a timed
+35-second prescription within its authored 20–35-second Ramp-up bounds and no
+preparation validation issues.
+
+Only that route fixture changed, with an optional body-focus argument. The test
+still requires actual final selection for every flagged phase, checks prescription
+type and preparation safety, and now explicitly checks Four-square steps' dose
+bounds and estimated duration. An additional test preserves preparation validity
+for the original Barbell configuration. No runtime, metadata, preparation safety
+rule, published family policy or threshold changed in the corrective attempt.
+
+### Completed validation and stage disposition
+
+- Complete Stage A/Generator, expansion and warm-up coverage suites: **98 passed,
+  0 failed**, exit 0 (233 seconds).
+- Additional Prep & Recover, preparation metadata/repetition and knee-mobility
+  suites: **38 passed, 0 failed**, exit 0 (43 seconds).
+- Prescribed Fast command, after the corrective attempt:
+  `node --test --test-skip-pattern='\[Full\]' tests/*.test.js`:
+  **1,490 passed / 2 failed**, exit 1 (1,111 seconds). Both new preparation tests
+  pass. No new Stage A2 regression remains.
+- Unchanged baseline failure at `tests/difficulty.test.js:210`: bodyweight
+  10-minute Hard Cardio, matrix seed index 3 (LCG seed 169), demand 3.75 vs 3.8.
+- Unchanged baseline failure at `tests/strength-cardio-composer.test.js:458`:
+  constrained 45-minute Full-Body Challenges v1 cannot compose the requested
+  session. Both failures were reproduced using the original baseline Generator;
+  they remain reserved for Stages B and C.
+
+Workspace logs: `/tmp/407-a2-correction-focused.log`,
+`/tmp/407-a2-correction-preparation.log`, `/tmp/407-a2-correction-fast.log`,
+with corresponding `.exit` files. Original failure and baseline evidence remain
+in `/tmp/407-a2-fast-recovery.log` and `/tmp/407-a2-baseline-comparison.log`.
+The counts and failures above preserve the evidence independently of temporary logs.
+
+Stage A's no-new-regression gate is satisfied and A2 is ready for owner acceptance
+review; the complete Fast suite is not green and #407 is not complete. No Stage
+B–D implementation, final Full/audit run or independent final review is claimed.
+PR #408 remains draft. No merge, auto-merge, deployment or issue closure is authorised.
+FAQ reviewed — no changes required. No customer-facing copy changed.
