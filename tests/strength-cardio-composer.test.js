@@ -55,7 +55,7 @@ function assertSession(w,family,{duration,difficulty,equipment,version=1}) {
     assert.ok(new Set(exercises.map(ex=>ex.id)).size>=2);
   } else {
     assert.ok(exercises.every(ex=>ex.cardio>=3&&ex.cardio>=ex.strength));
-    assert.ok(mean(exercises,'cardio')>=3.25&&mean(exercises,'cardio')-mean(exercises,'strength')>=.5);
+    assert.ok(mean(exercises,'cardio')>=3&&mean(exercises,'cardio')-mean(exercises,'strength')>=.5); // Published v1 bound; #407 removes the incidental 3.25 sample floor.
     assert.ok(blocks.every(b=>workShare(b)>=.5),'conditioning blocks must be work-dominant');
     assert.ok(difficulty!=='easy'||exercises.every(ex=>ex.impact!=='high'));
     let previous=null;
@@ -288,7 +288,8 @@ test('v2 equals v1 wherever the route cannot apply, with the same feasibility, s
 
 test('Strength & Control v1 compositions stay exactly as released, and all three styles keep their structure and gate under v2',()=>{
   // Published v1: one structural digest of 120 compositions across durations, difficulties, kits and seeds.
-  const snapshotCatalogue=require('./helpers/coach-fixtures').catalogueBeforeC1(C);
+  const historyFixtures=require('./helpers/coach-fixtures');
+  const snapshotCatalogue=historyFixtures.catalogueBeforeC1(historyFixtures.catalogueBeforeMetadata407(C));
   const digest=crypto.createHash('sha256'),styles=new Set();
   for(const duration of DURATIONS)for(const difficulty of ['easy','hard'])for(const key of ['bodyweight','limited','broad'])for(const seed of [1,2,3,4])
     digest.update(JSON.stringify(detail(generate(STRENGTH,{duration,difficulty,equipment:EQUIPMENT[key],random:rng(seed*977+duration),workoutFamilyVersion:1,catalogue:snapshotCatalogue}))));
@@ -326,7 +327,7 @@ test('Cardio v1 accepts its published half-point cardio margin at equality',()=>
   const duration=10,difficulty='hard',equipment=['dumbbells'];
   const w=generate(CARDIO,{duration,difficulty,equipment,random:rng(30297)}),list=exercisesOf(w);
   assert.ok(w.estimatedSeconds<=duration*60);
-  assert.equal(mean(list,'cardio'),3.5);assert.equal(mean(list,'strength'),3);
+  assert.equal(mean(list,'cardio')-mean(list,'strength'),.5,'published margin, independent of corrected absolute ratings');
   assertSession(w,CARDIO,{duration,difficulty,equipment});
   assert.equal(G.validateFamilyWorkout(w,{catalogue:C,equipment}).valid,true);
 });
@@ -437,10 +438,10 @@ test('every S1 addition retains an observed standalone Generator Main route',()=
     ["side-lying-hip-adduction",[],45,"lower",2],
     ["prone-swimmer-raise",["kettlebell"],30,"lower",10],
     ["dumbbell-suitcase-march",["dumbbells"],45,"core",2],
-    ["dumbbell-half-kneeling-press",["dumbbells"],30,"upper",1],
+    ["dumbbell-half-kneeling-press",["dumbbells"],30,"upper",12],
     ["dumbbell-lateral-lunge",["dumbbells"],30,"lower",1],
     ["ring-scapular-row",["rings"],30,"upper",15,"strength","easy"],
-    ["dumbbell-staggered-stance-row",["dumbbells"],45,"upper",4]
+    ["dumbbell-staggered-stance-row",["dumbbells"],45,"upper",8]
   ]){
     const w=s1Generate(null,kit,duration,focus,seed,difficulty,style);assert.ok(s1Main(w).some(e=>e.id===id),id);
     assert.deepEqual(G.validateMain(w.main,C,kit),[],id);
@@ -453,13 +454,13 @@ test('S1 Strength v2 and deliberate secondary-family routes preserve shared qual
     ["strength-control","hand-release-push-up",[],30,"upper",1],
     ["strength-control","prone-swimmer-raise",[],30,"upper",1],
     ["strength-control","reverse-nordic",[],30,"lower",1],
-    ["strength-control","wall-push-up",["kettlebell"],30,"upper",54],
+    ["strength-control","wall-push-up",["kettlebell"],30,"upper",28],
     ["strength-control","side-lying-hip-adduction",["rings"],30,"core",10],
-    ["strength-control","dumbbell-suitcase-march",["dumbbells"],30,"upper",25],
-    ["strength-control","dumbbell-lateral-lunge",["dumbbells"],30,"upper",3],
-    ["strength-control","dumbbell-half-kneeling-press",["dumbbells"],45,"upper",6],
-    ["strength-control","dumbbell-staggered-stance-row",["dumbbells"],30,"core",37],
-    ["strength-control","ring-scapular-row",["rings"],45,"upper",111,"easy"],
+    ["strength-control","dumbbell-suitcase-march",["dumbbells"],30,"upper",19],
+    ["strength-control","dumbbell-lateral-lunge",["dumbbells"],30,"upper",126],
+    ["strength-control","dumbbell-half-kneeling-press",["dumbbells"],45,"upper",7],
+    ["strength-control","dumbbell-staggered-stance-row",["dumbbells"],30,"core",19],
+    ["strength-control","ring-scapular-row",["rings"],45,"upper",116,"easy"],
     ["core-stability","dumbbell-suitcase-march",["dumbbells"],30,"core",3],
     ["full-body-challenges","hand-release-push-up",[],30,"upper",1],
     ["full-body-challenges","wall-push-up",[],30,"upper",3],
@@ -476,8 +477,8 @@ test('S1 Strength v2 and deliberate secondary-family routes preserve shared qual
 test('new resistance work reaches all four Coach routes while programme anchors and reviewed memberships stay pinned',async()=>{
   const {pilot}=require('./helpers/coach-pilot');
   for(const [id,version,expected,anchors,seed] of [
-    ["general-strength-4w",2,"dumbbell-staggered-stance-row",["goblet-squat","dumbbell-floor-press","dumbbell-bent-over-row"],3],
-    ["build-arms",1,"dumbbell-staggered-stance-row",["dumbbell-biceps-curl","dumbbell-overhead-triceps-extension"],1],
+    ["general-strength-4w",2,"dumbbell-staggered-stance-row",["goblet-squat","dumbbell-floor-press","dumbbell-bent-over-row"],7],
+    ["build-arms",1,"dumbbell-staggered-stance-row",["dumbbell-biceps-curl","dumbbell-overhead-triceps-extension"],10],
     ["tennis-conditioning",8,"dumbbell-half-kneeling-press",["dumbbell-reverse-lunge","dumbbell-romanian-deadlift","dumbbell-floor-press","dumbbell-bent-over-row"],1],
     ["general-fitness",2,"dumbbell-half-kneeling-press",[],2]
   ]){
@@ -502,14 +503,14 @@ test('reviewed existing resistance accessories and unilateral work remain select
   for(const [family,id,kit,duration,focus,seed,difficulty] of [
     [null,"ring-face-pull",["rings"],45,"upper",29],
     ["strength-control","ring-biceps-curl",["rings"],30,"upper",42,"easy"],
-    ["strength-control","ring-triceps-extension",["rings"],45,"upper",4,"easy"],
-    [null,"dumbbell-plank-pull-through",["dumbbells"],45,"core",1],
-    [null,"kettlebell-rack-march",["kettlebell"],30,"core",94],
-    [null,"kettlebell-single-leg-deadlift",["kettlebell"],45,"upper",6],
+    ["strength-control","ring-triceps-extension",["rings"],45,"upper",1,"easy"],
+    [null,"dumbbell-plank-pull-through",["dumbbells"],45,"core",36],
+    [null,"kettlebell-rack-march",["kettlebell"],30,"core",1],
+    [null,"kettlebell-single-leg-deadlift",["kettlebell"],45,"upper",45],
     [null,"kettlebell-suitcase-deadlift",["kettlebell"],30,"lower",1],
     ["strength-control","dumbbell-split-squat",["dumbbells"],30,"lower",3],
-    [null,"single-arm-dumbbell-floor-press",["dumbbells"],45,"lower",2],
-    [null,"kettlebell-half-kneeling-press",["kettlebell"],30,"upper",1]
+    [null,"single-arm-dumbbell-floor-press",["dumbbells"],45,"lower",16],
+    [null,"kettlebell-half-kneeling-press",["kettlebell"],30,"upper",4]
   ]){
     const w=s1Generate(family,kit,duration,focus,seed,difficulty);
     assert.ok(s1Main(w).some(ex=>ex.id===id),id);
@@ -522,7 +523,7 @@ test('reviewed existing resistance accessories and unilateral work remain select
 test('v5 controlled lunges reach standalone and Strength v2 while technical floor and footwork stay family-scoped',()=>{
   require('../data/mobility-membership');require('../js/mobility-composer');
   for(const [family,id,duration,seed] of [
-    [null,"transverse-lunge-to-balance",15,18],
+    [null,"transverse-lunge-to-balance",15,149],
     [null,"reverse-lunge-with-rotation",20,70],
     ["strength-control","transverse-lunge-to-balance",30,3],
     ["strength-control","reverse-lunge-with-rotation",45,2]
@@ -546,10 +547,10 @@ test('v5 controlled lunges reach standalone and Strength v2 while technical floo
 test('v5 preparation and lower-body support reach Coach without changing anchors or Tennis capability credit',async()=>{
   const {pilot}=require('./helpers/coach-pilot');
   for(const [id,version,seed,expected,phase,anchors] of [
-    ['general-strength-4w',2,31,'transverse-lunge-to-balance','main',['goblet-squat','dumbbell-floor-press','dumbbell-bent-over-row']],
+    ['general-strength-4w',2,36,'transverse-lunge-to-balance','main',['goblet-squat','dumbbell-floor-press','dumbbell-bent-over-row']],
     ['build-arms',1,2,'split-stance-step-switches','warmup',['dumbbell-biceps-curl','dumbbell-overhead-triceps-extension']],
-    ['tennis-conditioning',8,15,'tandem-step-and-hold','warmup',['dumbbell-reverse-lunge','dumbbell-romanian-deadlift','dumbbell-floor-press','dumbbell-bent-over-row']],
-    ['general-fitness',2,5,'tandem-step-and-hold','warmup',[]]
+    ['tennis-conditioning',8,7,'tandem-step-and-hold','warmup',['dumbbell-reverse-lunge','dumbbell-romanian-deadlift','dumbbell-floor-press','dumbbell-bent-over-row']],
+    ['general-fitness',2,16,'tandem-step-and-hold','warmup',[]]
   ]) {
     const p=pilot(new Map(),id,version);
     p.run("pilotOptions.equipment=['dumbbells','bands','bench'];pilotOptions.duration=45;pilotOptions.bodyFocus='lower';");await p.start();
@@ -585,14 +586,17 @@ test('Strength & Control v3 practical fixtures cover every duration, difficulty 
   // Fifteen fixtures cover all axes without adding another expensive Cartesian frequency sweep.
   for(const [di,duration] of DURATIONS.entries())for(const [ki,key] of Object.keys(EQUIPMENT).entries()) {
     const difficulty=DIFFICULTIES[(di+ki)%3],equipment=EQUIPMENT[key];
-    const options={duration,difficulty,equipment,workoutFamilyVersion:3,random:rng(31+di*19+ki)};
+    // #407 changes the style draw for this configuration; retain actual mixed
+    // structure coverage with a bounded, validated seed rather than relabelling it.
+    const seed=duration===20&&key==='broad'?6:31+di*19+ki;
+    const options={duration,difficulty,equipment,workoutFamilyVersion:3,random:rng(seed)};
     const w=generate(STRENGTH,options);
     assertV3(w,equipment);
     assert.equal(w.duration,duration);assert.equal(w.difficulty,difficulty);
     for(const ex of exercisesOf(w))assert.ok(G.generatedPhaseEligible(ex,'main',equipment,difficulty));
     if(duration>=20&&key==='broad')assertV3(w,equipment,{mixed:true});
     // Reproducibility includes prescriptions, estimates and published family identity.
-    assert.deepEqual({...w,id:0},{...generate(STRENGTH,{...options,random:rng(31+di*19+ki)}),id:0});
+    assert.deepEqual({...w,id:0},{...generate(STRENGTH,{...options,random:rng(seed)}),id:0});
   }
 });
 

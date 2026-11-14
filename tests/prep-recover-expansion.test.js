@@ -10,6 +10,8 @@ function random(seed){return()=>{seed=(seed*1664525+1013904223)>>>0;return seed/
 const ADDED=["seated-knee-extensions","wall-ankle-dorsiflexion-rocks","ankle-alphabet","standing-lateral-weight-shifts","standing-scapular-protraction-retraction","wall-push-up-plus","wrist-circles","standing-forearm-rotations","standing-thoracic-rotation-with-reach","standing-cross-body-reaches","alternating-overhead-reach-side-shift","seated-spinal-rotation-stretch","supine-knees-to-chest-stretch"];
 const REUSED=["supine-heel-slides","quadruped-wrist-rocks","quadruped-thoracic-rotation","controlled-shoulder-rotations","side-lying-open-books","seated-thoracic-extension","four-square-steps","standing-hinge-and-reach","wall-push-up","ring-scapular-row","standing-lat-stretch","butterfly-stretch","low-cobra-pose","extended-puppy-pose"];
 // Full live catalogue: explicit suitable examples prove selection without distribution quotas.
+// #407/R1: refreshed shifted draws in the same configurations using bounded
+// dense/decorrelated seed banks; every flagged phase and dose check stays below.
 const FIXTURES=[
   ["warmup","supine-heel-slides",10,"strength",1,"normal",[]],
   ["warmup","quadruped-thoracic-rotation",10,"strength",1,"normal",[]],
@@ -20,27 +22,27 @@ const FIXTURES=[
   ["cooldown","low-cobra-pose",10,"strength",5,"hard",[]],
   ["warmup","seated-thoracic-extension",10,"strength",8,"hard",[]],
   ["cooldown","supine-knees-to-chest-stretch",10,"strength",8,"hard",[]],
-  ["warmup","standing-forearm-rotations",10,"strength",2,"normal",[]],
+  ["warmup","standing-forearm-rotations",10,"strength",35,"normal",[]],
   ["warmup","controlled-shoulder-rotations",10,"balanced",2,"hard",[]],
   ["warmup","ankle-alphabet",10,"balanced",4,"normal",[]],
   ["warmup","quadruped-wrist-rocks",10,"balanced",5,"hard",[]],
-  ["warmup","wrist-circles",10,"balanced",7,"normal",[]],
+  ["warmup","wrist-circles",10,"balanced",47,"normal",[]],
   ["cooldown","butterfly-stretch",10,"balanced",7,"normal",[]],
   ["cooldown","standing-lat-stretch",10,"balanced",9,"easy",[]],
   ["cooldown","seated-spinal-rotation-stretch",10,"balanced",10,"normal",[]],
-  ["warmup","alternating-overhead-reach-side-shift",10,"cardio",10,"normal",[]],
+  ["warmup","alternating-overhead-reach-side-shift",10,"cardio",48,"normal",[]],
   ["rampup","wall-push-up",30,"strength",4,"hard",[]],
-  ["warmup","standing-lateral-weight-shifts",30,"strength",4,"easy",[]],
-  ["warmup","wall-ankle-dorsiflexion-rocks",30,"strength",6,"easy",[]],
-  ["warmup","wall-push-up-plus",30,"strength",7,"normal",[]],
+  ["warmup","standing-lateral-weight-shifts",30,"strength",11,"easy",[]],
+  ["warmup","wall-ankle-dorsiflexion-rocks",30,"strength",2,"easy",[]],
+  ["warmup","wall-push-up-plus",30,"strength",22,"normal",[]],
   ["warmup","standing-cross-body-reaches",30,"balanced",9,"easy",[]],
-  ["warmup","four-square-steps",30,"cardio",88,"easy",[]],
+  ["warmup","four-square-steps",30,"cardio",107,"easy",[]],
   ["rampup","wall-push-up-plus",45,"strength",5,"hard",[]],
   ["warmup","standing-scapular-protraction-retraction",45,"strength",6,"easy",[]],
   ["warmup","standing-hinge-and-reach",45,"strength",10,"normal",[]],
-  ["rampup","ring-scapular-row",10,"strength",3,"easy",["rings"]],
-  ["rampup","four-square-steps",45,"strength",2802611199,"normal",["barbell"]],
-  ["rampup","alternating-overhead-reach-side-shift",45,"balanced",148509435,"normal",["bands","box"]],
+  ["rampup","ring-scapular-row",10,"strength",4,"easy",["rings"]],
+  ["rampup","four-square-steps",45,"strength",4077198353,"normal",["barbell"]],
+  ["rampup","alternating-overhead-reach-side-shift",45,"balanced",2823943735,"normal",["bands","box"]],
   ["rampup","standing-scapular-protraction-retraction",45,"balanced",28,"easy",[]]
 ];
 

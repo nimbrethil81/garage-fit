@@ -23,8 +23,11 @@ const FIXTURE_MAIN=new Set(['air-squat','reverse-lunge','walking-lunge','push-up
   'bicycle-crunch','leg-raises','mountain-climbers','jumping-jacks','high-knees','burpees','squat-jumps','skater-jumps','cossack-squat',
   'switch-kicks','glute-bridge','ski-abs','curtsy-lunge','kick-through','bear-crawl']);
 function fixtureCatalogue(rename=id=>id){
+  // This synthetic scoring-boundary characterisation pins both the peer IDs and
+  // their pre-#407 ratings; live-catalogue reachability is audited separately.
+  const peers=require('./helpers/coach-fixtures').catalogueBeforeMetadata407(real);
   const catalogue={};
-  for(const exercise of Object.values(real))if(!exercise.equipment.length&&(!exercise.generator||FIXTURE_MAIN.has(exercise.id)))
+  for(const exercise of Object.values(peers))if(!exercise.equipment.length&&(!exercise.generator||FIXTURE_MAIN.has(exercise.id)))
     catalogue[rename(exercise.id)]=Object.assign({},exercise,{id:rename(exercise.id)});
   const synthetic=Object.assign({},real['abdominal-crunch'],{id:rename('synthetic-weak-core'),name:'Synthetic weak core',strength:1,cardio:1,mainRole:'supporting'});
   catalogue[synthetic.id]=synthetic;
