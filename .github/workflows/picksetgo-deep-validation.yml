@@ -51,8 +51,8 @@ jobs:
           {
             echo '## PickSetGo Deep validation — Full tests'
             echo
-            echo "- Source branch/ref: `$SOURCE_REF`"
-            echo "- Tested SHA: `$TESTED_SHA`"
+            printf -- '- Source branch/ref: `%s`\n' "$SOURCE_REF"
+            printf -- '- Tested SHA: `%s`\n' "$TESTED_SHA"
             echo '- Operation: Full tests'
             echo "- Duration: ${duration}s"
             echo "- Exit status: $result"
@@ -104,8 +104,8 @@ jobs:
           {
             echo '## PickSetGo Deep validation — Reachability audit'
             echo
-            echo "- Source branch/ref: `$SOURCE_REF`"
-            echo "- Tested SHA: `$TESTED_SHA`"
+            printf -- '- Source branch/ref: `%s`\n' "$SOURCE_REF"
+            printf -- '- Tested SHA: `%s`\n' "$TESTED_SHA"
             echo '- Operation: Exhaustive catalogue reachability audit'
             echo "- Duration: ${duration}s"
             echo "- Exit status: $result"

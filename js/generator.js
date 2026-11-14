@@ -2568,13 +2568,22 @@
   function selectRampup(catalogue, targetSeconds, owned, mainExercises, warmup, focus, random, difficulty) {
     const eligible = Object.values(catalogue).filter(ex=>generatedPhaseEligible(ex,'rampup',owned,difficulty));
     const restSeconds=5, count=Math.min(chooseRampCount(targetSeconds),eligible.length);
-    let best=null;
-    for(let attempt=0;attempt<8;attempt++) {
+    let best=null,recovered=null;
+    const issues=exercises=>validatePreparation({exercises:[]},{exercises},mainExercises);
+    for(let attempt=0;attempt<16;attempt++) {
+      // Preserve valid seeded preparation exactly. Only invalid original results
+      // need the additional, bounded construction search.
+      if(attempt===8&&(!best||!issues(best.exercises).length))break;
+      const recovery=attempt>=8;
       const selected=[];
       for(let slot=0;slot<count;slot++) {
         const position=count===1?1:slot/(count-1);
         const stages=activeTrace?[]:null;
         let candidates=eligible.filter(ex=>!selected.some(item=>item.id===ex.id));
+        if(recovery&&selected.length){
+          const previous=selected[selected.length-1];
+          candidates=narrow(stages,'intensity-progression',candidates,candidates.filter(ex=>ex.prepIntensity>=previous.prepIntensity-1));
+        }
         // An exercise (or a direct variant of one) already used earlier in Ramp-up or in Warm-up
         // shouldn't normally repeat, but this stays soft-mandatory: in a genuinely constrained
         // catalogue the duplicate remains available as a last resort rather than breaking generation.
@@ -2593,8 +2602,31 @@
       }
       const score=rampSequenceScore(selected,warmup,mainExercises,owned,focus);
       if(activeTrace) activeTrace({type:'rampup-attempt',attempt,score});
-      if(!best||score>best.score) best={exercises:selected,score,attempt};
+      if(!recovery){if(!best||score>best.score)best={exercises:selected,score,attempt};}
+      else if(selected.length===count&&!issues(selected).length&&(!recovered||score>recovered.score))
+        recovered={exercises:selected,score,attempt};
     }
+    // A constrained pool may admit a valid order but leave every greedy prefix
+    // stranded. At most four exercises means at most 24 orders, with no extra
+    // random draws, new exercises or doses. Keep the established last resort
+    // if no valid order exists; validation must still report its faults.
+    if(best&&!recovered&&issues(best.exercises).length){
+      const order=(prefix,remaining)=>{
+        if(!remaining.length){
+          if(issues(prefix).length)return;
+          const score=rampSequenceScore(prefix,warmup,mainExercises,owned,focus);
+          if(!recovered||score>recovered.score)recovered={exercises:prefix,score,attempt:best.attempt};
+          return;
+        }
+        for(const ex of remaining){
+          const previous=prefix[prefix.length-1];
+          if(previous&&(ex.prepIntensity<previous.prepIntensity-1||previous.impact==='high'&&ex.impact==='high'))continue;
+          order(prefix.concat(ex),remaining.filter(other=>other!==ex));
+        }
+      };
+      order([],best.exercises);
+    }
+    if(recovered)best=recovered;
     if(activeTrace) activeTrace({type:'rampup-result',attempt:best?best.attempt:null});
     const fitted=fitTimedDurations(best?best.exercises:[],targetSeconds,restSeconds,'rampup');
     return {exercises:fitted.exercises,restSeconds,estimatedSeconds:fitted.estimatedSeconds};

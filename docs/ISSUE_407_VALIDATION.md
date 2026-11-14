@@ -772,3 +772,76 @@ read-only PR review. No final Full or exhaustive audit was run in Stage D, and n
 independent final review is claimed. No final PR approval, readiness change, merge,
 auto-merge, deployment, publication or issue closure is authorised. PR #408 remains
 open and draft. FAQ reviewed — no changes required.
+
+## GF-META-FINAL-REC1 — authorised preparation correction
+
+Owner separately authorised one initial implementation attempt and at most one
+narrow correction for the pre-existing Ramp-up progression defect, plus the
+independent Deep workflow summary quoting fix. Starting local/remote head was
+`c4e9784940bd0a6a699d692100bf5e766ce0ab2f`; main remained
+`f36fe20e7f113f6bb084f2d351bd755c8a48887e`. All previous stage budgets/history
+remain intact. The prior final Deep run 43630359233 checked out that exact PR head:
+Full passed, while audit job 132555370529 failed preparation validation.
+
+### Diagnosis and bounded implementation
+
+Bench+Box, Normal, 45-minute Balanced/Core, seed `388386366` (audit config 27,
+sample 4) produced intensity 3→3→4→2, ending Mountain Climbers → Tabletop Toe Taps.
+Bodyweight Easy, otherwise the same duration/focus/body focus, seed `924399868`
+(config 47, sample 22) ended Mountain Climbers → Heel Touches, also 4→2.
+The exact first case reproduces on pre-#407 main, the recovered pre-A2 baseline
+and current PR: this is a pre-existing construction/validation mismatch.
+
+The existing scorer penalised excessive drops, but specificity credit could
+outweigh the penalty and all eight sampled sequences could remain invalid.
+The selected first fixture's score was 72.87 despite the fault; ten safe
+continuations existed below the 17.6 shortlist cutoff. Ordinary preparation
+construction returned validation issues without acting on them. Stage D was
+correct to reject this output; its validator and acceptance rules are unchanged.
+
+The original eight-attempt search is preserved exactly whenever its chosen
+sequence validates. Only invalid results enter up to eight additional recovery
+attempts. Within those attempts, intensity progression is filtered before
+shortlist scoring and soft repetition preferences. Only complete sequences that
+pass the existing Ramp-up validation requirements can win recovery ranking.
+If greedy prefixes remain stranded, at most 24 orders of the original set of
+up to four exercises are checked, without new random draws, identities or doses.
+The established constrained-pool return contract remains when no validated
+candidate is found; such output remains invalid and the audit still rejects it.
+No new fallback contract or user-facing copy is introduced.
+
+Both reproduced workouts now have valid preparation and canonical doses. Tests
+also cover a constrained but feasible ordering, bounded exploration/determinism,
+and continued rejection of an impossible high-impact-only sequence. Accepted
+A2/B/C/D checks are retained. Metadata, family policies, Main construction and
+historical validation are untouched.
+
+Both Deep jobs now use single-quoted printf formats with quoted branch/SHA
+arguments. Shell command substitution previously executed those values and left
+summary provenance blank; it did not change the independently verified checkout
+or captured validation exit status. A real Bash regression test checks all four
+summary lines. Triggers, commands, job permissions and acceptance rules are
+unchanged.
+
+### Initial completed validation and stable-check plan
+
+- Initial targeted preparation/workflow probe: **11 passed, 0 failed**.
+- Focused preparation, Generator, Coach and A2/B/C/D suites: **204 passed,
+  0 failed**, exit 0, approximately 291 seconds.
+- Prescribed Fast: **1,500 passed, 0 failed**, exit 0, approximately 1,143 seconds.
+- Logs: `/tmp/407-final-rec1-probe.log`, `/tmp/407-final-rec1-focused.log`,
+  `/tmp/407-final-rec1-fast.log` (focused/Fast exit files retained).
+- `git diff --check` passes. Budget used so far: **one initial implementation
+  attempt, zero corrective attempts**.
+
+The implementation is now preserved on the existing draft branch before running
+Full and exhaustive reachability against its stable revision. Completed final
+results will be appended rather than replacing earlier evidence. Manual Deep
+dispatch is unavailable through the current connector, and local gh authentication
+reports an invalid token, so native local validation is the available authorised
+fallback. Normal PR Fast CI still runs on push. No older Full result is reused
+for this changed runtime.
+
+Any new final-check failure requires diagnosis and fresh owner direction before
+additional corrections. No merge, auto-merge, deployment, readiness change or
+issue closure is authorised. FAQ reviewed — no changes required.

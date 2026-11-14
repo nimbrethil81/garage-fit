@@ -108,3 +108,42 @@ test('Ramp-up generation still succeeds normally when nothing in Warm-up overlap
   const workout = GarageFitGenerator.generate({ catalogue, duration:30, focus:'balanced', equipment:['dumbbells','kettlebell'], random:random(4) });
   assert.ok(workout.rampup.exercises.length > 0);
 });
+
+test('FINAL-REC1 repairs excessive Ramp-up intensity drops without changing doses or determinism',()=>{
+  const G=GarageFitGenerator,audit=require('../scripts/audit-exercise-reachability');
+  for(const [equipment,difficulty,seed] of [[['bench','box'],'normal',388386366],[[],'easy',924399868]]){
+    const options={catalogue,equipment,difficulty,duration:45,focus:'balanced',bodyFocus:'core'};
+    let attempts=0,filtered=0;
+    const workout=G.generate({...options,random:random(seed),trace:event=>{
+      if(event.type==='rampup-attempt')attempts++;
+      if(event.type==='pick'&&event.phase==='rampup'&&event.stages.some(stage=>stage.label==='intensity-progression')){
+        assert.ok(attempts>=8,'valid original search is preserved before recovery');filtered++;
+      }
+    }});
+    assert.ok(attempts>8&&attempts<=16,'bounded recovery is exercised');
+    assert.ok(filtered>0,'progression is enforced before scoring');
+    assert.equal(workout.rampup.exercises.length,4);
+    assert.deepEqual(G.validatePreparation(workout.warmup,workout.rampup,workout.main.blocks.flatMap(b=>b.exercises)),[]);
+    audit.validateAuditWorkout(workout,options,G);
+    assert.deepEqual(G.validateMain(workout.main,catalogue,equipment,G.BUDGETS[45].main),[]);
+    const again=G.generate({...options,random:random(seed)});
+    for(const section of ['main','warmup','rampup','cooldown'])assert.deepEqual(again[section],workout[section]);
+  }
+});
+
+test('a constrained valid ordering is recovered even when every greedy prefix is stranded',()=>{
+  const high=syntheticRampExercise('higher',{prepIntensity:4}),low=syntheticRampExercise('lower',{prepIntensity:2,conditioning:false});
+  const pool={higher:high,lower:low};let draws=0;
+  const rampup=GarageFitGenerator.selectRampup(pool,80,[],[],[],'balanced',()=>{draws++;return 0;});
+  assert.equal(rampup.exercises.length,2);
+  assert.deepEqual(rampup.exercises.map(e=>e.prepIntensity),[2,4]);
+  assert.deepEqual(GarageFitGenerator.validatePreparation({exercises:[]},rampup,[]),[]);
+  assert.ok(draws<=32,'at most sixteen two-pick attempts; order search consumes no random draws');
+});
+
+test('an impossible safe Ramp-up remains explicitly invalid under the unchanged validator',()=>{
+  const pool={a:syntheticRampExercise('a',{impact:'high',prepIntensity:4}),b:syntheticRampExercise('b',{impact:'high',prepIntensity:5})};
+  const rampup=GarageFitGenerator.selectRampup(pool,80,[],[],[],'balanced',zero);
+  assert.equal(rampup.exercises.length,2,'retain the existing constrained-pool return contract');
+  assert.ok(GarageFitGenerator.validatePreparation({exercises:[]},rampup,[]).some(issue=>issue.startsWith('impact:')));
+});
