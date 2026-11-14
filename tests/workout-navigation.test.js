@@ -7,7 +7,10 @@ const {loadAppContext} = require('./helpers/app-context');
 function harness() {
   const app=loadAppContext(new Map(),{ownIntrinsics:true}),run=code=>vm.runInContext(code,app);
   // Keep this linear-player fixture stable; bounded AMRAP playback has its own suite.
-  app.playerFixtureCatalogue=require('./helpers/coach-fixtures').catalogueBeforeAB2(app.GarageFitData.exercises);
+  const fixtures=require('./helpers/coach-fixtures');
+  // Keep the original linear-player metadata input; live cap-clock behavior is
+  // covered separately by the current-catalogue AMRAP and density suites.
+  app.playerFixtureCatalogue=fixtures.catalogueBeforeAB2(fixtures.catalogueBeforeMetadata407(app.GarageFitData.exercises));
   run('var testNow=Date.now();Date.now=()=>testNow');
   const timers=new Map();let id=0;
   app.setInterval=callback=>{timers.set(++id,callback);return id;};

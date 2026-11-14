@@ -205,10 +205,45 @@ test('representative workouts are not dominated by tiny repeated loops', () => {
       // Ladder steps change reps and enforce their own total-volume bounds.
       const tiny = blocks.filter(block => !['ladder','pyramid'].includes(block.protocol) && block.exercises.length <= 3 &&
         (block.protocol==='emom'?Math.ceil(G.blockRepeatCount(block)/block.exercises.length):G.blockRepeatCount(block)) >= 5);
-      assert.ok(tiny.every(block => block.protocol === 'paired_sets'), duration+' '+focus);
+      const pairs = tiny.filter(block => block.protocol === 'paired_sets');
+      assert.equal(pairs.length, tiny.length, duration+' '+focus);
       workouts++;
-      if (tiny.reduce((sum, block) => sum + block.estimatedDurationSeconds, 0) / total > 0.5) dominated++;
+      const pairedShare = pairs.reduce((sum, block) => sum + block.estimatedDurationSeconds, 0) / total;
+      if (pairedShare > 0.55 || (pairs.length && new Set(blocks.flatMap(block => block.exercises.map(exercise => exercise.id))).size < 6) ||
+          (pairs.length && blocks.length < 2)) dominated++;
     }
-    assert.ok(dominated / workouts <= (duration === 45 ? 0.08 : 0), duration+': '+dominated+'/'+workouts);
+    assert.equal(dominated, 0, duration+': '+dominated+'/'+workouts);
   }
+});
+
+test('a five-set primary pair may lead a varied 30-minute Main within its duration bound',()=>{
+  const workout=G.generate({catalogue,duration:30,focus:'strength',equipment:kits[2],random:random(104)});
+  const blocks=workout.main.blocks,mainSeconds=workout.main.estimatedDurationSeconds;
+  const pair=blocks.find(block=>block.protocol==='paired_sets'&&block.prescription.sets===5);
+  assert.ok(pair,'the deterministic fixture retains its five-set primary pair');
+  assert.ok(pair.exercises.every(exercise=>exercise.mainRole!=='supporting'));
+  assert.ok(blocks.length>=2,'a separate Main block remains');
+  assert.ok(new Set(blocks.flatMap(block=>block.exercises.map(exercise=>exercise.id))).size>=6,'at least six distinct exercises remain');
+  assert.ok(pair.estimatedDurationSeconds/mainSeconds<=0.55);
+});
+
+test('paired-set dominance still fails above the approved duration or variety bounds',()=>{
+  const qualifies=({pairedSeconds,mainSeconds,uniqueExercises,blockCount})=>
+    pairedSeconds/mainSeconds<=0.55&&uniqueExercises>=6&&blockCount>=2;
+  assert.equal(qualifies({pairedSeconds:502,mainSeconds:1000,uniqueExercises:6,blockCount:2}),true);
+  assert.equal(qualifies({pairedSeconds:551,mainSeconds:1000,uniqueExercises:6,blockCount:2}),false,'excess paired-set duration');
+  assert.equal(qualifies({pairedSeconds:502,mainSeconds:1000,uniqueExercises:5,blockCount:2}),false,'inadequate exercise variety');
+  assert.equal(qualifies({pairedSeconds:502,mainSeconds:1000,uniqueExercises:6,blockCount:1}),false,'no separate Main block');
+});
+
+test('seed 267 recovers from cumulative five-set pair dominance without a tiny-loop substitute',()=>{
+  const generate=()=>G.generate({catalogue,duration:45,focus:'balanced',equipment:kits[2],random:random(267)});
+  const workout=generate(),blocks=workout.main.blocks;
+  const pairedSeconds=blocks.filter(block=>block.protocol==='paired_sets'&&G.blockRepeatCount(block)>=5)
+    .reduce((sum,block)=>sum+G.estimateBlockDuration(block),0);
+  assert.ok(pairedSeconds/blocks.reduce((sum,block)=>sum+G.estimateBlockDuration(block),0)<=.55);
+  assert.ok(blocks.some(block=>block.exercises.length>=4),'a varied block remains');
+  assert.ok(new Set(blocks.flatMap(block=>block.exercises.map(exercise=>exercise.id))).size>=6);
+  assert.deepEqual(G.validateMain(workout.main,catalogue,kits[2],G.BUDGETS[45].main),[]);
+  assert.deepEqual(generate().main,workout.main,'seeded composition remains deterministic');
 });

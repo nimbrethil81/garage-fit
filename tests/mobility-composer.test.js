@@ -4,7 +4,7 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const {createHash}=require('node:crypto');
 const {loadAppContext}=require('./helpers/app-context');
-const {catalogueBeforePrepP1}=require('./helpers/coach-fixtures');
+const {catalogueBeforePrepP1,catalogueBeforeMetadata407}=require('./helpers/coach-fixtures');
 global.window=global;
 for(const path of ['data/equipment','data/exercises','data/workout-families','js/workout-families','js/generator','data/mobility-membership','js/mobility-composer'])require('../'+path);
 const G=GarageFitGenerator,F=GarageFitWorkoutFamilies,C=GarageFitData.exercises;
@@ -175,10 +175,17 @@ const MATRIX=[];for(const duration of [10,15,20,30,45])for(const difficulty of [
 const historicalGenerate=(historical,extra)=>{
   // Normalisation resolves canonical identities through the global catalogue too.
   const current=GarageFitData.exercises;GarageFitData.exercises=historical;
-  try{return generate({...extra,catalogue:historical});}finally{GarageFitData.exercises=current;}
+  try{
+    const workout=generate({...extra,catalogue:historical});
+    // Simulate the actual published record era, before #407 added these markers.
+    delete workout.exerciseCatalogueVersion;
+    for(const block of workout.main.blocks)delete block.exerciseCatalogueVersion;
+    return workout;
+  }finally{GarageFitData.exercises=current;}
 };
 const composition=workout=>{
-  const result=copy(workout);delete result.id;
+  const result=copy(workout);delete result.id;delete result.exerciseCatalogueVersion;
+  for(const block of [...result.main.blocks,...result.blocks])delete block.exerciseCatalogueVersion;
   for(const section of [result.warmup,result.rampup,result.cooldown,...result.main.blocks,...result.blocks])
     section.exercises=section.exercises.map(ex=>({id:ex.id,prescription:ex.prescription,estimatedSeconds:ex.estimatedSeconds}));
   return result;
@@ -194,7 +201,7 @@ const publishedContractSnapshot=sessions=>JSON.stringify(sessions,(_key,value)=>
     :value);
 
 test('published Mobility v1 seeded output is unchanged by the v2 composition (#264)',()=>{
-  const sessions=[],historical=catalogueBeforePrepP1(C);
+  const sessions=[],historical=catalogueBeforePrepP1(catalogueBeforeMetadata407(C));
   for(const duration of [10,20,45])for(const difficulty of ['easy','normal','hard'])for(const equipment of [[],['trx']])for(const seed of [1,31,2026]) {
     const options={workoutFamilyVersion:1,duration,difficulty,equipment};
     const w=historicalGenerate(historical,{...options,random:rng(seed)});
@@ -480,7 +487,7 @@ test('swaps and edits cannot bypass v2 membership, protocol, timing or quality g
 
 const v3=extra=>generate({workoutFamilyVersion:3,...extra}),M3=M.forVersion(3);
 test('published Mobility v2 seeded composition and saved interpretation are unchanged by v3 (#272)',()=>{
-  const sessions=[],historical=catalogueBeforePrepP1(C);
+  const sessions=[],historical=catalogueBeforePrepP1(catalogueBeforeMetadata407(C));
   for(const duration of [10,20,45])for(const difficulty of ['easy','normal','hard'])for(const equipment of [[],['trx']])for(const seed of [1,31,2026]) {
     const options={duration,difficulty,equipment};
     const w=historicalGenerate(historical,{...options,workoutFamilyVersion:2,random:rng(seed)});

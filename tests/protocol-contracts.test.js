@@ -34,8 +34,10 @@ function generatedSample() {
       workouts.push(G.generate({catalogue, duration, focus, equipment, random: random(seed * duration)}));
   // A bounded TRX seed that reaches a pyramid (complex selection moved the earlier seed).
   workouts.push(G.generate({catalogue,duration:30,focus:'strength',bodyFocus:'upper',equipment:['trx'],random:random(33)}));
-  // Bounded Balanced seeds reaching density and AMRAP (S1 catalogue growth moved density to seed 5).
+  // Retain the established Balanced samples and a bounded current density witness.
+  // #407 moves density outside the original draws; protocol coverage stays complete.
   for (const seed of [5, 20]) workouts.push(G.generate({catalogue,duration:20,focus:'balanced',equipment:allEquipment,random:random(seed)}));
+  workouts.push(G.generate({catalogue,duration:30,focus:'balanced',equipment:allEquipment,random:random(144)}));
   return workouts;
 }
 const SAMPLE = generatedSample();

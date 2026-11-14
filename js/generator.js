@@ -1220,6 +1220,12 @@
         const safer=candidates.filter(ex=>ex.impact!=='high');
         if(safer.length)candidates=narrow(stages,'cardio-impact-recovery',candidates,safer);
       }
+      // Recovery attempts explore complete repeatable circuits, including the
+      // last-to-first edge. Never apply a cyclic check to an incomplete prefix.
+      if(state.hardCardioRecovery&&['rounds','timed_intervals'].includes(protocol)&&slot===count-1&&selected[0]?.impact==='high'){
+        const safer=candidates.filter(ex=>ex.impact!=='high');
+        if(safer.length)candidates=narrow(stages,'cardio-repeat-impact-recovery',candidates,safer);
+      }
       const allSelected=state.exercises.concat(selected);
       const scoreFor=(exercise,parts)=>{
         let score=scoreCandidate(exercise,desired,allSelected,focus,history,catalogue,parts)+credit(parts,'intent',scoreIntent(exercise,intent));
@@ -1840,16 +1846,36 @@
     'warmupAreas','kneeMobility','rampup','rampupPrescription','rampupEstimatedSeconds',
     'prepIntensity','prepFatigue','prepComplexity','cooldown','stretchTargets']);
   function familyMetadataDiffers(source, exercise) {
+    const history=root.GarageFitData&&root.GarageFitData.historicalExerciseDefinitions;
+    if(history&&history[source.id]===source)return !completeDefinitionMatches(source,exercise);
     return Object.keys(source).some(key=>!FAMILY_PREPARATION_FIELDS.has(key) &&
       // Older catalogue copies can predate an explicit relationship or difficulty.
       // Eligibility and quality always use today's canonical values for these fields.
       !(!source.main&&!source.generator&&['family','difficulty'].includes(key)&&exercise[key]==null&&source[key]!=null) &&
       JSON.stringify(source[key])!==JSON.stringify(exercise[key]));
   }
+  // Unmarked records predate catalogue v2. This recognises published definitions,
+  // not their origin: legacy storage contains no authenticated provenance (#407).
+  // A complete era is selected; fields from different eras are never combined.
+  function historicalCatalogue(record, catalogue, exercises) {
+    if(record.exerciseCatalogueVersion!=null)return catalogue;
+    const history=root.GarageFitData&&root.GarageFitData.historicalExerciseDefinitions||{};
+    if(!exercises.some(ex=>ex&&history[ex.id]&&catalogue[ex.id]&&['cardio','strength','difficulty','conditioning'].some(key=>catalogue[ex.id][key]!==ex[key])))return catalogue;
+    // A restricted catalogue remains restricted; history cannot add identities.
+    return Object.fromEntries(Object.entries(catalogue).map(([id,source])=>[id,history[id]||source]));
+  }
+  function completeDefinitionMatches(source, exercise) {
+    const keys=new Set([...Object.keys(source),...Object.keys(exercise)]);
+    // Preserve the existing independent preparation-evolution contract. Every
+    // Main descriptor (including extra keys) must match the complete era definition.
+    return [...keys].every(key=>FAMILY_PREPARATION_FIELDS.has(key)||JSON.stringify(source[key])===JSON.stringify(exercise[key]));
+  }
   function validateFamilyBlock(block, catalogue, owned) {
     if(block.familyContext==null)return [];
     catalogue=catalogue||root.GarageFitData&&root.GarageFitData.exercises||{};
     const issues=[],exercises=block.exercises||[];
+    if(block.exerciseCatalogueVersion!=null&&block.exerciseCatalogueVersion!==2)issues.push('family:unknown-catalogue-version');
+    if(Array.isArray(exercises))catalogue=historicalCatalogue(block,catalogue,exercises);
     if(!Array.isArray(exercises)||!exercises.length)return ['family:no-exercises'];
     for(const [index,exercise] of exercises.entries()){
       const source=catalogue[exercise&&exercise.id];
@@ -1928,6 +1954,19 @@
     return issues;
   }
 
+  // GF-META-R1: construction/edit rule for ordinary Generator output only.
+  // This is separate from the two-in-a-row score-credit limit, and deliberately
+  // absent from shared validation so legitimate saved/family/Coach plans still play.
+  function ordinaryBodyFocusRunIssues(blocks, bodyFocus) {
+    if(!['upper','lower','core'].includes(bodyFocus))return [];
+    let run=0;
+    for(const exercise of blocks.flatMap(block=>block.exercises)){
+      run=exercise.bodyFocus===bodyFocus?run+1:0;
+      if(run>4)return ['main:body-focus-run'];
+    }
+    return [];
+  }
+
   function composeMain(catalogue, eligible, budget, duration, focus, owned, history, rest, random, difficulty, bodyFocus, recentProtocols, captureAlternatives) {
     const attempts=[],reserve=[],hardCardio=focus==='cardio'&&difficulty==='hard';
     const diversityTarget=EQUIPMENT_DIVERSITY[duration]||EQUIPMENT_DIVERSITY[20];
@@ -1942,7 +1981,7 @@
     for(let attempt=0;attempt<10||(!attempts.length&&attempt<20)
       ||(hardCardio&&attempt<HARD_CARDIO_POLICY.maxAttempts&&!attempts.some(item=>item.challenge.suitable&&item.challenge.highImpactAdjacency===0&&Math.abs(item.estimated-budget.main)<=mainDurationTolerance(budget.main)));attempt++){
       const count=chooseBlockCount(duration,eligible.length,random),intents=chooseIntents(focus,count,random);
-      const state={exercises:[],usedIds:new Set(),equipmentUsage:new Map(),blocks:[],owned,diversityTarget,supportingRoute,difficulty,bodyFocus,duration,recentProtocols,hardCardio};
+      const state={exercises:[],usedIds:new Set(),equipmentUsage:new Map(),blocks:[],owned,diversityTarget,supportingRoute,difficulty,bodyFocus,duration,recentProtocols,hardCardio,hardCardioRecovery:hardCardio&&attempt>=10};
       let remaining=budget.main;
       for(let index=0;index<count;index++){
         const blocksLeft=count-index;
@@ -1968,7 +2007,7 @@
       const estimated=mainSeconds(state.blocks,owned);
       const varietyCredit=protocolVarietyCredit(state.blocks,budget.main);
       const issues=validateMain({blocks:state.blocks},catalogue,owned,budget.main);
-      const varietyIssues=mainVarietyIssues(state.blocks,duration,eligible);
+      const varietyIssues=mainVarietyIssues(state.blocks,duration,eligible).concat(ordinaryBodyFocusRunIssues(state.blocks,bodyFocus));
       const malformed=issues.filter(issue=>issue!=='main:duration-out-of-tolerance').concat(varietyIssues);
       // The equipment-diversity minimum is a preference. An attempt that misses only it is kept
       // in reserve (see below) instead of being discarded outright.
@@ -2015,7 +2054,21 @@
     // route must not displace an attempt that fits with an underfilled one.
     const fitting=pool.filter(fits);
     if(fitting.length)pool=fitting;
-    const chosen=pool.find(item=>item.routeFilled)||pool[0];
+    let chosen=pool.find(item=>item.routeFilled)||pool[0];
+    // Multiple five-set pairs must not collectively dominate Main. Recover from
+    // existing valid attempts, retaining the separate tiny-loop protection and
+    // any drawn supporting route. Single primary pairs keep their existing rank.
+    const excessivePairedShare=item=>{
+      const pairs=item.blocks.filter(block=>block.protocol==='paired_sets'&&blockRepeatCount(block)>=5);
+      const total=item.blocks.reduce((sum,block)=>sum+estimateBlockDuration(block),0);
+      return pairs.length>1&&pairs.reduce((sum,block)=>sum+estimateBlockDuration(block),0)>total*.55;
+    };
+    if(chosen&&excessivePairedShare(chosen)){
+      const recovered=pool.find(item=>!excessivePairedShare(item)&&(!chosen.routeFilled||item.routeFilled)&&item.blocks.every(block=>
+        ['paired_sets','ladder','pyramid'].includes(block.protocol)||block.exercises.length>3||
+        (block.protocol==='emom'?Math.ceil(blockRepeatCount(block)/block.exercises.length):blockRepeatCount(block))<5));
+      if(recovered)chosen=recovered;
+    }
     if(activeTrace)activeTrace({type:'main-result',attempt:chosen?chosen.attempt:null,supportingRoute});
     if(chosen){
       // Setup fitting may use a diversity-only reserve before deleting a whole
@@ -3324,11 +3377,14 @@
       entry=familyEntry(definition);
     }catch(error){technicalIssues.push('identity:'+(error.code||'invalid'));return result();}
     if(!entry){technicalIssues.push('identity:family-composer-unavailable');return result();}
-    const catalogue=options.catalogue||root.GarageFitData&&root.GarageFitData.exercises;
+    let catalogue=options.catalogue||root.GarageFitData&&root.GarageFitData.exercises;
     const owned=options.equipment||workout.setupEquipment||[],duration=workout.duration,difficulty=workout.difficulty;
     if(!catalogue){technicalIssues.push('catalogue:unavailable');return result();}
     if(!definition.feasibilityRequirements.supportedDurations.includes(duration)||!definition.feasibilityRequirements.supportedDifficulties.includes(difficulty))
       technicalIssues.push('configuration:unsupported');
+    if(workout.exerciseCatalogueVersion!=null&&workout.exerciseCatalogueVersion!==2)technicalIssues.push('catalogue:unknown-version');
+    if(mainBlocks(workout).some(block=>block.exerciseCatalogueVersion!==workout.exerciseCatalogueVersion))technicalIssues.push('catalogue:block-version-mismatch');
+    catalogue=historicalCatalogue(workout,catalogue,[...mainBlocks(workout).flatMap(block=>block.exercises||[]),...['warmup','rampup','cooldown'].flatMap(section=>workout[section]&&workout[section].exercises||[])]);
     // Use canonical relationship/difficulty enrichment for validation without rewriting
     // saved occurrences or their prescriptions. Missing old descriptors cannot bypass caps.
     const sourceBlocks=mainBlocks(workout);
@@ -3483,8 +3539,8 @@
       const empty=()=>({exercises:[],restSeconds:0,estimatedSeconds:0});
       // Only composers that fill the traditional Main budget honour the reservation.
       const placed=bench&&result.generalPreparation!=null?[jsonCopy(bench),...result.blocks]:result.blocks;
-      const assemble=sections=>normaliseWorkout({schemaVersion:2,id:'generated-'+Date.now(),...identity,
-        duration,difficulty,focus:'balanced',setupEquipment:owned.slice(),...sections,main:{blocks:result.generalPreparation==null?result.blocks:JSON.parse(JSON.stringify(placed))}});
+      const assemble=sections=>normaliseWorkout({schemaVersion:2,exerciseCatalogueVersion:2,id:'generated-'+Date.now(),...identity,
+        duration,difficulty,focus:'balanced',setupEquipment:owned.slice(),...sections,main:{blocks:(result.generalPreparation==null?result.blocks:JSON.parse(JSON.stringify(placed))).map(block=>({...block,exerciseCatalogueVersion:2}))}});
       let workout;
       if(result.generalPreparation==null){
         workout=assemble({warmup:empty(),rampup:empty(),cooldown:empty()});
@@ -3663,6 +3719,8 @@
     const ownTarget=block.protocol==='complex'?complexDefaultTarget:block.protocol==='amrap'?amrapDefaultTarget:null;
     const replaced=exercise=>({...block,exercises:block.exercises.map((item,index)=>index===exerciseIndex?exercise:item),
       ...(ownTarget?{prescription:{...block.prescription,targets:block.prescription.targets.map((target,index)=>index===exerciseIndex?ownTarget(exercise):target)}}:{})});
+    if(workout.workoutFamilyId==null&&!workout.sessionPrescription)eligible=eligible.filter(exercise=>
+      !ordinaryBodyFocusRunIssues(blocks.map(item=>item===block?replaced(exercise):item),bodyFocus).length);
     if(block.familyContext!=null)eligible=eligible.filter(exercise=>!validateFamilyBlock(replaced(exercise),catalogue,owned).length);
     eligible=eligible.filter(exercise=>blockSetupCompatible(replaced(exercise),catalogue,owned));
     const prospective=exercise=>setupBudgetCandidate({...workout,setupEquipment:owned},blocks.map(item=>item===block?replaced(exercise):item));

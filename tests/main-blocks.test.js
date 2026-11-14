@@ -10,6 +10,15 @@ const catalogue = GarageFitData.exercises;
 const allEquipment = ['dumbbells','kettlebell','pullup-bar','trx','barbell','bench','box','bands'];
 function random(seed) { return () => { seed=(seed*1664525+1013904223)>>>0; return seed/4294967296; }; }
 function repeatsPerExercise(block){return block.protocol==='emom'?Math.ceil(block.prescription.minutes/block.exercises.length):GarageFitGenerator.blockRepeatCount(block)}
+function mainWorkShares(blocks){
+  let total=0,supporting=0;
+  for(const block of blocks)for(const step of GarageFitGenerator.resolveBlockSteps(block))if(step.kind==='exercise'){
+    const exercise=block.exercises[step.exerciseIndex],seconds=step.seconds??step.estimatedSeconds??exercise.estimatedSeconds;
+    total+=seconds;
+    if(exercise.mainRole==='supporting')supporting+=seconds;
+  }
+  return {total,supporting,share:total?supporting/total:0};
+}
 function create(options={}) {
   return GarageFitGenerator.generate(Object.assign({
     catalogue,duration:30,focus:'balanced',equipment:allEquipment,random:random(42)
@@ -232,7 +241,7 @@ test('a constrained Main pool remains playable and may use extended repetition',
   assert.equal(GarageFitGenerator.validateMain(workout.main,constrainedCatalogue,[],GarageFitGenerator.BUDGETS[20].main).filter(issue=>issue!=='main:duration-out-of-tolerance').length,0);
 });
 
-test('supporting conditioning movements remain selectable but are penalised when repeatedly prominent',()=>{
+test('supporting conditioning work remains selectable and a minority of planned Main work',()=>{
   const jumping=catalogue['jumping-jacks'];
   assert.equal(jumping.mainRole,'supporting');
   const state={exercises:[],usedIds:new Set(),blocks:[],owned:[]};
@@ -243,11 +252,28 @@ test('supporting conditioning movements remain selectable but are penalised when
   const primaryBlock={protocol:'timed_intervals',exercises:peers.concat(Object.assign({},jumping,{mainRole:'primary'})),prescription:{cycles:5,workSeconds:30,transitionSeconds:15}};
   assert.ok(GarageFitGenerator.mainQualityPenalty([supportingBlock],870,20)>GarageFitGenerator.mainQualityPenalty([primaryBlock],870,20));
 
-  for(let seed=1;seed<=80;seed++)for(const block of create({duration:20,focus:'cardio',random:random(seed)}).main.blocks){
-    if(!block.exercises.some(exercise=>exercise.id==='jumping-jacks'))continue;
-    const repeats=repeatsPerExercise(block);
-    assert.ok(repeats<=3||block.protocol==='paired_sets',seed+': jumping-jacks x'+repeats);
+  for(let seed=1;seed<=80;seed++){
+    const workout=create({duration:20,focus:'cardio',random:random(seed)}),shares=mainWorkShares(workout.main.blocks);
+    assert.ok(shares.share<0.5,seed+': supporting work '+shares.supporting+'/'+shares.total);
   }
+  const fixture=create({duration:20,focus:'cardio',random:random(23)}),shares=mainWorkShares(fixture.main.blocks);
+  const jumpingSteps=fixture.main.blocks.flatMap(block=>GarageFitGenerator.resolveBlockSteps(block)
+    .filter(step=>step.kind==='exercise'&&block.exercises[step.exerciseIndex].id==='jumping-jacks'));
+  assert.equal(jumpingSteps.length,4);
+  assert.equal(shares.supporting,120);
+  assert.equal(shares.total,556);
+  assert.ok(shares.share<0.5);
+});
+
+test('supporting work above half of resolved Main exercise time fails the share guard',()=>{
+  const supportsUnderHalf=blocks=>mainWorkShares(blocks).share<0.5;
+  const primary=Object.assign(synthetic('primary','squat'),{mainRole:'primary'}),primaryTwo=Object.assign(synthetic('primary-two','push'),{mainRole:'primary'});
+  const supporting=Object.assign({},catalogue['jumping-jacks']);
+  const compliant={protocol:'rounds',exercises:[primary,primaryTwo,supporting],prescription:{rounds:2,exerciseRestSeconds:0,roundRestSeconds:0}};
+  const shortPrimary=Object.assign({},primary,{id:'short-primary',estimatedSeconds:10});
+  const excessive={protocol:'rounds',exercises:[shortPrimary,supporting],prescription:{rounds:2,exerciseRestSeconds:0,roundRestSeconds:0}};
+  assert.equal(supportsUnderHalf([compliant]),true);
+  assert.equal(supportsUnderHalf([excessive]),false);
 });
 
 // Workout Patterns 0 (#75): protocol contracts on both composition paths. See

@@ -26,7 +26,7 @@ test('the batch entries match the approved metadata',()=>{
   assert.deepEqual([ds.patterns,ds.conditioning,ds.strength,ds.cardio,ds.impact,ds.sidedness,ds.movementPlanes],[['hinge'],true,4,4,'medium','alternating',['sagittal']]);
   assert.deepEqual(ds.prescription,{type:'reps',value:12});
   assert.ok(ds.mainProtocols.includes('timed_intervals'));
-  assert.deepEqual([rr.patterns,rr.conditioning,rr.strength,rr.cardio,rr.impact,rr.sidedness,rr.bodyPosition,rr.movementPlanes],[['pull','core'],false,4,2,'low','alternating','floor',['sagittal','transverse']]);
+  assert.deepEqual([rr.patterns,rr.conditioning,rr.strength,rr.cardio,rr.impact,rr.sidedness,rr.bodyPosition,rr.movementPlanes],[['pull','core'],false,4,3,'low','alternating','floor',['sagittal','transverse']]);
   assert.deepEqual(rr.prescription,{type:'reps',value:12});
   assert.equal(rr.estimatedSeconds,40);
   assert.deepEqual(rr.mainProtocols,['rounds','paired_sets']);
@@ -38,7 +38,7 @@ test('the batch entries match the approved metadata',()=>{
   assert.deepEqual(cs.rampupPrescription,{type:'timed',value:25,minValue:20,maxValue:35});
   assert.deepEqual([cs.prepIntensity,cs.prepFatigue,cs.prepComplexity],[3,2,3]);
   assert.deepEqual(sk.equipment,[]);
-  assert.deepEqual([sk.patterns,sk.conditioning,sk.strength,sk.cardio,sk.impact,sk.sidedness,sk.bodyPosition,sk.movementPlanes,sk.mainRole],[[],true,1,5,'high','alternating','standing',['sagittal'],'supporting']);
+  assert.deepEqual([sk.patterns,sk.conditioning,sk.strength,sk.cardio,sk.impact,sk.sidedness,sk.bodyPosition,sk.movementPlanes,sk.mainRole],[[],true,1,4,'high','alternating','standing',['sagittal'],'supporting']);
   assert.deepEqual(sk.prescription,{type:'timed',value:30});
   assert.ok(sk.mainProtocols.includes('timed_intervals'));
   assert.deepEqual(sk.rampupPrescription,{type:'timed',value:30,minValue:25,maxValue:35});

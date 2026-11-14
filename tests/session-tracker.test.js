@@ -98,7 +98,10 @@ test('occurrence ids come from timeline structure, never display text', () => {
 function appWithWorkout(options = {}) {
   const storage = new Map();
   const app = loadAppContext(storage, {ownIntrinsics: true});
-  app.playerFixtureCatalogue=require('./helpers/coach-fixtures').catalogueBeforeAB2(app.GarageFitData.exercises);
+  const fixtures=require('./helpers/coach-fixtures');
+  // Keep the original linear-player metadata input; live cap-clock behavior is
+  // covered separately by the current-catalogue AMRAP and density suites.
+  app.playerFixtureCatalogue=fixtures.catalogueBeforeAB2(fixtures.catalogueBeforeMetadata407(app.GarageFitData.exercises));
   if (options.rampupUi !== false) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'rampup-ui.js'), 'utf8'), app, {filename: 'js/rampup-ui.js'});
   const intervals = new Map(); let nextInterval = 1;
   vm.runInContext('var timerNow=Date.now();Date.now=()=>timerNow',app);
