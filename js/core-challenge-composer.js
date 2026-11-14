@@ -153,10 +153,10 @@
       const rest=ROUNDS_REST[ctx.difficulty],sizes={10:[3],15:[3,4],20:[4,5],30:[4,5],45:[5,6]}[ctx.duration],minimumRounds=ctx.duration>=20?4:3;
       const ok=ex=>ex.load!=='Heavy'&&ex.strength<5&&(ex.impact!=='high'||ctx.difficulty==='hard')&&ex.estimatedSeconds<=60;
       const attempts=counts(ctx.target,1200,330).filter(count=>count<=2).flatMap(count=>sizes.map(size=>({count,size})));
-      const buildRound=({count,size})=>challengeAccept(ctx,sequence(ctx,count,(index,share,state)=>{
+      return bestOf(attempts,({count,size})=>challengeAccept(ctx,sequence(ctx,count,(index,share,state)=>{
         const exercises=[];
         for(let slot=0;slot<size;slot++) {
-          const ex=choose(ctx,state,exercises,WHOLE[slot%4],'rounds','conditioning',ex=>ok(ex)&&impactSafe(exercises.concat(ex),minimumRounds));
+          const ex=choose(ctx,state,exercises,WHOLE[slot%4],'rounds','conditioning',ok);
           if(!ex)return null;
           exercises.push(ex);
         }
@@ -167,11 +167,7 @@
         const usable=candidates.filter(item=>impactSafe(exercises,item.prescription.rounds));
         const fit=fitted(ctx,'rounds','conditioning',exercises,usable,share);
         return fit&&{estimate:fit.estimate,block:blockOf('rounds','conditioning',exercises,fit.prescription,rounded(fit.prescription))};
-      }),exposure);
-      // Large circuits may not fit even at the minimum dose. Try smaller
-      // published circuit sizes only after the original plans are exhausted.
-      return bestOf(attempts,buildRound)||bestOf(counts(ctx.target,1200,330).filter(count=>count<=2)
-        .flatMap(count=>[3,4].filter(size=>!sizes.includes(size)).map(size=>({count,size}))),buildRound);
+      }),exposure));
     },
     // Whole minutes rotating upper, lower and core work; every minute leaves recovery inside it.
     emom:(ctx,exposure)=>{

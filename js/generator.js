@@ -1220,15 +1220,6 @@
         const safer=candidates.filter(ex=>ex.impact!=='high');
         if(safer.length)candidates=narrow(stages,'cardio-impact-recovery',candidates,safer);
       }
-      // If ordinary attempts miss Hard Cardio adequacy, search the same eligible
-      // pool through its credible conditioning candidates. All prior safety,
-      // setup and fatigue filters still apply; infeasible pools keep their fallback.
-      if(state.cardioRecoverySearch){
-        const fresh=candidates.filter(ex=>!state.usedIds.has(ex.id));
-        if(fresh.length)candidates=narrow(stages,'cardio-fresh-work',candidates,fresh);
-        const credible=candidates.filter(ex=>!state.usedIds.has(ex.id)&&ex.conditioning&&ex.cardio>=HARD_CARDIO_POLICY.cardioDemand);
-        if(credible.length)candidates=narrow(stages,'cardio-recovery-search',candidates,credible);
-      }
       const allSelected=state.exercises.concat(selected);
       const scoreFor=(exercise,parts)=>{
         let score=scoreCandidate(exercise,desired,allSelected,focus,history,catalogue,parts)+credit(parts,'intent',scoreIntent(exercise,intent));
@@ -1680,10 +1671,6 @@
       penalty+=repetitionPenalty(block.protocol,block.exercises,repeats,false);
       const repeatedSupporting=block.exercises.filter(exercise=>exercise.mainRole==='supporting').length*Math.max(0,repeats-1);
       penalty+=repeatedSupporting*24;
-      // Supporting drills may recur, but a long repeated exposure should lose
-      // to a fitting candidate with a shorter supporting dose.
-      if(!['paired_sets','ladder','pyramid'].includes(block.protocol))
-        penalty+=block.exercises.filter(ex=>ex.mainRole==='supporting').length*Math.max(0,repeats-3)*120;
       // Pyramid volume is bounded in actual reps/work seconds, so five small steps
       // must not be scored as five full catalogue sets of a tiny straight-set loop.
       if(!['pyramid','complex'].includes(block.protocol)&&block.exercises.length<=3&&repeats>3)penalty+=(repeats-3)*70;
@@ -1988,7 +1975,7 @@
     for(let attempt=0;attempt<10||(!attempts.length&&attempt<20)
       ||(hardCardio&&attempt<HARD_CARDIO_POLICY.maxAttempts&&!attempts.some(item=>item.challenge.suitable&&item.challenge.highImpactAdjacency===0&&Math.abs(item.estimated-budget.main)<=mainDurationTolerance(budget.main)));attempt++){
       const count=chooseBlockCount(duration,eligible.length,random),intents=chooseIntents(focus,count,random);
-      const state={exercises:[],usedIds:new Set(),equipmentUsage:new Map(),blocks:[],owned,diversityTarget,supportingRoute,difficulty,bodyFocus,duration,recentProtocols,hardCardio,cardioRecoverySearch:hardCardio&&attempt>=10};
+      const state={exercises:[],usedIds:new Set(),equipmentUsage:new Map(),blocks:[],owned,diversityTarget,supportingRoute,difficulty,bodyFocus,duration,recentProtocols,hardCardio};
       let remaining=budget.main;
       for(let index=0;index<count;index++){
         const blocksLeft=count-index;
