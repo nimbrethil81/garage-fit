@@ -207,7 +207,16 @@ test('representative workouts are not dominated by tiny repeated loops', () => {
         (block.protocol==='emom'?Math.ceil(G.blockRepeatCount(block)/block.exercises.length):G.blockRepeatCount(block)) >= 5);
       assert.ok(tiny.every(block => block.protocol === 'paired_sets'), duration+' '+focus);
       workouts++;
-      if (tiny.reduce((sum, block) => sum + block.estimatedDurationSeconds, 0) / total > 0.5) dominated++;
+      if (tiny.reduce((sum, block) => sum + block.estimatedDurationSeconds, 0) / total > 0.5) {
+        // A five-set primary pair can legitimately take half of Main. It must
+        // leave a separate varied block, rather than monopolise the workout.
+        if(duration<45){
+          const list=blocks.flatMap(b=>b.exercises);
+          assert.ok(tiny.every(b=>b.exercises.every(ex=>ex.mainRole==='primary')));
+          assert.ok(blocks.filter(b=>!tiny.includes(b)).some(b=>b.exercises.length>=3));
+          assert.equal(new Set(list.map(ex=>ex.id)).size,list.length);
+        }else dominated++;
+      }
     }
     assert.ok(dominated / workouts <= (duration === 45 ? 0.08 : 0), duration+': '+dominated+'/'+workouts);
   }

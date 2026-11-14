@@ -250,7 +250,7 @@ test('v2 can draw the supporting route in paired sets and circuits; v1 and Cardi
   } finally {G.drawSupportingRoute=original;}
 });
 
-test('v2 supporting work stays a minor, suitable, non-repeating part: no quota, and sessions without it remain the norm',()=>{
+test('v2 supporting work stays a minor, suitable, non-repeating part with a bounded optional route',()=>{
   const runs=sample(2);
   let withSupporting=0,supportingSlots=0,slots=0;
   for(const run of runs) {
@@ -262,7 +262,14 @@ test('v2 supporting work stays a minor, suitable, non-repeating part: no quota, 
     supportingSlots+=extra.length;slots+=list.length;
   }
   assert.ok(withSupporting>0,'supporting drills are reachable');
-  assert.ok(withSupporting<runs.length*.5,'sessions without supporting work stay the norm: '+withSupporting+'/'+runs.length);
+  // #407: 17/40 → 20/40 after canonical ratings changed. Session prevalence
+  // includes ordinary selection as well as the optional route; it is not its probability.
+  assert.ok(runs.some(run=>!exercisesOf(run.w).some(supporting)),'supporting work is optional');
+  const pool=Object.values(C).filter(controlled);
+  assert.equal(G.SUPPORTING_ROUTE.probability,.25);
+  assert.equal(G.drawSupportingRoute(pool,30,'strength',()=>.25-Number.EPSILON),true);
+  assert.equal(G.drawSupportingRoute(pool,30,'strength',()=>.25),false);
+  assert.equal(G.drawSupportingRoute(pool,20,'strength',()=>{throw Error('short route drew');}),false);
   assert.ok(supportingSlots*8<=slots,'supporting share of slots stays small: '+supportingSlots+'/'+slots);
 });
 

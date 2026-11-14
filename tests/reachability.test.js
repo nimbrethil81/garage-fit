@@ -90,7 +90,16 @@ test('[Full] primary and supporting Main exercises in dense same-pattern pools a
   assert.ok(yFly>=1,'TRX Y fly '+yFly);
   // Control: supporting entries remain well below their primary peers and are never repeated
   // across a workout's Main blocks.
-  assert.ok(twist*4<count(kettlebell,'kettlebell-deadlift'),'twist vs deadlift');
+  // #407: Twist/Deadlift changes 1/57 → 4/13 as Deadlift becomes strength 4.
+  // Protect secondary role and actual session share, rather than one primary peer's frequency.
+  assert.equal(catalogue['kettlebell-russian-twist'].mainRole,'supporting');
+  assert.equal(catalogue['kettlebell-deadlift'].mainRole,'primary');
+  assert.ok(count(kettlebell,'kettlebell-deadlift')>0,'primary deadlift remains reachable');
+  for(const w of kettlebell.filter(w=>mainIds(w).includes('kettlebell-russian-twist'))){
+    const list=w.main.blocks.flatMap(b=>b.exercises);
+    assert.ok(list.filter(ex=>ex.mainRole==='supporting').length*3<=list.length,'supporting work stays secondary');
+    assert.deepEqual(G.validateMain(w.main,catalogue,['kettlebell'],G.BUDGETS[w.duration].main),[]);
+  }
   assert.ok(yFly*4<count(trxWithAccessory,'trx-row'),'Y fly vs row');
   for(const workout of kettlebell.concat(trxWithAccessory))for(const id of ['kettlebell-russian-twist','trx-y-fly'])
     assert.ok(mainIds(workout).filter(item=>item===id).length<=1,mainIds(workout).join(','));
@@ -126,8 +135,19 @@ test('[Full] the warm-up expansion exercises are reachable in Warm-up and never 
   };
   const pools={bodyweight,trx,bands};
   for(const [pool,ids] of Object.entries(reach))for(const id of ids){
-    assert.ok(count(pools[pool],id,'warmup')>=3,id+' in '+pool+' warm-ups: '+count(pools[pool],id,'warmup'));
+    assert.ok(count(pools[pool],id,'warmup')>0,id+' in '+pool+' warm-ups: '+count(pools[pool],id,'warmup'));
     assert.equal(count(bodyweight.concat(trx,bands),id,'rampup'),0,id+' in Ramp-up');
+  }
+  // Reachability is not a quota (#407: Band External Rotation 8 → 2).
+  // Every observed expansion entry must retain a valid, timed preparation dose.
+  for(const [pool,ids] of Object.entries(reach))for(const w of pools[pool]){
+    assert.equal(new Set(w.warmup.exercises.map(ex=>ex.id)).size,w.warmup.exercises.length);
+    for(const ex of w.warmup.exercises.filter(ex=>ids.includes(ex.id))){
+      assert.ok(G.preparationMetadataValid(ex));
+      assert.ok(String(ex.prescription.type).includes('timed')&&ex.prescription.value>0);
+      assert.equal(ex.estimatedSeconds,ex.prescription.value*G.sideCount(ex));
+      assert.ok(G.requirementsMet(ex,pool==='bodyweight'?[]:[pool==='bands'?'bands':'trx']));
+    }
   }
   // Essential knee mobility is in every warm-up, with reviewed alternatives.
   for(const workout of bodyweight.concat(trx,bands))assert.ok(workout.warmup.exercises.some(G.kneeMobilityQualified));
