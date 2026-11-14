@@ -77,6 +77,8 @@ Pull requests targeting `main` (including drafts) run the Fast test command on a
 Ubuntu runner with Node.js 22. Find its status in the pull request's **Checks** tab or the
 repository's **Actions** page. The check reports both the PR head and the prospective merge
 commit it tested. Superseded runs for the same PR are cancelled; other PRs run independently.
+The workflows use the official `actions/checkout`, `actions/setup-node`, and
+`actions/upload-artifact` actions at their stable `@v4` major-version tags.
 The 40-minute limit is provisional: the previously observed Fast runtime was about 26 minutes
 in Codex's environment, and the actual GitHub-hosted baseline still needs measurement.
 
