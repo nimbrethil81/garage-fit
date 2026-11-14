@@ -475,3 +475,84 @@ review; the complete Fast suite is not green and #407 is not complete. No Stage
 B–D implementation, final Full/audit run or independent final review is claimed.
 PR #408 remains draft. No merge, auto-merge, deployment or issue closure is authorised.
 FAQ reviewed — no changes required. No customer-facing copy changed.
+
+## GF-META Stage B — Hard Cardio composition reliability (14 November 2026)
+
+Owner accepted A2 and separately authorised Stage B: one initial implementation
+attempt and at most one correction. Starting head and remote PR head both matched
+`22d5f214cff06d8abb85516813d66e927db3cd6d`; main remained
+`f36fe20e7f113f6bb084f2d351bd755c8a48887e`. PR #408 was open and draft.
+The completed A2 Fast evidence above supplied the baseline failure; no expensive
+baseline suite was rerun for diagnosis.
+
+### Diagnosis and bounded change
+
+All eight failing bodyweight contexts exhausted 40 attempts. Traced candidates
+often met the intensity requirements but failed safety at a repeated block's
+last-to-first playback edge. For example, 10-minute seed 169 constructed Squat
+jumps → Mountain climbers → Skater jumps for three interval cycles: adequate
+cardio demand but two high-impact wraparound adjacencies. The existing adjacent
+selection filter only protected consecutive picks within the exercise list.
+Ranking correctly preferred safer, lower-intensity candidates; changing ranking
+would not create a safe compliant candidate.
+
+Recovery attempts 11–40 now consider the closing edge while constructing the
+final slot of rounds and timed-interval blocks. If the first movement is high
+impact, existing non-high-impact candidates are preferred for the final slot when
+available. The check is never applied to an incomplete prefix. The initial ten
+attempts, exercise scoring, shortlist size, other filters, prescription fitting,
+quality ranking and 40-attempt maximum are unchanged. This creates viable
+candidates rather than reordering the same completed candidates or increasing
+the budget. It is restricted to ordinary Hard Cardio recovery construction;
+published families and prescribed Coach construction retain their existing paths.
+
+No canonical metadata, thresholds, preparation policy, fallback contract or copy
+changed. Intensity-infeasible pools retain honest unsuitable fallback. No #402
+redesign or rejected R2 global scoring change is included.
+
+### Eight original failures after the repair
+
+All eight have zero high-impact adjacency, zero quality deficit, valid Main and
+seeded determinism. Working-time metrics use resolved occurrences.
+
+| Minutes | LCG seed | Cardio demand | Conditioning share | Maximum weak work (s) |
+| --- | --- | --- | --- | --- |
+| 10 | 169 | 4.0000 | 0.6667 | 30 |
+| 15 | 333 | 4.0000 | 0.6667 | 45 |
+| 15 | 386 | 4.0000 | 0.6667 | 45 |
+| 30 | 242 | 3.8095 | 0.6667 | 45 |
+| 30 | 295 | 3.8367 | 0.6531 | 45 |
+| 45 | 98 | 3.8600 | 0.7200 | 45 |
+| 45 | 257 | 4.0000 | 0.6667 | 45 |
+| 45 | 416 | 4.0192 | 0.7115 | 45 |
+
+Supporting work is a minority in all eight final plans (0–33.3%). Added focused
+coverage asserts unchanged numerical requirements, attempt bounds, closing-edge
+recovery only after ten attempts, Main validation and identical workouts with
+and without tracing. The original 120-case matrix and all its assertions remain
+unchanged and pass, including protocol diversity.
+
+### Validation and disposition
+
+- Primary focused suites (difficulty, Generator quality/regressions, supersets,
+  Main blocks, P1 preparation expansion, preparation repetition, supporting route):
+  **118 passed, 0 failed**, exit 0, approximately 227 seconds.
+- Additional Coach characterisation/prescription, protocol contracts, body focus
+  and workout-family suites: **76 passed, 0 failed**, exit 0, approximately 88 seconds.
+- Prescribed Fast command: `node --test --test-skip-pattern='\[Full\]' tests/*.test.js`:
+  **1,492 passed, 1 failed**, exit 1, approximately 1,070 seconds.
+- Sole Fast failure: `tests/strength-cardio-composer.test.js:458`, S1 secondary
+  family quality fixture; unchanged `family-not-feasible` for constrained
+  45-minute Full-Body Challenges v1. This is the isolated Stage C blocker.
+  Fast is not green; no new Stage B regression remains.
+- Stage A2's seed-267 recovery, seed-104 primary pair, Jumping Jacks work-share
+  allowance and Four-square steps route/original-context tests pass unchanged.
+- `git diff --check` passes. Workspace logs and exit files are
+  `/tmp/407-b-focused.log`, `/tmp/407-b-contracts.log`, `/tmp/407-b-fast.log`.
+
+Stage B's intermediate regression gate is satisfied. Budget used: **one initial
+implementation attempt, zero corrective attempts**. No Stage C/D implementation,
+final Full/reachability audit or independent final review is claimed. Those remain
+for separately authorised continuation. PR #408 must remain open, draft and
+unmerged. No auto-merge, deployment or issue closure is authorised.
+FAQ reviewed — no changes required. No customer-facing copy changed.

@@ -241,3 +241,30 @@ test('Hard Cardio remains playable with low-impact-only and intensity-infeasible
     assert.ok(workout.warmup.exercises.length&&workout.rampup.exercises.length&&workout.cooldown.exercises.length);
   }
 });
+
+test('#407 Hard Cardio recovery closes repeated blocks safely within the existing attempt bound',()=>{
+  const cases=[[10,169],[15,333],[15,386],[30,242],[30,295],[45,98],[45,257],[45,416]];
+  let closingRecoveries=0;
+  for(const [duration,seed] of cases){
+    let attempts=0;
+    const options={catalogue,duration,focus:'cardio',difficulty:'hard',equipment:[]};
+    const workout=G.generate({...options,random:random(seed),trace:event=>{
+      if(event.type==='main-attempt')attempts++;
+      if(event.type==='pick'&&event.stages?.some(stage=>stage.label==='cardio-repeat-impact-recovery')){
+        assert.ok(attempts>=10,'the original ten attempts keep their construction');
+        assert.notEqual(event.picked.impact,'high');
+        closingRecoveries++;
+      }
+    }});
+    const quality=G.cardioChallenge(workout.main.blocks),label=`${duration}m seed ${seed}`;
+    assert.ok(attempts<=40,label);
+    assert.ok(quality.cardioDemand>=3.8,label);
+    assert.ok(quality.conditioningShare>=.65,label);
+    assert.ok(quality.maxWeakSeconds<=60,label);
+    assert.equal(quality.highImpactAdjacency,0,label);
+    assert.equal(quality.suitable,true,label);
+    assert.deepEqual(G.validateMain(workout.main,catalogue,[],G.BUDGETS[duration].main),[],label);
+    assert.deepEqual(withoutId(G.generate({...options,random:random(seed)})),withoutId(workout),label+' deterministic with or without tracing');
+  }
+  assert.ok(closingRecoveries>0,'the regression exercises closing-edge recovery');
+});

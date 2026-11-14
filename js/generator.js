@@ -1220,6 +1220,12 @@
         const safer=candidates.filter(ex=>ex.impact!=='high');
         if(safer.length)candidates=narrow(stages,'cardio-impact-recovery',candidates,safer);
       }
+      // Recovery attempts explore complete repeatable circuits, including the
+      // last-to-first edge. Never apply a cyclic check to an incomplete prefix.
+      if(state.hardCardioRecovery&&['rounds','timed_intervals'].includes(protocol)&&slot===count-1&&selected[0]?.impact==='high'){
+        const safer=candidates.filter(ex=>ex.impact!=='high');
+        if(safer.length)candidates=narrow(stages,'cardio-repeat-impact-recovery',candidates,safer);
+      }
       const allSelected=state.exercises.concat(selected);
       const scoreFor=(exercise,parts)=>{
         let score=scoreCandidate(exercise,desired,allSelected,focus,history,catalogue,parts)+credit(parts,'intent',scoreIntent(exercise,intent));
@@ -1975,7 +1981,7 @@
     for(let attempt=0;attempt<10||(!attempts.length&&attempt<20)
       ||(hardCardio&&attempt<HARD_CARDIO_POLICY.maxAttempts&&!attempts.some(item=>item.challenge.suitable&&item.challenge.highImpactAdjacency===0&&Math.abs(item.estimated-budget.main)<=mainDurationTolerance(budget.main)));attempt++){
       const count=chooseBlockCount(duration,eligible.length,random),intents=chooseIntents(focus,count,random);
-      const state={exercises:[],usedIds:new Set(),equipmentUsage:new Map(),blocks:[],owned,diversityTarget,supportingRoute,difficulty,bodyFocus,duration,recentProtocols,hardCardio};
+      const state={exercises:[],usedIds:new Set(),equipmentUsage:new Map(),blocks:[],owned,diversityTarget,supportingRoute,difficulty,bodyFocus,duration,recentProtocols,hardCardio,hardCardioRecovery:hardCardio&&attempt>=10};
       let remaining=budget.main;
       for(let index=0;index<count;index++){
         const blocksLeft=count-index;
