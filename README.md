@@ -79,8 +79,10 @@ repository's **Actions** page. The check reports both the PR head and the prospe
 commit it tested. Superseded runs for the same PR are cancelled; other PRs run independently.
 The workflows use the official `actions/checkout`, `actions/setup-node`, and
 `actions/upload-artifact` actions at their stable `@v4` major-version tags.
-The 40-minute limit is provisional: the previously observed Fast runtime was about 26 minutes
-in Codex's environment, and the actual GitHub-hosted baseline still needs measurement.
+The Fast job has a configured 40-minute timeout; this is an upper limit, not its expected runtime.
+The latest measured GitHub-hosted Fast run took 384.9 seconds (about 6 minutes 25 seconds), with
+1,476 tests passing. A prior run in Codex's environment took about 26 minutes, so runtimes can
+vary by environment.
 
 To run deeper checks, open **Actions → PickSetGo Deep validation → Run workflow**, select the
 branch containing the revision, then choose **full**, **audit**, or **both**. Before starting,
