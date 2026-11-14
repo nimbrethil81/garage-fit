@@ -1,0 +1,123 @@
+name: PickSetGo Deep validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      validation:
+        description: Validation to run
+        type: choice
+        required: true
+        options:
+          - full
+          - audit
+          - both
+
+permissions:
+  contents: read
+
+jobs:
+  full-tests:
+    name: Full tests
+    if: ${{ inputs.validation == 'full' || inputs.validation == 'both' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check out selected revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Run Full tests
+        shell: bash
+        env:
+          SOURCE_REF: ${{ github.ref }}
+          TESTED_SHA: ${{ github.sha }}
+        run: |
+          start=$(date +%s)
+          set +e
+          node --test tests/*.test.js > full-tests.log 2>&1
+          result=$?
+          set -e
+          duration=$(( $(date +%s) - start ))
+          tail -c 1048576 full-tests.log > full-tests.bounded.log
+          mv full-tests.bounded.log full-tests.log
+          tail -c 1048576 full-tests.log
+          {
+            echo '## PickSetGo Deep validation — Full tests'
+            echo
+            echo "- Source branch/ref: `$SOURCE_REF`"
+            echo "- Tested SHA: `$TESTED_SHA`"
+            echo '- Operation: Full tests'
+            echo "- Duration: ${duration}s"
+            echo "- Exit status: $result"
+            if [[ $result -eq 0 ]]; then echo '- Result: **passed**'; else echo '- Result: **failed**'; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$result"
+
+      - name: Upload Full test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: picksetgo-full-test-log
+          path: full-tests.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+  reachability-audit:
+    name: Reachability audit
+    if: ${{ inputs.validation == 'audit' || inputs.validation == 'both' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check out selected revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Run reachability audit
+        shell: bash
+        env:
+          SOURCE_REF: ${{ github.ref }}
+          TESTED_SHA: ${{ github.sha }}
+        run: |
+          start=$(date +%s)
+          set +e
+          node scripts/audit-exercise-reachability.js > reachability-audit.log 2>&1
+          result=$?
+          set -e
+          duration=$(( $(date +%s) - start ))
+          tail -c 1048576 reachability-audit.log > reachability-audit.bounded.log
+          mv reachability-audit.bounded.log reachability-audit.log
+          tail -c 1048576 reachability-audit.log
+          {
+            echo '## PickSetGo Deep validation — Reachability audit'
+            echo
+            echo "- Source branch/ref: `$SOURCE_REF`"
+            echo "- Tested SHA: `$TESTED_SHA`"
+            echo '- Operation: Exhaustive catalogue reachability audit'
+            echo "- Duration: ${duration}s"
+            echo "- Exit status: $result"
+            if [[ $result -eq 0 ]]; then echo '- Result: **passed**'; else echo '- Result: **failed**'; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$result"
+
+      - name: Upload reachability audit log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: picksetgo-reachability-audit-log
+          path: reachability-audit.log
+          if-no-files-found: ignore
+          retention-days: 7
