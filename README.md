@@ -71,6 +71,36 @@ files, so keep expensive generation inside the marked test callback.
 The separate exhaustive catalogue audit remains `node scripts/audit-exercise-reachability.js`;
 it belongs to neither tier. Run it for catalogue batches and material generator-policy changes.
 
+## GitHub Actions checks
+
+Pull requests targeting `main` (including drafts) run the Fast test command on a GitHub-hosted
+Ubuntu runner with Node.js 22. Find its status in the pull request's **Checks** tab or the
+repository's **Actions** page. The check reports both the PR head and the prospective merge
+commit it tested. Superseded runs for the same PR are cancelled; other PRs run independently.
+The workflows use the official `actions/checkout`, `actions/setup-node`, and
+`actions/upload-artifact` actions at their stable `@v4` major-version tags.
+The Fast job has a configured 40-minute timeout; this is an upper limit, not its expected runtime.
+The latest measured GitHub-hosted Fast run took 384.9 seconds (about 6 minutes 25 seconds), with
+1,476 tests passing. A prior run in Codex's environment took about 26 minutes, so runtimes can
+vary by environment.
+
+To run deeper checks, open **Actions → PickSetGo Deep validation → Run workflow**, select the
+branch containing the revision, then choose **full**, **audit**, or **both**. Before starting,
+confirm the branch and displayed commit SHA match the latest PR commit you intend to validate.
+The run checks out that selected, pinned SHA. Full is appropriate where `AGENTS.md` requires it,
+including Generator, Coach construction, exercise eligibility, workout protocol and persistence
+contract changes. Run the reachability audit for catalogue batches and material generator-policy
+changes. Choose **both** when both gates apply; each appears as a separate job with its own
+result and log.
+
+Failed tests remain failed; a timeout or cancellation is incomplete evidence, not a pass. Job logs
+are available in Actions, and bounded text log artifacts are retained for seven days. A GitHub
+test result records command execution; it does not provide coding-agent analysis of failures.
+The manual workflow may not appear in Actions until its file is on the default branch. After the
+implementation PR is merged, perform an authorised manual-dispatch smoke test; no such run is
+claimed before then. GitHub Actions can run for private repositories too, but reassess hosted-runner
+allowances and billing policies before changing repository visibility.
+
 The integrated family gate (`tests/integrated-family-gate.test.js`) reports accepted versus
 genuinely infeasible cases for 180 Generator/Coach routes, two seeds and four constraint/equipment
 profiles. Its Full sweeps also track real 20-session General Fitness experiences at 2/3/5 weekly.

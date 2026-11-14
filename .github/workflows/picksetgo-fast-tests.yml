@@ -1,0 +1,63 @@
+name: PickSetGo Fast tests
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: picksetgo-fast-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  fast-tests:
+    name: Fast tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Check out pull request merge commit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Run Fast tests
+        id: fast
+        shell: bash
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          TESTED_MERGE_SHA: ${{ github.sha }}
+        run: |
+          printf 'PR head SHA: %s\nTested PR merge SHA: %s\n' "$PR_HEAD_SHA" "$TESTED_MERGE_SHA"
+          set +e
+          node --test --test-skip-pattern='\[Full\]' tests/*.test.js > fast-tests.log 2>&1
+          result=$?
+          set -e
+          tail -c 1048576 fast-tests.log > fast-tests.bounded.log
+          mv fast-tests.bounded.log fast-tests.log
+          tail -c 1048576 fast-tests.log
+          if [[ $result -eq 0 ]]; then outcome=passed; else outcome="failed (exit $result)"; fi
+          {
+            echo '## PickSetGo Fast tests'
+            echo
+            printf -- '- PR head SHA: %s\n' "$PR_HEAD_SHA"
+            printf -- '- Tested PR merge SHA: %s\n' "$TESTED_MERGE_SHA"
+            echo "- Result: **$outcome**"
+            echo '- Command: `node --test --test-skip-pattern=\[Full\] tests/*.test.js`'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$result"
+
+      - name: Upload Fast test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: picksetgo-fast-test-log
+          path: fast-tests.log
+          if-no-files-found: ignore
+          retention-days: 7
