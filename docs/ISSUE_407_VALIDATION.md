@@ -683,3 +683,92 @@ the completed local checks above.
 
 FAQ reviewed — no changes required. No canonical metadata, family thresholds,
 exercise instructions, customer-facing copy, dependencies or workflows changed.
+
+## GF-META Stage D — context-aware reachability (14 November 2026)
+
+Owner accepted A2/B/C and separately authorised Stage D. Starting local and remote
+head matched `547155819dbec8f69b6be22465aaa9a81a353263`; main remained
+`f36fe20e7f113f6bb084f2d351bd755c8a48887e`. This stage changes audit tooling and
+tests only. Generator/composer logic, canonical metadata, eligibility, doses,
+Coach programmes and published definitions are unchanged.
+
+### Neutral evidence and bounded contextual sampling
+
+`runAudit()` remains available as the original neutral audit. Its equipment
+matrix, Easy seed banks, durations, focuses, random streams, eligible-workout
+counts, frequency warnings, exclusions and diagnostic classification are retained.
+`runContextAudit()` runs that baseline and a separately identifiable supplemental
+sample. Both complete results are retained in JSON and the readable report;
+combined reachability does not replace or dilute neutral frequency warnings.
+
+The supplemental sample systematically uses Upper/Lower/Core body focus, the
+longest supported duration and Balanced focus (or the caller's first supported
+focus if Balanced is not supplied). It retains every neutral equipment/difficulty
+configuration and reuses its corresponding seed stream for controlled comparisons.
+Sampling is capped at 48 seeds per configuration/body-focus combination. For the
+current default axes this means **35,280 neutral plus 7,056 supplemental workouts**,
+a 20% additional workout budget. No exercise IDs, success seeds, selection bonuses
+or special exceptions occur in the production sampling logic.
+
+Only an actual final-workout selection in an eligible phase earns reachability.
+Trace picks, shortlist inclusion and discarded attempts do not. A supplemental
+witness records equipment, duration, workout focus, difficulty, body focus, seed,
+selected prescription and estimated work seconds. Context keys and breakdowns
+include body focus. Supplemental evidence is validated against phase eligibility,
+the Generator's own preparation dose bounds/per-side timing, Main technical
+validation and preparation safety. Invalid evidence throws rather than earning
+a reachability pass. Neutral evidence is not retrospectively reinterpreted.
+
+Combined results expose separate neutral/supplemental appearance counts,
+context-dependent routes and exercises absent from both samples. Rare/dominant
+warnings retain their own sample's denominator, even-share comparison and original
+diagnostic explanations; combined reachability is not a frequency-equalisation rule.
+
+### Focused route findings (not a completed exhaustive audit)
+
+The historical neutral Tabletop Toe Taps Ramp-up observation **0/35,280** remains
+recorded in the earlier evidence. This stage has not rerun the complete neutral
+or supplemental matrices; final catalogue-wide results remain outstanding.
+
+The independently supplied Rings, 45-minute Normal Balanced, Core, seed
+`831056492` route was reproduced with a valid 25-second Ramp-up dose. Separately,
+the generic supplemental stream for that configuration found final selection at
+sample index 3, seed `2027986332`, also at 25 seconds (authored bounds 20–25).
+The real-generator test audits the first four samples, records the witness and
+reproduces its final selection/dose from the recorded settings and seed. This
+success was not manufactured by including the supplied seed in production logic.
+
+### Validation and budget
+
+Initial focused audit/reachability run: **34 passed, 1 failed**, due solely to a
+new test calling `.has()` on the Generator's body-focus array. The one narrowly
+scoped correction changed that assertion to `.includes()`; no runtime or audit
+policy correction was made.
+
+After correction:
+
+- Focused audit, reachability, A2/B/C, Main-block and preparation suites:
+  **119 passed, 0 failed**, exit 0, approximately 183 seconds.
+- Prescribed Fast: `node --test --test-skip-pattern='\[Full\]' tests/*.test.js`:
+  **1,496 passed, 0 failed**, exit 0, approximately 1,033 seconds.
+- Existing synthetic unreachable-exercise tests remain unchanged and pass. New
+  combined tests also keep deliberately absent and trace-picked/discarded exercises
+  as failures. A deep comparison protects complete neutral counts, warnings and
+  diagnostic evidence. Supplemental output/witnesses are deterministic; invalid
+  phase and dose evidence is rejected. The default budget and supported body-focus
+  values are explicitly checked. All accepted A2/B/C regressions pass.
+- `git diff --check` passes. Workspace logs and exit files are
+  `/tmp/407-d-audit-focused.log`, `/tmp/407-d-focused.log`, `/tmp/407-d-fast.log`.
+
+Budget used: **one initial implementation attempt and one narrowly scoped
+corrective attempt**. No further autonomous corrections remain under this allowance.
+Stage D's local gate passes and is ready for owner acceptance. GitHub Actions
+results are separate evidence; no pending run is counted as a completed pass.
+
+The implementation is ready for the separately controlled stable final gate:
+Full tests, exhaustive neutral/supplemental reachability, exact metadata/non-target
+field confirmation, historical/playback/Coach/family checks and independent
+read-only PR review. No final Full or exhaustive audit was run in Stage D, and no
+independent final review is claimed. No final PR approval, readiness change, merge,
+auto-merge, deployment, publication or issue closure is authorised. PR #408 remains
+open and draft. FAQ reviewed — no changes required.
