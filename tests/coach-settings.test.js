@@ -22,7 +22,7 @@ async function ui(storage = new Map(), equipment = ['dumbbells','bench']) {
   p.screen = id => !p.run(`document.getElementById(${JSON.stringify(id)}).classList.contains('hidden')`);
   return p;
 }
-const names = {strength: '4-Week General Strength', arms: 'Build Arms', tennis: 'Tennis', fitness: 'General Fitness'};
+const names = {strength: '4-Week General Strength', arms: 'Build Arms', tennis: 'Tennis Conditioning', fitness: 'General Fitness'};
 async function start(p, key) { await p.click(names[key]); await p.click('Start programme'); assert.ok(p.state()); }
 
 test('all three programme homes open the same Programme settings screen and Back keeps the Coach shell', async () => {
@@ -125,7 +125,7 @@ test('Tennis settings edit only permitted values, keep targets and inventory, an
   p.run("field('Important event date').value=''"); await p.click('Prepare for event');
   assert.notEqual(p.run("document.getElementById('coachSettingsError').textContent"), ''); assert.deepEqual(p.state(), saved);
   await p.run('coachUI.back()');
-  assert.match(p.run("copyText('coachContent')"), /0 of 3 sessions this week/);
+  assert.match(p.run("copyText('coachContent')"), /This week · 0 sessions/);
 });
 
 test('a live workout locks settings with a reason and leaves the draft untouched', async () => {

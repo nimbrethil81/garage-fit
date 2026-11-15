@@ -26,7 +26,7 @@ async function ui(storage = new Map(), equipment = ['dumbbells','bench']) {
   return p;
 }
 const programmes = {strength: ['4-Week General Strength', 'general-strength-4w', 'View today’s workout'],
-  arms: ['Build Arms', 'build-arms', 'View today’s workout'], tennis: ['Tennis', 'tennis-conditioning', 'View today’s workout']};
+  arms: ['Build Arms', 'build-arms', 'View today’s workout'], tennis: ['Tennis Conditioning', 'tennis-conditioning', 'View today’s workout']};
 async function start(p, key) { await p.click(programmes[key][0]); await p.click('Start programme'); assert.equal(p.state().programmeDefinitionId, programmes[key][1]); }
 // Begin today's workout and record outcomes through the live tracker, then save.
 async function session(p, key, record, kind = 'exit') {
@@ -81,7 +81,7 @@ test('target drill-down separates prescription, actual per-side evidence and the
   assert.match(detail.text, /Last performed Mon, 12 Oct|Last performed .*completed · actual recorded work/);
   assert.match(detail.text, /Set 1 (right|left) · 6 reps · 10 kg each.*Set 4 (right|left) · 6 reps · 10 kg each/);
   assert.match(detail.text, /Next progression Try 7 reps at the confirmed load/);
-  assert.match(p.text(), /Completed · \d+ performed exercises · counted/);
+  assert.match(p.text(), /Completed · \d+ exercise occurrences · counted/);
 });
 
 test('unknown loads hold progression honestly and a one-session substitute never rewrites the target series', async () => {
@@ -111,10 +111,10 @@ test('history distinguishes completed, partial and ended-early sessions without 
   await session(p, 'strength', '()=>{}');
   await session(p, 'strength', logAnchor('anchor-squat'));
   await p.progress();
-  assert.match(p.text(), /Partial · 2 performed exercises · counted.*Ended early · no main work counted · 0 performed exercises · not counted/);
+  assert.match(p.text(), /Partial · 2 exercise occurrences · counted.*Ended early · no main work counted · 0 exercise occurrences · not counted/);
   assert.equal(p.state().meaningfulSessionsCompleted, 1);
   assert.match(p.text(), /Week 1 of 4 · 1 of 8 meaningful sessions this block/);
-  assert.match(p.text(), /Development · 2–3 sessions per week · 1 meaningful sessions in total/);
+  assert.match(p.text(), /Development · 2–3 sessions per week · 1 meaningful session in total/);
 });
 
 test('General Strength phase reports maintenance, pause and a due four-week review truthfully', async () => {
@@ -194,7 +194,7 @@ test('a live session draft is untouched by Programme progress, and a recovered i
   assert.equal(p.run('coachUI.isActive()'), true);
   assert.deepEqual(await p.run('pilotStore.loadSessionDraft()'), draft); assert.deepEqual(p.state(), state);
   const q = await ui(p.storage, ['dumbbells']); await q.progress();
-  assert.match(q.text(), /Partial · 1 performed exercise · counted/);
+  assert.match(q.text(), /Partial · 1 exercise occurrence · counted/);
   assert.equal((await q.run('pilotStore.listSessionResults()')).results.length, 1);
 });
 
@@ -241,7 +241,7 @@ test('session identity shows only where recorded: legacy and unpublished identit
   const legacy = [make('gs', '2026-10-13T08:00:00Z')].map(item => ({...item, programmeInstanceId: strengthState.programmeInstanceId}));
   strengthState.currentTargets.reconciliation.appliedSessionResultIds = ['gs'];
   const gs = strength.json(`GarageFitCoachUI.programmeWeeklyProgress({definition:pilotDef,state:${JSON.stringify(strengthState)},results:${JSON.stringify(legacy)},catalogue:CATALOGUE,now:'2026-10-16T08:00:00Z'})`);
-  assert.equal(gs.count, 1); assert.equal('roles' in gs, false);
+  assert.equal(gs.count, 1); assert.deepEqual(gs.roles.map(item=>item.label), ['Workout type unavailable']);
 });
 
 test('General Fitness Programme progress has no empty strength targets card', async () => {
