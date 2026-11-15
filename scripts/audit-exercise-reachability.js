@@ -102,10 +102,10 @@ function focusedConfigs(configs, focuses) {
 }
 
 function runContextAudit(options) {
-  const neutral=runAudit(options);
+  const neutral=runAudit({...options,stage:'neutral'});
   const supplemental=runAudit({...options,configs:focusedConfigs(options.configs,options.focuses),
     durations:[Math.max(...options.durations)],focuses:[options.focuses.includes('balanced')?'balanced':options.focuses[0]],
-    seeds:Math.min(options.seeds||DEFAULT_SEEDS,DEFAULT_SEEDS),recordRoutes:true,validateWorkout:options.validateSupplementalWorkout});
+    seeds:Math.min(options.seeds||DEFAULT_SEEDS,DEFAULT_SEEDS),recordRoutes:true,stage:'supplemental',validateWorkout:options.validateSupplementalWorkout});
   const combined={phases:{},failures:[],contextDependent:[]};
   for(const phase of PHASES){
     const neutralById=new Map(neutral.phases[phase].map(entry=>[entry.id,entry]));
@@ -142,6 +142,33 @@ function validateAuditWorkout(workout,request,generator) {
   const issues=generator.validateMain(workout.main,request.catalogue,request.equipment)
     .concat(generator.validatePreparation(workout.warmup,workout.rampup,phaseExercises(workout,'main')));
   if(issues.length)throw new Error('Invalid audit workout: '+issues.join(', '));
+}
+
+// Keep failures actionable without attaching requests, catalogue entries, traces or workouts.
+function auditFailure(error,request,context) {
+  const original=error instanceof Error?error:new Error(String(error));
+  const seedContext={mode:context.seedBank==='direct'?'direct':'derived',seedBank:context.seedBank||'derived',
+    configIndex:context.configIndex,focusIndex:context.focusIndex,
+    seedConfigIndex:context.seedConfigIndex,seedFocusIndex:context.seedFocusIndex};
+  const reproduction={catalogue:'canonical (data/exercises.js)',seed:context.seed,random:'lcg(seed)',request:{
+    duration:request.duration,focus:request.focus,equipment:request.equipment.slice(),
+    difficulty:request.difficulty||'normal',bodyFocus:request.bodyFocus||'full-body'}};
+  const message='Reachability audit '+context.stage+' '+context.operation+' failed: '+original.message;
+  const wrapped=new Error(message,{cause:original});
+  wrapped.name='ReachabilityAuditError';
+  wrapped.auditFailure={stage:context.stage,operation:context.operation,configIndex:context.configIndex,
+    sampleIndex:context.sampleIndex,seed:context.seed,seedContext,reproduction};
+  return wrapped;
+}
+
+function formatAuditFailure(error,json=false) {
+  const detail=error.auditFailure;
+  if(json)return JSON.stringify({error:{name:error.name,message:error.cause?.message||error.message,
+    stage:detail?.stage||null,operation:detail?.operation||null,configIndex:detail?.configIndex??null,
+    sampleIndex:detail?.sampleIndex??null,seed:detail?.seed??null,seedContext:detail?.seedContext||null,
+    reproduction:detail?.reproduction||null}},null,2)+'\n';
+  if(!detail)return 'Reachability audit failed: '+(error.cause?.message||error.message)+'\n';
+  return error.message+'\n  reproduce: '+JSON.stringify(detail.reproduction)+'\n';
 }
 
 // ---- Diagnostic evidence ----
@@ -303,9 +330,14 @@ function runAudit(options) {
         if (config.difficulty) request.difficulty = config.difficulty;
         if (config.bodyFocus) request.bodyFocus = config.bodyFocus;
         const contextKey=[config.key,focus,duration,...(config.bodyFocus?[config.bodyFocus]:[])].join('|');
+        const failureContext={stage:options.stage||'neutral',configIndex,focusIndex,sampleIndex:sample,seed,seedBank:config.seedBank,
+          seedConfigIndex:config.seedConfigIndex??configIndex,seedFocusIndex:config.seedFocusIndex??focusIndex};
         if (collector) { collector.begin(contextKey); request.trace = collector.trace; }
-        const workout = generate(request);
-        if(options.validateWorkout)options.validateWorkout(workout,request);
+        let workout;
+        try { workout=generate(request); }
+        catch(error) { throw auditFailure(error,request,{...failureContext,operation:'generation'}); }
+        if(options.validateWorkout)try { options.validateWorkout(workout,request); }
+        catch(error) { throw auditFailure(error,request,{...failureContext,operation:'validation'}); }
         if (collector) collector.end(workout);
         workouts++;
         for (const phase of PHASES) {
@@ -626,7 +658,8 @@ function main(argv) {
   const { catalogue, equipmentIds, generator } = loadApp();
   generator.assertValidCatalogue(catalogue);
   const started = Date.now();
-  const result = runContextAudit({
+  let result;
+  try { result = runContextAudit({
     catalogue, seeds,
     generate: generator.generate,
     isEligible: generator.generatedPhaseEligible,
@@ -638,7 +671,10 @@ function main(argv) {
     shortlistSize: generator.SHORTLIST_SIZE,
     diagnose: !argv.includes('--no-diagnostics'),
     validateSupplementalWorkout:(workout,request)=>validateAuditWorkout(workout,request,generator)
-  });
+  }); } catch(error) {
+    process.stderr.write(formatAuditFailure(error,json));
+    return 1;
+  }
   const elapsedMs = Date.now()-started;
   if (json) process.stdout.write(JSON.stringify(Object.assign({ elapsedMs }, result),null,2)+'\n');
   else process.stdout.write(formatContextReport(result,elapsedMs)+'\n');
@@ -646,6 +682,6 @@ function main(argv) {
 }
 
 module.exports = { DEFAULT_SEEDS, PHASES, RARE_RATIO, DOMINANT_RATIO, equipmentPairs, representativeConfigs, auditConfigs, focusedConfigs,
-  runContextAudit, validateAuditWorkout, formatContextReport, runAudit, formatReport, formatDiagnosis, classify, workoutSeed, main };
+  runContextAudit, validateAuditWorkout, formatContextReport, runAudit, formatReport, formatDiagnosis, classify, workoutSeed, formatAuditFailure, main };
 
 if (require.main===module) process.exitCode = main(process.argv.slice(2));
