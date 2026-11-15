@@ -22,13 +22,13 @@ async function ui(storage = new Map(), equipment = ['dumbbells','bench']) {
   p.summary = () => p.run("nodes('coachContent').find(node=>node.id==='coachAdjustToday').children[0].attributes['aria-label']");
   return p;
 }
-const names = {strength: '4-Week General Strength', arms: 'Build Arms', tennis: 'Tennis', fitness: 'General Fitness'};
+const names = {strength: '4-Week General Strength', arms: 'Build Arms', tennis: 'Tennis Conditioning', fitness: 'General Fitness'};
 async function start(p, key) { await p.click(names[key]); await p.click('Start programme'); assert.ok(p.state()); }
 
 test('all three programmes share the compact home hierarchy with programme-appropriate status', async () => {
-  for (const [key, status, weekly, extra] of [['strength', 'Development', /^0 sessions this week$/, /Week 1 of 4 · four-week block/],
-    ['arms', 'Ongoing', /^0 of 3 sessions this week$/, /Build arms while maintaining whole-body training/],
-    ['tennis', 'Development', /^0 of 2 sessions this week$/, /Build balanced conditioning for tennis/]]) {
+  for (const [key, status, weekly, extra] of [['strength', 'Development', /^This week · 0 sessions$/, /Week 1 of 4 · four-week block/],
+    ['arms', 'Ongoing', /^This week · 0 sessions$/, /Build arms while maintaining whole-body training/],
+    ['tennis', 'Development', /^This week · 0 sessions$/, /Build balanced conditioning for tennis/]]) {
     const p = await ui(); await start(p, key);
     const classes = p.json("document.getElementById('coachContent').children.map(node=>node.className)");
     assert.deepEqual(classes.slice(0, 4), ['coach-tennis-intro','coach-weekly','generator-options','coach-card'], key);
@@ -44,14 +44,14 @@ test('all three programmes share the compact home hierarchy with programme-appro
 
 test('weekly ranges stay truthful: General Strength 2–3 (maintenance 1–2) and Build Arms aim 3 with 2 acceptable', async () => {
   const p = await ui(new Map(), ['dumbbells']); await start(p, 'strength');
-  assert.deepEqual(p.weekly().segments, ['minimum','minimum',''], 'three segments, the first two mark the minimum');
-  assert.match(p.text(), /About this week.*0 sessions this week\. 2–3 recommended/);
+  assert.deepEqual(p.weekly().segments, ['','',''], 'three neutral segments');
+  assert.match(p.text(), /2–3 sessions recommended.*About this week/);
   await p.run("coachUI.controller.manage('maintenance')"); await p.run('coachUI.open()');
-  assert.equal(p.weekly().text, '0 sessions this week'); assert.deepEqual(p.weekly().segments, ['minimum','']);
-  assert.match(p.text(), /1–2 recommended in maintenance/);
+  assert.equal(p.weekly().text, 'This week · 0 sessions'); assert.deepEqual(p.weekly().segments, ['','']);
+  assert.match(p.text(), /1–2 sessions recommended/);
   assert.match(p.run("nodes('coachContent').find(node=>node.className==='coach-status').textContent"), /Maintenance/);
   const q = await ui(); await start(q, 'arms');
-  assert.deepEqual(q.weekly().segments, ['minimum','minimum','']); assert.match(q.text(), /2 is acceptable/);
+  assert.deepEqual(q.weekly().segments, ['','','']); assert.match(q.text(), /2 is acceptable/);
   assert.doesNotMatch(q.text(), /Move to maintenance|Return to development|in maintenance/, 'Build Arms never offers maintenance');
   await q.click('Programme settings'); assert.equal(q.has('Move to maintenance'), false);
 });
@@ -79,7 +79,7 @@ test('General Strength and Build Arms count credited sessions with performed mai
     state.recentSessionSummaries = [{sessionResultId: 'declined', endedAt: at, finalStatus: 'completed', meaningful: false, exposure: {value: 0, confidence: 'derived'}}];
     const summary = weekly(p, state, results, '2026-10-14T08:00:00Z');
     assert.equal(summary.count, 4, id); assert.equal(summary.target, 3); assert.equal(summary.filled, 3, 'segments cap');
-    assert.equal(summary.label, id === 'build-arms' ? '4 of 3 sessions this week' : '4 sessions this week', 'over-target count is not hidden');
+    assert.equal(summary.label, '4 sessions', 'over-target count is not hidden');
   }
 });
 
@@ -115,13 +115,13 @@ test('a saved session updates the home count; abandoned work and previews earn n
   assert.equal(p.run("nodes('coachContent').some(node=>node.className.includes('coach-save-status'))"), false, 'no confirmation before successful save');
   p.run('coachUI.controller.finish=originalFinish');
   await p.run("coachUI.showEnd('exit',60)"); await p.run("coachUI.saveFeedback('easy')");
-  assert.equal(p.weekly().text, '0 sessions this week', 'ended early without main work');
+  assert.equal(p.weekly().text, 'This week · 0 sessions', 'ended early without main work');
   assert.equal(p.run("nodes('coachContent').find(node=>node.attributes.role==='status').className"), 'coach-save-status');
   await p.click('View today’s workout'); await p.click('Start workout', 'coachPreviewContent');
   await p.run(`(async()=>{const tracker=coachPlayerTracker();const work=tracker.plannedWork().find(item=>item.requirementId==='anchor-squat');
     await tracker.recordAnchor(work.occurrenceId,{status:'completed',sets:[{reps:6,load:12,loadUnit:'kg',loadInterpretation:'total'}]});})()`);
   await p.run("coachUI.showEnd('exit',600)"); await p.run("coachUI.saveFeedback('about-right')");
-  assert.equal(p.weekly().text, '1 session this week'); assert.deepEqual(p.weekly().segments, ['filled minimum','minimum','']);
+  assert.equal(p.weekly().text, 'This week · 1 session'); assert.deepEqual(p.weekly().segments, ['filled','','']);
   assert.match(p.text(), /Session saved · partial · 1 anchors recorded/);
   assert.equal(p.run("nodes('coachContent').find(node=>node.attributes.role==='status').className"), 'coach-save-status');
 });
@@ -176,7 +176,7 @@ test('blocked, paused, active, review-due and switching states keep their routes
   // Switching programmes.
   await p.run("coachUI.controller.manage('finish')"); await p.run('coachUI.open()');
   p.run("state.ownedEquipment=['dumbbells','bench']"); await start(p, 'arms');
-  assert.match(p.text(), /Build Arms Ongoing.*0 of 3 sessions this week/);
+  assert.match(p.text(), /Build Arms Ongoing.*This week · 0 sessions/);
 });
 
 test('central equipment return refreshes Coach feasibility without changing programme evidence or prepared work', async () => {
@@ -237,7 +237,7 @@ test('General Fitness is offered and runs home → preview/edit → player → s
   const classes = p.json("document.getElementById('coachContent').children.map(node=>node.className)");
   assert.deepEqual(classes.slice(0, 4), ['coach-tennis-intro','coach-weekly','generator-options','coach-card']);
   assert.match(p.run("nodes('coachContent').find(node=>node.className==='coach-status').textContent"), /Ongoing/);
-  assert.equal(p.weekly().text, '0 sessions this week'); assert.deepEqual(p.weekly().segments, ['minimum','minimum','','','']);
+  assert.equal(p.weekly().text, 'This week · 0 sessions'); assert.deepEqual(p.weekly().segments, ['','','','','']);
   assert.equal(p.summary(), 'Adjust today · 30 min available · Dumbbells');
   assert.equal(p.run("field('Readiness today (optional)')"), undefined);
   const home = p.text();
@@ -265,8 +265,10 @@ test('General Fitness is offered and runs home → preview/edit → player → s
   await p.run(`(async()=>{const tracker=coachPlayerTracker();for(const work of tracker.plannedWork().filter(item=>item.section==='main'))await tracker.recordDone(work.occurrenceId);})()`);
   await p.run("coachUI.showEnd('complete',1800)"); await p.run("coachUI.saveFeedback('about-right')");
   const label = family.name+' — '+style.name;
-  assert.equal(p.weekly().text, '1 session this week');
-  assert.deepEqual(p.json("nodes('coachContent').find(node=>node.className==='coach-weekly-roles').children.map(node=>node.textContent)"), ['✓ '+label]);
+  assert.equal(p.weekly().text, 'This week · 1 session');
+  assert.equal(p.run("nodes('coachContent').find(node=>node.id==='coach-weekly-detail').hidden"),true);
+  p.run("nodes('coachContent').find(node=>node.attributes?.['data-session-result-id']).onclick()");
+  assert.match(p.text(),new RegExp(label));
   assert.match(p.text(), new RegExp('Session saved · completed · '+label));
   assert.equal(p.run("nodes('coachContent').find(node=>node.attributes.role==='status').className"), 'coach-save-status coach-save-complete');
   const result = (await p.run('pilotStore.listSessionResults()')).results[0];
@@ -417,4 +419,26 @@ test('Coach preview includes silent canonical guidance in Main and every actual 
   }
   assert.ok(rows.some(r=>r.targetLabel==='Strength target'));
   assert.equal(JSON.stringify(workout).includes('beforeYouTry'),false);
+});
+
+test('weekly bars disclose recorded identities chronologically, including partial, legacy and overflow without writes',async()=>{
+  const p=await ui(); await start(p,'strength');
+  const state=p.state();
+  const results=[fixture(state,'late','2026-10-12T07:00:00Z'),fixture(state,'first','2026-10-12T01:00:00Z'),fixture(state,'partial','2026-10-12T03:00:00Z',{finalStatus:'partial'}),fixture(state,'overflow','2026-10-12T06:00:00Z')];
+  state.currentTargets.reconciliation.appliedSessionResultIds=results.map(r=>r.sessionResultId);
+  p.run(`const snapshotBeforeWeekly=coachUI.controller.snapshot;coachUI.controller.snapshot=()=>({...snapshotBeforeWeekly(),state:${JSON.stringify(state)},results:${JSON.stringify(results)}});`);
+  await p.run('coachUI.open()');
+  const saved=[...p.storage.entries()];
+  const ids=()=>p.json("nodes('coachContent').filter(n=>n.attributes?.['data-session-result-id']).map(n=>n.attributes['data-session-result-id'])");
+  assert.deepEqual(ids(),['first','partial','overflow','late']);
+  assert.equal(p.weekly().segments.length,3); assert.equal(p.weekly().text,'This week · 4 sessions');
+  assert.match(p.text(),/1 more recorded session/);
+  const click=id=>p.run(`nodes('coachContent').find(n=>n.attributes?.['data-session-result-id']===${JSON.stringify(id)}).onclick()`);
+  const panel=()=>p.run("nodes('coachContent').find(n=>n.id==='coach-weekly-detail').hidden");
+  assert.equal(panel(),true);click('first');assert.equal(panel(),false);
+  assert.match(p.text(),/Session 1 Workout type unavailable ✓ Completed/);
+  click('partial'); assert.match(p.text(),/Session 2 Workout type unavailable Partially completed/);
+  click('partial');assert.equal(panel(),true);click('late');assert.match(p.text(),/Session 4/);
+  assert.deepEqual([...p.storage.entries()],saved);
+  p.run("uiNow='2026-10-19T08:00:00Z'");await p.run('coachUI.open()');assert.equal(panel(),true);assert.deepEqual(ids(),[]);
 });

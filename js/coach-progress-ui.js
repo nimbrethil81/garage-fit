@@ -255,7 +255,7 @@
           : result.finalStatus === 'skipped-before-start' ? 'Not started' : title(result.finalStatus);
         const credit = summary ? summary.meaningful ? 'counted' : 'not counted' : null;
         const identity = workoutIdentity(result);
-        list.append(node('li', null, [dateText(result.endedAt), identity && identity.label, status, performed+' performed exercise'+(performed === 1 ? '' : 's'), credit].filter(Boolean).join(' · ')));
+        list.append(node('li', null, [dateText(result.endedAt), identity && identity.label, status, performed+' exercise occurrence'+(performed === 1 ? '' : 's'), credit].filter(Boolean).join(' · ')));
       });
       if (recent.length) wrap.append(list);
       const help = node('details', 'coach-help'), label = node('summary', null, 'ⓘ About your history');

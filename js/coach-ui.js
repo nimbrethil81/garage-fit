@@ -7,6 +7,7 @@
   };
   // Monday 00:00 through the next Monday in the browser's local calendar.
   // Calendar setters (not 7*24 hours) keep the boundaries correct across DST.
+  const displayObjective = definition => definition.type==='general-fitness' ? 'Build balanced everyday fitness' : definition.objective;
   function localWeek(now) {
     const start=new Date(now); start.setHours(0,0,0,0);
     start.setDate(start.getDate()-(start.getDay()+6)%7);
@@ -37,7 +38,7 @@
     // Labels come from the result's recorded role id and the pinned definition, never the current rotation.
     const labels=new Map(Object.values(definition.sessionRoles || {}).flat().map(role=>[role.id,role.label]));
     const roles=credited.slice().sort((a,b)=>Date.parse(a.endedAt)-Date.parse(b.endedAt)).map(result=>({
-      sessionResultId:result.sessionResultId,roleId:result.sessionRole || null,
+      endedAt:result.endedAt,sessionResultId:result.sessionResultId,roleId:result.sessionRole || null,
       label:labels.get(result.sessionRole) || 'Workout type unavailable',partial:result.finalStatus==='partial'}));
     return {count,target,filled:Math.min(count,target),roles,start:start.toISOString(),end:end.toISOString()};
   }
@@ -94,7 +95,7 @@
   function programmeWeeklyProgress({definition,state,results,catalogue,now}) {
     if (definition.type==='tennis-conditioning') {
       const weekly=tennisWeeklyProgress({definition,state,results,catalogue,now});
-      return {...weekly,minimum:weekly.target,label:weekly.count+' of '+weekly.target+' sessions this week',note:null};
+      return {...weekly,minimum:weekly.target,label:weekly.count+(weekly.count===1?' session':' sessions'),note:weekly.target+' sessions selected per week'};
     }
     const policy=(policyRegistry=policyRegistry || root.GarageFitCoachPolicies.createDefaultRegistry()).get(definition.type);
     const {candidates,history,start,end}=creditedThisWeek({state,results,catalogue,now});
@@ -107,11 +108,11 @@
     // Sessions that recorded their delivered workout family list it; legacy sessions
     // without an identity keep neutral copy and are never assigned a family.
     const identity=root.GarageFitCoachProgressUI.workoutIdentity;
-    const roles=counted.some(result=>identity(result)) ? counted.slice().sort((a,b)=>Date.parse(a.endedAt)-Date.parse(b.endedAt)).map(result=>({
-      sessionResultId:result.sessionResultId,label:identity(result)?.label || 'Workout type unavailable',partial:result.finalStatus==='partial'})) : null;
+    const roles=counted.slice().sort((a,b)=>Date.parse(a.endedAt)-Date.parse(b.endedAt)).map(result=>({
+      endedAt:result.endedAt,sessionResultId:result.sessionResultId,label:identity(result)?.label || 'Workout type unavailable',partial:result.finalStatus==='partial'}));
     return {count,target,minimum:frequency.minSessionsPerWeek,filled:Math.min(count,target),start:start.toISOString(),end:end.toISOString(),...(roles ? {roles} : {}),
-      label:aim ? count+' of '+aim+plural(aim)+' this week' : count+plural(count)+' this week',
-      note:aim ? frequency.minSessionsPerWeek+' is acceptable' : frequency.minSessionsPerWeek+'–'+frequency.maxSessionsPerWeek+' recommended'+(maintenance?' in maintenance':'')};
+      label:count+plural(count),
+      note:aim ? 'Aim for '+aim+'; '+frequency.minSessionsPerWeek+' is acceptable' : frequency.minSessionsPerWeek+'–'+frequency.maxSessionsPerWeek+' sessions recommended'};
   }
   // Credited sessions in each of the last N local weeks (oldest first), by the same credit rule as
   // the current-week card. Zero weeks are shown as zero: there is no target to repay (#192).
@@ -581,7 +582,7 @@
     };
     function programmeCard(programme, state) {
       const presentation=programmePresentation[programme.id];
-      const name=programme.type==='tennis-conditioning'?'Tennis':programme.name;
+      const name=programme.name;
       const card=button('',()=>{def=programme;overview();});
       card.className='coach-programme-card coach-programme-'+presentation.accent;
       card.setAttribute('aria-label',name);
@@ -610,6 +611,55 @@
       if (Object.prototype.hasOwnProperty.call(disclosureOpen,key)) details.open=disclosureOpen[key];
       details.ontoggle=()=>{if (details.isConnected!==false) disclosureOpen[key]=details.open;};
     }
+    // View-only identity is scoped to the programme and local calendar week.
+    let weeklySelection=null, weeklyScope=null;
+    function renderWeeklyProgress(wrap,weekly,state) {
+      const scope=state.programmeInstanceId+':'+weekly.start;
+      const records=weekly.roles || [];
+      if (weeklyScope!==scope || !records.some(item=>item.sessionResultId===weeklySelection)) weeklySelection=null;
+      weeklyScope=scope;
+      const section=document.createElement('section'), row=document.createElement('div');
+      section.className='coach-weekly'; row.className='coach-weekly-segments';
+      section.setAttribute('aria-label','Current week, Monday to Sunday');
+      const header=paragraph('This week · '+weekly.label); header.className='coach-weekly-heading';
+      section.append(header,row);
+      const panel=document.createElement('div'); panel.id='coach-weekly-detail'; panel.className='coach-weekly-detail';
+      const controls=[];
+      const dateLabel=item=>new Date(item.endedAt).toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'});
+      function select(id) {
+        weeklySelection=weeklySelection===id?null:id;
+        update();
+      }
+      function update() {
+        panel.replaceChildren(); panel.hidden=!weeklySelection;
+        controls.forEach(({control,item})=>control.setAttribute('aria-expanded',String(item.sessionResultId===weeklySelection)));
+        const index=records.findIndex(item=>item.sessionResultId===weeklySelection), item=records[index];
+        if (!item) return;
+        const close=button('Close session details',()=>{});
+        close.onclick=()=>{select(null);controls.find(entry=>entry.item.sessionResultId===item.sessionResultId)?.control.focus();};
+        panel.append(paragraph(dateLabel(item)+' · Session '+(index+1)),paragraph(item.label),paragraph(item.partial?'Partially completed':'✓ Completed'),close);
+      }
+      function sessionControl(item,index,bar) {
+        const control=button(bar?'':dateLabel(item)+' · '+item.label,()=>select(item.sessionResultId));
+        control.setAttribute('aria-label',dateLabel(item)+' · Session '+(index+1)+' · '+item.label+' · '+(item.partial?'Partially completed':'Completed'));
+        control.setAttribute('aria-controls',panel.id); control.setAttribute('data-session-result-id',item.sessionResultId);
+        control.onclick=()=>select(item.sessionResultId);
+        control.className=bar?'filled':'ctrl-btn ctrl-secondary coach-weekly-extra'; controls.push({control,item}); return control;
+      }
+      for(let index=0;index<weekly.target;index++) {
+        const segment=records[index]?sessionControl(records[index],index,true):document.createElement('span');
+        row.append(segment);
+      }
+      section.append(panel,paragraph(weekly.note));
+      if(records.length>weekly.target) {
+        const overflow=document.createElement('details'), summary=document.createElement('summary');
+        summary.textContent=plural(records.length-weekly.target,'more recorded session'); overflow.append(summary);
+        records.slice(weekly.target).forEach((item,index)=>overflow.append(sessionControl(item,index+weekly.target,false)));
+        section.append(overflow);
+      }
+      section.append(help('About this week','Credited sessions with performed main work count; previews, drafts and sessions without performed main work do not. No catch-up debt.'));
+      update(); wrap.append(section);
+    }
     // The approved compact Coach home for every programme: title and status, this
     // week's credited sessions, collapsed Adjust today, the workout CTA, then the
     // shared Your progress and Programme settings destinations.
@@ -622,31 +672,14 @@
       const intro=document.createElement('div'), title=document.createElement('div'), status=document.createElement('span');
       intro.className='coach-tennis-intro'; title.className='coach-programme-heading'; status.className='coach-status';
       status.textContent=reviewDue && !sessionActive?'Review due':programmeStatus(state);
-      title.append(heading(def.name),status); intro.append(title,paragraph(def.objective));
+      title.append(heading(def.name),status); intro.append(title,paragraph(displayObjective(def)));
       if (review && !reviewDue) {
         const weeks=Math.ceil(def.nominalDurationDays/7);
         intro.append(paragraph('Week '+Math.min(weeks,Math.floor(review.nominalProgress%def.nominalDurationDays/7)+1)+' of '+weeks+' · four-week block'));
       }
       wrap.append(intro);
       const weekly=programmeWeeklyProgress({definition:def,state,results:current.results,catalogue,now});
-      const progressCard=document.createElement('section'), segments=document.createElement('div');
-      progressCard.className='coach-weekly'; segments.className='coach-weekly-segments'; segments.setAttribute('aria-hidden','true');
-      progressCard.setAttribute('aria-label','Current week, Monday to Sunday');
-      progressCard.append(paragraph(weekly.label));
-      for(let index=0;index<weekly.target;index++) {
-        const segment=document.createElement('span');
-        // Filled segments show actual credited sessions; outlined ones mark the minimum.
-        segment.className=[index<weekly.filled?'filled':'',index<weekly.minimum && weekly.minimum<weekly.target?'minimum':''].filter(Boolean).join(' ');
-        segments.append(segment);
-      }
-      progressCard.append(segments);
-      if (weekly.roles && weekly.roles.length) {
-        const list=document.createElement('ul'); list.className='coach-weekly-roles'; list.setAttribute('aria-label','Workouts completed this week');
-        weekly.roles.forEach(item=>{const li=document.createElement('li'); li.textContent='✓ '+item.label+(item.partial?' (partial)':''); list.append(li);});
-        progressCard.append(list);
-      }
-      if (weekly.note) progressCard.append(help('About this week',weekly.label+'. '+weekly.note+'. Credited sessions with performed main work count; previews, drafts and sessions without performed main work do not. No catch-up debt.'));
-      wrap.append(progressCard);
+      renderWeeklyProgress(wrap,weekly,state);
       if (sessionActive) {
         const card=document.createElement('section'); card.className='coach-card';
         card.append(heading('Workout in progress'),button('Return to workout',()=>showScreen('workoutPlayer'),true)); wrap.append(card); return;
@@ -673,7 +706,7 @@
             plan.prescription.workoutFamilyPlan.candidates[0].workoutFamilyVersion);
           card.append(paragraph([role || intended?.name,plan.prescription.duration+' min',intended && plan.prescription.difficulty==='easy' ? 'Easy' : null].filter(Boolean).join(' · ')),button('View today’s workout',prepare,true));
           if (tennis && role && ROLE_PURPOSES[plan.prescription.sessionRole]) card.append(paragraph(ROLE_PURPOSES[plan.prescription.sessionRole]));
-          if (intended) card.append(paragraph(intended.purpose));
+          else if (intended) card.append(paragraph(intended.purpose));
           const event=plan.rationale.priorities.event;
           if (event && ['reduced','final'].includes(event.phase)) card.append(paragraph(event.rationale));
           if (!tennis) card.append(help('Why this workout',rationale(plan)));
@@ -754,7 +787,7 @@
       const locked=sessionActive || !!current.interruptedDraft;
       const intro=document.createElement('div'), title=document.createElement('div'), status=document.createElement('span');
       intro.className='coach-tennis-intro'; title.className='coach-programme-heading'; status.className='coach-status';
-      status.textContent=programmeStatus(state); title.append(heading(def.name),status); intro.append(title,paragraph(def.objective)); wrap.append(intro);
+      status.textContent=programmeStatus(state); title.append(heading(def.name),status); intro.append(title,paragraph(displayObjective(def))); wrap.append(intro);
       if (settingsNotice) { const notice=paragraph(settingsNotice); notice.setAttribute('role','status'); wrap.append(notice); }
       if (locked) wrap.append(paragraph('Save or finish your current workout before changing programme settings. Your recorded work is safe.'));
       const plan=progressViews.section('Training plan','coach-settings-plan');
@@ -895,12 +928,12 @@
           phase.append(paragraph('Event · '+(event.label ? event.label+' · ' : '')+event.eventDate+' · '+(event.daysUntil<0?'date passed':event.daysUntil+' days away')),paragraph(event.rationale));
           if (event.holdProgression) hold='Event preparation holds established resistance and reps.';
         } else phase.append(paragraph('Ongoing development · no fixed end date'));
-        phase.append(paragraph(config.weeklyCoachFrequency+' PickSetGo sessions per week · '+state.meaningfulSessionsCompleted+' meaningful sessions in total'));
+        phase.append(paragraph(config.weeklyCoachFrequency+' PickSetGo sessions per week · '+plural(state.meaningfulSessionsCompleted,'meaningful session')+' in total'));
       } else if (def.openEnded) {
         const frequency=def.recommendedFrequency;
         phase.append(paragraph('Open-ended programme · '+(frequency.aimSessionsPerWeek ? 'aim for '+frequency.aimSessionsPerWeek+' sessions per week; '+frequency.minSessionsPerWeek+' is acceptable'
           : frequency.minSessionsPerWeek+'–'+frequency.maxSessionsPerWeek+' sessions per week')),
-          paragraph(state.meaningfulSessionsCompleted+' meaningful sessions in total'));
+          paragraph(plural(state.meaningfulSessionsCompleted,'meaningful session')+' in total'));
       } else {
         const review=controller.review(), length=def.nominalDurationDays, weeks=Math.ceil(length/7), target=def.completionCriteria.blockMeaningfulSessionTarget;
         const index=Math.floor(review.nominalProgress/length), counts=state.currentTargets.blockMeaningfulCounts;
@@ -911,7 +944,7 @@
         phase.append(paragraph(review.due ? 'Four-week block complete · '+review.meaningfulSessions+' of '+target+' meaningful sessions'+(review.targetMet?' · block target met':'')+' · review on Coach home'
           : 'Week '+Math.min(weeks,Math.floor(review.nominalProgress%length/7)+1)+' of '+weeks+' · '+inBlock+' of '+target+' meaningful sessions this block'),
           paragraph((state.mode==='maintenance'?'Maintenance':'Development')+' · '+frequency.minSessionsPerWeek+'–'+frequency.maxSessionsPerWeek+' sessions per week · '
-            +state.meaningfulSessionsCompleted+' meaningful sessions in total'));
+            +plural(state.meaningfulSessionsCompleted,'meaningful session')+' in total'));
       }
       if (state.status==='paused') phase.append(paragraph(state.anchors.length ? 'Paused · targets and history are preserved.' : 'Paused · history is preserved.'));
       // Strength targets exist only for programmes with stable anchors.

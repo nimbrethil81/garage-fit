@@ -20,7 +20,7 @@ async function ui(storage = new Map(), equipment = ['dumbbells']) {
   p.state = () => p.json('coachUI.controller.snapshot().state');
   return p;
 }
-async function start(p) { await p.click('Tennis'); await p.click('Start programme'); assert.ok(p.state()); }
+async function start(p) { await p.click('Tennis Conditioning'); await p.click('Start programme'); assert.ok(p.state()); }
 
 test('compact Tennis home orders the weekly progress, collapsed adjustments and actual workout CTA without dead links',async()=>{
   const p=await ui();await start(p);
@@ -28,7 +28,7 @@ test('compact Tennis home orders the weekly progress, collapsed adjustments and 
   assert.deepEqual(p.json("document.getElementById('coachContent').children.slice(0,4).map(node=>node.className)"),
     ['coach-tennis-intro','coach-weekly','generator-options','coach-card']);
   assert.match(p.run("nodes().find(node=>node.className==='coach-status').textContent"),/Development/);
-  assert.match(p.run("nodes().find(node=>node.className==='coach-weekly').children[0].textContent"),/0 of 2 sessions this week/);
+  assert.match(p.run("nodes().find(node=>node.className==='coach-weekly').children[0].textContent"),/This week · 0 sessions/);
   assert.match(p.run('copyText()'),/Strength and stability.*Builds strength and stability/);
   assert.equal(p.run("nodes().find(node=>node.id==='coachAdjustToday').open"),false);
   assert.ok(p.run("action('Your progress')"),'shared progress destination is live');
@@ -152,7 +152,7 @@ test('Coach selection groups existing programmes and Tennis; minimal setup saves
   const p=await ui();
   assert.match(p.run('copyText()'),/Fitness programmes.*General Fitness.*4-Week General Strength.*Build Arms.*Sport cross-training.*Tennis/);
   assert.doesNotMatch(p.run('copyText()'),/Cycling|Running/);
-  await p.click('Tennis');
+  await p.click('Tennis Conditioning');
   assert.equal(p.run("field('Training focus').value"),'balanced');
   assert.equal(p.run("field('PickSetGo sessions per week').value"),'2');
   assert.equal(p.run("field('Training intent').value"),'ongoing');
@@ -167,18 +167,18 @@ test('Coach selection groups existing programmes and Tennis; minimal setup saves
   assert.deepEqual(config.usualPlayingDays,['monday','friday']);assert.equal(config.typicalSportIntensity,'hard');
   assert.equal(config.intent,'event');assert.equal(config.significantEventDate,'2026-11-20');
   assert.equal(state.meaningfulSessionsCompleted,0);
-  assert.equal(p.run("action('Tennis')"),undefined,'one active primary programme');
+  assert.equal(p.run("action('Tennis Conditioning')"),undefined,'one active primary programme');
   assert.equal(p.run("document.getElementById('bottomNav').classList.contains('hidden')"),false);
 });
 
 test('equipment shortages and invalid event dates are actionable and cannot create an active programme',async()=>{
-  const missing=await ui(new Map(),[]);await missing.click('Tennis');
+  const missing=await ui(new Map(),[]);await missing.click('Tennis Conditioning');
   assert.equal(missing.run("action('Start programme')"),undefined);
   assert.match(missing.run('copyText()'),/Add equipment for a pull anchor/);
   assert.ok(missing.run("action('Set up usual equipment')"));
   assert.equal(missing.state(),null);
   for(const date of ['', '2026-10-11', '2026-02-30']) {
-    const p=await ui();await p.click('Tennis');await p.change('Training intent','event');
+    const p=await ui();await p.click('Tennis Conditioning');await p.change('Training intent','event');
     await p.change('Important event date',date);await p.click('Start programme');
     assert.equal(p.state(),null);assert.match(p.run("document.getElementById('coachError').textContent"),/valid event date/);
     assert.equal(await p.run('pilotStore.loadActiveProgramme()'),null);
@@ -263,7 +263,7 @@ test('10-minute preview and the common player count actual selected anchors with
   await p.run("coachAdvance('done')");await p.run("coachUI.showEnd('exit',600);coachUI.saveFeedback('about-right')");
   const result=p.json('coachUI.controller.snapshot().results[0]'),after=p.state();
   assert.equal(after.meaningfulSessionsCompleted,1);assert.equal(after.anchors.length,4);
-  assert.match(p.run("nodes().find(node=>node.className==='coach-weekly').children[0].textContent"),/1 of 2 sessions this week/);
+  assert.match(p.run("nodes().find(node=>node.className==='coach-weekly').children[0].textContent"),/This week · 1 session/);
   assert.equal(result.performedWork.filter(item=>item.status==='completed').length,1);
   const deferred=initial.anchors.filter(anchor=>!selected.some(item=>item.requirementId===anchor.requirementId));
   assert.ok(deferred.every(anchor=>!result.anchorResults.some(item=>item.requirementId===anchor.requirementId)));
