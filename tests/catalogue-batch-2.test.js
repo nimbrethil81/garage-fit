@@ -252,9 +252,10 @@ function sample(equipment,focuses,durations,seeds,extra={}){
 const count=(workouts,id)=>workouts.filter(workout=>mainIds(workout).includes(id)).length;
 
 test('[Full] the bodyweight additions are reachable in Main',()=>{
+  // #407 alters rankings; reachability is required, not a frequency quota.
   const bodyweight=sample([],['strength','balanced','cardio'],[20,30,45],10)
     .concat(G.generate({catalogue,equipment:[],duration:30,focus:'strength',bodyFocus:'core',random:random(13)}));
-  for(const [id,min] of [['hollow-body-hold',5],['reverse-lunge-knee-drive',5]])assert.ok(count(bodyweight,id)>=min,id+' '+count(bodyweight,id));
+  for(const [id,min] of [['hollow-body-hold',1],['reverse-lunge-knee-drive',5]])assert.ok(count(bodyweight,id)>=min,id+' '+count(bodyweight,id));
   const core=sample([],['strength','balanced'],[30,45],20,{bodyFocus:'core'});
   for(const [id,min] of [['bear-plank-shoulder-taps',3],['hollow-body-hold',10]])assert.ok(count(core,id)>=min,id+' '+count(core,id));
   // Accessible foundations are favoured at Easy; hard holds retain their own Normal sample.
@@ -286,6 +287,11 @@ test('[Full] the kettlebell and TRX additions are reachable in Main',()=>{
   assert.ok(count(kettlebellCore,'kettlebell-rack-march')>=5,'rack march '+count(kettlebellCore,'kettlebell-rack-march'));
   const trx=sample(['trx'],['strength','balanced'],[30,45],20);
   for(const [id,min] of [['trx-body-saw',5],['trx-high-row',3]])assert.ok(count(trx,id)>=min,id+' '+count(trx,id));
-  // The high row adds variety without displacing the standard TRX row.
-  assert.ok(count(trx,'trx-high-row')*2<count(trx,'trx-row'));
+  // #407 gives both primary rows strength 4. Preserve both genuine routes and
+  // unique Main occurrences without imposing their former incidental 2:1 ratio.
+  assert.ok(count(trx,'trx-row')>0,'standard TRX row remains reachable');
+  for(const id of ['trx-row','trx-high-row']){
+    assert.equal(catalogue[id].mainRole,'primary',id);
+    for(const workout of trx)assert.ok(mainIds(workout).filter(exerciseId=>exerciseId===id).length<=1,id);
+  }
 });

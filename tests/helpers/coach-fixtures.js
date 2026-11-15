@@ -143,6 +143,14 @@ function catalogueBeforeCD1(catalogue) {
   return copy;
 }
 
+// Historical metadata input for pre-#407 decision-flow characterisations. Current
+// catalogue behavior is exercised by the live Generator, family and metadata suites.
+function catalogueBeforeMetadata407(catalogue) {
+  const copy=JSON.parse(JSON.stringify(catalogue));
+  for(const {id,field,from} of require('./metadata-407-deltas.json'))copy[id][field]=from;
+  return copy;
+}
+
 // Fixed input for pre-C1 behavioural snapshots: catalogue expansion is allowed to
 // change fresh draws, while these pins continue to detect policy changes on the
 // original catalogue. This projection is test-only; all other tests use production.
@@ -167,4 +175,4 @@ function catalogueBeforeC1(catalogue) {
   return copy;
 }
 
-module.exports = { programmeState, anchor, prescription, sessionResult, sessionDraft, catalogueBeforeAB2, catalogueBeforeCD1, catalogueBeforeC1, catalogueBeforePrepP1 };
+module.exports = { programmeState, anchor, prescription, sessionResult, sessionDraft, catalogueBeforeMetadata407, catalogueBeforeAB2, catalogueBeforeCD1, catalogueBeforeC1, catalogueBeforePrepP1 };

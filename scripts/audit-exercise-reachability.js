@@ -20,8 +20,11 @@
 // The configuration count is derived from the catalogue and equipment list; the
 // report prints the total workout count and runtime.
 //
+// The original matrix is reported as neutral evidence. A bounded longest-duration Balanced
+// sample adds Upper/Lower/Core routes using the same equipment and seed streams. Its counts
+// and warnings remain separate; combined reachability alone determines zero-appearance failure.
 // Exit status is 1 when an exercise eligible for a generated phase has zero appearances across
-// every configuration it is eligible in. Rare and dominant exercises are warnings for human
+// both samples. Rare and dominant exercises are warnings for human
 // review against their intended role: equal frequencies are not a goal.
 //
 // Each failure and rare warning also gets diagnostic evidence from the traced generator (see
@@ -87,6 +90,58 @@ function auditConfigs(catalogue, equipmentIds) {
     {key:'bodyweight-easy',equipment:[],difficulty:'easy'},
     {key:'bodyweight-easy-direct-seeds',equipment:[],difficulty:'easy',seedBank:'direct'}
   ]);
+}
+
+// Controlled comparisons with the neutral seed streams. Long Balanced sessions
+// expose contextual preparation without multiplying the full neutral matrix.
+// At default settings this adds 20% as many workouts as the neutral sample.
+function focusedConfigs(configs, focuses) {
+  const focusIndex=Math.max(0,focuses.indexOf('balanced'));
+  return configs.flatMap((config,index)=>['upper','lower','core'].map(bodyFocus=>({...config,bodyFocus,
+    seedConfigIndex:config.seedConfigIndex??index,seedFocusIndex:config.seedFocusIndex??focusIndex})));
+}
+
+function runContextAudit(options) {
+  const neutral=runAudit(options);
+  const supplemental=runAudit({...options,configs:focusedConfigs(options.configs,options.focuses),
+    durations:[Math.max(...options.durations)],focuses:[options.focuses.includes('balanced')?'balanced':options.focuses[0]],
+    seeds:Math.min(options.seeds||DEFAULT_SEEDS,DEFAULT_SEEDS),recordRoutes:true,validateWorkout:options.validateSupplementalWorkout});
+  const combined={phases:{},failures:[],contextDependent:[]};
+  for(const phase of PHASES){
+    const neutralById=new Map(neutral.phases[phase].map(entry=>[entry.id,entry]));
+    const supplementalById=new Map(supplemental.phases[phase].map(entry=>[entry.id,entry]));
+    combined.phases[phase]=[...new Set([...neutralById.keys(),...supplementalById.keys()])].sort().map(id=>{
+      const n=neutralById.get(id),s=supplementalById.get(id);
+      const entry={phase,id,neutralAppearances:n?.appearances||0,supplementalAppearances:s?.appearances||0};
+      entry.reached=!!(entry.neutralAppearances||entry.supplementalAppearances);
+      if(s?.example)entry.supplementalRoute=s.example;
+      if(!entry.reached)combined.failures.push(entry);
+      else if(!entry.neutralAppearances)combined.contextDependent.push(entry);
+      return entry;
+    });
+  }
+  return {neutral,supplemental,combined};
+}
+
+// Use the Generator's own dose fitter to derive preparation bounds, including
+// its default bounds and per-side timing. Invalid evidence must not earn a pass.
+function validateAuditWorkout(workout,request,generator) {
+  for(const phase of PHASES)for(const selected of phaseExercises(workout,phase)){
+    const canonical=request.catalogue[selected.id];
+    if(!canonical||!generator.generatedPhaseEligible(canonical,phase,request.equipment,request.difficulty))
+      throw new Error('Invalid audit selection: '+phase+':'+selected.id);
+    if(phase==='warmup'||phase==='rampup'){
+      const low=generator.fitTimedDurations([canonical],0,0,phase).exercises[0];
+      const high=generator.fitTimedDurations([canonical],1e6,0,phase).exercises[0];
+      const p=selected.prescription;
+      if(!p||p.type!==low.prescription.type||p.value<low.prescription.value||p.value>high.prescription.value
+        ||selected.estimatedSeconds!==p.value*generator.sideCount(canonical))
+        throw new Error('Invalid audit dose: '+phase+':'+selected.id);
+    }
+  }
+  const issues=generator.validateMain(workout.main,request.catalogue,request.equipment)
+    .concat(generator.validatePreparation(workout.warmup,workout.rampup,phaseExercises(workout,'main')));
+  if(issues.length)throw new Error('Invalid audit workout: '+issues.join(', '));
 }
 
 // ---- Diagnostic evidence ----
@@ -243,11 +298,14 @@ function runAudit(options) {
     for (const phase of PHASES) eligible[phase] = exercises.filter(exercise => isEligible(exercise,phase,config.equipment,config.difficulty));
     focuses.forEach((focus, focusIndex) => durations.forEach(duration => {
       for (let sample=0; sample<seeds; sample++) {
-        const request = { catalogue, duration, focus, equipment:config.equipment,
-          random:lcg(config.seedBank==='direct' ? sample+1 : workoutSeed(configIndex,focusIndex,duration,sample)) };
+        const seed=config.seedBank==='direct'?sample+1:workoutSeed(config.seedConfigIndex??configIndex,config.seedFocusIndex??focusIndex,duration,sample);
+        const request = { catalogue, duration, focus, equipment:config.equipment,random:lcg(seed) };
         if (config.difficulty) request.difficulty = config.difficulty;
-        if (collector) { collector.begin([config.key,focus,duration].join('|')); request.trace = collector.trace; }
+        if (config.bodyFocus) request.bodyFocus = config.bodyFocus;
+        const contextKey=[config.key,focus,duration,...(config.bodyFocus?[config.bodyFocus]:[])].join('|');
+        if (collector) { collector.begin(contextKey); request.trace = collector.trace; }
         const workout = generate(request);
+        if(options.validateWorkout)options.validateWorkout(workout,request);
         if (collector) collector.end(workout);
         workouts++;
         for (const phase of PHASES) {
@@ -255,10 +313,17 @@ function runAudit(options) {
           const share = eligible[phase].length ? used.size/eligible[phase].length : 0;
           for (const exercise of eligible[phase]) {
             const entry = phases[phase][exercise.id] || (phases[phase][exercise.id] = { id:exercise.id, workouts:0, appearances:0, evenShare:0, contexts:{} });
-            const contextKey = [config.key,focus,duration].join('|');
             const context = entry.contexts[contextKey] || (entry.contexts[contextKey] = { equipment:config.key, focus, duration, workouts:0, appearances:0, evenShare:0 });
+            if(config.bodyFocus)context.bodyFocus=config.bodyFocus;
             entry.workouts++; context.workouts++; entry.evenShare += share; context.evenShare += share;
-            if (used.has(exercise.id)) { entry.appearances++; context.appearances++; }
+            if (used.has(exercise.id)) {
+              entry.appearances++; context.appearances++;
+              if(options.recordRoutes&&!entry.example){
+                const selected=phaseExercises(workout,phase).find(item=>item.id===exercise.id);
+                entry.example={equipment:config.equipment.slice(),duration,focus,difficulty:config.difficulty||'normal',
+                  bodyFocus:config.bodyFocus||'full-body',seed,prescription:{...selected.prescription},estimatedSeconds:selected.estimatedSeconds};
+              }
+            }
           }
         }
       }
@@ -454,6 +519,7 @@ const percent = value => (100*value).toFixed(1)+'%';
 // Per-equipment, per-focus and per-duration breakdown of one audited exercise.
 function breakdown(entry) {
   const groups = { equipment:new Map(), focus:new Map(), duration:new Map() };
+  if(Object.values(entry.contexts).some(context=>context.bodyFocus))groups.bodyFocus=new Map();
   for (const context of Object.values(entry.contexts)) for (const [name,map] of Object.entries(groups)) {
     const key = context[name], total = map.get(key) || { workouts:0, appearances:0 };
     total.workouts += context.workouts; total.appearances += context.appearances;
@@ -534,6 +600,24 @@ function loadApp() {
   return { catalogue:GarageFitData.exercises, equipmentIds:GarageFitData.equipment.map(item => item.id), generator:GarageFitGenerator };
 }
 
+function formatContextReport(result,elapsedMs) {
+  const {neutral,supplemental,combined}=result;
+  const lines=[
+    'NEUTRAL BASELINE — original matrix and frequency evidence',formatReport(neutral),
+    '\nSUPPLEMENTAL — longest-duration contextual routes; separate frequency evidence',formatReport(supplemental),
+    '\nCOMBINED REACHABILITY — final-workout selection in either sample',
+    'Neutral '+neutral.workouts+' workouts; supplemental '+supplemental.workouts+' workouts'+(elapsedMs==null?'':' in '+(elapsedMs/1000).toFixed(1)+'s'),
+    'Context-dependent selections ('+combined.contextDependent.length+')'
+  ];
+  for(const entry of combined.contextDependent)lines.push('  '+entry.phase+':'+entry.id+' neutral '+entry.neutralAppearances+
+    ', supplemental '+entry.supplementalAppearances+'; reproduce '+JSON.stringify(entry.supplementalRoute));
+  lines.push('Unreachable across both samples ('+combined.failures.length+')');
+  for(const entry of combined.failures)lines.push('  '+entry.phase+':'+entry.id);
+  lines.push('Frequency warnings above retain their own sampling contexts; combined counts are not frequency targets.');
+  lines.push(combined.failures.length?'RESULT: FAIL ('+combined.failures.length+' unreachable across both samples)':'RESULT: PASS (combined reachability)');
+  return lines.join('\n');
+}
+
 function main(argv) {
   const json = argv.includes('--json');
   const seedArg = argv.find(arg => arg.startsWith('--seeds='));
@@ -542,7 +626,7 @@ function main(argv) {
   const { catalogue, equipmentIds, generator } = loadApp();
   generator.assertValidCatalogue(catalogue);
   const started = Date.now();
-  const result = runAudit({
+  const result = runContextAudit({
     catalogue, seeds,
     generate: generator.generate,
     isEligible: generator.generatedPhaseEligible,
@@ -552,14 +636,16 @@ function main(argv) {
     requirementsMet: generator.requirementsMet,
     selectionRanks: generator.selectionRanks,
     shortlistSize: generator.SHORTLIST_SIZE,
-    diagnose: !argv.includes('--no-diagnostics')
+    diagnose: !argv.includes('--no-diagnostics'),
+    validateSupplementalWorkout:(workout,request)=>validateAuditWorkout(workout,request,generator)
   });
   const elapsedMs = Date.now()-started;
   if (json) process.stdout.write(JSON.stringify(Object.assign({ elapsedMs }, result),null,2)+'\n');
-  else process.stdout.write(formatReport(result,elapsedMs)+'\n');
-  return result.failures.length ? 1 : 0;
+  else process.stdout.write(formatContextReport(result,elapsedMs)+'\n');
+  return result.combined.failures.length ? 1 : 0;
 }
 
-module.exports = { DEFAULT_SEEDS, PHASES, RARE_RATIO, DOMINANT_RATIO, equipmentPairs, representativeConfigs, auditConfigs, runAudit, formatReport, formatDiagnosis, classify, workoutSeed, main };
+module.exports = { DEFAULT_SEEDS, PHASES, RARE_RATIO, DOMINANT_RATIO, equipmentPairs, representativeConfigs, auditConfigs, focusedConfigs,
+  runContextAudit, validateAuditWorkout, formatContextReport, runAudit, formatReport, formatDiagnosis, classify, workoutSeed, main };
 
 if (require.main===module) process.exitCode = main(process.argv.slice(2));

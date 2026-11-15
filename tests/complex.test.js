@@ -225,7 +225,7 @@ test('Coach hard complex constraints reserve optional work safely; anchors can n
 
 test('bounded automatic seeds reach complexes after an established block at 15–45 minutes, deterministically',()=>{
   // Shared catalogue growth shifts draws; retain the same validated protocol and setup coverage.
-  const cases=[[15,'balanced',kit,12],[20,'strength',[],10],[20,'cardio',['dumbbells'],18],[30,'balanced',['kettlebell','trx','bands'],7],[45,'cardio',[],26],[45,'balanced',kit,24]];
+  const cases=[[15,"balanced",kit,99],[20,"strength",[],10],[20,"cardio",["dumbbells"],18],[30,"balanced",["kettlebell","trx","bands"],11],[45,"cardio",[],9],[45,"balanced",kit,1]];
   const setups=new Set();
   for(const [duration,focus,equipment,seed] of cases){
     const options={catalogue:C,duration,focus,equipment},w=G.generate({...options,random:random(seed)});

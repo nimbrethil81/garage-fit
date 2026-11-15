@@ -25,7 +25,7 @@ const BATCH=[
   ['trx-chest-fly','trx',['push'],'upper','hard','supporting','reps',8,'bilateral',30],
   ['kettlebell-half-kneeling-press','kettlebell',['push'],'upper','moderate','primary','unilateral-reps',8,'per-side',50],
   ['kettlebell-dead-stop-swing','kettlebell',['hinge'],'lower','hard','primary','reps',10,'bilateral',40],
-  ['hanging-oblique-knee-raise','pullup-bar',['core','pull'],'core','hard','primary','reps',10,'alternating',35]
+  ['hanging-oblique-knee-raise','pullup-bar',['core','pull'],'core','moderate','primary','reps',10,'alternating',35]
 ];
 const IDS=BATCH.map(row=>row[0]);
 

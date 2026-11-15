@@ -26,11 +26,11 @@ test('conditioning is a separate attribute and no longer a pattern', () => {
 });
 
 test('the conditioning set includes the migrated exercises and approved additions', () => {
-  const expected = ['bicycle-crunch','mountain-climbers','jumping-jacks','high-knees','burpees','squat-jumps','skater-jumps',
+  const expected = ['mountain-climbers','jumping-jacks','high-knees','burpees','squat-jumps','skater-jumps',
     'dumbbell-thruster','dumbbell-clean-and-press','kettlebell-swing','kettlebell-single-arm-swing','kettlebell-clean','kettlebell-figure-eight',
-    'trx-knee-tuck','trx-mountain-climber','barbell-clean','barbell-clean-and-press','step-ups','box-jumps','box-step-ups',
+    'trx-mountain-climber','step-ups','box-jumps','box-step-ups',
     'chair-step-ups','bum-kicks','star-jumps','devils-press','dumbbell-snatch','switch-kicks','ski-abs','kettlebell-snatch','kick-through','bear-crawl','dumbbell-push-press','fast-feet','in-in-out-out-steps',
-    'power-march','step-jacks','standing-knee-drive-march','alternating-hamstring-curl-steps','side-step-knee-lift','forward-back-aerobic-steps','low-impact-speed-skaters','alternating-straight-punches','boxer-step-and-punches','alternating-hooks','boxing-slip-and-punch','step-back-burpee','squat-to-alternating-knee-drive','high-knee-power-steps','low-pogo-hops','dumbbell-alternating-punch-out','dumbbell-squat-to-calf-raise','kettlebell-deadlift-to-calf-raise'];
+    'power-march','step-jacks','standing-knee-drive-march','alternating-hamstring-curl-steps','side-step-knee-lift','forward-back-aerobic-steps','low-impact-speed-skaters','alternating-straight-punches','boxer-step-and-punches','alternating-hooks','boxing-slip-and-punch','step-back-burpee','squat-to-alternating-knee-drive','high-knee-power-steps','low-pogo-hops'];
   const actual = Object.values(catalogue).filter(exercise => exercise.conditioning).map(exercise => exercise.id);
   assert.deepEqual(actual.slice().sort(), expected.slice().sort());
   assert.deepEqual(catalogue['mountain-climbers'].patterns, ['core']);
@@ -51,12 +51,12 @@ test('the conditioning recipe slot is filled from the conditioning attribute', (
 });
 
 test('cardio remains an independent scalar from the conditioning category', () => {
-  // A heavy carry raises the pulse but is not conditioning work; a bicycle crunch is
-  // conditioning work at moderate cardio.
+  // A heavy carry and Bear crawl have the same cardio score but opposite
+  // conditioning categories after the approved #407 corrections.
   assert.equal(catalogue['dumbbell-farmer-carry'].conditioning, false);
   assert.equal(catalogue['dumbbell-farmer-carry'].cardio, 3);
-  assert.equal(catalogue['bicycle-crunch'].conditioning, true);
-  assert.equal(catalogue['bicycle-crunch'].cardio, 3);
+  assert.equal(catalogue['bear-crawl'].conditioning, true);
+  assert.equal(catalogue['bear-crawl'].cardio, 3);
   const early = ex => G.scoreRampupCandidate(ex, 0, [], [], [catalogue['burpees']], [], 'balanced');
   const asConditioning = Object.assign(clone(catalogue['dumbbell-farmer-carry']), { conditioning:true });
   assert.ok(early(asConditioning) > early(catalogue['dumbbell-farmer-carry']));
@@ -67,7 +67,8 @@ test('cardio remains an independent scalar from the conditioning category', () =
 
 test('conditioning status alone does not count as lower-body demand', () => {
   const only = id => [catalogue[id]];
-  // Floor-based, core-led conditioning.
+  // Floor-based core work retains zero lower-body demand, including the two
+  // entries reclassified as non-conditioning in #407.
   for (const id of ['mountain-climbers','trx-mountain-climber','bicycle-crunch','trx-knee-tuck']) {
     assert.equal(G.lowerBodyDemand(only(id), 'cardio'), 0, id);
   }

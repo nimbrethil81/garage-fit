@@ -16,7 +16,7 @@ const mainIds=workout=>workout.main.blocks.flatMap(block=>block.exercises.map(ex
 test('the batch entries match the approved metadata',()=>{
   const bc=catalogue['bear-crawl'],pp=catalogue['dumbbell-push-press'],pa=catalogue['band-pallof-press'],tp=catalogue['trx-pike'],bcurl=catalogue['dumbbell-biceps-curl'];
   assert.deepEqual(bc.equipment,[]);
-  assert.deepEqual([bc.family,bc.repetitionClass,bc.patterns,bc.conditioning,bc.strength,bc.cardio,bc.impact,bc.sidedness,bc.bodyPosition,bc.movementPlanes,bc.mainRole],[null,null,['core'],true,3,4,'low','alternating','floor',['sagittal'],'primary']);
+  assert.deepEqual([bc.family,bc.repetitionClass,bc.patterns,bc.conditioning,bc.strength,bc.cardio,bc.impact,bc.sidedness,bc.bodyPosition,bc.movementPlanes,bc.mainRole],[null,null,['core'],true,3,3,'low','alternating','floor',['sagittal'],'primary']);
   assert.deepEqual(bc.prescription,{type:'timed',value:30});
   assert.ok(bc.mainProtocols.includes('timed_intervals'));
   assert.deepEqual(pp.equipment,[['dumbbells']]);
@@ -116,6 +116,10 @@ test('[Full] the rare supporting Dumbbell biceps curl is reachable and stays sec
   // Optional pyramid choices change the draw stream; retain a bounded 360-workout
   // sample for this rare supporting role without changing its frequency threshold.
   const mixed=sample(['dumbbells','kettlebell'],'strength',[20,30,45],120);
+  // #407 shifts the rare accessory draw: keep the original secondary-role sample
+  // and a genuine Upper-body Dumbbells route (found within 150 seeds).
+  mixed.push(G.generate({catalogue,duration:30,focus:'strength',bodyFocus:'upper',
+    equipment:['dumbbells'],random:random(39)}));
   const curl=countMain(mixed,'dumbbell-biceps-curl');
   assert.ok(curl>=1,'biceps curl '+curl);
   assert.ok(curl*4<countMain(mixed,'single-arm-dumbbell-row')+countMain(mixed,'kettlebell-deadlift')+countMain(mixed,'bear-crawl'),'curl vs primary pulling');

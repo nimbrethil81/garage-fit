@@ -1,0 +1,440 @@
+[
+  {
+    "id": "step-jacks",
+    "field": "cardio",
+    "from": 4,
+    "to": 2
+  },
+  {
+    "id": "standing-knee-drive-march",
+    "field": "cardio",
+    "from": 4,
+    "to": 2
+  },
+  {
+    "id": "side-step-knee-lift",
+    "field": "cardio",
+    "from": 4,
+    "to": 2
+  },
+  {
+    "id": "power-march",
+    "field": "cardio",
+    "from": 4,
+    "to": 2
+  },
+  {
+    "id": "low-impact-speed-skaters",
+    "field": "cardio",
+    "from": 4,
+    "to": 3
+  },
+  {
+    "id": "boxer-step-and-punches",
+    "field": "cardio",
+    "from": 4,
+    "to": 3
+  },
+  {
+    "id": "boxing-slip-and-punch",
+    "field": "cardio",
+    "from": 4,
+    "to": 3
+  },
+  {
+    "id": "step-back-burpee",
+    "field": "cardio",
+    "from": 4,
+    "to": 3
+  },
+  {
+    "id": "squat-to-alternating-knee-drive",
+    "field": "cardio",
+    "from": 4,
+    "to": 3
+  },
+  {
+    "id": "bear-crawl",
+    "field": "cardio",
+    "from": 4,
+    "to": 3
+  },
+  {
+    "id": "jumping-jacks",
+    "field": "cardio",
+    "from": 5,
+    "to": 4
+  },
+  {
+    "id": "high-knee-power-steps",
+    "field": "cardio",
+    "from": 4,
+    "to": 3
+  },
+  {
+    "id": "low-pogo-hops",
+    "field": "cardio",
+    "from": 4,
+    "to": 3
+  },
+  {
+    "id": "trx-knee-tuck",
+    "field": "cardio",
+    "from": 4,
+    "to": 3
+  },
+  {
+    "id": "fast-feet",
+    "field": "cardio",
+    "from": 5,
+    "to": 4
+  },
+  {
+    "id": "kettlebell-figure-eight",
+    "field": "cardio",
+    "from": 4,
+    "to": 3
+  },
+  {
+    "id": "kick-through",
+    "field": "cardio",
+    "from": 4,
+    "to": 3
+  },
+  {
+    "id": "mountain-climbers",
+    "field": "cardio",
+    "from": 5,
+    "to": 4
+  },
+  {
+    "id": "trx-mountain-climber",
+    "field": "cardio",
+    "from": 5,
+    "to": 4
+  },
+  {
+    "id": "kettlebell-swing",
+    "field": "cardio",
+    "from": 5,
+    "to": 4
+  },
+  {
+    "id": "kettlebell-single-arm-swing",
+    "field": "cardio",
+    "from": 5,
+    "to": 4
+  },
+  {
+    "id": "kettlebell-snatch",
+    "field": "cardio",
+    "from": 5,
+    "to": 4
+  },
+  {
+    "id": "box-jumps",
+    "field": "cardio",
+    "from": 5,
+    "to": 4
+  },
+  {
+    "id": "switch-kicks",
+    "field": "cardio",
+    "from": 5,
+    "to": 4
+  },
+  {
+    "id": "alternating-hamstring-curl-steps",
+    "field": "cardio",
+    "from": 3,
+    "to": 2
+  },
+  {
+    "id": "forward-back-aerobic-steps",
+    "field": "cardio",
+    "from": 3,
+    "to": 2
+  },
+  {
+    "id": "alternating-straight-punches",
+    "field": "cardio",
+    "from": 3,
+    "to": 2
+  },
+  {
+    "id": "alternating-hooks",
+    "field": "cardio",
+    "from": 3,
+    "to": 2
+  },
+  {
+    "id": "dumbbell-alternating-punch-out",
+    "field": "cardio",
+    "from": 3,
+    "to": 2
+  },
+  {
+    "id": "bicycle-crunch",
+    "field": "cardio",
+    "from": 3,
+    "to": 2
+  },
+  {
+    "id": "banded-lateral-walk",
+    "field": "cardio",
+    "from": 3,
+    "to": 2
+  },
+  {
+    "id": "dumbbell-renegade-row",
+    "field": "cardio",
+    "from": 2,
+    "to": 3
+  },
+  {
+    "id": "kettlebell-rack-march",
+    "field": "cardio",
+    "from": 2,
+    "to": 3
+  },
+  {
+    "id": "dumbbell-bent-over-row",
+    "field": "strength",
+    "from": 5,
+    "to": 4
+  },
+  {
+    "id": "single-arm-dumbbell-row",
+    "field": "strength",
+    "from": 5,
+    "to": 4
+  },
+  {
+    "id": "dumbbell-bench-row",
+    "field": "strength",
+    "from": 5,
+    "to": 4
+  },
+  {
+    "id": "dumbbell-staggered-stance-row",
+    "field": "strength",
+    "from": 5,
+    "to": 4
+  },
+  {
+    "id": "single-arm-kettlebell-row",
+    "field": "strength",
+    "from": 5,
+    "to": 4
+  },
+  {
+    "id": "trx-row",
+    "field": "strength",
+    "from": 5,
+    "to": 4
+  },
+  {
+    "id": "dumbbell-floor-press",
+    "field": "strength",
+    "from": 5,
+    "to": 4
+  },
+  {
+    "id": "kettlebell-floor-press",
+    "field": "strength",
+    "from": 5,
+    "to": 4
+  },
+  {
+    "id": "dumbbell-bench-press",
+    "field": "strength",
+    "from": 5,
+    "to": 4
+  },
+  {
+    "id": "dumbbell-close-grip-floor-press",
+    "field": "strength",
+    "from": 5,
+    "to": 4
+  },
+  {
+    "id": "single-arm-dumbbell-floor-press",
+    "field": "strength",
+    "from": 5,
+    "to": 4
+  },
+  {
+    "id": "dumbbell-shoulder-press",
+    "field": "strength",
+    "from": 5,
+    "to": 4
+  },
+  {
+    "id": "dumbbell-arnold-press",
+    "field": "strength",
+    "from": 5,
+    "to": 4
+  },
+  {
+    "id": "dumbbell-half-kneeling-press",
+    "field": "strength",
+    "from": 5,
+    "to": 4
+  },
+  {
+    "id": "kettlebell-half-kneeling-press",
+    "field": "strength",
+    "from": 5,
+    "to": 4
+  },
+  {
+    "id": "kettlebell-shoulder-press",
+    "field": "strength",
+    "from": 5,
+    "to": 4
+  },
+  {
+    "id": "dumbbell-reverse-lunge",
+    "field": "strength",
+    "from": 5,
+    "to": 4
+  },
+  {
+    "id": "dumbbell-split-squat",
+    "field": "strength",
+    "from": 5,
+    "to": 4
+  },
+  {
+    "id": "dumbbell-lateral-lunge",
+    "field": "strength",
+    "from": 5,
+    "to": 4
+  },
+  {
+    "id": "trx-reverse-lunge",
+    "field": "strength",
+    "from": 4,
+    "to": 3
+  },
+  {
+    "id": "dumbbell-dead-bug-hold",
+    "field": "strength",
+    "from": 4,
+    "to": 3
+  },
+  {
+    "id": "kettlebell-rack-march",
+    "field": "strength",
+    "from": 3,
+    "to": 4
+  },
+  {
+    "id": "kettlebell-deadlift",
+    "field": "strength",
+    "from": 5,
+    "to": 4
+  },
+  {
+    "id": "kettlebell-goblet-squat",
+    "field": "strength",
+    "from": 5,
+    "to": 4
+  },
+  {
+    "id": "kettlebell-clean-and-press",
+    "field": "strength",
+    "from": 5,
+    "to": 4
+  },
+  {
+    "id": "side-plank",
+    "field": "difficulty",
+    "from": "easy",
+    "to": "moderate"
+  },
+  {
+    "id": "step-ups",
+    "field": "difficulty",
+    "from": "easy",
+    "to": "moderate"
+  },
+  {
+    "id": "box-step-ups",
+    "field": "difficulty",
+    "from": "easy",
+    "to": "moderate"
+  },
+  {
+    "id": "kettlebell-deadlift",
+    "field": "difficulty",
+    "from": "easy",
+    "to": "moderate"
+  },
+  {
+    "id": "trx-y-fly",
+    "field": "difficulty",
+    "from": "easy",
+    "to": "moderate"
+  },
+  {
+    "id": "dumbbell-dead-bug-hold",
+    "field": "difficulty",
+    "from": "hard",
+    "to": "moderate"
+  },
+  {
+    "id": "hanging-oblique-knee-raise",
+    "field": "difficulty",
+    "from": "hard",
+    "to": "moderate"
+  },
+  {
+    "id": "trx-hamstring-curl",
+    "field": "difficulty",
+    "from": "hard",
+    "to": "moderate"
+  },
+  {
+    "id": "bicycle-crunch",
+    "field": "conditioning",
+    "from": true,
+    "to": false
+  },
+  {
+    "id": "dumbbell-alternating-punch-out",
+    "field": "conditioning",
+    "from": true,
+    "to": false
+  },
+  {
+    "id": "trx-knee-tuck",
+    "field": "conditioning",
+    "from": true,
+    "to": false
+  },
+  {
+    "id": "dumbbell-squat-to-calf-raise",
+    "field": "conditioning",
+    "from": true,
+    "to": false
+  },
+  {
+    "id": "kettlebell-deadlift-to-calf-raise",
+    "field": "conditioning",
+    "from": true,
+    "to": false
+  },
+  {
+    "id": "barbell-clean",
+    "field": "conditioning",
+    "from": true,
+    "to": false
+  },
+  {
+    "id": "barbell-clean-and-press",
+    "field": "conditioning",
+    "from": true,
+    "to": false
+  }
+]

@@ -184,10 +184,11 @@ test('Coach hard pyramid constraints reserve optional work safely; anchors canno
 });
 
 test('bounded automatic seeds reach real pyramids at 10–45 minutes, plus intensity/reverse variants, deterministically',()=>{
-  // Catalogue growth (including S1) shifts draws; these bounded seeds still reach each variant.
-  const cases=[[10,59],[15,6],[20,161],[30,6],[45,20]].map(([duration,seed])=>({duration,seed,equipment:kit}));
-  cases.push({duration:15,seed:56,focus:'balanced',equipment:kit},
-    {duration:30,seed:33,bodyFocus:'upper',equipment:['trx']},{duration:45,seed:76,bodyFocus:'upper',equipment:['trx']},
+  // #407 shifts draws; bounded searches retain every original context and all
+  // three variants without changing protocol, budget or determinism assertions.
+  const cases=[[10,109],[15,6],[20,14],[30,27],[45,20]].map(([duration,seed])=>({duration,seed,equipment:kit}));
+  cases.push({duration:15,seed:103,focus:'balanced',equipment:kit},
+    {duration:30,seed:33,bodyFocus:'upper',equipment:['trx']},{duration:45,seed:138,bodyFocus:'upper',equipment:['trx']},
     {duration:45,seed:41,bodyFocus:'upper',difficulty:'easy',equipment:['trx']});
   const kinds=new Set();
   for(const {seed,...context} of cases){

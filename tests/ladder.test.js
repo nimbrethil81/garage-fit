@@ -141,9 +141,28 @@ test('Coach preflight handles ladder-only optional constraints, hard avoids, ins
 });
 
 
+test('short Balanced and Cardio retain optional ladder eligibility within existing share bounds',()=>{
+  const eligible=Object.values(C).filter(ex=>G.generatedPhaseEligible(ex,'main',kit,'normal'));
+  for(const focus of ['balanced','cardio']){
+    const state={blocks:[],duration:10,difficulty:'normal'};
+    const weight=(seconds,blocks=[])=>G.protocolWeights(focus,'conditioning',seconds,eligible,{...state,blocks})
+      .find(choice=>choice.value==='ladder').weight;
+    assert.ok(weight(120)>0,focus+' minimum share');
+    assert.ok(weight(G.BUDGETS[10].main)>0,focus+' ten-minute Main share');
+    assert.equal(weight(119),0);assert.equal(weight(901),0);
+    assert.equal(weight(120,[{protocol:'ladder'}]),0,'at most one ladder per Main');
+  }
+});
+
 test('bounded seeds reach optional ladders across styles and 10–45 minute budgets without changing determinism',()=>{
-  // Catalogue expansion (including S1) shifts full-kit draws; fixed bounded seeds reach one ladder each.
-  const cases=[[10,'balanced',6],[10,'cardio',280],[15,'strength',6],[20,'strength',39],[30,'strength',3],[45,'strength',15]];
+  // #407 changes draws. These validated fixtures preserve aggregate focus/duration
+  // coverage; the old short Balanced/Cardio samples were unobserved, not disproved.
+  const cases=[
+    [10,'strength',93],[15,'balanced',6],[20,'balanced',197],
+    [30,'balanced',29],[45,'balanced',4],[45,'cardio',22]
+  ];
+  assert.deepEqual([...new Set(cases.map(([duration])=>duration))].sort((a,b)=>a-b),[10,15,20,30,45]);
+  assert.deepEqual([...new Set(cases.map(([,focus])=>focus))].sort(),['balanced','cardio','strength']);
   const directions=new Set();
   for(const [duration,focus,seed] of cases){
     const options={catalogue:C,duration,focus,equipment:kit},w=G.generate({...options,random:random(seed)});

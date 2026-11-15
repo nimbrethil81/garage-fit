@@ -191,7 +191,8 @@ test('shared preview/player/tracker use contextual targets and per-side occurren
 });
 
 test('no-family seeded output and random draws match their approved baselines',()=>{
-  const snapshotCatalogue=require('./helpers/coach-fixtures').catalogueBeforeC1(C);
+  const historicalFixtures=require('./helpers/coach-fixtures');
+  const snapshotCatalogue=historicalFixtures.catalogueBeforeC1(historicalFixtures.catalogueBeforeMetadata407(C));
   const fixtures=[
     // Re-pinned for #255: three newly shared Main exercises change this pool (same RNG count).
     [{duration:10,focus:'strength',bodyFocus:'upper',difficulty:'easy',equipment:[]},68,'3f1db1c18734e2513d3aec3b31bb85e6575b15a66cd306d62a590c4588a2f97c'],

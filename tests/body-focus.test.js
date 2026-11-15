@@ -188,3 +188,61 @@ test('swaps keep the workout body focus', () => {
     assert.ok(focused > neutral || focused===30, `${area} swaps ${focused} vs Full Body ${neutral}`);
   }
 });
+
+test('GF-META-R1 rejects the seed 569 five-Lower attempt without changing the two-credit policy or historical validation',()=>{
+  const attempts=[],workout=G.generate({catalogue,duration:20,focus:'balanced',bodyFocus:'lower',difficulty:'normal',equipment:['dumbbells'],random:random(569),
+    trace:event=>{if(event.type==='main-attempt')attempts.push(event);}});
+  assert.ok(attempts.some(event=>event.issues.includes('main:body-focus-run')),'reported invalid candidate is rejected');
+  let run=0;for(const ex of mainOf(workout)){run=ex.bodyFocus==='lower'?run+1:0;assert.ok(run<=4);}
+  assert.equal(workout.focus,'balanced');assert.equal(workout.bodyFocus,'lower');
+  assert.deepEqual(G.validateMain(workout.main,catalogue,['dumbbells'],G.BUDGETS[20].main),[]);
+  assert.ok(Math.abs(workout.estimatedSeconds-20*60)<=Math.max(180,20*60*.18),'retain the established ordinary Generator duration tolerance');
+  assert.equal(G.bodyFocusCredit(catalogue['walking-lunge'],'lower',[catalogue['air-squat'],catalogue['air-squat']]),0);
+  // This new-output choice must not turn into a global saved-workout rejection.
+  const legacy=JSON.parse(JSON.stringify(workout));
+  legacy.main.blocks=[{id:'main-1',protocol:'rounds',intent:'conditioning',exercises:['step-jacks','power-march','high-knee-power-steps','high-knees','walking-lunge'].map(id=>catalogue[id]),
+    prescription:{rounds:1,exerciseRestSeconds:20,roundRestSeconds:60}}];
+  assert.deepEqual(G.validateMain(legacy.main,catalogue,['dumbbells']),[]);
+});
+
+test('GF-META-R1 ordinary swaps retain the ceiling and leave the plan unchanged without an eligible alternative',()=>{
+  const source=G.generate({catalogue,duration:20,focus:'balanced',bodyFocus:'lower',equipment:['dumbbells'],random:random(569)});
+  for(let seed=1;seed<=12;seed++){
+    const workout=JSON.parse(JSON.stringify(source));
+    for(let index=0;index<workout.main.blocks.length;index++)for(let slot=0;slot<workout.main.blocks[index].exercises.length;slot++){
+      G.swap(workout,index,slot,{catalogue,equipment:['dumbbells'],random:random(seed*31+slot)});
+      let run=0;for(const ex of mainOf(workout)){run=ex.bodyFocus==='lower'?run+1:0;assert.ok(run<=4);}
+    }
+  }
+  const unchanged=JSON.parse(JSON.stringify(source)),before=JSON.parse(JSON.stringify(unchanged));
+  const onlyCurrent=Object.fromEntries(mainOf(unchanged).map(ex=>[ex.id,catalogue[ex.id]]));
+  // Empty candidate pool is an honest unchanged edit, not a licence to violate the cap.
+  G.swap(unchanged,0,0,{catalogue:{[mainOf(unchanged)[0].id]:onlyCurrent[mainOf(unchanged)[0].id]},equipment:['dumbbells'],random:random(1)});
+  assert.deepEqual(unchanged,before);
+});
+
+test('GF-META-R1 rejects an otherwise eligible swap that would create a fifth consecutive Lower exercise',()=>{
+  const ids=['air-squat','alternating-lateral-lunge','reverse-lunge-knee-drive','high-knee-power-steps','push-up'];
+  const workout=G.normaliseWorkout({duration:20,focus:'balanced',bodyFocus:'lower',difficulty:'normal',
+    warmup:{exercises:[]},rampup:{exercises:[]},cooldown:{exercises:[]},main:{blocks:[{id:'main-1',protocol:'rounds',intent:'strength',
+      exercises:ids.map(id=>catalogue[id]),prescription:{rounds:1,exerciseRestSeconds:20,roundRestSeconds:60}}]}});
+  const before=JSON.parse(JSON.stringify(workout)),candidate=catalogue['walking-lunge'];
+  assert.equal(G.generatedPhaseEligible(candidate,'main',[],'normal'),true);
+  assert.equal(G.protocolCompatible(candidate,'rounds'),true);
+  G.swap(workout,0,4,{catalogue:{'walking-lunge':candidate},equipment:[],random:random(1)});
+  assert.deepEqual(workout,before,'only candidate violates the ceiling, so retain the original plan');
+});
+
+test('GF-META-R1 representative difficulties and kits retain duration, validity and buildable attempts',()=>{
+  for(const bodyFocus of AREAS)for(const difficulty of ['easy','normal','hard'])for(const equipment of [[],['dumbbells'],ALL_EQUIPMENT])for(const duration of [10,20,45]){
+    let fallback=false;
+    const workout=G.generate({catalogue,bodyFocus,difficulty,equipment,duration,focus:'balanced',random:random(569),
+      trace:event=>{if(event.type==='main-result'&&event.attempt===null)fallback=true;}});
+    const label=JSON.stringify({bodyFocus,difficulty,equipment,duration});
+    assert.equal(fallback,false,label);
+    let run=0;for(const exercise of mainOf(workout)){run=exercise.bodyFocus===bodyFocus?run+1:0;assert.ok(run<=4,label);}
+    assert.deepEqual(G.validateMain(workout.main,catalogue,equipment,G.BUDGETS[duration].main).filter(issue=>issue!=='main:duration-out-of-tolerance'),[],label);
+    assert.ok(Math.abs(workout.estimatedSeconds-duration*60)<=Math.max(180,duration*60*.18),label);
+    assert.ok(workout.warmup.exercises.length&&workout.rampup.exercises.length&&workout.cooldown.exercises.length,label);
+  }
+});

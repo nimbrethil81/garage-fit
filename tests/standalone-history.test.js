@@ -26,8 +26,8 @@ function harness(options = {}) {
     const testStore=GarageFitCoachStore.createStore(localStorage);`);
   return {
     app, storage, run,
-    generate(seed = 7, duration = 30) {
-      run(`generatorState.workout=GarageFitGenerator.generate({catalogue:CATALOGUE,duration:${duration},focus:'balanced',equipment:state.ownedEquipment,history:getGeneratedHistory(),random:${seeded(seed)}})`);
+    generate(seed = 7, duration = 30, focus = 'balanced') {
+      run(`generatorState.workout=GarageFitGenerator.generate({catalogue:CATALOGUE,duration:${duration},focus:'${focus}',equipment:state.ownedEquipment,history:getGeneratedHistory(),random:${seeded(seed)}})`);
     },
     tick() { const callback = intervals.get(run('generatorState.phaseTimer')); assert.ok(callback, 'phase timer is running'); callback(); },
     timerCallback: () => intervals.get(run('generatorState.phaseTimer')),
@@ -315,7 +315,9 @@ test('Coach drafts and Session Results are unaffected by a completed standalone 
   const c = coach(h);
   await c.start(); await c.begin(); await c.logAnchors();
   const coachDraft = h.storage.get('gf_coach_session_draft');
-  h.generate(5, 20);
+  // This isolation check needs a linear current-catalogue run; bounded cap-clock
+  // protocols have their own current AMRAP/density player coverage.
+  h.generate(5, 20, 'strength');
   h.app.startStandaloneGeneratedWorkout();
   await h.playToEnd();
   const standalone = plain(await h.run('generatorState.trackedResult'));

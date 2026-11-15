@@ -17,7 +17,7 @@ const clone=value=>JSON.parse(JSON.stringify(value));
 test('the batch entries match the approved metadata',()=>{
   const ks=catalogue['kettlebell-snatch'],cl=catalogue['curtsy-lunge'],pp=catalogue['dumbbell-plank-pull-through'],kt=catalogue['kick-through'],lr=catalogue['dumbbell-lateral-raise'];
   assert.deepEqual(ks.equipment,[['kettlebell']]);
-  assert.deepEqual([ks.family,ks.repetitionClass,ks.patterns,ks.conditioning,ks.strength,ks.cardio,ks.impact,ks.load,ks.sidedness,ks.bodyPosition,ks.movementPlanes,ks.mainRole],['snatch',null,['hinge'],true,4,5,'medium','Medium','per-side','standing',['sagittal'],'primary']);
+  assert.deepEqual([ks.family,ks.repetitionClass,ks.patterns,ks.conditioning,ks.strength,ks.cardio,ks.impact,ks.load,ks.sidedness,ks.bodyPosition,ks.movementPlanes,ks.mainRole],['snatch',null,['hinge'],true,4,4,'medium','Medium','per-side','standing',['sagittal'],'primary']);
   assert.deepEqual(ks.prescription,{type:'unilateral-reps',value:8});
   assert.equal(ks.estimatedSeconds,50);
   assert.deepEqual(ks.mainProtocols,['rounds','paired_sets']);
@@ -32,7 +32,7 @@ test('the batch entries match the approved metadata',()=>{
   assert.deepEqual(pp.prescriptionModes,['time']);
   assert.ok(pp.mainProtocols.includes('timed_intervals'));
   assert.deepEqual(kt.equipment,[]);
-  assert.deepEqual([kt.family,kt.repetitionClass,kt.patterns,kt.conditioning,kt.strength,kt.cardio,kt.impact,kt.sidedness,kt.bodyPosition,kt.movementPlanes,kt.mainRole],[null,null,['core'],true,3,4,'medium','alternating','floor',['transverse'],'supporting']);
+  assert.deepEqual([kt.family,kt.repetitionClass,kt.patterns,kt.conditioning,kt.strength,kt.cardio,kt.impact,kt.sidedness,kt.bodyPosition,kt.movementPlanes,kt.mainRole],[null,null,['core'],true,3,3,'medium','alternating','floor',['transverse'],'supporting']);
   assert.deepEqual(kt.prescription,{type:'timed',value:30});
   assert.ok(kt.mainProtocols.includes('timed_intervals'));
   assert.deepEqual(lr.equipment,[['dumbbells']]);
@@ -102,6 +102,11 @@ const countMain=(workouts,id)=>workouts.filter(workout=>mainIds(workout).include
 
 test('Curtsy lunge and Kick-through are reachable in bodyweight Main',()=>{
   const bodyweight=sample([],'balanced',[30,45],75);
+  // #407's lower Kick-through cardio rating changes neutral draws (zero in the
+  // original sample); retain that sample and a valid, existing Core-focus route.
+  const core=G.generate({catalogue,duration:30,focus:'balanced',bodyFocus:'core',equipment:[],random:random(25)});
+  assert.deepEqual(G.validateMain(core.main,catalogue,[],G.BUDGETS[30].main),[]);
+  bodyweight.push(core);
   assert.ok(countMain(bodyweight,'curtsy-lunge')>=10,'curtsy lunge '+countMain(bodyweight,'curtsy-lunge'));
   // C1 enlarges the bodyweight pool; rarity is legitimate, absence is not.
   assert.ok(countMain(bodyweight,'kick-through')>0,'kick-through '+countMain(bodyweight,'kick-through'));

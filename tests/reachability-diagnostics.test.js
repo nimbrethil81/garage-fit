@@ -23,8 +23,11 @@ const FIXTURE_MAIN=new Set(['air-squat','reverse-lunge','walking-lunge','push-up
   'bicycle-crunch','leg-raises','mountain-climbers','jumping-jacks','high-knees','burpees','squat-jumps','skater-jumps','cossack-squat',
   'switch-kicks','glute-bridge','ski-abs','curtsy-lunge','kick-through','bear-crawl']);
 function fixtureCatalogue(rename=id=>id){
+  // This synthetic scoring-boundary characterisation pins both the peer IDs and
+  // their pre-#407 ratings; live-catalogue reachability is audited separately.
+  const peers=require('./helpers/coach-fixtures').catalogueBeforeMetadata407(real);
   const catalogue={};
-  for(const exercise of Object.values(real))if(!exercise.equipment.length&&(!exercise.generator||FIXTURE_MAIN.has(exercise.id)))
+  for(const exercise of Object.values(peers))if(!exercise.equipment.length&&(!exercise.generator||FIXTURE_MAIN.has(exercise.id)))
     catalogue[rename(exercise.id)]=Object.assign({},exercise,{id:rename(exercise.id)});
   const synthetic=Object.assign({},real['abdominal-crunch'],{id:rename('synthetic-weak-core'),name:'Synthetic weak core',strength:1,cardio:1,mainRole:'supporting'});
   catalogue[synthetic.id]=synthetic;
@@ -154,6 +157,65 @@ test('only failures and rare warnings carry diagnostics in the report',()=>{
   const dominant=report.slice(report.indexOf('Warnings: dominant'));
   assert.doesNotMatch(dominant,/diagnosis:/);
   for(const diagnosis of result.diagnostics)assert.ok(LABELS.has(diagnosis.classification.label),diagnosis.classification.label);
+});
+
+test('context sampling is bounded, generic and preserves the complete neutral evidence',()=>{
+  const catalogue=Object.fromEntries(['neutral','focused','never','discarded'].map(id=>[id,{id,generator:true,main:true}]));
+  const options={catalogue,seeds:2,durations:[20],focuses:['balanced'],configs:[{key:'bodyweight',equipment:[]}],
+    selectionRanks:G.selectionRanks,detail:false,isEligible:(ex,phase)=>phase==='main',generate:request=>{
+      if(request.trace){
+        request.trace({type:'pick',phase:'main',scored:null,candidates:[catalogue.discarded],picked:catalogue.discarded});
+        request.trace({type:'main-attempt',attempt:0,issues:[]});
+        request.trace({type:'main-result',attempt:0});
+      }
+      return {main:{blocks:[{exercises:[catalogue[request.bodyFocus?'focused':'neutral']]}]}};
+    }};
+  const neutral=audit.runAudit(options),result=audit.runContextAudit(options);
+  assert.deepEqual(result.neutral,neutral,'neutral counts, warnings and diagnostic explanations stay unchanged');
+  assert.deepEqual(audit.runContextAudit(options),result,'supplemental sampling and witnesses are deterministic');
+  assert.equal(result.supplemental.workouts,6);
+  assert.deepEqual(result.combined.failures.map(e=>e.id),['discarded','never'],'picked/discarded is not final selection');
+  assert.deepEqual(result.combined.contextDependent.map(e=>e.id),['focused']);
+  assert.ok(result.neutral.failures.some(e=>e.id==='focused'),'original neutral absence remains visible');
+  const report=audit.formatContextReport(result);
+  for(const label of ['NEUTRAL BASELINE','SUPPLEMENTAL','COMBINED REACHABILITY','reproduce'])assert.ok(report.includes(label));
+  assert.match(report,/RESULT: FAIL \(2 unreachable across both samples\)/);
+  const configs=audit.auditConfigs(real,GarageFitData.equipment.map(e=>e.id)),focused=audit.focusedConfigs(configs,['strength','balanced','cardio']);
+  assert.equal(focused.length,configs.length*3);
+  assert.deepEqual([...new Set(focused.map(c=>c.bodyFocus))],['upper','lower','core']);
+  for(const config of focused){
+    assert.ok(G.WORKOUT_BODY_FOCUSES.includes(config.bodyFocus));
+    assert.deepEqual(config.equipment,configs[config.seedConfigIndex].equipment);
+    assert.equal(config.seedFocusIndex,1);
+  }
+  assert.equal(focused.length*48/(configs.length*3*5*48),.2,'default supplemental budget is 20% of neutral');
+});
+
+test('real contextual Ramp-up routes retain final selection, reproducible seeds, eligibility and dose',()=>{
+  const base={catalogue:real,duration:45,focus:'balanced',bodyFocus:'core',difficulty:'normal',equipment:['rings']};
+  const known=G.generate({...base,random:random(831056492)});
+  assert.equal(known.rampup.exercises.find(e=>e.id==='tabletop-toe-taps').prescription.value,25);
+  audit.validateAuditWorkout(known,base,G);
+  const configs=audit.auditConfigs(real,GarageFitData.equipment.map(e=>e.id));
+  const config=audit.focusedConfigs(configs,['strength','balanced','cardio']).find(c=>c.key==='rings'&&c.bodyFocus==='core');
+  const result=audit.runAudit({catalogue:real,generate:G.generate,isEligible:G.generatedPhaseEligible,
+    configs:[config],durations:[45],focuses:['balanced'],seeds:4,recordRoutes:true,
+    validateWorkout:(workout,request)=>audit.validateAuditWorkout(workout,request,G)});
+  const entry=result.phases.rampup.find(e=>e.id==='tabletop-toe-taps');
+  assert.ok(entry.appearances>0,'generic supplemental seed stream finds an actual final-workout route');
+  const {seed,prescription,estimatedSeconds,...route}=entry.example;
+  const reproduced=G.generate({catalogue:real,...route,random:random(seed)});
+  const selected=reproduced.rampup.exercises.find(e=>e.id===entry.id);
+  assert.deepEqual(selected.prescription,prescription);
+  assert.equal(selected.estimatedSeconds,estimatedSeconds);
+  assert.equal(prescription.value,25);
+  audit.validateAuditWorkout(reproduced,{catalogue:real,...route},G);
+  const badDose=JSON.parse(JSON.stringify(known));
+  badDose.rampup.exercises.find(e=>e.id==='tabletop-toe-taps').prescription.value=1000;
+  assert.throws(()=>audit.validateAuditWorkout(badDose,base,G),/Invalid audit dose/);
+  const wrongPhase=JSON.parse(JSON.stringify(known));
+  wrongPhase.cooldown.exercises.push(real['tabletop-toe-taps']);
+  assert.throws(()=>audit.validateAuditWorkout(wrongPhase,base,G),/Invalid audit selection: cooldown/);
 });
 
 // Classification rules on hand-built evidence.

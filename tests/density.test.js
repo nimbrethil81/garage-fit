@@ -197,7 +197,7 @@ test('automatic density is modest supporting work with deterministic targets, sa
   assert.equal(weight('balanced','accessory',179),0);assert.equal(weight('balanced','accessory',421),0);assert.equal(weight('balanced','accessory',300,eligible,{blocks:[]}),0);
   assert.equal(weight('balanced','accessory',300,[C['push-up'],C['trx-row']]),0);
   let hits=0;
-  for(const duration of [10,15,20,30,45])for(const focus of ['balanced','cardio'])for(const seed of [1,2,7,11,24,29,51,72,93]){
+  for(const duration of [10,15,20,30,45])for(const focus of ['balanced','cardio'])for(const seed of [1,2,7,11,24,29,51,72,93,128]){
     const options={catalogue:C,duration,focus,equipment:kit},w=G.generate({...options,random:random(seed)});
     if(w.main.blocks.some(b=>b.protocol==='density'))assert.ok(w.main.estimatedDurationSeconds<=G.BUDGETS[duration].main);assert.deepEqual(G.validateMain(w.main,C,kit,G.BUDGETS[duration].main).filter(s=>s!=='main:duration-out-of-tolerance'),[]);
     for(const [index,b] of w.main.blocks.entries())if(b.protocol==='density'){

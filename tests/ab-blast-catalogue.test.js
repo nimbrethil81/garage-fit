@@ -40,15 +40,16 @@ test('AB2 shared entries reach valid general Main, non-Core Strength, complement
   // Current-catalogue player/tracker plans stay covered independently of historical UI fixtures.
   const app=require('./helpers/app-context').loadAppContext(new Map(),{ownIntrinsics:true});
   // Small end-to-end fixtures found in bounded samples (at most 200 seeds).
+  // #407 ratings change draws; refreshed seeds retain every reachability assertion.
   const fixtures=[
     ['main','v-ups','strength','core','hard',30,1],
     ['main','bodyweight-russian-twist','strength','core','hard',30,9],
     ['main','supine-arm-pulses','strength','core','hard',30,12],
-    ['main','superman','strength','core','hard',30,35],
+    ['main','superman','strength','core','hard',30,13],
     ['main','heel-touches','strength','core','hard',30,166],
-    ['main','v-ups','strength','upper','hard',30,1],
+    ['main','v-ups','strength','upper','hard',30,2],
     ['main','bodyweight-russian-twist','strength','upper','hard',30,5],
-    ['main','heel-touches','strength','upper','hard',30,38],
+    ['main','heel-touches','strength','upper','hard',30,11],
     ['main','v-ups','cardio','full-body','hard',30,2],
     ['rampup','bodyweight-russian-twist','strength','core','normal',20,6],
     ['rampup','superman','strength','core','normal',20,8],
@@ -72,8 +73,8 @@ test('AB2 compatible Coach routes keep anchors and reviewed family memberships i
   for(const [programme,version,seed,expected,equipment=['dumbbells','bands','bench']] of [
     ['general-strength-4w',2,1,'v-ups'],['build-arms',1,2,'v-ups'],
     ['tennis-conditioning',8,1,'v-ups'],['general-fitness',2,1,'v-ups'],
-    ['general-fitness',2,4,'bodyweight-russian-twist'],
-    ['general-fitness',2,9,'heel-touches'],['general-fitness',2,25,'supine-arm-pulses'],
+    ['general-fitness',2,5,'bodyweight-russian-twist'],
+    ['general-fitness',2,25,'heel-touches'],['general-fitness',2,2,'supine-arm-pulses',[]],
     ['general-fitness',2,3,'superman',[]]
   ]){
     const p=pilot(new Map(),programme,version);
