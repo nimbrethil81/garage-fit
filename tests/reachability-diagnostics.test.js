@@ -218,6 +218,52 @@ test('real contextual Ramp-up routes retain final selection, reproducible seeds,
   assert.throws(()=>audit.validateAuditWorkout(wrongPhase,base,G),/Invalid audit selection: cooldown/);
 });
 
+test('generation and validation exceptions retain their cause and exact neutral reproduction context',()=>{
+  const failure=new Error('synthetic failure');
+  const base={catalogue:real,isEligible:G.generatedPhaseEligible,durations:[20],focuses:['balanced'],
+    configs:[{key:'bench+box',equipment:['bench','box'],seedConfigIndex:17,seedFocusIndex:2}],seeds:1};
+  for(const [operation,options] of [
+    ['generation',{generate:()=>{throw failure;}}],
+    ['validation',{generate:()=>({}),validateWorkout:()=>{throw failure;}}]
+  ]){
+    assert.throws(()=>audit.runAudit({...base,...options}),error=>{
+      assert.equal(error.name,'ReachabilityAuditError');
+      assert.equal(error.cause,failure);
+      assert.match(error.message,/synthetic failure/);
+      assert.equal(error.auditFailure.stage,'neutral');
+      assert.equal(error.auditFailure.operation,operation);
+      assert.equal(error.auditFailure.configIndex,0);
+      assert.equal(error.auditFailure.sampleIndex,0);
+      assert.equal(error.auditFailure.seed,audit.workoutSeed(17,2,20,0));
+      assert.deepEqual(error.auditFailure.seedContext,{mode:'derived',seedBank:'derived',configIndex:0,focusIndex:0,seedConfigIndex:17,seedFocusIndex:2});
+      assert.deepEqual(error.auditFailure.reproduction,{catalogue:'canonical (data/exercises.js)',seed:audit.workoutSeed(17,2,20,0),random:'lcg(seed)',
+        request:{duration:20,focus:'balanced',equipment:['bench','box'],difficulty:'normal',bodyFocus:'full-body'}});
+      const json=JSON.parse(audit.formatAuditFailure(error,true));
+      assert.equal(json.error.message,'synthetic failure');
+      assert.equal(json.error.operation,operation);
+      assert.match(audit.formatAuditFailure(error),/reproduce:/);
+      return true;
+    });
+  }
+});
+
+test('direct-seed failures identify supplemental stage, defaults and direct seed mode',()=>{
+  const cause=new Error('direct stream failure');
+  assert.throws(()=>audit.runAudit({catalogue:real,generate:()=>{throw cause;},isEligible:G.generatedPhaseEligible,
+    durations:[45],focuses:['balanced'],configs:[{key:'easy-direct',equipment:[],difficulty:'easy',seedBank:'direct',seedConfigIndex:8,seedFocusIndex:4}],
+    seeds:2,stage:'supplemental'}),error=>{
+      const detail=error.auditFailure;
+      assert.equal(error.cause,cause);
+      assert.equal(detail.stage,'supplemental');
+      assert.equal(detail.operation,'generation');
+      assert.equal(detail.seed,1);
+      assert.deepEqual(detail.seedContext,{mode:'direct',seedBank:'direct',configIndex:0,focusIndex:0,seedConfigIndex:8,seedFocusIndex:4});
+      assert.equal(detail.reproduction.request.difficulty,'easy');
+      assert.equal(detail.reproduction.request.bodyFocus,'full-body');
+      return true;
+    });
+});
+
 // Classification rules on hand-built evidence.
 function evidence(fields){
   const stage=(part,whole)=>({part,whole,rate:whole?part/whole:null});
