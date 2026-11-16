@@ -84,5 +84,17 @@ test('Tennis v10 uses shared v6 with transient emphasis, protected days and v9 r
  p.run('pilotOptions.easyToday=true');const protectedDay=p.json('pilot.prepare(pilotOptions)');assert.equal(protectedDay.workout.workoutFamilyId,undefined);
  p.run('pilotOptions.easyToday=false;useMovement()');await p.run('pilot.begin().then(t=>pilotTracker=t)');await confirm(p);const result=await p.finish('complete');
  assert.equal(result.workoutFamilyVersion,6);assert.ok(p.run('pilot.snapshot().state.meaningfulSessionsCompleted')>0);
+ // Keep the original skipped-work counterexample explicit: finishing the player
+ // must not credit an unperformed or incomplete Athletic Main.
+ const withheld=p.json(`(()=>{const completed=pilot.snapshot().results.at(-1);
+  const mainIds=completed.plannedWork.filter(item=>item.section==='main').map(item=>item.occurrenceId);
+  return [mainIds,mainIds.slice(0,1)].map(skippedIds=>{
+   const raw=JSON.parse(JSON.stringify(completed));
+   raw.performedWork.forEach(item=>{if(skippedIds.includes(item.occurrenceId)){item.status='skipped';delete item.sets;}});
+   const result=GarageFitCoachModel.createSessionResult(raw),history=GarageFitTrainingHistory.createHistory([result],CATALOGUE);
+   return GarageFitCoachTennisPolicy.interpretDose({definition:pilotDef,state:pilot.snapshot().state,result,history,
+    evidence:history.sessionEvidence(result.sessionResultId)}).meaningful;
+  });})()`);
+ assert.deepEqual(withheld,[false,false],'skipped Main and a missing Main occurrence earn no Tennis completion credit');
  const old=await create({version:9});assert.equal(old.p.run('pilotDef.movementFamilyPolicy.workoutFamilyVersion'),5);
 });

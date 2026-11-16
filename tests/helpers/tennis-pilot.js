@@ -53,7 +53,8 @@ async function confirm(p,{only=null,unknown=false,skip=null,partial=false}={}) {
     const entries=pilotTracker.plannedWork();
     for(const w of entries){
       if(${JSON.stringify(only)} && w.requirementId!==${JSON.stringify(only)})continue;
-      if(w.requirementId===${JSON.stringify(skip)}){await pilotTracker.recordSkip(w.occurrenceId);continue;}
+      // null means no requested skip; family occurrences legitimately have no anchor id.
+      if(${skip !== null} && w.requirementId===${JSON.stringify(skip)}){await pilotTracker.recordSkip(w.occurrenceId);continue;}
       if(${partial} && w.section!=='main')continue;
       if(w.prescription.timed){await pilotTracker.recordTimed(w.occurrenceId,{plannedSeconds:w.prescription.seconds,elapsedSeconds:${partial} ? w.prescription.seconds/2:w.prescription.seconds});}
       else if(stable.has(w.requirementId)){
