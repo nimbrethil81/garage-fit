@@ -88,13 +88,13 @@ test('Athletic v1 and v5 are one family for balance and variety; released defini
     assert.deepEqual(out.two, out.one, 'GF v'+version+': a v5 Athletic session earns exactly what a v1 session earns');
     assert.deepEqual(out.one.basis, ['family-identity']);
     assert.ok(out.one.families.find(item => item.workoutFamilyId === 'athletic-movement').varietyPenalty > 0, 'recency counts the family, not its version');
-    assert.deepEqual(Object.fromEntries(out.candidates), {'strength-control':3,'cardio-conditioning':1,'full-body-challenges':1,'athletic-movement':5,'core-stability':1,'mobility-movement-quality':3});
+    assert.deepEqual(Object.fromEntries(out.candidates), {'strength-control':3,'cardio-conditioning':1,'full-body-challenges':1,'athletic-movement':6,'core-stability':1,'mobility-movement-quality':3});
     assert.deepEqual(out.pinned, [1,1,1,1,1,1], 'the released definition is not edited');
     assert.equal(out.unchanged, true);
     const w=p.json(`(()=>{const plan=gfPlan(gfStart(${JSON.stringify(at(0))}),[],${JSON.stringify(at(30))});
       const rx=plan.prescription;rx.workoutFamilyPlan.candidates=rx.workoutFamilyPlan.candidates.filter(c=>c.workoutFamilyId==='athletic-movement');
       return GarageFitGenerator.generate({catalogue:CATALOGUE,sessionPrescription:rx,random:seeded});})()`);
-    assert.equal(w.workoutFamilyVersion,5,'the current composition is actually generated through the Coach prescription');
+    assert.equal(w.workoutFamilyVersion,6,'the current composition is actually generated through the Coach prescription');
     assert.ok(w.main.blocks.flatMap(b=>b.exercises).some(e=>['four-square-steps','tandem-step-and-hold','reverse-lunge-with-rotation','transverse-lunge-to-balance'].includes(e.id)));
   }
 });

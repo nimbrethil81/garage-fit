@@ -30,11 +30,11 @@ const mainIds = workout => workout.main.blocks.flatMap(block => block.exercises.
 test('released definitions stay unchanged; General Strength v2 and Tennis v7 only append reviewed ring anchors', () => {
   assert.equal(RING_IDS.length, 15); // S1 adds an accessory, with no programme anchor change.
   assert.deepEqual(Object.keys(P[GS]), ['1', '2']);
-  assert.deepEqual(Object.keys(P[TENNIS]), ['1', '2', '3', '4', '5', '6', '7', '8', '9']);
+  assert.deepEqual(Object.keys(P[TENNIS]), ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']);
   assert.deepEqual(Object.keys(P[ARMS]), ['1'], 'Build Arms already selects ring curls/extensions by intrinsic direct action');
   for (const [id, versions] of Object.entries(P)) for (const [version, definition] of Object.entries(versions)) {
     vm.runInContext(`R7.registry.get(R7.P[${JSON.stringify(id)}][${version}].type).validateDefinition(R7.P[${JSON.stringify(id)}][${version}])`, app);
-    const released = !(id === GS && version === '2' || id === TENNIS && ['7', '8', '9'].includes(version));
+    const released = !(id === GS && version === '2' || id === TENNIS && ['7', '8', '9', '10'].includes(version));
     // Anchor-free General Fitness (#190) has no anchor candidates to check.
     if (released) for (const requirement of definition.anchorSelectionPolicy ? definition.anchorSelectionPolicy.requirements : [])
       assert.ok(!(requirement.exerciseIds || []).some(item => RING_IDS.includes(item)), id + ' v' + version + ' is released and ring-free');
@@ -46,6 +46,9 @@ test('released definitions stay unchanged; General Strength v2 and Tennis v7 onl
   // #255: v8 only pins Tennis capability mapping v4 (shared single-leg and lateral-lunge-to-balance drills).
   assert.deepEqual({...P[TENNIS][8], version: 7, sportPolicy: P[TENNIS][7].sportPolicy}, P[TENNIS][7]);
   assert.deepEqual(P[TENNIS][8].sportPolicy, {sportId: 'tennis', version: 4});
+  // V10 inherits v9's reviewed anchors/settings and changes only its family pin.
+  assert.deepEqual({...P[TENNIS][10],version:9,movementFamilyPolicy:P[TENNIS][9].movementFamilyPolicy},P[TENNIS][9]);
+  assert.deepEqual(P[TENNIS][10].movementFamilyPolicy,{workoutFamilyId:'athletic-movement',workoutFamilyVersion:6});
   // Ring choices are appended, so released choices keep their priority.
   for (const [definition, rings] of [[P[GS][2], GS_RING], [P[TENNIS][7], TENNIS_RING]])
     for (const requirement of definition.anchorSelectionPolicy.requirements)

@@ -8,7 +8,7 @@ global.window=global;
 for(const path of ['data/equipment','data/exercises','data/workout-families','js/workout-families','js/generator','data/athletic-membership','js/athletic-composer'])require('../'+path);
 const G=GarageFitGenerator,F=GarageFitWorkoutFamilies,C=GarageFitData.exercises,FAMILY='athletic-movement';
 // New workouts use the current published composition (v3). v1 and v2 stay composable and are pinned below.
-const VERSION=F.currentVersion(FAMILY);
+const VERSION=5; // Historical v5 contracts stay pinned when the current family advances.
 const PROFILES={10:[120,180,180,120],15:[180,240,300,180],20:[180,360,360,300],30:[240,540,600,420],45:[300,840,900,660]};
 const SEEDS=[1,31,733,2026,424242,0xdeadbeef,987654321,2147483647];
 const copy=x=>JSON.parse(JSON.stringify(x));
@@ -193,9 +193,9 @@ test('constraints fail honestly when approved integrated movement cannot be comp
   assert.ok(resolved(low).filter(x=>x.b.familyContext.role==='integrated').every(x=>['bear-crawl','grapevine-cross-steps'].includes(x.ex.id)));
 });
 
-test('production and test harness register the same version-pinned composers; new workouts use v5',()=>{
-  for(const version of [1,2,3,4,5])assert.throws(()=>G.registerFamilyComposer(FAMILY,version,()=>{},()=>[]),/registered once/);
-  assert.throws(()=>G.registerFamilyComposer(FAMILY,6,()=>{}),e=>e.code==='unsupported-workout-family-version');
+test('production and test harness register the same version-pinned composers; new workouts use v6',()=>{
+  for(const version of [1,2,3,4,5,6])assert.throws(()=>G.registerFamilyComposer(FAMILY,version,()=>{},()=>[]),/registered once/);
+  assert.throws(()=>G.registerFamilyComposer(FAMILY,7,()=>{}),e=>e.code==='unsupported-workout-family-version');
   // Every later version is the same family (identity, styles, membership) with a new composition policy; the default lookup stays v1.
   const [one,two,three,four,five]=[1,2,3,4,5].map(version=>F.getDefinition(FAMILY,version));
   assert.equal(F.getDefinition(FAMILY),one);assert.equal(VERSION,5);
@@ -212,7 +212,7 @@ test('production and test harness register the same version-pinned composers; ne
   // The standalone Generator screen asks for the current version, with no extra user choice.
   app.input=FAMILY;vm.runInContext('selectGeneratorFamily(input);generateWorkout()',app);
   const delivered=vm.runInContext('generatorState.workout',app);
-  assert.equal(delivered.workoutFamilyVersion,5);
+  assert.equal(delivered.workoutFamilyVersion,6);
   assert.equal(app.GarageFitGenerator.validateFamilyWorkout(delivered,{catalogue:app.GarageFitData.exercises,equipment:vm.runInContext('state.ownedEquipment',app)}).valid,true);
 });
 

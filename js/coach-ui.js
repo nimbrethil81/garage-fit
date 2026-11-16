@@ -262,7 +262,14 @@
       let recentFamilySessions = {};
       try { recentFamilySessions = root.GarageFitTrainingHistory.createHistory(results, catalogue).lastCompletedFamilySessions(); } catch (error) { recentFamilySessions = {}; }
       const workout = root.GarageFitGenerator.generate({catalogue, sessionPrescription: plan.prescription, history, recentProtocols:root.GarageFitGenerator.recentProtocolsFromResults(results), recentFamilySessions});
-      preview = {workout, plan, today: context, generatedAt: clock()}; previewKey = key;
+      const deliveredWorkload = definition().type === 'general-fitness'
+        ? root.GarageFitCoachGeneralFitnessPolicy.assessAthleticV6Workload({workout, catalogue}) : null;
+      preview = {workout, plan, today: context, generatedAt: clock()};
+      // A family-preserving preview swap mutates the workout. Recompute this transient
+      // interpretation on access so snapshots/reopened previews describe that delivery.
+      if (deliveredWorkload) Object.defineProperty(preview, 'deliveredWorkload', {enumerable: true,
+        get: () => root.GarageFitCoachGeneralFitnessPolicy.assessAthleticV6Workload({workout, catalogue})});
+      previewKey = key;
       return preview;
     }
     // Reopening an unchanged preview returns the same prepared (and possibly

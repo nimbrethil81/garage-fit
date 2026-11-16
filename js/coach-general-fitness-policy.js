@@ -125,6 +125,68 @@
   const localDateOf = (today) => typeof today.localDate === 'string' ? today.localDate : String(today.now).slice(0, 10);
   const dayNumber = day => { const [y, m, d] = day.split('-').map(Number); return Date.UTC(y, m-1, d) / DAY; };
 
+  // GF-AM6-CAL1: v6 can contain energetic work, but neither its name/style nor the
+  // catalogue's broad conditioning flag establishes delivered demand. Use bounded
+  // timed Main work only; the same calculation serves the transient generated preview
+  // and saved performed evidence. See docs/athletic-v6-calibration.md.
+  const athleticV6 = item => item.workoutFamilyId === 'athletic-movement' && item.workoutFamilyVersion === 6;
+  function athleticConditioning(exerciseId, catalogue) {
+    return (catalogue[exerciseId] && catalogue[exerciseId].cardio >= 3)
+      && !!root.GarageFitWorkoutFamilies.getMembership({workoutFamilyId: 'athletic-movement', workoutFamilyVersion: 6, role: 'conditioning'}, exerciseId);
+  }
+  function timedSeconds(prescription) {
+    return prescription && (prescription.timed === true || ['timed','unilateral-timed'].includes(prescription.type))
+      && positive(prescription.seconds) ? prescription.seconds : 0;
+  }
+  function athleticWorkload(plannedMainSeconds, performedMainSeconds, conditioningSeconds) {
+    const share = performedMainSeconds > 0 ? conditioningSeconds / performedMainSeconds : 0;
+    // A minute and one fifth of the resolved Main work establish a conditioning
+    // contribution. Three minutes and 30% establish the conservative recovery flag.
+    const conditioning = conditioningSeconds >= 60 && share >= 0.2;
+    // Athletic remains the primary effect even for an energetic v6 composition.
+    const conditioningEffect = conditioning ? Math.min(1 / 3, share) : 0;
+    return {plannedMainSeconds, performedMainSeconds, conditioningSeconds, conditioningShare: share,
+      weight: plannedMainSeconds > 0 ? Math.min(1, performedMainSeconds / plannedMainSeconds) : 0,
+      effects: {athletic: 1 - conditioningEffect, ...(conditioning ? {conditioning: conditioningEffect} : {})},
+      demanding: conditioningSeconds >= 180 && share >= 0.3};
+  }
+  function assessAthleticV6Workload({workout, catalogue = root.GarageFitData.exercises}) {
+    if (!athleticV6(workout)) return null;
+    const G = root.GarageFitGenerator;
+    let main = 0, conditioning = 0;
+    for (const block of workout.main.blocks) {
+      if (G.blockTrainingSection(block) !== 'main') continue;
+      for (const step of G.resolveBlockSteps(block)) {
+        if (step.kind !== 'exercise') continue;
+        const exercise = block.exercises[step.exerciseIndex];
+        const seconds = step.timed && positive(step.seconds) ? step.seconds * G.sideCount(exercise) : 0;
+        main += seconds;
+        if (athleticConditioning(exercise.id, catalogue)) conditioning += seconds;
+      }
+    }
+    return athleticWorkload(main, main, conditioning);
+  }
+  function performedAthleticV6(result, performances, catalogue) {
+    const planned = (result.plannedWork || []).filter(item => item.section === 'main');
+    const plannedById = new Map(planned.map(item => [item.occurrenceId, item]));
+    const plannedSeconds = planned.reduce((sum, item) => sum + timedSeconds(item.prescription), 0);
+    let performed = 0, conditioning = 0;
+    for (const item of performances) {
+      const work = plannedById.get(item.occurrenceId);
+      if (!work || !['completed','partial'].includes(item.status) || !(item.exposure.value > 0)) continue;
+      const target = timedSeconds(work.prescription);
+      const measured = item.sets.map(set => set.seconds.value).filter(value => Number.isFinite(value));
+      const seconds = measured.length ? Math.min(target, measured.reduce((sum, value) => sum + value, 0))
+        : target * Math.min(1, item.exposure.value);
+      performed += seconds;
+      // The performed exercise owns semantics after a substitution. Historical plans
+      // retain no family role: conditioning membership plus cardio >= 3 is the bounded
+      // energetic criterion even when the movement also has a technical role.
+      if (athleticConditioning(item.exerciseId, catalogue)) conditioning += seconds;
+    }
+    return athleticWorkload(plannedSeconds, performed, conditioning);
+  }
+
   // Performed sessions in the rolling window, across Coach instances, standalone Generator
   // and fixed workouts. Each carries a performed fraction and effect shares; nothing here
   // is a programme credit (the engine alone credits this instance's own Coach results).
@@ -137,7 +199,7 @@
       const main = session.performances.filter(item => definition.doseTargets.sections.includes(item.section) || item.section === null);
       const planned = (result.plannedWork || []).filter(item => definition.doseTargets.sections.includes(item.section)).length;
       const performed = main.reduce((sum, item) => sum + (item.exposure.value || 0), 0);
-      const weight = performed > 0 ? Math.min(1, planned ? performed / planned : 1) : 0;
+      let weight = performed > 0 ? Math.min(1, planned ? performed / planned : 1) : 0;
       // Every published version of a family is that family for balance (e.g. Athletic v1 and v2, #244).
       const family = families.find(item => item.workoutFamilyId === session.workoutFamilyId) || null;
       let effects = {}, basis = 'family-identity';
@@ -147,7 +209,12 @@
         const counted = main.map(item => exerciseEffect(catalogue[item.exerciseId])).filter(Boolean);
         counted.forEach(effect => { effects[effect] = (effects[effect] || 0) + 1 / counted.length; });
       }
-      const demanding = family ? family.demanding : (effects.strength || 0) + (effects.conditioning || 0) + (effects.challenge || 0) >= 0.5;
+      let demanding = family ? family.demanding : (effects.strength || 0) + (effects.conditioning || 0) + (effects.challenge || 0) >= 0.5;
+      if (athleticV6(session)) {
+        const workload = performedAthleticV6(result, main, catalogue);
+        effects = workload.effects; weight = workload.weight; demanding = workload.demanding;
+        basis = 'athletic-v6-performed-main';
+      }
       return {sessionResultId: session.sessionResultId, source: session.source, programmeInstanceId: session.programmeInstanceId,
         occurredAt: session.occurredAt, workoutFamilyId: session.workoutFamilyId, workoutFamilyVersion: session.workoutFamilyVersion,
         familyStyleId: session.familyStyleId, weight, effects, basis, demanding};
@@ -235,7 +302,11 @@
       let varietyPenalty = 0;
       if (run > 0) varietyPenalty += family.repeatable && run < variety.maximumConsecutiveRepeatable ? variety.repeatableRepeatPenalty : variety.repeatPreviousPenalty;
       varietyPenalty += variety.recentRepeatPenalty * recent.filter(item => item.workoutFamilyId === family.workoutFamilyId).length;
-      const recoveryPenalty = reasons.length && family.demanding ? recoveryPolicy.demandingPenalty : 0;
+      // Before composition the v6 style and delivered work are unknown. Conservatively
+      // rank this possible energetic session with demanding candidates on recovery days;
+      // subsequent recovery uses the actual performed calculation above.
+      const potentiallyDemanding = family.demanding || athleticV6({...family, workoutFamilyVersion: compositionVersion(family)});
+      const recoveryPenalty = reasons.length && potentiallyDemanding ? recoveryPolicy.demandingPenalty : 0;
       const last = sessions.find(item => item.workoutFamilyId === family.workoutFamilyId) || null;
       return {workoutFamilyId: family.workoutFamilyId, workoutFamilyVersion: compositionVersion(family), index,
         primaryEffect: Object.entries(family.effects).sort((a, b) => b[1] - a[1])[0][0],
@@ -348,6 +419,6 @@
 
   const policy = Object.freeze({validateDefinition, assessFeasibility, initialiseState, getModeSettings, calculatePriorities,
     buildPrescription, interpretDose, respondToMissedSessions, isComplete: () => false,
-    BENCHMARK_PREFIX, benchmarkOffer, benchmarkSpec, balanceSummary, benchmarkImprovement});
+    BENCHMARK_PREFIX, benchmarkOffer, benchmarkSpec, balanceSummary, benchmarkImprovement, assessAthleticV6Workload});
   root.GarageFitCoachGeneralFitnessPolicy = policy;
 })(typeof window !== 'undefined' ? window : globalThis);

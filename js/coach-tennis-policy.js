@@ -202,7 +202,7 @@
   function validateDefinition(definition) {
     strength.validateDefinition(definition);
     if (definition.movementFamilyPolicy && (definition.movementFamilyPolicy.workoutFamilyId !== 'athletic-movement'
-      || definition.movementFamilyPolicy.workoutFamilyVersion !== 5
+      || definition.movementFamilyPolicy.workoutFamilyVersion !== (definition.version >= 10 ? 6 : 5)
       || Object.values(definition.sessionRoles).flat().some(role => definition.roleCompositionPolicy.roles[role.id]
         && role.anchorLimits.some(limit => limit !== 0)))) throw new Error('Invalid Tennis movement family policy.');
     validateProgrammeSettings({settings: settings(definition)});

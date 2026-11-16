@@ -63,7 +63,7 @@
   }
 
   // Bounded technical drills with exercise-sensitive recovery, fitted exactly to a phase budget.
-  function builder({difficulty,style,contexts,fail}) {
+  function builder({difficulty,style,contexts,fail,v6=false}) {
     const blocks=[];
     const copy=ex=>JSON.parse(JSON.stringify(ex));
     const recovery=(a,b,stage)=>{
@@ -74,6 +74,7 @@
       if(a.bodyPosition==='floor'||b.bodyPosition==='floor')return 25;
       if(a.impact==='medium'||b.impact==='medium')return 20;
       if(G.sideCount(a)===2||G.sideCount(b)===2)return 16;
+      if(v6&&stage==='conditioning')return 20;
       return stage==='preparation'||stage==='finish'?8:style==='footwork-coordination'?12:15;
     };
     // The smallest phase budget (including the shared block transition) one round of a drill needs.
@@ -83,12 +84,12 @@
       // The three-second shared transition is part of this phase's allocation.
       budget-=G.BLOCK_TRANSITION_SECONDS;
       const cap=ex=>{
-        const usual=ex.impact==='high'?15:ex.bodyPosition==='floor'?20:G.sideCount(ex)===2?22:difficulty==='easy'?25:30;
+        const usual=v6&&role==='conditioning'?(difficulty==='easy'?30:40):ex.impact==='high'?15:ex.bodyPosition==='floor'?20:G.sideCount(ex)===2?22:difficulty==='easy'?25:30;
         if(contexts[role].workoutFamilyVersion<5)return usual;
         const timed=F.getMembership(contexts[role],ex.id).prescriptions.find(p=>p.type.includes('timed'));
         return Math.min(usual,timed.maxValue);
       };
-      const preferred=ex=>stage==='preparation'||stage==='finish'?18:ex.impact==='high'?12:
+      const preferred=ex=>v6&&role==='conditioning'?(difficulty==='easy'?25:style==='athletic-conditioning'?35:30):stage==='preparation'||stage==='finish'?18:ex.impact==='high'?12:
         G.sideCount(ex)===2?(style==='dynamic-balance'?18:14):style==='footwork-coordination'&&role==='footwork'?22:20;
       let best;
       for(let rounds=1;rounds<=6;rounds++) {
@@ -324,6 +325,7 @@
     const roles=blocks.map(block=>block.familyContext.role);
     if(roles[0]!=='control'||roles[roles.length-1]!=='control'||!['footwork','control','integrated'].every(role=>roles.includes(role)))issues.push('phase-structure');
     // Integrated practice always leads into gentle active recovery, never another demanding block.
+    const plans=[];
     roles.forEach((role,index)=>{if(role==='integrated'&&roles[index+1]!=='control')issues.push('integrated-without-recovery:'+index);});
     const planes=new Set(blocks.filter(block=>block.familyContext.role==='footwork').flatMap(block=>block.exercises.flatMap(ex=>ex.movementPlanes||[])));
     ['sagittal','frontal','transverse'].filter(plane=>!planes.has(plane)).forEach(plane=>issues.push('missing-footwork-plane:'+plane));
@@ -402,9 +404,149 @@
   // added: the progression itself ramps from preparation into technical practice.
   const stageSection=block=>block.familyContext&&block.familyContext.role==='control'
     ?/^athletic-preparation-\d+$/.test(block.id)?'warmup':/^athletic-finish-\d+$/.test(block.id)?'cooldown':'main':'main';
+  // #403: v6 mixes purposes through one shared composer. All prescriptions still
+  // resolve through the existing rounds/player contract and membership gate.
+  const STYLES_V6=['movement-circuit','agility-balance','athletic-conditioning'];
+  const balanceAnchorV6=ex=>ex.sidedness==='per-side'&&ex.bodyPosition==='standing'&&!['reverse-lunge-knee-drive','reverse-lunge-with-rotation'].includes(ex.id);
+  function composeV6(options,request,attempt) {
+    const {catalogue,duration,difficulty}=options,random=options.random||Math.random;
+    let selectedStyle;
+    const fail=(message,reason,details={})=>{const error=new F.FamilyContractError('family-not-feasible',message);Object.assign(error,{reason,...details,...(selectedStyle?{familyStyleId:selectedStyle}:{})});throw error;};
+    const contexts={},pools={};
+    for(const role of ['footwork','control','integrated','conditioning']) {
+      const context={...request,role,difficulty};
+      delete context.bodyFocus;delete context.familyStyleId;
+      for(const field of ['excludedImpact','bodyPositions','movementRoom'])if(options[field]!==undefined)context[field]=options[field];
+      // Landing work remains optional; v6 defaults to technically controlled standing practice.
+      if(difficulty!=='hard')context.excludedImpact=[...new Set([...(context.excludedImpact||['high']),'high'])];
+      contexts[role]=context;
+      pools[role]=Object.values(catalogue).filter(ex=>G.generatedPhaseEligible(ex,'main',options.equipment||[],difficulty,context)
+        &&G.protocolCompatible(ex,'rounds',context)&&ex.bodyPosition==='standing'&&ex.impact!=='high');
+      if(pools[role].length<2)fail('Athletic Movement needs standing '+role+' options.','insufficient-eligible-movements',{role});
+    }
+    const previous=options.recentFamilySessions?.[FAMILY];
+    const recent=previous&&previous.plannedOccurrences>0&&Array.isArray(previous.completedOccurrences)?previous:null;
+    const previousStyle=recent&&recent.completedOccurrences.length===recent.plannedOccurrences?recent.familyStyleId:null;
+    const excluded=attempt?.excludedStyleIds||[],styles=STYLES_V6.filter(id=>!excluded.includes(id));
+    if(!styles.length)fail('No Athletic v6 style remains.','no-buildable-style');
+    const weights=styles.map(id=>(id==='movement-circuit'?4:id==='agility-balance'?(options.athleticProgrammeContext==='tennis'?3:2):(options.athleticProgrammeContext==='tennis'?2:3))*(id===previousStyle?.5:1));
+    let draw=random()*weights.reduce((a,b)=>a+b,0),style=styles.at(-1);
+    for(let i=0;i<styles.length;i++){draw-=weights[i];if(draw<0){style=styles[i];break;}}
+    selectedStyle=style;
+    const used=new Map(),past=new Map();
+    for(const item of recent?.completedOccurrences||[])past.set(item.exerciseId,(past.get(item.exerciseId)||0)+1);
+    const rank=pool=>pool.map(ex=>({ex,score:random()+Math.min(3,past.get(ex.id)||0)*.18+(used.get(ex.id)||0)*1.5
+      -(options.athleticProgrammeContext==='tennis'&&(ex.movementPlanes?.includes('frontal')||ex.sidedness==='per-side')?.25:0)}))
+      .sort((a,b)=>a.score-b.score).map(x=>x.ex);
+    const pick=(pool,list)=>rank(pool).find(ex=>!list.includes(ex)&&(!ex.repetitionClass||!list.some(other=>other.repetitionClass===ex.repetitionClass)))
+      ||rank(pool).find(ex=>!list.includes(ex));
+    const light=ids=>ids.map(id=>pools.control.find(ex=>ex.id===id)).filter(Boolean);
+    const prep=light(PREPARATION),finish=light(['side-step-touches','knee-to-opposite-elbow','quarter-turn-pivot-steps']);
+    if(prep.length<2||finish.length<2)fail('Athletic Movement needs gentle standing preparation and finish.','missing-essential-practice');
+    let roles=style==='agility-balance'?['footwork','control','footwork','integrated','conditioning']
+      :style==='athletic-conditioning'?['footwork','control','conditioning','integrated','conditioning']
+      :['footwork','control','conditioning','integrated'];
+    if(duration===10)roles=['footwork','control','integrated','conditioning'];
+    if(duration>=30)roles.splice(roles.length-1,0,...(style==='agility-balance'?['control','footwork']:['footwork','integrated']));
+    if(duration===45)roles.splice(roles.length-1,0,style==='agility-balance'?'integrated':'conditioning');
+    const preparation=duration===10?60:duration<=20?90:120,ending=duration>=30?120:60;
+    const available=duration*60+G.BLOCK_TRANSITION_SECONDS-preparation-ending;
+    const purposeWeight=role=>role==='conditioning'?(style==='athletic-conditioning'?1.7:style==='agility-balance'?.65:1.2):role==='control'&&style==='agility-balance'?1.4:1;
+    const totalWeight=roles.reduce((sum,role)=>sum+purposeWeight(role),0);
+    const budgets=roles.map(role=>Math.floor(available*purposeWeight(role)/totalWeight));
+    budgets[budgets.length-1]+=available-budgets.reduce((a,b)=>a+b,0);
+    const build=builder({difficulty,style,contexts,fail,v6:true});
+    build.drill('preparation','control',prep,preparation);
+    const plans=[];
+    roles.forEach((role,index)=>{
+      const pool=pools[role],list=[];
+      if(role==='footwork') {
+        for(const plane of ['sagittal','frontal','transverse'])if(!list.some(ex=>ex.movementPlanes.includes(plane))) {
+          const ex=pick(pool.filter(ex=>ex.movementPlanes.includes(plane)),list);if(ex)list.push(ex);
+        }
+      } else if(role==='control') {
+        const anchor=pick(pool.filter(balanceAnchorV6),list);
+        if(!anchor)fail('Athletic Movement needs standing single-leg balance.','missing-essential-practice');
+        list.push(anchor);
+      } else if(role==='conditioning') {
+        // Light stepping supports recovery; it can never establish the Main anchor.
+        const substantial=pool.filter(ex=>ex.cardio>=3),anchor=pick(substantial,list);
+        if(!anchor)fail('Athletic Movement needs meaningful conditioning.','missing-conditioning');
+        list.push(anchor);
+        const partner=pick(substantial,list);if(partner)list.push(partner);
+        const gentle=pick(pool.filter(ex=>ex.cardio<=2),list);
+        if(gentle)list.push(gentle);
+      }
+      while(list.length<3) {const ex=pick(pool,list);if(!ex)break;list.push(ex);}
+      // Ending conditioning with light rhythm provides recovery before later technique.
+      // Standing, non-jumping integrated work avoids fatigue-heavy landing/floor changes.
+      const valid=items=>items.length>=2
+        &&(role!=='footwork'||['sagittal','frontal','transverse'].every(plane=>items.some(ex=>ex.movementPlanes.includes(plane))))
+        &&(role!=='control'||items.some(balanceAnchorV6))
+        &&(role!=='conditioning'||items.some(ex=>ex.cardio>=3)&&items.at(-1).cardio<=2);
+      let chosen=list;
+      if(!build.fits(role,role,chosen,budgets[index])) {
+        // Try other valid combinations rather than weakening recovery or doses.
+        const alternatives=rank(pool);let found;
+        for(const a of alternatives)for(const b of alternatives) {
+          if(found||a===b)continue;
+          const candidates=[[a,b],...alternatives.filter(c=>c!==a&&c!==b).map(c=>[a,b,c])];
+          found=candidates.find(items=>valid(items)&&build.fits(role,role,items,budgets[index]));
+        }
+        if(found)chosen=found;
+      }
+      const signature=role+':'+chosen.map(ex=>ex.id).sort().join(',');
+      const duplicate=plans.find(plan=>plan.signature===signature);
+      // A constrained pool gets one longer intentional practice block, not copies
+      // with different titles/order. The combined budget includes its transition.
+      if(duplicate)duplicate.budget+=budgets[index];
+      else plans.push({role,list:chosen,budget:budgets[index],signature});
+      chosen.forEach(ex=>used.set(ex.id,(used.get(ex.id)||0)+1));
+    });
+    plans.forEach(plan=>build.drill(plan.role,plan.role,plan.list,plan.budget));
+    build.drill('finish','control',finish,ending);
+    return {familyStyleId:style,blocks:build.blocks};
+  }
+  function qualityV6(workout) {
+    const blocks=workout.main.blocks,issues=[];
+    // Malformed edits must return a meaningful family rejection before role access.
+    if(!blocks.length||blocks.some(block=>!block.familyContext||block.familyContext.workoutFamilyId!==FAMILY))return ['phase-structure'];
+    const main=blocks.filter(b=>stageSection(b)==='main');
+    if(blocks[0]?.id.split('-')[1]!=='preparation'||blocks.at(-1)?.id.split('-')[1]!=='finish')issues.push('preparation-finish');
+    if(!STYLES_V6.includes(workout.familyStyleId))issues.push('style');
+    const planes=new Set(main.filter(b=>b.familyContext.role==='footwork').flatMap(b=>b.exercises.flatMap(ex=>ex.movementPlanes)));
+    if(!['sagittal','frontal','transverse'].every(p=>planes.has(p)))issues.push('footwork-planes');
+    if(!main.some(b=>b.familyContext.role==='control'&&b.exercises.some(ex=>balanceAnchorV6(ex))))issues.push('single-leg-control');
+    if(!main.some(b=>b.familyContext.role==='integrated'))issues.push('integrated-practice');
+    // V6 owns the entire session in these inline blocks. Edits retain its exact
+    // resolved clock and actual energetic Main practice, not just a family label.
+    if(G.mainSeconds(blocks,workout.setupEquipment||[])!==workout.duration*60)issues.push('resolved-duration');
+    if(!main.some(block=>block.familyContext.role==='conditioning'&&G.resolvedOccurrences(block)
+      .some(item=>item.timed&&item.seconds>0&&item.exercise.cardio>=3)))issues.push('missing-conditioning-exposure');
+    const signatures=new Set();
+    for(const block of blocks) {
+      const role=block.familyContext?.role,occurrences=G.resolvedOccurrences(block);
+      if(block.familyContext?.workoutFamilyVersion!==6||block.protocol!=='rounds'||new Set(block.exercises.map(ex=>ex.id)).size<2)issues.push('block-contract:'+block.id);
+      if(role==='conditioning'&&!block.exercises.some(ex=>ex.cardio>=3))issues.push('light-only-conditioning');
+      if(role==='conditioning'&&block.exercises.at(-1).cardio>2)issues.push('conditioning-without-active-recovery');
+      if(role==='control'&&stageSection(block)==='main'&&!block.exercises.some(balanceAnchorV6))issues.push('control-anchor');
+      const signature=role+':'+block.exercises.map(ex=>ex.id).sort().join(',');
+      if(stageSection(block)==='main'&&signatures.has(signature))issues.push('duplicated-combination');
+      signatures.add(signature);
+      for(const [index,item] of occurrences.entries()) {
+        const ex=item.exercise,cap=role==='conditioning'?(workout.difficulty==='easy'?30:40):G.sideCount(ex)===2?22:workout.difficulty==='easy'?25:30;
+        if(!item.timed||item.seconds<10||item.seconds>cap)issues.push('dose:'+ex.id);
+        if(ex.bodyPosition!=='standing'||ex.impact==='high')issues.push('technical-fatigue:'+ex.id);
+        const next=occurrences[index+1];
+        if(next&&item.restAfter<Math.max(minimumRecovery(ex,next.exercise),role==='conditioning'?20:0))issues.push('recovery:'+block.id);
+      }
+    }
+    return [...new Set(issues)];
+  }
   G.registerFamilyComposer(FAMILY,1,composeV1,quality,stageSection);
   G.registerFamilyComposer(FAMILY,2,composeV2,qualityV2,stageSection);
   G.registerFamilyComposer(FAMILY,3,composeV3,qualityV3,stageSection);
   G.registerFamilyComposer(FAMILY,4,composeV4,qualityV4,stageSection);
   G.registerFamilyComposer(FAMILY,5,composeV5,qualityV5,stageSection);
+  G.registerFamilyComposer(FAMILY,6,composeV6,qualityV6,stageSection);
 })(typeof window==='undefined'?globalThis:window);

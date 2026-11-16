@@ -147,6 +147,35 @@ test('[Full] actual 20-session General Fitness v2 experiences at 2/3/5 weekly: c
       await tracker.complete();await pilotStore.clearSessionDraft();await pilot.load();
     })()`);
     assert.equal(p.json('pilot.snapshot().state').meaningfulSessionsCompleted,0);
+    // Independent oracle from raw saved outcomes, not the policy helper under test.
+    // Historical families retain their released occurrence-based weighting/effects.
+    const expectedSession=result=>{
+      const main=result.plannedWork.filter(item=>item.section==='main');
+      const outcomes=result.performedWork.filter(item=>main.some(plan=>plan.occurrenceId===item.occurrenceId));
+      const family=p.app.GarageFitData.programmes['general-fitness'][2].familyBalancePolicy.families.find(item=>item.workoutFamilyId===result.workoutFamilyId);
+      if(result.workoutFamilyId!=='athletic-movement'||result.workoutFamilyVersion!==6) {
+        const exposure=outcomes.reduce((sum,item)=>sum+(item.status==='completed'?1:0.5),0);
+        return {weight:Math.min(1,exposure/main.length),effects:family.effects};
+      }
+      let plannedSeconds=0,performedSeconds=0,energeticSeconds=0;
+      for(const plan of main) {
+        assert.equal(plan.prescription.timed,true,'v6 Main has explicit resolved timed targets');
+        const target=plan.prescription.seconds;plannedSeconds+=target;
+        const outcome=outcomes.find(item=>item.occurrenceId===plan.occurrenceId);
+        if(!outcome||!['completed','partial'].includes(outcome.status))continue;
+        const measured=(outcome.sets||[]).map(set=>set.seconds).filter(Number.isFinite);
+        const actual=measured.length?Math.min(target,measured.reduce((sum,value)=>sum+value,0))
+          :outcome.status==='completed'?target:0;
+        performedSeconds+=actual;
+        const exercise=p.app.GarageFitData.exercises[outcome.exerciseId];
+        const conditioning=p.app.GarageFitWorkoutFamilies.getMembership({workoutFamilyId:'athletic-movement',workoutFamilyVersion:6,role:'conditioning'},outcome.exerciseId);
+        if(conditioning&&exercise.cardio>=3)energeticSeconds+=actual;
+      }
+      const share=performedSeconds?energeticSeconds/performedSeconds:0;
+      const conditioning=energeticSeconds>=60&&share>=0.2?Math.min(1/3,share):0;
+      return {weight:plannedSeconds?Math.min(1,performedSeconds/plannedSeconds):0,
+        effects:{athletic:1-conditioning,conditioning}};
+    };
     const results=[], delivered=[], scripts=new Set(), protocols=new Set(), styles=new Map();
     let completed=0,partial=0,missed=0;
     for(let i=0;i<20;i++) {
@@ -171,16 +200,13 @@ test('[Full] actual 20-session General Fitness v2 experiences at 2/3/5 weekly: c
       for(const session of priorities.history.sessions) {
         const result=rolling.find(item=>item.sessionResultId===session.sessionResultId);
         assert.ok(result,'history must come from an actual result: '+session.sessionResultId);
-        const main=result.plannedWork.filter(item=>item.section==='main');
-        const exposure=result.performedWork.filter(item=>main.some(plan=>plan.occurrenceId===item.occurrenceId))
-          .reduce((sum,item)=>sum+(item.status==='completed'?1:0.5),0);
-        assert.ok(Math.abs(session.weight-Math.min(1,exposure/main.length))<1e-9,'performed fraction, not planned/completed label');
+        assert.ok(Math.abs(session.weight-expectedSession(result).weight)<1e-9,'performed fraction, not planned/completed label');
       }
       for(const effect of priorities.effects) {
         const expected=priorities.history.sessions.reduce((sum,session)=>{
           const result=rolling.find(item=>item.sessionResultId===session.sessionResultId);
-          const family=p.app.GarageFitData.programmes['general-fitness'][2].familyBalancePolicy.families.find(item=>item.workoutFamilyId===result.workoutFamilyId);
-          return sum+session.weight*(family.effects[effect.effect]||0);
+          const expected=expectedSession(result);
+          return sum+expected.weight*(expected.effects[effect.effect]||0);
         },0);
         assert.ok(Math.abs(effect.performedSessions-expected)<1e-9,effect.effect+' performed effects');
       }
