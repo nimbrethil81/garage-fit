@@ -313,4 +313,184 @@
   }
   G.registerFamilyComposer('core-stability',1,build('Core & Stability',CORE_STYLES,coreWeights,trunkLed,'strength'),coreQuality);
   G.registerFamilyComposer('full-body-challenges',1,build('Full-Body Challenges',CHALLENGE_STYLES,challengeWeights,()=>true,'balanced'),challengeQuality);
+
+  // ---- Full-Body Challenges v2 (#398, GF-CHAL-R2) ----
+  // These are observable prescription checks, not physiological intensity scores. Work is
+  // resolved target time (estimated for reps); minute windows/caps never become work credit.
+  const V2={
+    easy:{exercise:20,round:50,roundShare:.52,ladderShare:.38,step:40,minute:[20,30],interval:[20,30,20,30],reps:4,conditioning:.08,demand:.4},
+    normal:{exercise:15,round:40,roundShare:.60,ladderShare:.48,step:30,minute:[24,35],interval:[25,40,15,25],reps:6,conditioning:.12,demand:.5},
+    hard:{exercise:10,round:30,roundShare:.66,ladderShare:.55,step:20,minute:[28,40],interval:[30,45,15,20],reps:8,conditioning:.16,demand:.6}
+  };
+  const v2Suitable=ex=>ex.load!=='Heavy'&&ex.strength<5&&ex.estimatedSeconds<=60;
+  const complements=(chosen,ex)=>!chosen.some(other=>other.id===ex.id||G.sameFamily(other,ex)
+    ||other.patterns.some(pattern=>['push','pull','squat','hinge','lunge'].includes(pattern)&&ex.patterns.includes(pattern)));
+  const conditioning=ex=>ex.cardio>=3;
+  const intervalLimit=ex=>Math.min(timed(ex)?ex.prescription.value:ex.estimatedSeconds,ex.impact==='high'?40:60);
+
+  function challengeWork(block,catalogue) {
+    let work=0,rest=0;const occurrences=[];
+    for(const step of G.resolveBlockSteps(block)) {
+      if(step.kind!=='exercise'){rest+=step.seconds||0;continue;}
+      const ex=catalogue[block.exercises[step.exerciseIndex].id],target=step.plannedPrescription||step.target
+        ||(step.timed?{type:'timed',value:step.seconds}:ex.prescription);
+      const seconds=step.estimatedSeconds??(step.timed?step.seconds:Math.ceil(ex.estimatedSeconds*target.value/ex.prescription.value));
+      work+=seconds;occurrences.push({ex,target,seconds});
+    }
+    return {work,rest,occurrences};
+  }
+  function challengeV2Quality(workout,{catalogue}={catalogue:root.GarageFitData.exercises}) {
+    const blocks=workout.main.blocks,p=V2[workout.difficulty],style=workout.familyStyleId,issues=[];
+    const protocol={rounds:'rounds',emom:'emom',ladder:'ladder',amrap:'amrap',intervals:'timed_intervals'}[style];
+    if(!protocol||blocks.some(b=>b.protocol!==protocol))issues.push('style-structure-mismatch');
+    // Fit is a feasibility obligation, never proof of workload. The separate dose checks
+    // below still reject filled but underworked plans. The shared gate removes benchmark
+    // blocks from this view; preserve their actual reservation from the full Main estimate.
+    const main=G.mainSeconds(blocks,workout.setupEquipment||[]),allocated=workout.main.estimatedDurationSeconds??main;
+    const target=(G.BUDGETS[workout.duration]?.main??main+K.MARGIN)-K.MARGIN-Math.max(0,allocated-main);
+    if(main>target+K.MARGIN||target-main>Math.max(65,target*.06))issues.push('challenge-main-budget');
+    const totals={upper:0,lower:0,core:0},patterns=new Set(),familyWork=new Map();
+    let total=0,conditioned=0,demanding=0,resistance=0;
+    for(const block of blocks) {
+      const q=block.prescription,list=block.exercises.map(ex=>catalogue[ex.id]),dose=challengeWork(block,catalogue);
+      if(block.familyContext!=null)issues.push('unexpected-family-context');
+      if(block.occurrenceTargets||block.occurrenceRecoverySeconds)issues.push('unexpected-occurrence-override');
+      if(list.some(ex=>!v2Suitable(ex)||ex.impact==='high'&&workout.difficulty!=='hard'))issues.push('unsuitable-challenge-movement');
+      if(list.some((ex,i)=>!complements(list.slice(0,i),ex)))issues.push('redundant-movement-pattern');
+      if(!impactSafe(list,G.blockRepeatCount(block)))issues.push('high-impact-adjacency');
+      for(const {ex,seconds} of dose.occurrences) {
+        total+=seconds;
+        for(const region of UPPER_LOWER_CORE)totals[region]+=seconds*(ex.bodyFocus===region?1:ex.bodyFocus==='full-body'?1/3:0);
+        ex.patterns.forEach(pattern=>patterns.add(pattern));
+        if(ex.family)familyWork.set(ex.family,(familyWork.get(ex.family)||0)+seconds);
+        if(conditioning(ex))conditioned+=seconds;
+        if(ex.strength>=3||conditioning(ex))demanding+=seconds;
+        if(ex.strength>=3)resistance+=seconds;
+      }
+      // Assess each protocol on its own real work/recovery contract. A Density negative
+      // exemplar still gets the fixed-work check even when its style is unsupported.
+      if(['rounds','density'].includes(block.protocol)) {
+        if(dose.work/(G.estimateBlockDuration(block)||1)<p.roundShare)issues.push('insufficient-prescribed-work');
+        if(block.protocol==='rounds'&&(!between(q.rounds,2,6)||!between(list.length,3,6)
+          ||!between(q.exerciseRestSeconds,p.exercise,p.exercise+10)||!between(q.roundRestSeconds,p.round,p.round+20)))issues.push('rounds-dose-or-recovery');
+      } else if(block.protocol==='emom') {
+        if(list.length<2||!between(q.minutes,4,list.length*4))issues.push('emom-rotation');
+        if(dose.occurrences.some(o=>!between(o.seconds,...p.minute)))issues.push('emom-underworked-or-overloaded');
+      } else if(block.protocol==='ladder') {
+        if(list.length!==2||q.repSteps.length<3||!between(q.stepRestSeconds,p.step,p.step+20)
+          ||!between(q.exerciseRestSeconds,10,20))issues.push('ladder-dose-or-recovery');
+        if(dose.work/(dose.work+dose.rest||1)<p.ladderShare)issues.push('insufficient-ladder-work');
+      } else if(block.protocol==='amrap') {
+        // One planned pass only. Never multiply it by cap/estimated-round-time.
+        if(dose.occurrences.some(o=>o.target.value<p.reps)||dose.work<({easy:18,normal:24,hard:30}[workout.difficulty]))issues.push('insufficient-amrap-sequence');
+        if(G.validateAmrapBlock(block,catalogue).length)issues.push('amrap-contract');
+      } else if(block.protocol==='timed_intervals') {
+        const [low,high,recoveryLow,recoveryHigh]=p.interval;
+        if(!between(list.length,3,5)||!between(q.cycles,2,8)||!between(q.workSeconds,low,high)
+          ||!between(q.transitionSeconds,recoveryLow,recoveryHigh)||list.some(ex=>q.workSeconds>intervalLimit(ex)))issues.push('interval-dose-or-recovery');
+      }
+    }
+    if(!total||Object.values(totals).some(value=>value<total*.12||value>total*.6))issues.push('unbalanced-prescribed-work');
+    if(patterns.size<3)issues.push('insufficient-movement-coverage');
+    if([...familyWork.values()].some(value=>value>total*.5))issues.push('equivalent-variant-dominance');
+    if(conditioned<total*p.conditioning||demanding<total*p.demand||resistance<total*.2)issues.push('insufficient-challenge-demand');
+    if(!distinctBlocks(blocks))issues.push('repeated-block');
+    issues.push(...repeated(blocks.flatMap(b=>b.exercises),2));
+    return [...new Set(issues)];
+  }
+
+  const v2Accept=(ctx,blocks)=>accept(ctx,blocks,{tolerance:Math.max(65,tolerance(ctx)),maxExposure:2,
+    check:all=>!challengeV2Quality({main:{blocks:all},difficulty:ctx.difficulty,familyStyleId:ctx.style},{catalogue:ctx.catalogue}).length});
+  function v2Pick(ctx,state,size,protocol,ok,link) {
+    const chosen=[];
+    for(let slot=0;slot<size;slot++) {
+      const region=UPPER_LOWER_CORE[(state.exercises.length+slot)%3];
+      // AMRAP eligibility and continuity are already hard filters here. The shared
+      // AMRAP selector expects a whole pair pool, so use ordinary scored selection for
+      // a single regional slot (as v1 Density does), then validate the completed block.
+      const ex=choose(ctx,state,chosen,region,protocol==='amrap'?'rounds':protocol,'conditioning',item=>ok(item)&&complements(chosen,item),link);
+      if(!ex)return null;
+      chosen.push(ex);
+    }
+    return chosen;
+  }
+  function v2Circuit(ctx,intervals) {
+    const p=V2[ctx.difficulty],protocol=intervals?'timed_intervals':'rounds';
+    const attempts=counts(ctx.target,intervals?1000:1200,300).flatMap(count=>[3,4,5].map(size=>({count,size})));
+    return bestOf(attempts,({count,size})=>v2Accept(ctx,sequence(ctx,count,(index,share,state)=>{
+      const [low,high,recoveryLow,recoveryHigh]=p.interval;
+      const exercises=v2Pick(ctx,state,size,protocol,ex=>G.protocolCompatible(ex,protocol)
+        &&(ex.impact!=='high'||ctx.difficulty==='hard')&&(!intervals||G.sideCount(ex)===1&&intervalLimit(ex)>=low));
+      if(!exercises)return null;
+      const candidates=[];
+      if(intervals) {
+        for(let work=low;work<=Math.min(high,...exercises.map(intervalLimit));work+=5)
+          for(let rest=recoveryLow;rest<=recoveryHigh;rest+=5)for(let cycles=2;cycles<=8;cycles++)
+            candidates.push({prescription:{cycles,workSeconds:work,transitionSeconds:rest},cost:(high-work)*.3+(rest-recoveryLow)*.3});
+      } else for(let rounds=2;rounds<=6;rounds++)for(let exercise=p.exercise;exercise<=p.exercise+10;exercise+=5)
+        for(let round=p.round;round<=p.round+20;round+=5)
+          candidates.push({prescription:{rounds,exerciseRestSeconds:exercise,roundRestSeconds:round},cost:(exercise-p.exercise)+(round-p.round)*.5});
+      // Work quality is checked before best-fit ranking: extra rest cannot win by filling time.
+      const usable=candidates.filter(({prescription})=>{
+        const b=blockOf(protocol,'conditioning',exercises,prescription),d=challengeWork(b,ctx.catalogue);
+        return intervals||d.work/(G.estimateBlockDuration(b)||1)>=p.roundShare;
+      });
+      const fit=fitted(ctx,protocol,'conditioning',exercises,usable,share);
+      return fit&&{estimate:fit.estimate,block:blockOf(protocol,'conditioning',exercises,fit.prescription,intervals?{}:rounded(fit.prescription))};
+    })));
+  }
+  const V2_STYLES={
+    rounds:ctx=>v2Circuit(ctx,false),intervals:ctx=>v2Circuit(ctx,true),
+    emom:ctx=>bestOf(counts(ctx.target,720,240),count=>v2Accept(ctx,sequence(ctx,count,(index,share,state)=>{
+      const p=V2[ctx.difficulty],minutes=Math.min(12,Math.floor(share/60));
+      const exercises=v2Pick(ctx,state,3,'emom',ex=>G.protocolCompatible(ex,'emom')&&!!emomTarget(ex,p.minute[1])
+        &&emomWork(ex,emomTarget(ex,p.minute[1]))>=p.minute[0]);
+      if(!exercises||minutes<4)return null;
+      return {estimate:minutes*60,block:blockOf('emom','conditioning',exercises,{minutes,slotSeconds:60,targets:exercises.map(ex=>emomTarget(ex,p.minute[1]))})};
+    }))),
+    ladder:ctx=>bestOf(counts(ctx.target,520,180),count=>v2Accept(ctx,sequence(ctx,count,(index,share,state)=>{
+      const p=V2[ctx.difficulty];
+      const plans={easy:[[2,4,6,8],[4,6,8]],normal:[[2,4,6,8,10],[4,6,8,10],[3,6,9]],hard:[[2,4,6,8,10],[4,8,12],[6,8,10,12]]}[ctx.difficulty];
+      const plan=plans[Math.floor(ctx.random()*plans.length)],peak=Math.max(...plan),volume=sum(plan);
+      const exercises=v2Pick(ctx,state,2,'ladder',ex=>G.protocolCompatible(ex,'ladder')&&ex.prescription.value>=peak
+        &&ex.estimatedSeconds*volume/ex.prescription.value<=120);
+      if(!exercises)return null;
+      const candidates=[],down=ctx.random()<.5;
+      for(const reps of [plan])for(const exercise of [10,15,20])for(let step=p.step;step<=p.step+20;step+=5) {
+        const prescription={repSteps:down?reps.slice().reverse():reps.slice(),exerciseRestSeconds:exercise,stepRestSeconds:step};
+        const block=blockOf('ladder','conditioning',exercises,prescription),dose=challengeWork(block,ctx.catalogue);
+        if(!G.validateLadderBlock(block,ctx.catalogue).length&&dose.work/(dose.work+dose.rest)>=p.ladderShare)
+          candidates.push({prescription,cost:(exercise-10)+(step-p.step)*.5});
+      }
+      const fit=fitted(ctx,'ladder','conditioning',exercises,candidates,share);
+      return fit&&{estimate:fit.estimate,block:blockOf('ladder','conditioning',exercises,fit.prescription)};
+    }))),
+    amrap:ctx=>bestOf(counts(ctx.target,480,180),count=>v2Accept(ctx,sequence(ctx,count,(index,share,state)=>{
+      const cap=Math.min(480,Math.floor(share/60)*60);
+      if(cap<180)return null;
+      const eligible=ex=>G.protocolCompatible(ex,'amrap');
+      // A legal first movement must have a complementary compatible partner. In particular,
+      // a TRX floor core movement cannot borrow a bodyweight partner on a different setup.
+      const hasPartner=ex=>ctx.pool.some(other=>eligible(other)&&complements([ex],other)
+        &&!G.complexSequenceIssues([ex,other]).length);
+      const exercises=v2Pick(ctx,state,2,'amrap',ex=>eligible(ex)&&hasPartner(ex),
+        (chosen,ex)=>!G.complexSequenceIssues(chosen.concat(ex)).length);
+      if(!exercises)return null;
+      const reps={easy:5,normal:6,hard:8}[ctx.difficulty];
+      const block=blockOf('amrap','conditioning',exercises,{capSeconds:cap,targets:exercises.map(ex=>({type:'reps',value:Math.min(ex.prescription.value,reps)}))});
+      return !G.validateAmrapBlock(block,ctx.catalogue).length&&{estimate:cap,block};
+    })))
+  };
+  function composeChallengeV2(options,request,attempt) {
+    const ctx=context(options,request,'Full-Body Challenges',v2Suitable,'balanced'),excluded=attempt?.excludedStyleIds||[];
+    const weights={rounds:3,emom:3,ladder:3,amrap:2,intervals:3};
+    for(const {id} of ordered(Object.keys(V2_STYLES).map(id=>({id,weight:weights[id]*(ctx.recent.includes(id==='intervals'?'timed_intervals':id)?.6:1)})),ctx.random)) {
+      if(excluded.includes(id))continue;
+      ctx.style=id;
+      const made=V2_STYLES[id](ctx);
+      if(made)return {familyStyleId:id,blocks:made.blocks,generalPreparation:{focus:'balanced'}};
+    }
+    return fail('Full-Body Challenges cannot build a balanced, meaningfully worked '+ctx.duration+'-minute challenge with these settings.');
+  }
+  G.registerFamilyComposer('full-body-challenges',2,composeChallengeV2,challengeV2Quality);
 })(typeof window==='undefined'?globalThis:window);
