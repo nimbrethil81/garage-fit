@@ -29,8 +29,9 @@ function verifyTimeline(p, workout, equipment) {
   let seconds=0;
   const caps=new Set();
   for (const step of timeline) {
-    if (step.protocol==='density') {
-      if(!caps.has(step.blockIndex)) {seconds+=workout.main.blocks[step.blockIndex].prescription.timeCapSeconds;caps.add(step.blockIndex);}
+    if (step.protocol==='density'||step.protocol==='amrap') {
+      // Both reserve a cap once per block; AMRAP's finite planned pass repeats in playback.
+      if(!caps.has(step.blockIndex)) {const prescription=workout.main.blocks[step.blockIndex].prescription;seconds+=step.protocol==='density'?prescription.timeCapSeconds:prescription.capSeconds;caps.add(step.blockIndex);}
     } else if(step.protocol==='emom'&&step.kind==='exercise') seconds+=step.endsAtSeconds-step.startsAtSeconds;
     else if(step.kind==='exercise') seconds+=step.timed?step.seconds:(step.estimatedSeconds??step.exercise.estimatedSeconds)/G.sideCount(step.exercise);
     else seconds+=step.seconds;
@@ -59,6 +60,18 @@ function verifyTimeline(p, workout, equipment) {
   }
   return {timeline,plan};
 }
+
+test('10-minute Easy equipment challenge counts both AMRAP caps, not just its finite planned passes',()=>{
+  const p=pilot(new Map(),'general-fitness',2,{rampupUi:true}),equipment=['dumbbells','trx','rings'];
+  const workout=p.app.GarageFitGenerator.generate({catalogue:p.app.GarageFitData.exercises,
+    workoutFamilyId:'full-body-challenges',workoutFamilyVersion:2,duration:10,difficulty:'easy',
+    equipment,movementRoom:true,random:rng(2026)});
+  assert.equal(workout.familyStyleId,'amrap');
+  assert.deepEqual(plain(workout.main.blocks.map(block=>block.prescription.capSeconds)),[180,180]);
+  assert.equal(workout.estimatedSeconds,523);
+  const {plan}=verifyTimeline(p,workout,equipment);
+  assert.equal(plan.filter(item=>item.section==='main').length,4,'one planned pass per block, not invented rounds');
+});
 
 // These sweeps exercise real production composers through BOTH construction routes;
 // individual catalogue, duration-profile and fallback tests stay in their existing suites.

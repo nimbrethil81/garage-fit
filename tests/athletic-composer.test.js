@@ -204,8 +204,8 @@ test('production and test harness register the same version-pinned composers; ne
     assert.deepEqual({...copy(definition),version:1,compositionPolicy:one.compositionPolicy,membershipPolicy:one.membershipPolicy},copy(one));
     assert.deepEqual(copy(definition.compositionPolicy),{id:FAMILY,version});assert.deepEqual(copy(definition.membershipPolicy),{id:FAMILY,version:membership});
   }
-  // Strength & Control (#373) and Mobility (#272) now use v3; the other families retain their first published version.
-  for(const id of F.FAMILY_IDS.filter(id=>id!==FAMILY))assert.equal(F.currentVersion(id),id==='mobility-movement-quality'?3:id==='strength-control'?3:1);
+  // Strength & Control (#373) and Mobility (#272) use v3; Full-Body Challenges (#398) uses v2.
+  for(const id of F.FAMILY_IDS.filter(id=>id!==FAMILY))assert.equal(F.currentVersion(id),id==='mobility-movement-quality'?3:id==='strength-control'?3:id==='full-body-challenges'?2:1);
   assert.match(fs.readFileSync('index.html','utf8'),/data\/athletic-membership.js[\s\S]*js\/athletic-composer.js/);
   const app=loadAppContext(new Map());
   assert.equal(app.GarageFitGenerator.generate({workoutFamilyId:FAMILY,duration:10,catalogue:app.GarageFitData.exercises,random:()=>.2}).workoutFamilyId,FAMILY);
