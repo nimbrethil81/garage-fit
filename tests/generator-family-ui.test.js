@@ -62,7 +62,7 @@ test('explicit generation uses effective family semantics and actual family/styl
  const app=loadAppContext();app.selectGeneratorFocus('cardio');app.selectGeneratorBodyFocus('upper');app.selectGeneratorDuration(15);app.selectGeneratorDifficulty('easy');app.setOwnedEquipment(['dumbbells']);
  for(const id of ['strength-control','cardio-conditioning','athletic-movement','core-stability','mobility-movement-quality','full-body-challenges']){
   app.selectGeneratorFamily(id);seeded(app);app.generateWorkout();
-  const workout=run(app,'generatorState.workout'),definition=app.GarageFitWorkoutFamilies.getDefinition(id),style=app.GarageFitWorkoutFamilies.getStyle(id,workout.familyStyleId);
+  const workout=run(app,'generatorState.workout'),definition=app.GarageFitWorkoutFamilies.getDefinition(id,workout.workoutFamilyVersion),style=app.GarageFitWorkoutFamilies.getStyle(id,workout.familyStyleId,workout.workoutFamilyVersion);
   assert.equal(workout.workoutFamilyId,id);assert.equal(workout.duration,15);assert.equal(workout.difficulty,'easy');
   assert.equal(workout.bodyFocus,id==='strength-control'?'upper':'full-body');
   assert.ok(el(app,'previewKicker').textContent.includes(definition.name+' · '+style.name));
@@ -73,10 +73,11 @@ test('explicit generation uses effective family semantics and actual family/styl
 
 test('infeasible Athletic family stays on Generator with verified adjustment and no diagnostic internals',()=>{
  const app=loadAppContext();app.selectGeneratorFamily('athletic-movement');seeded(app);
- const original=app.GarageFitGenerator.generate;app.GarageFitGenerator.generate=options=>original({...options,excludedImpact:['medium','high']});app.generateWorkout();
+ // V6 is viable with low-impact/no-room constraints; floor-only is genuinely infeasible.
+ const original=app.GarageFitGenerator.generate;app.GarageFitGenerator.generate=options=>original({...options,bodyPositions:['floor']});app.generateWorkout();
  assert.equal(run(app,'currentScreen'),'generator');assert.equal(run(app,'generatorState.workout'),null);
  const message=el(app,'generatorFamilyError');assert.ok(!message.classList.contains('hidden'));
- assert.match(message.textContent,/Athletic Movement is unavailable/);assert.match(message.textContent,/room/);
+ assert.match(message.textContent,/Athletic Movement is unavailable/);assert.match(message.textContent,/Allow more body positions/);
  assert.doesNotMatch(message.textContent,/familyStyleId|insufficient-eligible|integrated-movement|budget|\(.* s/);
  app.selectGeneratorFamily(null);assert.ok(message.classList.contains('hidden'));
 });

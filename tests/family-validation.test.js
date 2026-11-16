@@ -198,13 +198,17 @@ test('an infeasible manual family request returns verified reasons and adjustmen
   const adjusted=generate('athletic-movement',{random:rng(2)});
   assert.equal(adjusted.workoutFamilyId,'athletic-movement');assert.ok(validate(adjusted).valid);
 
-  // Limited space plus low-impact only: travelling drills need confirmed room. High impact is never proposed.
-  const space=infeasible(()=>generate('athletic-movement',{difficulty:'hard',excludedImpact:['medium','high']}));
+  // Historical v5 needs room for its low-impact integrated pool. Preserve that
+  // counterexample; v6's approved standing additions make the same restriction viable.
+  const space=infeasible(()=>generate('athletic-movement',{workoutFamilyVersion:5,difficulty:'hard',excludedImpact:['medium','high']}));
   assert.deepEqual(space.reasons.map(reason=>reason.code),['insufficient-eligible-movements']);
   assert.deepEqual(space.adjustments.map(item=>item.code).sort(),['confirm-movement-room','reduce-impact-exclusions']);
   assert.deepEqual(space.adjustments.find(item=>item.code==='reduce-impact-exclusions').value,['high']);
-  const room=generate('athletic-movement',{difficulty:'hard',excludedImpact:['medium','high'],movementRoom:true});
+  const room=generate('athletic-movement',{workoutFamilyVersion:5,difficulty:'hard',excludedImpact:['medium','high'],movementRoom:true});
   assert.ok(exercisesOf(room).every(ex=>ex.impact==='low')&&validate(room).valid);
+  const standingV6=generate('athletic-movement',{workoutFamilyVersion:6,difficulty:'hard',excludedImpact:['medium','high']});
+  assert.equal(standingV6.workoutFamilyVersion,6);
+  assert.ok(exercisesOf(standingV6).every(ex=>ex.impact==='low')&&validate(standingV6).valid);
 
   // CD1 adds enough standing low-impact work for the shortest Easy Cardio choice.
   const short=generate('cardio-conditioning',{duration:10,difficulty:'easy',excludedImpact:['medium','high']});
@@ -314,7 +318,8 @@ test('same-family fallback carries its resolved actual style into the tracker re
 });
 
 test('v5 shared gate rejects rotation-only Control, combined short-session ground work and floor integrated bookends',()=>{
-  const original=generate('athletic-movement',{movementRoom:true,duration:20});
+  const original=generate('athletic-movement',{workoutFamilyVersion:5,movementRoom:true,duration:20});
+  assert.equal(original.workoutFamilyVersion,5);
   // Keep canonical exercise copies, legal contextual timed targets and sufficient recovery;
   // these edits fail family quality rather than permission or prescription validation.
   const replace=(w,block,ids)=>{

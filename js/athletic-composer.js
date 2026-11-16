@@ -411,7 +411,7 @@
   function composeV6(options,request,attempt) {
     const {catalogue,duration,difficulty}=options,random=options.random||Math.random;
     let selectedStyle;
-    const fail=(message,reason)=>{const error=new F.FamilyContractError('family-not-feasible',message);Object.assign(error,{reason,...(selectedStyle?{familyStyleId:selectedStyle}:{})});throw error;};
+    const fail=(message,reason,details={})=>{const error=new F.FamilyContractError('family-not-feasible',message);Object.assign(error,{reason,...details,...(selectedStyle?{familyStyleId:selectedStyle}:{})});throw error;};
     const contexts={},pools={};
     for(const role of ['footwork','control','integrated','conditioning']) {
       const context={...request,role,difficulty};
@@ -422,7 +422,7 @@
       contexts[role]=context;
       pools[role]=Object.values(catalogue).filter(ex=>G.generatedPhaseEligible(ex,'main',options.equipment||[],difficulty,context)
         &&G.protocolCompatible(ex,'rounds',context)&&ex.bodyPosition==='standing'&&ex.impact!=='high');
-      if(pools[role].length<2)fail('Athletic Movement needs standing '+role+' options.','insufficient-eligible-movements');
+      if(pools[role].length<2)fail('Athletic Movement needs standing '+role+' options.','insufficient-eligible-movements',{role});
     }
     const previous=options.recentFamilySessions?.[FAMILY];
     const recent=previous&&previous.plannedOccurrences>0&&Array.isArray(previous.completedOccurrences)?previous:null;
@@ -508,7 +508,10 @@
     return {familyStyleId:style,blocks:build.blocks};
   }
   function qualityV6(workout) {
-    const blocks=workout.main.blocks,issues=[],main=blocks.filter(b=>stageSection(b)==='main');
+    const blocks=workout.main.blocks,issues=[];
+    // Malformed edits must return a meaningful family rejection before role access.
+    if(!blocks.length||blocks.some(block=>!block.familyContext||block.familyContext.workoutFamilyId!==FAMILY))return ['phase-structure'];
+    const main=blocks.filter(b=>stageSection(b)==='main');
     if(blocks[0]?.id.split('-')[1]!=='preparation'||blocks.at(-1)?.id.split('-')[1]!=='finish')issues.push('preparation-finish');
     if(!STYLES_V6.includes(workout.familyStyleId))issues.push('style');
     const planes=new Set(main.filter(b=>b.familyContext.role==='footwork').flatMap(b=>b.exercises.flatMap(ex=>ex.movementPlanes)));
