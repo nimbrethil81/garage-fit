@@ -166,6 +166,8 @@
     role.anchorLimits = tennisAthletic.roleCompositionPolicy.roles[role.id]
       ? [0,0,0,0,0] : [1,1,2,2,3];
   });
+  const tennisAthleticV6 = {...JSON.parse(JSON.stringify(tennisAthletic)), version: 10,
+    movementFamilyPolicy: {workoutFamilyId: 'athletic-movement', workoutFamilyVersion: 6}};
   // #190 approved General Fitness Decisions 1–8: open-ended and anchor-free. Each session
   // chooses an intended workout family from rolling performed training effects across
   // GarageFit sources (strength and conditioning foundations first), adapts to recent
@@ -222,5 +224,5 @@
     }};
   function freeze(value) { Object.values(value).forEach(item => { if (item && typeof item === 'object') freeze(item); }); return Object.freeze(value); }
   root.GarageFitData = root.GarageFitData || {};
-  root.GarageFitData.programmes = freeze({'general-fitness': {1: generalFitness, 2: generalFitnessBenchmarks}, 'general-strength-4w': {1: strength, 2: strengthRings}, 'build-arms': {1: arms}, 'tennis-conditioning': {1: tennis, 2: tennisContext, 3: tennisDevelopment, 4: tennisEvents, 5: tennisPilot, 6: tennisMovement, 7: tennisRings, 8: tennisMovementDrills, 9: tennisAthletic}});
+  root.GarageFitData.programmes = freeze({'general-fitness': {1: generalFitness, 2: generalFitnessBenchmarks}, 'general-strength-4w': {1: strength, 2: strengthRings}, 'build-arms': {1: arms}, 'tennis-conditioning': {1: tennis, 2: tennisContext, 3: tennisDevelopment, 4: tennisEvents, 5: tennisPilot, 6: tennisMovement, 7: tennisRings, 8: tennisMovementDrills, 9: tennisAthletic, 10: tennisAthleticV6}});
 })(typeof window !== 'undefined' ? window : globalThis);

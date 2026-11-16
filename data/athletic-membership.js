@@ -74,6 +74,19 @@
     ['lateral-ape-weight-transfer', ['integrated'], false, 'normal'],
     ['tandem-step-and-hold', ['control'], false]
   ];
+  // #403: membership v4 reuses nine canonical identities; roles are contextual,
+  // not changes to intrinsic metadata or ordinary Generator eligibility.
+  const V6_ADDITIONS = [
+    ['low-impact-speed-skaters', ['conditioning','integrated'], false],
+    ['boxer-step-and-punches', ['conditioning'], false],
+    ['squat-to-alternating-knee-drive', ['conditioning','integrated'], false],
+    ['high-knee-power-steps', ['conditioning'], false],
+    ['step-jacks', ['conditioning'], false],
+    ['side-step-knee-lift', ['conditioning'], false],
+    ['forward-back-aerobic-steps', ['conditioning'], false],
+    ['power-march', ['conditioning'], false],
+    ['jumping-jacks', ['conditioning'], false]
+  ];
   function build(members, version) {
     const entries = [];
     for (const [exerciseId, roles, requiresMovementRoom, minimumDifficulty] of members) {
@@ -99,4 +112,7 @@
   families.registerMembershipPolicy({workoutFamilyId: 'athletic-movement', workoutFamilyVersion: 1, entries: build(MEMBERS, 1)});
   families.registerMembershipPolicy({workoutFamilyId: 'athletic-movement', workoutFamilyVersion: 4, entries: build(MEMBERS.concat(ADDITIONS), 2)});
   families.registerMembershipPolicy({workoutFamilyId: 'athletic-movement', workoutFamilyVersion: 5, entries: build(MEMBERS.concat(ADDITIONS, V5_ADDITIONS), 3)});
+  families.registerMembershipPolicy({workoutFamilyId: 'athletic-movement', workoutFamilyVersion: 6, entries: build(MEMBERS.concat(ADDITIONS, V5_ADDITIONS, V6_ADDITIONS, [
+    ['fast-feet', ['conditioning'], false], ['in-in-out-out-steps', ['conditioning'], false]
+  ]), 4)});
 })(typeof window !== 'undefined' ? window : globalThis);

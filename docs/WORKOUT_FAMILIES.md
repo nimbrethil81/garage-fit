@@ -583,7 +583,7 @@ v4 is the v3 staged script and session-wide rule drawing on **membership v2**: m
 new canonical movements, `fast-feet`, `side-step-touches` and `cossack-squat` (reused identities, no
 new entries). Definitions v1–v3 keep membership v1; only definition v4 resolves `{athletic-movement, 2}`,
 so saved and explicit v1–v3 workouts, drafts and Coach pins are unchanged (v1–v3 composition digests are pinned
-in `tests/athletic-composer.test.js`). At publication, new standalone and General Fitness workouts used v4 automatically; v5 is current below.
+in `tests/athletic-composer.test.js`). At publication, new standalone and General Fitness workouts used v4 automatically; v6 is current below.
 
 A membership entry may state `minimumDifficulty` (`normal` excludes Easy; `hard` allows Hard only). It is a
 family-policy field, enforced by the shared eligibility check for generation, validation and swaps; it is not
@@ -623,11 +623,11 @@ blocks draw lateral lunge to balance and the cossack squat in place and the shuf
 hop and bound with room; the finish swaps its pivot steps for side-step touches. Preparation, resets and the
 longer finish timings are unchanged.
 
-### Athletic Movement composition v5 and membership v3 (#271, current)
+### Athletic Movement composition v5 and membership v3 (#271)
 
 V5 adds eleven canonical bodyweight identities to membership v3 (36 unique members), with explicit
 composer pools. Definitions, memberships and composition v1–v4 stay published; all four composition
-shapes are pinned by deterministic digests. New standalone and General Fitness sessions use v5.
+shapes are pinned by deterministic digests. At publication, new standalone and General Fitness sessions used v5; new sessions now use v6.
 
 Four-square steps extend Easy footwork. Drop-step recovery, crossover recovery and step-out braking
 require confirmed movement room and Normal or Hard. Crossover recovery uses a crossing step; braking
@@ -938,3 +938,64 @@ Generator recency, or Tennis event/readiness behavior. Future consumers must kee
 these approximate preferences separate from performed GarageFit evidence. General
 Fitness does: typical routines only bound a small mobility preference and confirmed
 reports only order lower-demand families first.
+
+
+### Athletic Movement composition v6 and membership v4 (#403, current)
+
+V6 publishes one shared composer for Generator, General Fitness and new Tennis v10
+starts. It preserves every v1–v5 definition, composer, membership and validator.
+Membership v4 retains the previous 36 identities and adds exactly nine existing
+canonical identities: low-impact speed skaters, boxer step and punches, squat to
+alternating knee drive, high-knee power steps, step jacks, side-step knee lift,
+forward-back aerobic steps, power march and jumping jacks. No catalogue metadata,
+instructions or ordinary Generator eligibility changes. Conditioning is a contextual
+membership role; speed skaters and squat/knee drive can also serve integrated
+coordination. Fast feet and in-in-out-out steps retain footwork membership and may
+also serve conditioning. Each block has one role, so composition accounting is exclusive.
+
+The automatic styles are Movement Circuit, Agility & Balance and Athletic Conditioning.
+They change purpose ordering, block counts, exercise selection and conditioning
+exposure, rather than just phase titles. Movement Circuit mixes technical and rhythmic
+work; Agility & Balance adds technical practice; Athletic Conditioning gives suitable
+conditioning longer efforts and additional blocks. These are preferences, not fixed
+exercise or percentage quotas. The same composer applies a modest transient Tennis
+preference towards lateral/single-leg coordination and the technical style. It is
+derived from existing Coach context and never added to prescriptions or saved results.
+
+V6 uses standing, non-jumping technical practice, with genuine standing single-leg
+balance and three-plane footwork. Jumping jacks are optional Medium-impact conditioning;
+Medium exclusion removes them. High-impact and floor drills remain in historical
+membership but are not selected by this standing v6 implementation. No room or equipment
+is required. Unsupported position/impact restrictions fail explicitly in the same family.
+The membership and shared safety gates still enforce canonical difficulty and protocol
+compatibility. Technical efforts retain bounded v5 caps and exercise-sensitive recovery;
+conditioning can use up to 30 seconds on Easy and 40 seconds otherwise, within membership
+bounds, and finishes with light rhythm before subsequent technique. Light stepping
+never establishes the substantive conditioning anchor. The fitter varies controlled
+rounds and targets before extending existing recovery gaps within their bounded allowance.
+
+Completed-family history softly reduces recent exercise/style preference. A constrained
+pool consolidates an identical combination into one longer intentional practice block;
+it does not generate repeated copies with new titles. Equivalent inputs and RNG draws
+remain deterministic. Preparation and finish retain their existing section classification;
+Main credit never includes them. Exact 10/15/20/30/45-minute budgets include resolved work,
+both sides, rest and shared block transitions. The v6 quality gate checks actual
+prescriptions, technical anchors, conditioning, recovery and duplicate combinations,
+including edits. Earlier validators remain unchanged.
+
+General Fitness v1/v2 generate their current Athletic version without definition changes.
+Before composition the existing recovery penalty conservatively treats v6 as potentially
+demanding, since its eventual dose is unknown. Actual delivered and performed demand,
+partial credit and bounded secondary conditioning effects follow the approved
+[GF-AM6-CAL1 calibration](athletic-v6-calibration.md). There is no new persisted score,
+programme migration or change to #400's separate policy. Tennis v9 and existing v9
+instances remain pinned to v5; new starts choose v10/v6. Existing Finish programme →
+Start programme is the explicit adoption route, while lighter/event/readiness protections
+retain the conservative path.
+
+[Reproducible v5/v6 samples](athletic-v6-samples.md) show actual exercise sequences,
+technical/conditioning-role exposure and rest at 20, 30 and 45 minutes across all three
+consumers, plus completed-history examples. Regenerate with
+`node scripts/sample-athletic-v6.js`. These samples demonstrate composition and variety,
+not enjoyment or user testing. Existing screens, navigation, layout, first-use guidance,
+FAQ, Help and About copy are unchanged. FAQ reviewed — no changes required.
