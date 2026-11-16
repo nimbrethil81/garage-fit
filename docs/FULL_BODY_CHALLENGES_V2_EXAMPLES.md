@@ -240,4 +240,3 @@ Session estimate 870 s; Main 580 s. Ready/phase-boundary overhead follows the ex
 - **Main 1:** 4 cycles; 30 s work / 20 s recovery/changeover. Alternating hooks — 30 s; Walking lunge — 30 s; Ski abs — 30 s.
   Prescribed work: 360 s timed; scheduled recovery 220 s; block estimate 580 s (including any setup).
 - **Cool-down (110 s including recovery):** Extended Puppy pose — 20 s; Glute stretch — 15 s each side; Supine hamstring stretch — 25 s each side.
-

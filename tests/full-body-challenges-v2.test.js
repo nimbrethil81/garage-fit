@@ -96,7 +96,9 @@ test('REG1 retains the 585s/210s rest/80-rep v1 diagnostic and rejects its subst
   assert.equal(blocks.reduce((n,b)=>n+b.prescription.repeats*b.prescription.targets.reduce((sum,t)=>sum+t.value,0),0),80);
   const issues=quality({main:{blocks},difficulty:'normal',familyStyleId:'density'},{catalogue:C});
   assert.ok(issues.includes('insufficient-prescribed-work'),JSON.stringify(issues));
-  assert.ok(issues.includes('unbalanced-prescribed-work'),JSON.stringify(issues));
+  // Upper/lower/core work is 112/60/24 s of 196 s, within the balance bounds.
+  // Its substantive failure is insufficient work, independently of the removed style.
+  assert.ok(!issues.includes('unbalanced-prescribed-work'),JSON.stringify(issues));
 });
 
 function weakRounds() {return {id:'main-1',protocol:'rounds',intent:'conditioning',
