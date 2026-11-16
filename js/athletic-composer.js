@@ -518,6 +518,11 @@
     if(!['sagittal','frontal','transverse'].every(p=>planes.has(p)))issues.push('footwork-planes');
     if(!main.some(b=>b.familyContext.role==='control'&&b.exercises.some(ex=>balanceAnchorV6(ex))))issues.push('single-leg-control');
     if(!main.some(b=>b.familyContext.role==='integrated'))issues.push('integrated-practice');
+    // V6 owns the entire session in these inline blocks. Edits retain its exact
+    // resolved clock and actual energetic Main practice, not just a family label.
+    if(G.mainSeconds(blocks,workout.setupEquipment||[])!==workout.duration*60)issues.push('resolved-duration');
+    if(!main.some(block=>block.familyContext.role==='conditioning'&&G.resolvedOccurrences(block)
+      .some(item=>item.timed&&item.seconds>0&&item.exercise.cardio>=3)))issues.push('missing-conditioning-exposure');
     const signatures=new Set();
     for(const block of blocks) {
       const role=block.familyContext?.role,occurrences=G.resolvedOccurrences(block);

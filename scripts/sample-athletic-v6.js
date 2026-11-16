@@ -1,6 +1,7 @@
 // Reproducible review samples for #403; simulated inputs, not user research.
 // node scripts/sample-athletic-v6.js > /tmp/athletic-v6-samples.md
 const {loadAppContext}=require('../tests/helpers/app-context');
+const vm=require('node:vm');
 const app=loadAppContext(new Map(),{ownIntrinsics:true});
 function random(style){let first=true,s=7;return()=>{if(first){first=false;return style;}s=(s*1664525+1013904223)>>>0;return s/4294967296;};}
 function generate(consumer,version,duration,style,recent=false){
@@ -11,7 +12,9 @@ function generate(consumer,version,duration,style,recent=false){
   const tennis=consumer==='Tennis',definition=app.GarageFitData.programmes[tennis?'tennis-conditioning':'general-fitness'][tennis?(version===6?10:9):2];
   const engine=app.GarageFitCoachEngine.createEngine({catalogue:C,assessSessionPrescription:G.assessSessionPrescription});
   const equipment=tennis?['dumbbells']:[],now='2026-11-16T08:00:00Z';
-  const state=engine.startProgramme(definition,{programmeInstanceId:'sample',equipment,...(tennis?{programmeSettings:{sportId:'tennis',focus:'balanced',weeklyCoachFrequency:2}}:{})},now).state;
+  // Keep the model's strict plain-object boundary: settings belong to the app VM.
+  const programmeSettings=tennis?vm.runInContext('({sportId:"tennis",focus:"balanced",weeklyCoachFrequency:2})',app):null;
+  const state=engine.startProgramme(definition,{programmeInstanceId:'sample',equipment,...(tennis?{programmeSettings}:{})},now).state;
   const today={now,localDate:'2026-11-16',prescriptionId:'sample-rx',duration,difficulty:'normal',equipment};
   let rx;
   if(tennis){
@@ -30,7 +33,10 @@ function generate(consumer,version,duration,style,recent=false){
   options.recentFamilySessions={'athletic-movement':{workoutFamilyVersion:version,familyStyleId:prior.familyStyleId,plannedOccurrences:work.length,
    completedOccurrences:work.map(item=>({exerciseId:item.exerciseId,blockIndex:item.blockIndex}))}};
  }
- return G.generate(options);
+ const workout=G.generate(options),validation=G.validateFamilyWorkout(workout,{catalogue:C,equipment:workout.setupEquipment});
+ if(!validation.valid||workout.estimatedSeconds!==duration*60)
+  throw new Error(consumer+' v'+version+' '+duration+'-minute sample is invalid: '+JSON.stringify(validation));
+ return workout;
 }
 function describe(w){
  const G=app.GarageFitGenerator,main=w.main.blocks.filter(b=>G.blockTrainingSection(b)==='main');

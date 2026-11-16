@@ -1,6 +1,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {loadAppContext}=require('./helpers/app-context');
 const {create,seed,confirm}=require('./helpers/tennis-pilot');
+const fs=require('node:fs'),path=require('node:path'),{spawnSync}=require('node:child_process');
 global.window=global;
 for(const f of ['data/equipment','data/exercises','data/workout-families','js/workout-families','js/generator','data/athletic-membership','js/athletic-composer'])require('../'+f);
 const G=GarageFitGenerator,F=GarageFitWorkoutFamilies,C=GarageFitData.exercises;
@@ -57,6 +58,67 @@ test('style compositions differ, completed history softly changes choices, and e
  control.exercises=control.exercises.map(ex=>ex.sidedness==='per-side'?copy(C['reverse-lunge-knee-drive']):ex);
  assert.equal(G.validateFamilyWorkout(bad,{catalogue:C,equipment:[]}).valid,false);
  assert.equal(shape(generate({random:rng(31)})),shape(generate({random:rng(31)})));
+});
+
+test('v6 rejects removed or light-only conditioning, including the underfilled edited-workout counterexample',()=>{
+ const original=generate({random:rng(1)}),removed=copy(original);
+ removed.main.blocks=removed.main.blocks.filter(block=>block.familyContext.role!=='conditioning');
+ G.normaliseWorkout(removed);
+ assert.equal(removed.estimatedSeconds,900);assert.equal(removed.duration,20);
+ const energetic=removed.main.blocks.filter(block=>G.blockTrainingSection(block)==='main').flatMap(block=>block.exercises)
+  .filter(ex=>ex.cardio>=3&&F.getMembership({workoutFamilyId:'athletic-movement',workoutFamilyVersion:6,role:'conditioning'},ex.id));
+ assert.equal(energetic.length,0,'no equivalent energetic Main work remains');
+ const missing=G.validateFamilyWorkout(removed,{catalogue:C,equipment:[]});
+ assert.equal(missing.valid,false);assert.deepEqual(missing.technicalIssues,[]);
+ assert.ok(missing.qualityIssues.includes('quality:missing-conditioning-exposure'));
+ assert.ok(missing.qualityIssues.includes('quality:resolved-duration'));
+ // Isolate exposure from timing: retain every target, round and recovery, but
+ // replace conditioning with eligible light movements that cannot supply it.
+ const light=copy(original),ids=['step-jacks','forward-back-aerobic-steps','side-step-knee-lift'];
+ for(const block of light.main.blocks.filter(block=>block.familyContext.role==='conditioning'))
+  block.exercises=block.exercises.map((_,index)=>copy(C[ids[index%ids.length]]));
+ G.normaliseWorkout(light);assert.equal(light.estimatedSeconds,1200);
+ const lightOnly=G.validateFamilyWorkout(light,{catalogue:C,equipment:[]});
+ assert.equal(lightOnly.valid,false);assert.deepEqual(lightOnly.technicalIssues,[]);
+ assert.ok(lightOnly.qualityIssues.includes('quality:missing-conditioning-exposure'));
+ assert.ok(!lightOnly.qualityIssues.includes('quality:resolved-duration'));
+});
+
+test('v6 rejects isolated timing changes while valid target edits and real swaps retain the exact clock',()=>{
+ const original=generate({random:rng(1)}),index=original.main.blocks.findIndex(block=>block.familyContext.role==='footwork');
+ assert.equal(original.main.blocks[index].occurrenceTargets[0].plannedPrescription.value,28);
+ for(const delta of [-1,1]) {
+  const edited=copy(original);edited.main.blocks[index].occurrenceTargets[0].plannedPrescription.value+=delta;G.normaliseWorkout(edited);
+  assert.equal(edited.estimatedSeconds,1200+delta);
+  const result=G.validateFamilyWorkout(edited,{catalogue:C,equipment:[]});
+  assert.equal(result.valid,false);assert.deepEqual(result.qualityIssues,['quality:resolved-duration']);
+ }
+ const valid=copy(original),targets=valid.main.blocks[index].occurrenceTargets;
+ targets[0].plannedPrescription.value++;targets[1].plannedPrescription.value--;G.normaliseWorkout(valid);
+ assert.equal(valid.estimatedSeconds,1200);assert.equal(G.validateFamilyWorkout(valid,{catalogue:C,equipment:[]}).valid,true);
+ const before=valid.main.blocks[index].exercises[0].id;
+ G.swap(valid,index,0,{catalogue:C,equipment:[],random:rng(31)});
+ assert.notEqual(valid.main.blocks[index].exercises[0].id,before,'a genuine supported replacement remains available');
+ assert.equal(valid.estimatedSeconds,1200);assert.equal(G.validateFamilyWorkout(valid,{catalogue:C,equipment:[]}).valid,true);
+ for(const version of [1,2,3,4,5]) {
+  const historical=generate({workoutFamilyVersion:version,random:rng(31)});
+  assert.equal(historical.workoutFamilyVersion,version);assert.equal(G.validateFamilyWorkout(historical,{catalogue:C,equipment:[]}).valid,true);
+ }
+});
+
+test('comparison command validates complete three-consumer samples and reproduces the committed report',()=>{
+ const root=path.resolve(__dirname,'..'),run=spawnSync(process.execPath,['scripts/sample-athletic-v6.js'],{cwd:root,encoding:'utf8'});
+ assert.equal(run.status,0,run.stderr);
+ assert.equal(run.stdout,fs.readFileSync(path.join(root,'docs/athletic-v6-samples.md'),'utf8'));
+ for(const consumer of ['Generator','General Fitness','Tennis']) {
+  const section=run.stdout.split('## '+consumer+'\n')[1]?.split('\n## ')[0];assert.ok(section,consumer);
+  const rows=section.split('\n').filter(line=>/^\| (20|30|45) \//.test(line));assert.equal(rows.length,9,consumer);
+  for(const minutes of [20,30,45])assert.equal(rows.filter(line=>line.startsWith('| '+minutes+' /')).length,3);
+  for(const style of ['movement-circuit','agility-balance','athletic-conditioning'])assert.ok(section.includes(style),consumer+' '+style);
+  assert.ok(run.stdout.includes('- '+consumer+', 30 minutes, draw 0.1, immediately preceding fully completed same-seed v6 session:'));
+ }
+ assert.match(run.stdout,/## Completed-history example/);
+ assert.match(run.stdout,/not proof of enjoyment or user testing/);
 });
 
 test('Tennis v10 uses shared v6 with transient emphasis, protected days and v9 remain pinned',async()=>{
