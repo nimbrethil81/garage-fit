@@ -1143,7 +1143,9 @@
       const node=button(label,action); node.className='swap-btn'; node.setAttribute('aria-label',accessibleName); return node;
     }
     // Generator protocol label plus the rest the player will actually give.
-    function blockLabel(block) {
+    function blockLabel(block,workout) {
+      if(workout?.workoutFamilyId==='full-body-challenges'&&workout.workoutFamilyVersion===2)
+        return root.GarageFitWorkoutPreview.protocolLabel(block,workout);
       // A superset label already names its changeover and post-pair rest.
       const rest=block.protocol==='rounds' && block.prescription.rounds>1 ? block.prescription.roundRestSeconds+' sec rest between rounds' : null;
       return [root.GarageFitWorkoutPreview.protocolLabel(block),rest].filter(Boolean).join(' · ');
@@ -1186,7 +1188,7 @@
       const sectionPlan=root.GarageFitGenerator.trainingSectionPlan(workout), blocks=workout.main.blocks;
       function blockRows(list, block, index) {
         const where=sectionPlan.blocks[index];
-        list.append(ui.blockHeading({index:where.position,total:where.count,section:where.section,prescription:(block.benchmark ? 'Optional benchmark · ' : '')+blockLabel(block)}));
+        list.append(ui.blockHeading({index:where.position,total:where.count,section:where.section,prescription:(block.benchmark ? 'Optional benchmark · ' : '')+blockLabel(block,workout)}));
         block.exercises.forEach((exercise,exerciseIndex) => {
           ui.appendSetupTransitions(list,workout,{section:'main',blockIndex:index,exerciseIndex});
           const anchor=exercise.coachAnchor, target=!!anchor && stable.has(anchor.requirementId), controls=[];

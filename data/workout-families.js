@@ -74,12 +74,17 @@
   versions['mobility-movement-quality'][2] = revision(versions['mobility-movement-quality'][1], 2, 2, 2);
   // Mobility v3 (#272) extends membership and local composition relationships; v1/v2 remain published.
   versions['mobility-movement-quality'][3] = revision(versions['mobility-movement-quality'][1], 3, 3, 3);
+  // #398: new composition follows v2; explicit/prepared v1 keeps its original five styles.
+  versions['full-body-challenges'][2] = revision(versions['full-body-challenges'][1], 2, 2);
+  versions['full-body-challenges'][2].styles = [style('rounds', 'Rounds challenge'), style('emom', 'EMOM challenge'),
+    style('ladder', 'Ladder challenge'), style('amrap', 'AMRAP challenge'), style('intervals', 'Timed intervals challenge')];
   // The version every new workout is composed with, standalone or Coach. Explicit requests and
   // stored records keep the version they name; `getDefinition`'s default remains version 1.
   const current = Object.fromEntries(definitions.map(item => [item.id, 1]));
   current['athletic-movement'] = 6;
   current['strength-control'] = 3;
   current['mobility-movement-quality'] = 3;
+  current['full-body-challenges'] = 2;
   function freeze(value) {
     Object.values(value).forEach(item => { if (item && typeof item === 'object') freeze(item); });
     return Object.freeze(value);

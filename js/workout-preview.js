@@ -111,7 +111,13 @@
     return block.protocol==='paired_sets' ? 'AB'.charAt(exerciseIndex) || null : null;
   }
 
-  function protocolLabel(block) {
+  function protocolLabel(block,workout) {
+    if(workout?.workoutFamilyId==='full-body-challenges'&&workout.workoutFamilyVersion===2) {
+      const p=block.prescription;
+      if(block.protocol==='rounds')return 'Rounds challenge · '+p.rounds+' rounds · Complete each exercise in order · '+p.exerciseRestSeconds+' sec between exercises · '+p.roundRestSeconds+' sec between rounds';
+      if(block.protocol==='ladder')return 'Ladder · '+p.repSteps.join(' → ')+' reps of each exercise · '+p.exerciseRestSeconds+' sec between exercises · '+p.stepRestSeconds+' sec between steps';
+      if(block.protocol==='amrap')return 'AMRAP · '+p.capSeconds/60+' min cap · Repeat quality rounds in order; recover as needed · Rounds and reps are not scored';
+    }
     if(block.occurrenceRecoverySeconds){
       const steps=root.GarageFitGenerator.resolveBlockSteps(block),work=steps.filter(step=>step.kind==='exercise');
       const recovery=steps.filter(step=>step.kind!=='exercise').map(step=>step.seconds);

@@ -1139,7 +1139,7 @@ function generatedWorkoutIdentity(workout){
   return family.name+' · '+GarageFitWorkoutFamilies.getStyle(family.id,workout.familyStyleId,family.version).name;
 }
 function formatPrescription(exercise){return GarageFitWorkoutPreview.formatPrescription(exercise)}
-function protocolLabel(block){return GarageFitWorkoutPreview.protocolLabel(block)}
+function protocolLabel(block){return GarageFitWorkoutPreview.protocolLabel(block,generatorState.workout)}
 function renderGeneratedPreview(){
   const workout=GarageFitGenerator.normaliseWorkout(generatorState.workout),options=generatorOptionsSummary(workout);
   document.getElementById('previewKicker').textContent=workout.duration+' min · '+generatedWorkoutIdentity(workout)+(workout.workoutFamilyId?(workout.bodyFocus!=='full-body'?' · '+BODY_FOCUS_LABELS[workout.bodyFocus]:'')+(workout.difficulty!=='normal'?' · '+DIFFICULTY_LABELS[workout.difficulty]:''):(options?' '+options:''));

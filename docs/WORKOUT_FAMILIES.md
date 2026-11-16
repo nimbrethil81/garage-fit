@@ -7,8 +7,9 @@ policy change needs a new definition version and versioned policy reference.
 A later version of the same family keeps its id, name and purpose; supported styles and composition may evolve by version, while family feasibility remains explicit; it is the
 same family for training balance and recency, while composition and history keep the version.
 `GarageFitData.workoutFamilyCurrentVersions` names the version new workouts use; today that is
-version 1 for every family except Athletic Movement (current version 5; #244, #255, #271), Strength & Control
-(current version 3; #261, #373) and Mobility & Movement Quality (current version 3; #272).
+version 1 for every family except Athletic Movement (current version 6; #403), Strength & Control
+(current version 3; #261, #373), Mobility & Movement Quality (current version 3; #272) and
+Full-Body Challenges (current version 2; #398).
 
 Each definition owns its display name, purpose, supported internal styles, Body
 Focus compatibility, composition/membership policy references, suitability criteria
@@ -54,10 +55,11 @@ const identity = GarageFitWorkoutFamilies.resolveStyle(request, ['paired-sets'])
 ```
 
 `getDefinition(id, version = 1)` and `getStyle(id, styleId, version = 1)` are strict
-lookups. The default remains version 1; future published consumers explicitly pin
-their approved version instead of silently following newer policy. `currentVersion(id)`
-returns the registry-declared version for new workouts: the standalone Generator passes it
-explicitly, and General Fitness plans a family at its current version (see
+lookups. The default remains version 1 for historical/explicit-contract compatibility.
+All new-workout consumers resolve the current family version unless an explicit, justified
+exception applies; publishing a family correction does not require a programme restart or
+definition revision. `currentVersion(id)` returns the registry-declared version: the standalone
+Generator passes it explicitly, and General Fitness plans a family at its current version (see
 [Coach engine](COACH_ENGINE.md#general-fitness)). Stored workouts, drafts and results keep
 the version they name, and every registered version stays composable and validatable. Requests do
 not accept aliases or guess a family from other fields. `FamilyContractError.code`
@@ -795,6 +797,68 @@ enough: a short circuit of one or two movements, or an unbalanced one, is not la
 Density needs canonical partners (one setup, position and load, distinct patterns), so it is offered only where
 such balanced pairs exist (short sessions with TRX, bands or broad equipment); other styles take over otherwise.
 EMOM fills whole minutes, so Main can finish up to about a minute short of its target.
+
+### Full-Body Challenges composition v2 (#398, GF-CHAL-R2)
+
+New Generator workouts and newly planned sessions in ongoing General Fitness v1/v2 instances
+automatically use this family version. There are no other present Coach consumers of this
+family; future consumers follow the same current-version route. Prepared sessions, explicit v1,
+drafts and results retain their original identity and plan. v1 Density/Pyramid composers and
+validators above remain unchanged. No programme definition, catalogue field, protocol, record
+schema or backup migration changes.
+
+The same canonical Main pool, constraint filtering, selector, preparation builder, kit fitting
+and shared family gate are reused. Canonical eligibility and protocol limits remain hard
+constraints. Bounded candidate exploration checks quality before ranking time fit; a seeded
+style that cannot supply meaningful work gives way to another v2 style, never another family
+or weakened safety. Recency only reweights feasible quality-qualified candidates. Sparse pools
+and genuinely impossible configurations retain `family-not-feasible` and verified adjustments.
+
+| Format | Observable dose and recovery (Easy / Normal / Hard) |
+| --- | --- |
+| Rounds | 3–6 complementary movements, 2–6 rounds per block. Exercise recovery 20–30 / 15–25 / 10–20 s; round recovery 50–70 / 40–60 / 30–50 s. Resolved estimated work must occupy at least 52 / 60 / 66% of the fixed block allocation. |
+| EMOM | Three-movement complementary rotations, 4–12 minute slots, no more than four exposures per movement. Target estimates 20–30 / 24–35 / 28–40 s per minute; the remainder stays available for genuine recovery. No minute-window credit for unconfirmed work. |
+| Ladder | Complementary pairs, at least three ascending/descending rep steps, canonical maximum 36 reps / 120 estimated work seconds per movement. Step recovery 40–60 / 30–50 / 20–40 s; 10–20 s between exercises. Actual target work at least 38 / 48 / 55% of work plus scheduled recovery. Plan peaks must fit each movement's canonical dose. |
+| AMRAP | Canonical 2–3-movement protocol; this composer selects compatible pairs, whole-minute 3–8 min caps, no scheduled recovery. New targets 5 / 6 / 8 reps; validator floors 4 / 6 / 8, within the shared ceiling of eight. One prescribed pass must contain at least 18 / 24 / 30 estimated work seconds and remain within the shared 90 s ceiling. The cap is never multiplied into prescribed rounds or work. |
+| Timed Intervals (`intervals` → `timed_intervals`) | 3–5 movements, 2–8 cycles. Work 20–30 / 25–40 / 30–45 s; recovery/changeover 20–30 / 15–25 / 15–20 s. Work cannot exceed a timed movement's canonical target or a rep movement's estimate, or 40 s for high impact. No per-side interval conversion. |
+
+These are prescription calibration limits, not physiological scores or guarantees of perceived
+effort. They are protocol-specific: there is no universal repetition floor or work:rest ratio.
+Suitability also excludes Heavy, strength-5 and over-60-second default movements. High impact is
+Hard-only, at most one per repeated circuit and never adjacent across the wrap-around; lower
+impact remains fully eligible.
+
+Balance uses the actual resolved occurrences and target estimates, not distinct exercise names.
+Upper/lower/core each receive 12–60% of prescribed work; full-body work shares a third with each.
+AMRAP contributes only its single planned pass, EMOM its actual minute targets. At least three
+canonical patterns are represented. A block cannot repeat a direct variation family or a major
+push/pull/squat/hinge/lunge pattern; a variation family cannot exceed half of session work.
+At least 20% is strength-3-or-higher work, avoiding an all-Cardio conversion. Cardio-3-or-higher
+work supplies at least 8 / 12 / 16%, and strength-3-or-cardio-3 work at least 40 / 50 / 60%.
+These overlapping metadata checks describe intended movement mix, not measured intensity.
+An exercise may appear in at most two block positions, and multi-movement blocks do not repeat.
+
+Main fit is checked independently on composition **and edits**: the traditional Main budget less
+the kit's 15 s preparation margin, within 65 s or 6% tolerance. Any optional embedded benchmark's
+actual reservation remains separate. Passing duration fit does not substitute for the work,
+recovery, movement-balance or demand checks. Setup increments and block transitions remain in
+the executable estimate without becoming exercise credit. Generic preparation is selected from
+the challenge's actual movements with the existing family constraint-filtered path; other
+families' preparation is unchanged.
+
+`tests/full-body-challenges-v2.test.js` contains the reconstructed REG1 Density negative example,
+valid-style REG2, positive Easy/longer-recovery case, underworked EMOM, excessive intervals,
+reconciled underfill, fallback, swaps, current-version delivery and historical records. The
+[representative prescriptions](FULL_BODY_CHALLENGES_V2_EXAMPLES.md) give inspectable assumptions
+and all five formats at each difficulty, plus the reported equipment profile and Easy bodyweight.
+AMRAP requires more than one complementary pair for whole-body balance with today's catalogue;
+long or bodyweight-only requests can legitimately select another format. Ladder also depends
+on a compatible dose and budget; individual formats are not promised under every constraint.
+
+Preview format guidance uses existing block headings in both Generator and Coach; the existing
+phase labels, circular clocks, journey bar, controls and tracker remain unchanged. AMRAP guidance
+states that rounds/reps are not scored. Session end, confirmed/skipped work and unmeasured
+performance remain distinct. FAQ reviewed — no changes required.
 
 ## Shared validation, same-family fallback and edit integrity
 
