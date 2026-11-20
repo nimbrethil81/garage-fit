@@ -5,7 +5,7 @@ const path=require('node:path');
 const vm=require('node:vm');
 global.window=global;
 for(const file of ['data/equipment','data/exercises','data/workout-families','js/workout-families','js/generator','data/mobility-membership',
-  'data/athletic-membership','js/mobility-composer','js/athletic-composer','js/strength-cardio-composer','js/core-challenge-composer'])require('../'+file);
+  'data/athletic-membership','js/mobility-composer','js/athletic-composer','js/strength-cardio-composer','js/core-challenge-composer','js/resistance-endurance-composer'])require('../'+file);
 const G=GarageFitGenerator,F=GarageFitWorkoutFamilies,C=GarageFitData.exercises;
 const copy=value=>JSON.parse(JSON.stringify(value));
 function rng(seed){return ()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}

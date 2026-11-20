@@ -405,3 +405,33 @@ test('both General Fitness definitions deliver mixed Strength & Control v3 on a 
     assert.deepEqual(out.check,{valid:true,technicalIssues:[],qualityIssues:[]});
   }
 });
+
+// #399: registering Strength & Stamina (`resistance-endurance`) as a seventh canonical family must not
+// invalidate the released six-family definitions. The family set is checked exactly, by definition version.
+test('General Fitness v1/v2 keep their exact six-family set with seven canonical families registered', async () => {
+  for (const version of [1, 2]) {
+    const p = context(undefined, version);
+    assert.deepEqual(p.json('GarageFitWorkoutFamilies.FAMILY_IDS.slice().sort()'), [...FAMILIES, 'resistance-endurance'].sort());
+    const validate = source => p.run(`(()=>{const copy=JSON.parse(JSON.stringify(GF));
+      GarageFitCoachPolicies.createDefaultRegistry().get('general-fitness').validateDefinition(${source});return true;})()`);
+    assert.equal(validate('GF'), true, 'the released definition still validates unchanged');
+    const added = `{...copy.familyBalancePolicy.families[0],workoutFamilyId:'resistance-endurance',effects:{strength:0.5,conditioning:0.5}}`;
+    // Exact, not a size check: neither an extra family nor a substitution is a valid v1/v2 set.
+    assert.throws(() => validate(`{...copy,familyBalancePolicy:{...copy.familyBalancePolicy,families:[...copy.familyBalancePolicy.families,${added}]}}`), /every canonical workout family/);
+    assert.throws(() => validate(`{...copy,familyBalancePolicy:{...copy.familyBalancePolicy,families:[...copy.familyBalancePolicy.families.slice(0,5),${added}]}}`), /every canonical workout family/);
+    // A later definition version (General Fitness v3 belongs to #400) needs every registered family.
+    assert.throws(() => validate(`{...copy,version:3}`), /every canonical workout family/);
+    assert.equal(validate(`{...copy,version:3,familyBalancePolicy:{...copy.familyBalancePolicy,families:[...copy.familyBalancePolicy.families,${added}]}}`), true);
+    // Existing instances still plan exactly the six released families and run the cross-source context:
+    // a standalone Strength & Stamina result is read through the exercise-metadata fallback, never relabelled.
+    await p.start();
+    const out = p.json(`(()=>{const state=gfStart(${JSON.stringify(at(0))});
+      const result=gfResult('re',${JSON.stringify(at(10))},'resistance-endurance',{source:'generator',style:'metcon',exerciseIds:['air-squat','jumping-jacks','push-up']});
+      const plan=gfPlan(state,[result],${JSON.stringify(at(48))});
+      return {candidates:plan.prescription.workoutFamilyPlan.candidates.map(item=>item.workoutFamilyId),
+        history:plan.rationale.priorities.history.sessions.map(item=>[item.workoutFamilyId,item.familyStyleId,item.basis])};})()`);
+    assert.deepEqual(out.candidates.slice().sort(), FAMILIES.slice().sort());
+    assert.deepEqual(out.history, [['resistance-endurance', 'metcon', 'exercise-metadata']]);
+    assert.ok(p.run('Object.isFrozen(GarageFitData.programmes["general-fitness"]['+version+'])'));
+  }
+});
