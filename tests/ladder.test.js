@@ -156,10 +156,10 @@ test('short Balanced and Cardio retain optional ladder eligibility within existi
 
 test('bounded seeds reach optional ladders across styles and 10–45 minute budgets without changing determinism',()=>{
   // #407 changes draws. These validated fixtures preserve aggregate focus/duration
-  // coverage; the old short Balanced/Cardio samples were unobserved, not disproved.
+  // coverage; the old short Balanced/Cardio samples were unobserved, not disproved. #402 shifts the Cardio draw.
   const cases=[
     [10,'strength',93],[15,'balanced',6],[20,'balanced',197],
-    [30,'balanced',29],[45,'balanced',4],[45,'cardio',22]
+    [30,'balanced',29],[45,'balanced',4],[45,'cardio',18]
   ];
   assert.deepEqual([...new Set(cases.map(([duration])=>duration))].sort((a,b)=>a-b),[10,15,20,30,45]);
   assert.deepEqual([...new Set(cases.map(([,focus])=>focus))].sort(),['balanced','cardio','strength']);

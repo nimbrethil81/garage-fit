@@ -208,6 +208,8 @@ test('swaps reject incompatible-only replacements, can keep other kit, and prote
 // Baseline main d454da9; #221 deliberately re-pinned only the Balanced/Cardio entries whose AMRAP
 // weight changed selection (Strength entries and the fixture shape are unchanged). #212 re-pinned
 // dumbbells+bench 20 Cardio only: it was the short last-resort fallback Main, now a reserve attempt.
+// #402 re-pinned trx+pullup-bar+kettlebell 20 Cardio only: its Normal Cardio preference now ranks a
+// more demanding attempt (demand 3.20 → 3.64, conditioning 38% → 54%); RNG draws are unchanged.
 test('no-ring plans, estimates and random consumption match the pinned no-ring baseline',()=>{
   // Preserve the original data input as well as the no-ring algorithm contract;
   // current metadata and setup validity are covered by the live-catalogue tests.

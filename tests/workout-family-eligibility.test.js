@@ -198,8 +198,8 @@ test('no-family seeded output and random draws match their approved baselines',(
     [{duration:10,focus:'strength',bodyFocus:'upper',difficulty:'easy',equipment:[]},68,'3f1db1c18734e2513d3aec3b31bb85e6575b15a66cd306d62a590c4588a2f97c'],
     // Re-pinned for #221: AMRAP's Balanced conditioning weight changes this draw (same RNG count).
     [{duration:20,focus:'balanced',bodyFocus:'lower',difficulty:'normal',equipment:['dumbbells']},111,'44875bbe9c3722c38ccf4f199ea36826df5d6d6139983d405f9c544b13208221'],
-    // Re-pinned for #366: whole-Main Hard Cardio challenge policy (same RNG count).
-    [{duration:45,focus:'cardio',bodyFocus:'core',difficulty:'hard',equipment:['trx','bands']},189,'2d620ebba4ab1da542df5e9a848aef7a18ce5b3ded1bccd9d32e3b8b42fef275']
+    // Re-pinned for #366, then #402: approved Hard Cardio gate, cardio-2 limit and intensity ranking (same RNG count).
+    [{duration:45,focus:'cardio',bodyFocus:'core',difficulty:'hard',equipment:['trx','bands']},189,'3311e0d7910dc94bbcf58c1d73101fcfede2c36d24966193385790a7957024c2']
   ];
   for(const [options,expectedDraws,expectedHash] of fixtures){
     let seed=31,draws=0;

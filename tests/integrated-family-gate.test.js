@@ -119,7 +119,8 @@ test('[Full] integrated seven-family matrix: 210 routes × two seeds × four saf
           const reasons=route==='generator'?error.reasons:error.assessment?.hardConflicts?.flatMap(conflict=>conflict.attempts||[]).flatMap(attempt=>attempt.reasons||[]);
           assert.equal(error.code,route==='generator'?'family-not-feasible':'session-prescription-infeasible',label+': '+error.stack);
           assert.ok(reasons?.length,label+': unavailability needs concrete reasons');
-          assert.ok(reasons.every(reason=>['no-buildable-style','insufficient-eligible-movements','phase-cannot-fit','preparation-not-feasible'].includes(reason.code)),label+': technical/quality failures are defects, not genuine infeasibility');
+          // #402: Cardio v2 reports a provably unreachable intensity standard (e.g. low-impact-only Hard) explicitly.
+          assert.ok(reasons.every(reason=>['no-buildable-style','insufficient-eligible-movements','phase-cannot-fit','preparation-not-feasible','intensity-standard-infeasible'].includes(reason.code)),label+': technical/quality failures are defects, not genuine infeasibility');
           // Baseline bodyweight and confirmed equipment have no artificial position/impact restriction.
           assert.ok(name==='low-impact-room'||name==='small-space-standing',label+': unexpected baseline infeasibility');
           infeasible.push({label,reasons:plain(reasons).map(reason=>reason.code)});

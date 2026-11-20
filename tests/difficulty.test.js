@@ -222,23 +222,35 @@ test('Hard Cardio whole-Main quality across durations, equipment and seeds', () 
   assert.ok(protocols.size>=3,'coverage must include different Main protocols');
 });
 
-test('Hard Cardio remains playable with low-impact-only and intensity-infeasible pools', () => {
-  for(const kind of ['low-impact','weak-only']){
-    const constrained=Object.fromEntries(Object.entries(catalogue).map(([id,e])=>[id,e.generator&&e.main
-      &&(kind==='low-impact'?e.impact!=='low':e.conditioning||e.cardio>=4)?{...e,generator:false}:e]));
-    let attempts=0;
-    const workout=G.generate({catalogue:constrained,duration:15,focus:'cardio',difficulty:'hard',equipment:[],random:random(7),
-      trace:event=>{if(event.type==='main-attempt')attempts++;}});
-    assert.ok(attempts<=G.HARD_CARDIO_POLICY.maxAttempts);
-    assert.deepEqual(G.validateMain(workout.main,constrained,[],G.BUDGETS[15].main),[]);
-    const result=G.cardioChallenge(workout.main.blocks);
-    // #407 leaves both constrained bodyweight pools below the unchanged 3.8
-    // floor. Preserve honest playable fallback, not the obsolete feasibility claim.
+// #402 Option A: a pool that cannot meet the Hard gate fails honestly instead of returning a
+// lower-intensity workout labelled Hard; sound no-high-impact pools (editorial R6) still generate.
+test('Hard Cardio fails honestly for intensity-infeasible pools and still builds viable no-high-impact work', () => {
+  const restricted=keep=>Object.fromEntries(Object.entries(catalogue).map(([id,e])=>[id,e.generator&&e.main&&!keep(e)?{...e,generator:false}:e]));
+  const pools={'low-impact':restricted(e=>e.impact==='low'),'weak-only':restricted(e=>!e.conditioning&&e.cardio<4)};
+  for(const [kind,constrained] of Object.entries(pools)){
+    let attempts=0,error=null;
+    try{G.generate({catalogue:constrained,duration:15,focus:'cardio',difficulty:'hard',equipment:[],random:random(7),
+      trace:event=>{if(event.type==='main-attempt')attempts++;}});}catch(caught){error=caught;}
+    assert.ok(error,kind+' must not return a Hard workout');
+    assert.equal(error.code,'cardio-intensity-not-feasible');
+    assert.ok(attempts<=G.HARD_CARDIO_POLICY.maxAttempts,kind);
+    // Both pools are provably below the gate (cardioDemandBound), so the failure is not a search miss.
     const pool=Object.values(constrained).filter(e=>G.generatedPhaseEligible(e,'main',[],'hard'));
-    assert.ok(Math.max(...pool.map(e=>e.cardio))<G.HARD_CARDIO_POLICY.cardioDemand);
-    assert.equal(result.suitable,false);
-    if(kind==='low-impact')assert.ok(mainOf(workout).every(e=>e.impact==='low'));
-    assert.ok(workout.warmup.exercises.length&&workout.rampup.exercises.length&&workout.cooldown.exercises.length);
+    assert.ok(G.cardioDemandBound(pool,G.HARD_CARDIO_POLICY.conditioningShare)<G.HARD_CARDIO_POLICY.cardioDemand,kind);
+    assert.equal(error.reason,'catalogue-infeasible',kind);
+    // Only adjustments proven by a whole generated workout: Normal builds; neighbouring Hard durations cannot.
+    assert.deepEqual(error.adjustments.map(item=>item.code+':'+item.value),['change-difficulty:normal'],kind);
+    const normal=G.generate({catalogue:constrained,duration:15,focus:'cardio',difficulty:'normal',equipment:[],random:random(7)});
+    assert.deepEqual(G.validateMain(normal.main,constrained,[],G.BUDGETS[15].main),[]);
+  }
+  // No high impact (low/medium): a demanding Hard session remains available, deterministically.
+  const noHigh=restricted(e=>e.impact!=='high');
+  for(const duration of [10,20,30,45])for(const seed of [1,2]){
+    const options={catalogue:noHigh,duration,focus:'cardio',difficulty:'hard',equipment:[]};
+    const workout=G.generate({...options,random:random(seed*31+duration)}),quality=G.cardioChallenge(workout.main.blocks);
+    assert.equal(quality.suitable,true,`${duration}m seed ${seed}`);
+    assert.ok(mainOf(workout).every(e=>e.impact!=='high'));
+    assert.deepEqual(withoutId(G.generate({...options,random:random(seed*31+duration)})),withoutId(workout));
   }
 });
 
@@ -258,8 +270,10 @@ test('#407 Hard Cardio recovery closes repeated blocks safely within the existin
     }});
     const quality=G.cardioChallenge(workout.main.blocks),label=`${duration}m seed ${seed}`;
     assert.ok(attempts<=40,label);
-    assert.ok(quality.cardioDemand>=3.8,label);
-    assert.ok(quality.conditioningShare>=.65,label);
+    // #402 approved gate (3.6 demand, 60% conditioning, ≤25% cardio-2 work, unchanged weak-run limit).
+    assert.ok(quality.cardioDemand>=3.6,label);
+    assert.ok(quality.conditioningShare>=.6,label);
+    assert.ok(quality.lowCardioShare<=.25,label);
     assert.ok(quality.maxWeakSeconds<=60,label);
     assert.equal(quality.highImpactAdjacency,0,label);
     assert.equal(quality.suitable,true,label);

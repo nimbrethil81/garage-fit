@@ -30,7 +30,7 @@ const FIXTURES=[
   ["cooldown","butterfly-stretch",10,"balanced",7,"normal",[]],
   ["cooldown","standing-lat-stretch",10,"balanced",9,"easy",[]],
   ["cooldown","seated-spinal-rotation-stretch",10,"balanced",10,"normal",[]],
-  ["warmup","alternating-overhead-reach-side-shift",10,"cardio",48,"normal",[]],
+  ["warmup","alternating-overhead-reach-side-shift",10,"cardio",70,"normal",[]], // #402 Normal Cardio Main shifts this draw.
   ["rampup","wall-push-up",30,"strength",4,"hard",[]],
   ["warmup","standing-lateral-weight-shifts",30,"strength",11,"easy",[]],
   ["warmup","wall-ankle-dorsiflexion-rocks",30,"strength",2,"easy",[]],

@@ -50,7 +50,7 @@ test('AB2 shared entries reach valid general Main, non-Core Strength, complement
     ['main','v-ups','strength','upper','hard',30,2],
     ['main','bodyweight-russian-twist','strength','upper','hard',30,5],
     ['main','heel-touches','strength','upper','hard',30,11],
-    ['main','v-ups','cardio','full-body','hard',30,2],
+    ['main','v-ups','cardio','full-body','hard',30,9], // #402 Hard Cardio steering shifts draws.
     ['rampup','bodyweight-russian-twist','strength','core','normal',20,6],
     ['rampup','superman','strength','core','normal',20,8],
     ['rampup','heel-touches','strength','core','normal',20,10]
