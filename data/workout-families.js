@@ -85,6 +85,9 @@
   versions['full-body-challenges'][2] = revision(versions['full-body-challenges'][1], 2, 2);
   versions['full-body-challenges'][2].styles = [style('rounds', 'Rounds challenge'), style('emom', 'EMOM challenge'),
     style('ladder', 'Ladder challenge'), style('amrap', 'AMRAP challenge'), style('intervals', 'Timed intervals challenge')];
+  // Cardio & Conditioning v2 (#402) keeps v1's identity, styles and feasibility and publishes difficulty-specific
+  // eligibility, work/rest patterns, recovery, whole-Main quality floors and same-block variant rules. v1 stays immutable.
+  versions['cardio-conditioning'][2] = revision(versions['cardio-conditioning'][1], 2, 2);
   // The version every new workout is composed with, standalone or Coach. Explicit requests and
   // stored records keep the version they name; `getDefinition`'s default remains version 1.
   const current = Object.fromEntries(definitions.map(item => [item.id, 1]));
@@ -92,6 +95,7 @@
   current['strength-control'] = 3;
   current['mobility-movement-quality'] = 3;
   current['full-body-challenges'] = 2;
+  current['cardio-conditioning'] = 2;
   function freeze(value) {
     Object.values(value).forEach(item => { if (item && typeof item === 'object') freeze(item); });
     return Object.freeze(value);

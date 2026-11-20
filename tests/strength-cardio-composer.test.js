@@ -312,7 +312,7 @@ test('Strength & Control v1 compositions stay exactly as released, and all three
 });
 
 test('new Strength & Control workouts use v3 (standalone and Coach family plans) while v1/v2 stay published and pinned records keep them',()=>{
-  assert.equal(F.currentVersion(STRENGTH),3);assert.equal(F.currentVersion(CARDIO),1);
+  assert.equal(F.currentVersion(STRENGTH),3);assert.equal(F.currentVersion(CARDIO),2); // #402 Cardio v2.
   const [one,two]=[1,2].map(version=>F.getDefinition(STRENGTH,version));
   assert.equal(F.getDefinition(STRENGTH),one,'the default lookup stays v1');
   assert.deepEqual({...copy(two),version:1,compositionPolicy:one.compositionPolicy},copy(one),'v2 is the same family: only the composition policy differs');

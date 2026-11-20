@@ -643,7 +643,7 @@ layout: null
 <p>It selects exercises from its library and combines them into a structured workout, aiming for a good balance of variety, challenge and recovery.</p>
 <p>Each workout is generated for you, rather than selected from a fixed collection of prerecorded sessions.</p></details>
 <details><summary>How does workout difficulty work?</summary><p>PickSetGo offers three difficulty levels: Easy, Normal and Hard.</p>
-<ul><li><strong>Easy:</strong> A gentler workout, with more accessible exercises and a manageable level of effort.</li><li><strong>Normal:</strong> A balanced workout with a moderate level of challenge.</li><li><strong>Hard:</strong> A more demanding workout, using more challenging exercises and workout combinations where appropriate.</li></ul>
+<ul><li><strong>Easy:</strong> A gentler workout, with more accessible exercises and a manageable level of effort.</li><li><strong>Normal:</strong> A balanced, challenging workout suitable for regular exercisers.</li><li><strong>Hard:</strong> A more demanding workout, using more challenging exercises and workout combinations where appropriate.</li></ul>
 <p>Difficulty influences how workouts are generated, but how hard a session feels will also depend on your fitness, the equipment available and the type of workout.</p>
 <p>Choose the level that suits you, and adjust it as your fitness and confidence develop.</p></details>
 <details><summary>What's the difference between Generator and Coach?</summary><p><strong>Generator</strong> lets you create an individual workout whenever you want. Choose your available time, equipment, workout focus and difficulty, and PickSetGo puts together a session for you.</p>
@@ -1119,18 +1119,27 @@ async function refreshGeneratorFamilySessions(){
 }
 function familyFailureMessage(error){
   const family=GarageFitWorkoutFamilies.getDefinition(generatorState.workoutFamilyId),codes=(error.reasons||[]).map(reason=>reason.code);
-  const reason=codes.includes('insufficient-eligible-movements')||codes.includes('missing-essential-practice')?'There are too few suitable movements for its required practice.':codes.includes('phase-cannot-fit')?'Its movement practice and recovery cannot fit the selected time.':'A suitable session with the required movement balance and recovery could not be built.';
+  const reason=codes.includes('insufficient-eligible-movements')||codes.includes('missing-essential-practice')?'There are too few suitable movements for its required practice.':codes.includes('phase-cannot-fit')?'Its movement practice and recovery cannot fit the selected time.':codes.includes('intensity-standard-infeasible')?'The movements these settings allow cannot reach its '+DIFFICULTY_LABELS[generatorState.difficulty]+' cardio intensity.':'A suitable session with the required movement balance and recovery could not be built.';
   const adjustments=(error.adjustments||[]).map(item=>item.code==='change-duration'?'Try '+item.value+' minutes.':item.code==='change-difficulty'?'Try '+DIFFICULTY_LABELS[item.value]+' difficulty.':item.code==='confirm-movement-room'?'This family needs confirmed room for travelling movements.':item.code==='remove-body-position-restriction'?'Allow more body positions.':item.code==='reduce-impact-exclusions'?'Allow more low or medium impact movement while keeping high impact excluded.':null).filter(Boolean);
   return family.name+' is unavailable with these settings. '+reason+' '+(adjustments.join(' ')||'Choose another family or None / Any.');
 }
+// Option A (#402): an ordinary Hard Cardio request that cannot meet the Hard standard is never shown as Hard.
+// Only adjustments the Generator proved with a whole workout are suggested; equipment is never guessed.
+function cardioFailureMessage(error){
+  const adjustments=(error.adjustments||[]).map(item=>item.code==='change-duration'?item.value+' minutes':item.code==='change-difficulty'?DIFFICULTY_LABELS[item.value]+' difficulty':null).filter(Boolean);
+  return "Couldn't generate a Hard cardio workout with these settings."+(error.reason==='catalogue-infeasible'?" The movements available with your equipment can't reach Hard cardio intensity.":'')
+    +(adjustments.length?' Try '+(adjustments.length>1?adjustments.slice(0,-1).join(', ')+' or '+adjustments.at(-1):adjustments[0])+'.':'');
+}
+function showGeneratorError(text){const message=document.getElementById('generatorFamilyError');message.textContent=text;message.classList.remove('hidden');showScreen('generator');message.focus()}
 function generateWorkout(){
   clearGeneratorFamilyError();
   const options={catalogue:CATALOGUE,duration:generatorState.duration,focus:generatorState.focus,bodyFocus:generatorState.bodyFocus,difficulty:generatorState.difficulty,equipment:state.ownedEquipment,history:getGeneratedHistory(),recentProtocols:generatorRecentProtocols,recentFamilySessions:generatorRecentFamilySessions};
   // New standalone workouts use the family's current published composition (e.g. Athletic Movement v4, Mobility v2).
   if(generatorState.workoutFamilyId){options.workoutFamilyId=generatorState.workoutFamilyId;options.workoutFamilyVersion=GarageFitWorkoutFamilies.currentVersion(generatorState.workoutFamilyId)}
   try{generatorState.workout=GarageFitGenerator.generate(options)}catch(error){
+    if(!generatorState.workoutFamilyId&&error.code==='cardio-intensity-not-feasible')return showGeneratorError(cardioFailureMessage(error));
     if(!generatorState.workoutFamilyId||error.code!=='family-not-feasible')throw error;
-    const message=document.getElementById('generatorFamilyError');message.textContent=familyFailureMessage(error);message.classList.remove('hidden');showScreen('generator');message.focus();return;
+    return showGeneratorError(familyFailureMessage(error));
   }
   renderGeneratedPreview();showScreen('generatedPreview');document.getElementById('generatedPreview').focus();
 }

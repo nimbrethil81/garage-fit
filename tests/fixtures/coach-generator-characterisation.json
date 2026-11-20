@@ -12,9 +12,9 @@
     "cooldown glute-stretch,inside-thigh-stretch"
   ],
   "10 cardio hard core dumbbells": [
-    "warmup standing-knee-curls,body-hoops,air-squat",
+    "warmup standing-knee-curls,body-hoops,bum-kicks",
     "rampup mountain-climbers",
-    "timed_intervals | conditioning | {\"workSeconds\":30,\"transitionSeconds\":15,\"cycles\":3} :: ski-abs@timed:30,dumbbell-clean-and-press@reps:10,mountain-climbers@timed:30",
+    "timed_intervals | conditioning | {\"workSeconds\":30,\"transitionSeconds\":15,\"cycles\":3} :: mountain-climbers@timed:30,ski-abs@timed:30,dumbbell-thruster@timed:35",
     "cooldown side-stretch,childs-pose,chest-opener"
   ],
   "20 strength normal lower kettlebell": [

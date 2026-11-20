@@ -8,8 +8,8 @@ A later version of the same family keeps its id, name and purpose; supported sty
 same family for training balance and recency, while composition and history keep the version.
 `GarageFitData.workoutFamilyCurrentVersions` names the version new workouts use; today that is
 version 1 for every family except Athletic Movement (current version 6; #403), Strength & Control
-(current version 3; #261, #373), Mobility & Movement Quality (current version 3; #272) and
-Full-Body Challenges (current version 2; #398). Strength & Stamina (`resistance-endurance`, #399)
+(current version 3; #261, #373), Mobility & Movement Quality (current version 3; #272),
+Full-Body Challenges (current version 2; #398) and Cardio & Conditioning (current version 2; #402). Strength & Stamina (`resistance-endurance`, #399)
 was added as the seventh family at version 1.
 
 Each definition owns its display name, purpose, supported internal styles, Body
@@ -665,6 +665,8 @@ the light preparation. The existing knee-to-opposite-elbow identity and instruct
 
 ### Strength & Control and Cardio & Conditioning composition v1
 
+(Cardio & Conditioning v1 remains published and validatable; new workouts compose [v2](#cardio--conditioning-composition-v2-402-current).)
+
 Load `js/strength-cardio-composer.js` after the Generator. These families have no
 membership table: eligibility is the canonical Main eligibility (equipment, difficulty,
 protocol compatibility, setup profiles) narrowed by family suitability from reviewed
@@ -770,6 +772,46 @@ released composition and quality rules; saved workouts/results and immutable pro
 rewritten. General Fitness v1/v2 resolve the current family version, and optional benchmark specs follow that
 same composed identity while preserving measurement conditions and comparability. Specialised General
 Strength, Build Arms, Tennis and legacy no-family Generator paths remain unchanged.
+
+### Cardio & Conditioning composition v2 (#402, current)
+
+v2 is the same family (definition, styles, feasibility and suitability criteria) with a versioned
+composition and quality policy approved in #402 (Stage A decisions 1–14, 20 November 2026). The
+standalone Generator and General Fitness v1/v2 compose it through `currentVersion`; released programme
+definitions, saved v1 workouts and v1's composition and quality gate are unchanged, so a stored v1
+workout (including historical exercise definitions, #407) still validates as released.
+
+| | Easy | Normal | Hard |
+| --- | --- | --- | --- |
+| Main eligibility | v1 (cardio ≥ 3 and ≥ strength, no high impact) plus low-impact cardio-2 conditioning with strength ≤ 2 (e.g. step jacks, side-step knee lifts) | v1 except `step-jacks`, `side-step-knee-lift` and `high-knee-power-steps`; never cardio-2 work | as Normal |
+| Interval work/rest (s) | 30/30, 30/20 | 40/20, 30/20, 45/15 | 40/20, 45/15, 30/15 |
+| Endurance circuits | v1: strength ≤ 3, not hard-rated, 25–45 s round rest | v1: 20–45 s round rest | also safe strength-4 or hard-rated movements (never high impact or Heavy), 20–30 s round rest |
+| Work-weighted cardio demand | — | ≥ 3.2 | ≥ 3.5 |
+| Conditioning share of work | — | ≥ 50% | ≥ 65% |
+| Inside-block work density (work ÷ block time) | — | ≥ 0.60 | ≥ 0.66 |
+
+- **Measured on the resolved Main.** Floors use the Generator's shared `cardioChallenge`: resolved timed
+  work, repetition estimates and both sides, with rests counted only towards density. They are catalogue
+  scoring proxies, not RPE. v1's safety rules (impact sequencing, interval caps, at most two exposures of an
+  exercise, work-dominant blocks, cardio-led session, truthful style structure) still apply.
+- **Low-impact-only Normal (decision 3b).** When the request explicitly excludes medium and high impact,
+  Normal's floors are demand ≥ 3.0, density ≥ 0.66 and conditioning ≥ 80%. Nothing else relaxes, and the same
+  Main without that constraint is judged as ordinary Normal. Low-impact-only Hard is not relaxed: when the
+  permitted pool provably cannot reach the floors at the required conditioning share (`cardioDemandBound`)
+  the request fails `family-not-feasible` with reason `intensity-standard-infeasible` and verified
+  adjustments (Normal, or allowing medium impact); it is never relabelled or moved to another family.
+- **Purposeful variation.** Two different exercises of one non-null canonical `family` never share a
+  `rounds` or `timed_intervals` block, adjacent or not (`blockFamilyVariantIssues`); repeating one chosen
+  exercise over rounds or cycles is allowed and different blocks may use different variants. Selection,
+  the quality gate and swaps share the rule.
+- **Bounded search.** Easy keeps v1's three seeded passes. Normal and Hard run up to six; passes four to six
+  run only when no qualifying session was found and steer selection towards conditioning work, on Hard the
+  Generator's Hard Cardio recovery, and in passes five and six towards work above the demand floor. Hard ranks qualifying sessions towards
+  more demanding, denser work so it ordinarily exceeds Normal's combined workload (demand × density); a very
+  demanding Normal may legitimately match it. Styles stay automatic and the displayed style always describes
+  the blocks.
+- **Edits.** Swaps go through the shared gate, so they cannot introduce gentle stepping, cardio-2 work, an
+  in-block variant or a Main below its floors; without a valid alternative the workout is left unchanged.
 
 ### Core & Stability and Full-Body Challenges composition v1
 

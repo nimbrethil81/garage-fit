@@ -256,12 +256,13 @@ test('supporting conditioning work remains selectable and a minority of planned 
     const workout=create({duration:20,focus:'cardio',random:random(seed)}),shares=mainWorkShares(workout.main.blocks);
     assert.ok(shares.share<0.5,seed+': supporting work '+shares.supporting+'/'+shares.total);
   }
-  const fixture=create({duration:20,focus:'cardio',random:random(23)}),shares=mainWorkShares(fixture.main.blocks);
+  // #402's Normal Cardio preference shifts the draw; seed 63 is the first bounded route with jumping jacks.
+  const fixture=create({duration:20,focus:'cardio',random:random(63)}),shares=mainWorkShares(fixture.main.blocks);
   const jumpingSteps=fixture.main.blocks.flatMap(block=>GarageFitGenerator.resolveBlockSteps(block)
     .filter(step=>step.kind==='exercise'&&block.exercises[step.exerciseIndex].id==='jumping-jacks'));
-  assert.equal(jumpingSteps.length,4);
+  assert.equal(jumpingSteps.length,3);
   assert.equal(shares.supporting,120);
-  assert.equal(shares.total,556);
+  assert.equal(shares.total,630);
   assert.ok(shares.share<0.5);
 });
 

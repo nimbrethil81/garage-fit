@@ -61,7 +61,7 @@ test('CD1 retains eighteen published entries and nine current Cardio-v1-suitable
   // Existing identities keep their narrower prep, technical or recovery roles.
   for(const id of ['marching-on-the-spot','standing-knee-curls','side-step-touches','forward-back-line-steps','easy-recovery-walk'])assert.equal(C[id].generator,false,id);
   assert.equal(C['standing-knee-curls'].kneeMobility,true);
-  assert.equal(GarageFitData.workoutFamilyCurrentVersions['cardio-conditioning'],1);
+  assert.equal(GarageFitData.workoutFamilyCurrentVersions['cardio-conditioning'],2); // #402: v1 stays published.
 });
 
 test('CD1 preserves a complete short Easy Cardio interval with squat and conditioning selection roles',()=>{
@@ -130,6 +130,8 @@ test('[Full] legacy Cardio and Mixed Main, generated Warm-up and Prep & Recover 
     // GF-META-R1: retained gentle routes after the nine Cardio-v1 losses,
     // found in a bounded bank of the first 86 Easy short-session seeds.
     ...[1,21,22,28,44,86].map(seed=>({focus:'cardio',bodyFocus:'full-body',difficulty:'easy',equipment:[],duration:10,seed})),
+    // #402: the named gentle stepping moves leave Normal/Hard Cardio Main; Easy keeps them (first bounded seeds).
+    ...[1,2,13].map(seed=>({focus:'cardio',bodyFocus:'full-body',difficulty:'easy',equipment:[],duration:20,seed})),
     {"focus":"cardio","bodyFocus":"upper","equipment":[],"duration":45,"seed":2024},
     {"focus":"cardio","bodyFocus":"full-body","equipment":[],"duration":30,"seed":20186},
     {"focus":"cardio","bodyFocus":"upper","equipment":[],"duration":45,"seed":13123},

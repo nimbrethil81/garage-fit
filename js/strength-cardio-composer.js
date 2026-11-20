@@ -1,5 +1,5 @@
 (function (root) {
-  // Strength & Control composition v1–v3 and Cardio & Conditioning composition v1 (docs/WORKOUT_FAMILIES.md).
+  // Strength & Control composition v1–v3 and Cardio & Conditioning composition v1–v2 (docs/WORKOUT_FAMILIES.md).
   // Exercises come from the canonical catalogue's reviewed strength/cardio/impact/protocol
   // metadata through the Generator's own recipes and selection, never a family table.
   const G=root.GarageFitGenerator,F=root.GarageFitWorkoutFamilies;
@@ -50,7 +50,7 @@
   // route (Strength & Control v2); every other composition leaves the state exactly as before.
   const freshState=ctx=>({exercises:[],usedIds:new Set(),equipmentUsage:new Map(),owned:ctx.owned,difficulty:ctx.difficulty,
     bodyFocus:ctx.bodyFocus,diversityTarget:G.EQUIPMENT_DIVERSITY[ctx.duration],duration:ctx.duration,recentProtocols:ctx.recent,
-    ...(ctx.supportingRoute?{supportingRoute:true}:{})});
+    ...(ctx.supportingRoute?{supportingRoute:true}:{}),...(ctx.selectionFlags||{})});
   const pick=(ctx,state,pool,count,focus,intent,protocol)=>
     G.selectBlockExercises(pool,count,focus,intent,protocol,state,ctx.history,ctx.random,ctx.catalogue);
 
@@ -388,6 +388,159 @@
     return issues;
   }
 
+  // ---- Cardio & Conditioning v2 (#402, approved Stage A decisions 1–14) ----
+  // v1 above is immutable. v2 keeps the family identity, styles and safety rules and adds
+  // difficulty-specific eligibility, interval patterns, recovery and whole-Main quality floors
+  // measured on the resolved Main (G.cardioChallenge): a catalogue scoring proxy, not RPE.
+  const CARDIO_V2={
+    easy:{intervals:[[30,30],[30,20]],enduranceRoundRest:[25,45]},
+    normal:{intervals:[[40,20],[30,20],[45,15]],enduranceRoundRest:[20,45],cardioDemand:3.2,conditioningShare:.5,density:.6},
+    hard:{intervals:[[40,20],[45,15],[30,15]],enduranceRoundRest:[20,30],cardioDemand:3.5,conditioningShare:.65,density:.66}
+  };
+  // Approved exception (decision 3b) for an explicitly low-impact-only Normal session; nothing else relaxes.
+  const LOW_IMPACT_NORMAL={cardioDemand:3,conditioningShare:.8,density:.66};
+  const lowImpactOnly=constraints=>Array.isArray(constraints&&constraints.excludedImpact)
+    &&['medium','high'].every(impact=>constraints.excludedImpact.includes(impact));
+  const floorsFor=(difficulty,constraints)=>difficulty==='normal'&&lowImpactOnly(constraints)?LOW_IMPACT_NORMAL:CARDIO_V2[difficulty];
+  // Easy additionally admits gentle low-impact cardio-2 conditioning; Normal/Hard never take cardio-2
+  // work or the named gentle stepping moves into Main (they keep their Easy and preparation roles).
+  const cardioLedV2=(ex,difficulty)=>difficulty==='easy'
+    ?cardioLed(ex,difficulty)||ex.cardio===2&&!!ex.conditioning&&ex.impact==='low'&&ex.strength<=2
+    :cardioLed(ex,difficulty)&&!G.gentleCardioMove(ex);
+  // Sustained circuits stay non-ballistic and non-heavy; Hard may add safe strength-4 or hard-rated movements.
+  const steadyV2=(ex,difficulty)=>ex.impact!=='high'&&ex.load!=='Heavy'
+    &&(difficulty==='hard'?ex.strength<=4:ex.strength<=3&&ex.difficulty!=='hard');
+  const blockDensity=block=>G.cardioChallenge([block]).density;
+  const pickV2=(ctx,state,pool,count,intent,protocol)=>pick(ctx,state,pool,count,'cardio',intent,protocol);
+  function intervalBlockV2(ctx,pool,index,share,state,intent,size) {
+    const floor=ctx.floors.density||0;
+    for(const [work,transition] of ordered(CARDIO_V2[ctx.difficulty].intervals.map(value=>({value,weight:1})),ctx.random).map(entry=>entry.value)) {
+      // A pattern that cannot reach the density floor is not tried (it could never pass the gate).
+      if(work/(work+transition)<floor)continue;
+      const capable=pool.filter(ex=>intervalCapable(ex)&&intervalCap(ex)>=work);
+      if(capable.length<3)continue;
+      const exercises=pickV2(ctx,state,capable,Math.min(size,5),intent,'timed_intervals');
+      if(exercises.length<3)continue;
+      const candidates=[2,3,4,5].map(cycles=>({prescription:{workSeconds:work,transitionSeconds:transition,cycles},cost:0}))
+        .filter(({prescription})=>blockDensity({protocol:'timed_intervals',exercises,prescription})>=floor);
+      const fit=fitted(ctx,'timed_intervals',intent,exercises,candidates,share);
+      if(fit)return {estimate:fit.estimate,block:{protocol:'timed_intervals',intent,exercises,prescription:fit.prescription}};
+    }
+    return null;
+  }
+  function enduranceBlockV2(ctx,pool,index,share,state,intent,size) {
+    const steady=pool.filter(ex=>steadyV2(ex,ctx.difficulty)),exercises=pickV2(ctx,state,steady,size,intent,'rounds');
+    if(exercises.length<3)return null;
+    const base=ctx.difficulty==='easy'?15:10,[low,high]=CARDIO_V2[ctx.difficulty].enduranceRoundRest,floor=ctx.floors.density||0,candidates=[];
+    for(const rounds of [2,3,4,5])for(const exerciseRest of [base,base+5])for(let round=low;round<=high;round+=5){
+      const prescription={rounds,exerciseRestSeconds:exerciseRest,roundRestSeconds:round};
+      if(blockDensity({protocol:'rounds',exercises,prescription})>=floor)candidates.push({prescription,cost:(round-20)*.5+(exerciseRest-base)});
+    }
+    const fit=fitted(ctx,'rounds',intent,exercises,candidates,share);
+    return fit&&{estimate:fit.estimate,block:{protocol:'rounds',intent,exercises,prescription:fit.prescription,rounds:fit.prescription.rounds,
+      rest:{exercise:fit.prescription.exerciseRestSeconds,round:fit.prescription.roundRestSeconds}}};
+  }
+  // Whole-Main v2 quality on the resolved blocks; shared by composition, the family gate and swaps.
+  function cardioV2MainIssues(blocks,difficulty,constraints) {
+    const issues=[],list=blocks.flatMap(block=>block.exercises);
+    list.filter(ex=>!cardioLedV2(ex,difficulty)).forEach(ex=>issues.push('unsuitable-exercise:'+ex.id));
+    issues.push(...G.blockFamilyVariantIssues(blocks));
+    const floors=floorsFor(difficulty,constraints);
+    if(floors.cardioDemand!=null){
+      const c=G.cardioChallenge(blocks);
+      if(c.cardioDemand<floors.cardioDemand-1e-9)issues.push('cardio-demand-below-floor');
+      if(c.conditioningShare<floors.conditioningShare-1e-9)issues.push('conditioning-share-below-floor');
+      if(c.density<floors.density-1e-9)issues.push('work-density-below-floor');
+    }
+    return [...new Set(issues)];
+  }
+  // Hard ranks attempts towards more demanding, denser work; Easy and Normal keep v1's fitness.
+  const intensityCredit=(ctx,blocks)=>{
+    if(ctx.difficulty!=='hard')return 0;
+    const c=G.cardioChallenge(blocks);
+    return 120*(c.cardioDemand*c.density);
+  };
+  function conditioningStyleV2(kinds) {
+    return ctx=>{
+      const attempts=kinds(ctx).flatMap(plan=>[3,4,5,6].map(size=>({plan,size})));
+      // Bounded steering for the extra Normal/Hard passes: conditioning-led work only (when the pool
+      // has enough of it) and, on Hard, the Generator's own Hard Cardio recovery selection. Eligibility,
+      // floors and safety are unchanged; it only stops a seeded draw from missing a qualifying session.
+      const conditioningPool=ctx.pool.filter(ex=>ex.conditioning);
+      const passContext=repeat=>repeat<3?ctx:{...ctx,pool:conditioningPool.length>=4?conditioningPool:ctx.pool,
+        selectionFlags:{...ctx.selectionFlags,...(ctx.difficulty==='hard'?{hardCardioRecovery:repeat>=4?2:1}:{}),
+          ...(repeat>=4&&ctx.floors.cardioDemand?{cardioDemandFloor:ctx.floors.cardioDemand}:{})}};
+      const build=({plan,size},pass)=>{
+        const blocks=sequence(pass,plan.length,(index,share,state)=>{
+          if(share<150)return null;
+          const intent=index===plan.length-1&&plan.length>1&&plan[index]==='intervals'?'finisher':'conditioning';
+          return (plan[index]==='intervals'?intervalBlockV2:enduranceBlockV2)(pass,pass.pool,index,share,state,intent,size);
+        });
+        if(!blocks||!impactSafe(blocks)||cardioV2MainIssues(blocks,ctx.difficulty,ctx.constraints).length)return null;
+        const made=accept(ctx,blocks,2);
+        return made&&{...made,fitness:made.fitness-intensityCredit(ctx,blocks)};
+      };
+      // Normal/Hard: up to six seeded passes over the plans (approved bound); the extra passes run
+      // only when the first three found no qualifying session. Easy keeps v1's three passes.
+      let best=null;
+      for(let repeat=0;repeat<(ctx.difficulty==='easy'?3:6)&&!(repeat>=3&&best);repeat++){
+        const pass=passContext(repeat);
+        for(const attempt of attempts){const made=build(attempt,pass);if(made&&(!best||made.fitness<best.fitness))best=made;}
+      }
+      return best;
+    };
+  }
+  const CARDIO_STYLES_V2={
+    endurance:conditioningStyleV2(ctx=>counts(ctx.target,1000,420).map(count=>Array(count).fill('rounds'))),
+    intervals:conditioningStyleV2(ctx=>counts(ctx.target,750,300).map(count=>Array(count).fill('intervals'))),
+    'mixed-conditioning':conditioningStyleV2(ctx=>Array.from({length:Math.max(0,Math.min(4,Math.floor(ctx.target/190))-1)},(_,i)=>i+2).map(count=>
+      Array.from({length:count},(_,i)=>i%2?'intervals':'rounds')))
+  };
+  function buildCardioV2(options,request,attempt) {
+    // The selection state opts into the shared same-block variant rule; the constraints decide the floors.
+    const constraintsOf={excludedImpact:options.excludedImpact,bodyPositions:options.bodyPositions};
+    const ctx=context(options,request,'Cardio & Conditioning',cardioLedV2,'cardio');
+    // Hard reuses the Generator's Hard Cardio selection preferences (cardio-4 conditioning credit,
+    // cardio-2 penalty and high-impact recovery); every difficulty opts into the same-block variant rule.
+    Object.assign(ctx,{constraints:constraintsOf,floors:floorsFor(ctx.difficulty,constraintsOf)||{},
+      selectionFlags:{blockFamilyVariety:true,...(ctx.difficulty==='hard'?{hardCardio:true}:{})}});
+    const excluded=attempt&&attempt.excludedStyleIds||[];
+    const ranked=ordered(Object.keys(CARDIO_STYLES_V2).map(id=>({id,weight:cardioWeights(ctx)[id]})),ctx.random);
+    for(const {id} of ranked.filter(entry=>!excluded.includes(entry.id))) {
+      const made=CARDIO_STYLES_V2[id](ctx);
+      if(made)return {familyStyleId:id,blocks:made.blocks,generalPreparation:{focus:'cardio'}};
+    }
+    // A floor above what the permitted pool can reach at its conditioning share is proven, not a search miss.
+    const floors=ctx.floors;
+    if(floors.cardioDemand!=null&&G.cardioDemandBound(ctx.pool,floors.conditioningShare)<floors.cardioDemand)
+      return fail('Cardio & Conditioning movements permitted by these settings cannot reach its '+ctx.difficulty+' cardio standard.','intensity-standard-infeasible');
+    return fail('Cardio & Conditioning cannot build a suitable '+ctx.duration+'-minute session that meets its '+ctx.difficulty+' standard with the selected equipment and constraints.');
+  }
+  const enduranceShapedV2=(b,difficulty)=>{
+    const [low,high]=CARDIO_V2[difficulty].enduranceRoundRest;
+    return b.protocol==='rounds'&&b.exercises.length>=3&&between(b.prescription.exerciseRestSeconds,10,20)&&between(b.prescription.roundRestSeconds,low,high)
+      &&b.exercises.every(ex=>steadyV2(ex,difficulty));
+  };
+  const intervalsShapedV2=(b,difficulty)=>intervalsShaped(b)
+    &&CARDIO_V2[difficulty].intervals.some(([work,rest])=>b.prescription.workSeconds===work&&b.prescription.transitionSeconds===rest);
+  const CARDIO_STRUCTURE_V2={
+    endurance:(blocks,d)=>blocks.every(b=>enduranceShapedV2(b,d)),
+    intervals:(blocks,d)=>blocks.every(b=>intervalsShapedV2(b,d)),
+    'mixed-conditioning':(blocks,d)=>blocks.some(b=>enduranceShapedV2(b,d))&&blocks.some(b=>intervalsShapedV2(b,d))
+      &&blocks.every(b=>enduranceShapedV2(b,d)||intervalsShapedV2(b,d))
+  };
+  function cardioQualityV2(workout) {
+    const blocks=workout.main.blocks,list=blocks.flatMap(block=>block.exercises),issues=[],difficulty=workout.difficulty;
+    if(blocks.some(block=>block.familyContext!=null))issues.push('unexpected-family-context');
+    issues.push(...cardioV2MainIssues(blocks,difficulty,workout.familyConstraints));
+    if(meanOf(list,'cardio')-meanOf(list,'strength')<.5)issues.push('not-cardio-led');
+    if(!impactSafe(blocks))issues.push('high-impact-sequencing');
+    issues.push(...repeated(list,2));
+    if(blocks.some(block=>workShare(block)<.5))issues.push('not-work-dominant');
+    if(!CARDIO_STRUCTURE_V2[workout.familyStyleId](blocks,difficulty))issues.push('style-structure-mismatch');
+    return issues;
+  }
+
   // Shared construction helpers for later catalogue-owned composers (js/core-challenge-composer.js).
   root.GarageFitFamilyComposerKit=Object.freeze({MARGIN,copy,sum,fail,between,repeated,meanOf,ordered,constraints,context,freshState,pick,fitted,sequence,counts,bestOf});
 
@@ -402,4 +555,5 @@
   G.registerFamilyComposer('strength-control',2,build('Strength & Control',STRENGTH_STYLES,strengthWeights,controlled,'strength',SUPPORTING_ROUTE_STYLES),strengthQuality);
   G.registerFamilyComposer('strength-control',3,build('Strength & Control',STRENGTH_V3,null,controlled,'strength',['mixed-strength','paired-sets','controlled-circuits'],['mixed-strength','paired-sets','controlled-circuits']),strengthQualityV3);
   G.registerFamilyComposer('cardio-conditioning',1,build('Cardio & Conditioning',CARDIO_STYLES,cardioWeights,cardioLed,'cardio'),cardioQuality);
+  G.registerFamilyComposer('cardio-conditioning',2,buildCardioV2,cardioQualityV2);
 })(typeof window==='undefined'?globalThis:window);

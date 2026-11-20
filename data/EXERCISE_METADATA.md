@@ -303,21 +303,36 @@ It is policy in `js/generator.js` (`DIFFICULTY_POLICY`), not metadata:
 | Easy | `hard` exercises are ineligible; `easy` exercises get a score preference over `moderate`. | `hard` exercises are ineligible. | Unchanged. |
 | Hard | Nothing is excluded; `hard` exercises get a score preference, `moderate` a smaller one. The preference is withheld from a high-impact exercise following high-impact work, and stays below the pattern, recency and variety rules. | Unchanged. | Unchanged. |
 
-Traditional Generator Hard Cardio also checks the whole Main at resolved work-time
-estimates: at least 65% conditioning work, average `cardio` at least 3.8, and no
-successive non-conditioning work below cardio 4 exceeding 60 active seconds.
-These targets allow roughly one-third complementary strength work while keeping
-average demand near the catalogue's high (4) anchor. They are composition proxies,
-not measured exertion. Repetition targets and both sides count; recovery does not
-inflate active work. AMRAP uses catalogue-paced repeats within its cap.
-A bounded search prefers safe, sufficient compositions and keeps valid fallback
-work when the pool cannot meet the targets. High-impact neighbours are avoided
-where alternatives exist, including across repeated rounds; low-impact work can
-meet every target. Other difficulty/focus combinations and specialist families
-retain their existing policies.
+Editorial intent of the workout difficulty (#402): **Easy** is beginner-friendly and accessible
+(indicative RPE 3–5/10), **Normal** genuinely challenging for an average reasonably fit adult
+(RPE 6–7) and **Hard** very challenging for an experienced exerciser (RPE 8–9). RPE is an
+editorial target, never observed or guaranteed intensity; exercise `difficulty` (movement
+demands), the `conditioning` role and `cardio` (estimated demand) stay separate properties.
+
+Traditional Generator Cardio measures the whole Main at resolved work-time estimates
+(`cardioChallenge`): work-weighted `cardio`, conditioning share, cardio-2 work share, the
+longest run of successive non-conditioning work below cardio 4, and inside-block work density.
+Repetition targets and both sides count; recovery does not inflate active work. AMRAP uses
+catalogue-paced repeats within its cap. These are composition proxies, not measured exertion.
+
+- **Hard is a gate** (approved #402 Option A): at least 60% conditioning work, average `cardio`
+  at least 3.6, at most 25% cardio-2 work and no weak run over 60 active seconds, with no
+  adjacent high-impact work. A bounded, seeded search of up to 40 attempts steers later attempts
+  towards cardio-3+ and conditioning work and, among qualifying attempts, prefers more demanding,
+  denser work. A pool that cannot qualify is never returned as Hard: generation fails with
+  `cardio-intensity-not-feasible`, distinguishing a provably unreachable floor
+  (`catalogue-infeasible`) from a bounded-search miss, and lists only adjustments proven by
+  generating a whole workout. Low- and medium-impact work can meet every target.
+- **Normal is a preference**: attempts are ranked towards average `cardio` 3.2, 40% conditioning
+  work and at most 35% cardio-2 work, but a valid Normal Main is never rejected for missing them.
+- Normal and Hard Cardio Main exclude the gentle stepping moves `step-jacks`,
+  `side-step-knee-lift` and `high-knee-power-steps` (a named context policy; their metadata, Easy
+  and preparation roles are unchanged), and every difficulty applies the same-block variant rule
+  (see `family` below). Other focuses, specialist families and saved workouts keep their policies.
 
 
-Main swaps keep the workout's difficulty, and Ramp-up swaps keep Easy's exclusion.
+Main swaps keep the workout's difficulty, and Ramp-up swaps keep Easy's exclusion. Traditional
+Cardio swaps also keep the gentle-move exclusion, the same-block variant rule and, on Hard, the gate.
 Difficulty changes exercise selection only, not rest, rounds or interval structure.
 
 ### Workout body focus (generator policy)
@@ -491,7 +506,7 @@ family should appear, so do not use `frequency` to obtain this.
 
 | Phase | Same family | Same repetition class |
 | --- | --- | --- |
-| Main | Hard cap of one per workout for `occasional` and single-variant families, shared by generation, Coach Session Prescriptions (two required anchors from one capped family are a hard conflict) and swaps. Recent use of a variant counts towards recency penalties. | Soft score penalty when the immediately preceding Main exercise shares it; never an exclusion. |
+| Main | Hard cap of one per workout for `occasional` and single-variant families, shared by generation, Coach Session Prescriptions (two required anchors from one capped family are a hard conflict) and swaps. Recent use of a variant counts towards recency penalties. In traditional Generator Cardio and Cardio & Conditioning v2, two different exercises of one family never share a `rounds` or `timed_intervals` block, adjacent or not (repeating one exercise over rounds is unaffected) (#402). | Soft score penalty when the immediately preceding Main exercise shares it; never an exclusion. |
 | Warm-up | Never two members. | Soft score penalty against earlier Warm-up picks; never an exclusion. |
 | Ramp-up | Avoided (soft-mandatory) against earlier Ramp-up and Warm-up picks, including in swaps. | Soft score penalty against Warm-up and earlier Ramp-up picks. |
 | Cool-down | Never two members. | — |
