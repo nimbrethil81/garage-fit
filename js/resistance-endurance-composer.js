@@ -19,7 +19,8 @@
     &&(ex.difficulty!=='hard'||difficulty==='hard')&&(ex.impact!=='high'||difficulty!=='easy');
   // Resistance credit needs a strength-led major movement pattern (squat, hinge, lunge, push,
   // pull or carry): controlled air squats count; trunk holds, isolation drills and cardio-led
-  // variants do not. Trunk/accessory work is limited support that earns no resistance credit.
+  // variants do not. Trunk/accessory work is supporting: it adds variety, stimulus and fatigue, but
+  // cannot by itself meet the minimum resistance share that establishes the family's identity.
   function role(ex) {
     if(ex.conditioning)return ex.cardio>=3?'conditioning':null;
     if(ex.strength<2||ex.strength<ex.cardio||ex.impact==='high')return null;

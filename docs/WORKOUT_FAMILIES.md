@@ -882,7 +882,7 @@ has exactly one role, so a dual-purpose movement is never credited twice:
 | --- | --- | --- |
 | Resistance | not `conditioning`; strength ≥ 3 and ≥ cardio; not high impact; a major pattern (squat, hinge, lunge, push, pull or carry) | resistance work (controlled air squats count) |
 | Conditioning | `conditioning` with cardio ≥ 3 (dual-purpose swings, push press, snatches and thrusters belong here) | conditioning work |
-| Support | not `conditioning`; strength ≥ 2 and ≥ cardio; no major pattern (trunk holds, isolation drills) | neither; only as the closing station of a Muscular Endurance circuit of four or more |
+| Support | not `conditioning`; strength ≥ 2 and ≥ cardio; no major pattern (trunk holds, isolation drills) | contributes variety, training stimulus and fatigue, but not to the minimum resistance share that establishes the family's identity; only as the closing station of a Muscular Endurance circuit of four or more |
 
 Cardio-led variants (cardio above strength without the conditioning role) and gentle cardio-2
 stepping have no role and are not used.
