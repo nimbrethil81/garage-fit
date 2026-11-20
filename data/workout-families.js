@@ -45,7 +45,14 @@
       [style('rounds', 'Rounds challenge'), style('emom', 'EMOM challenge'), style('ladder', 'Ladder challenge'),
         style('pyramid', 'Pyramid challenge'), style('density', 'Density challenge')],
       ['whole-body-balance', 'recognisable-challenge-structure', 'bounded-effort', 'appropriate-rest'],
-      ['compatible-playable-protocol', 'balanced-work', 'adequate-recovery'])
+      ['compatible-playable-protocol', 'balanced-work', 'adequate-recovery']),
+    // #399: the seventh family. The internal id predates the approved customer-facing name
+    // (20 November 2026) and stays stable; only `name` is displayed.
+    definition('resistance-endurance', 'Strength & Stamina',
+      'Build muscular stamina with sustained resistance work, on its own or combined with purposeful conditioning.',
+      [style('muscular-endurance', 'Muscular Endurance'), style('metcon', 'Metcon')],
+      ['sustained-resistance', 'resistance-led', 'purposeful-conditioning', 'exercise-sensitive-rest'],
+      ['suitable-resistance-work', 'resistance-led-composition', 'adequate-recovery'])
   ];
   // Later published versions of the same family: identity, purpose, styles and feasibility are
   // unchanged, so v1 and v2 are one family for training balance and recency; only the versioned

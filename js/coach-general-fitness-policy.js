@@ -17,6 +17,15 @@
   function weightsValid(weights) {
     return weights && Object.keys(weights).length === EFFECTS.length && EFFECTS.every(effect => positive(weights[effect]));
   }
+  // The six canonical families General Fitness v1 and v2 were released with. Strength & Stamina
+  // (`resistance-endurance`, #399) joined the registry later; only a later definition version
+  // (#400) may use the seven-family set, which is then every family in the registry.
+  const ORIGINAL_FAMILY_IDS = Object.freeze(['strength-control','cardio-conditioning','athletic-movement','core-stability',
+    'mobility-movement-quality','full-body-challenges']);
+  const LAST_SIX_FAMILY_VERSION = 2;
+  function canonicalFamilySet(definition, registry) {
+    return definition.version <= LAST_SIX_FAMILY_VERSION ? ORIGINAL_FAMILY_IDS.slice() : Object.keys(registry || {});
+  }
   function validateDefinition(definition) {
     const Policies = root.GarageFitCoachPolicies, Model = root.GarageFitCoachModel;
     Policies.assertDefinition(definition);
@@ -39,7 +48,10 @@
       if (!effects.length || effects.some(([effect, share]) => !EFFECTS.includes(effect) || !positive(share)) || Math.abs(effects.reduce((sum, [, share]) => sum + share, 0) - 1) > 1e-9) fail('family effects must be shares of known effects');
       if (typeof family.demanding !== 'boolean' || typeof family.repeatable !== 'boolean') fail('family demand and repetition must be explicit');
     });
-    if (ids.size !== Object.keys(registry).length) fail('it uses every canonical workout family');
+    // Version-aware exact family set (#399): each released definition uses exactly the canonical
+    // families published when it was released, so adding a family never invalidates it.
+    const expected = canonicalFamilySet(definition, registry);
+    if (ids.size !== expected.length || expected.some(id => !ids.has(id))) fail('it uses every canonical workout family');
     if (!EFFECTS.every(effect => families.some(family => family.effects[effect]))) fail('every training effect needs a family');
     // Every offered duration must be one every family version publishes support for.
     if (!Array.isArray(durations) || !durations.length || durations.some(value => families.some(family =>

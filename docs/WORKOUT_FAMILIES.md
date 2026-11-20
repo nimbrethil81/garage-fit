@@ -1,6 +1,6 @@
 # Shared workout-family contract
 
-`data/workout-families.js` owns the canonical six-family registry, exposed as
+`data/workout-families.js` owns the canonical seven-family registry, exposed as
 `GarageFitData.workoutFamilies[workoutFamilyId][version]`. Definitions and nested
 values are immutable. Released versions remain available unchanged; a material
 policy change needs a new definition version and versioned policy reference.
@@ -9,7 +9,8 @@ same family for training balance and recency, while composition and history keep
 `GarageFitData.workoutFamilyCurrentVersions` names the version new workouts use; today that is
 version 1 for every family except Athletic Movement (current version 6; #403), Strength & Control
 (current version 3; #261, #373), Mobility & Movement Quality (current version 3; #272) and
-Full-Body Challenges (current version 2; #398).
+Full-Body Challenges (current version 2; #398). Strength & Stamina (`resistance-endurance`, #399)
+was added as the seventh family at version 1.
 
 Each definition owns its display name, purpose, supported internal styles, Body
 Focus compatibility, composition/membership policy references, suitability criteria
@@ -22,7 +23,7 @@ impact or space configuration. Policy references do not register working compose
 
 Load `js/workout-families.js` after the data file. Both standalone Generator and
 Coach consumers use `GarageFitWorkoutFamilies`; neither maintains a second family
-table. Explicit requests for any of the six families use the constructor below; other existing generation
+table. Explicit requests for any of the seven families use the constructor below; other existing generation
 continues through its established path.
 
 1. `resolveRequest(options)` resolves the requested family/version and effective
@@ -859,6 +860,77 @@ Preview format guidance uses existing block headings in both Generator and Coach
 phase labels, circular clocks, journey bar, controls and tracker remain unchanged. AMRAP guidance
 states that rounds/reps are not scored. Session end, confirmed/skipped work and unmeasured
 performance remain distinct. FAQ reviewed — no changes required.
+
+### Strength & Stamina composition v1 (#399, current)
+
+The seventh canonical family is displayed as **Strength & Stamina**; its stable internal id is
+`resistance-endurance` (the id predates the approved display name). Its two automatically selected
+styles are `muscular-endurance` (**Muscular Endurance**) and `metcon` (**Metcon**). It is
+full-body only, has no style picker, setting, membership table, catalogue change or new protocol,
+and is available to the standalone Generator and to any Coach family plan that names it. General
+Fitness v1/v2 keep their six-family plans (see [Coach engine](COACH_ENGINE.md#general-fitness));
+General Fitness v3 (#400) is not part of this version.
+
+Load `js/resistance-endurance-composer.js` after `js/core-challenge-composer.js`; it reuses the
+shared composer kit, the Generator's scored selector, generic preparation and the shared gate.
+Eligibility is canonical Main eligibility plus a family-scoped suitability rule over existing
+metadata. Safely repeatable work only: no `Heavy` load, no strength-5 movement, no default
+estimate over 60 s, hard-rated movements only on Hard, and no high impact on Easy. Every exercise
+has exactly one role, so a dual-purpose movement is never credited twice:
+
+| Role | Existing metadata | Credit |
+| --- | --- | --- |
+| Resistance | not `conditioning`; strength ≥ 3 and ≥ cardio; not high impact; a major pattern (squat, hinge, lunge, push, pull or carry) | resistance work (controlled air squats count) |
+| Conditioning | `conditioning` with cardio ≥ 3 (dual-purpose swings, push press, snatches and thrusters belong here) | conditioning work |
+| Support | not `conditioning`; strength ≥ 2 and ≥ cardio; no major pattern (trunk holds, isolation drills) | neither; only as the closing station of a Muscular Endurance circuit of four or more |
+
+Cardio-led variants (cardio above strength without the conditioning role) and gentle cardio-2
+stepping have no role and are not used.
+
+| Style | Resolved structure (Easy / Normal / Hard) |
+| --- | --- |
+| Muscular Endurance | `rounds` circuits of 3–5 resistance stations (optionally closed by one support station), 2–3 / 2–4 / 2–4 rounds, exercise recovery 20–30 / 15–25 / 10–20 s and round recovery 60–90 / 45–75 / 40–60 s; from two blocks it may alternate circuits with contrasting resistance `paired_sets` (10–15 s changeover, 45–60 / 30–45 / 30–40 s between sets). No conditioning-role movement. |
+| Metcon | `rounds` circuits of 3–6 stations alternating resistance and conditioning, starting with resistance and never more conditioning than resistance stations; 2–3 / 2–4 / 2–4 rounds, exercise recovery 15–25 / 10–20 / 10–15 s and round recovery 45–75 / 30–60 / 30–45 s. |
+
+Recovery is exercise-sensitive: a strength-4 or per-side lower-body movement raises the block's
+minimum exercise recovery by 5 s and its round recovery by 5 s each (up to two), within the
+difficulty range. Pairs never join two strength-4 lower-body lifts. Every block also needs work
+density (resolved work ÷ work plus scheduled recovery) of at least 0.45 / 0.50 / 0.55 for
+Muscular Endurance and 0.50 / 0.55 / 0.60 for Metcon; this is checked before time fitting, so
+rest cannot be stretched to fill the clock.
+
+Session identity is judged on resolved Main work: catalogue estimates for rep targets and
+target time for timed work, both sides included, recovery excluded. Resistance work is at least
+**70%** of active Main work for Muscular Endurance and at least **50%** for Metcon, whose
+conditioning work is at least **25%** and present in every block. These are the #399 candidate
+shares, confirmed against representative compositions (see the PR report). From 15 minutes the
+resistance work covers lower-body (squat/hinge/lunge) and upper-body (push/pull) patterns where
+the permitted pool can supply them.
+
+Fatigue and safety rules apply within every block: adjacent movements, including a repeated
+circuit's wrap-around, never share a major pattern; Metcon conditioning stations are never
+consecutive; at most one high-impact movement and at most one hard-rated loaded ballistic lift
+(snatches, cleans, thrusters, devil's press: conditioning, hard-rated, equipment-based) per block;
+no repeated variation family within a block; at most one `mainRole: supporting` movement per block;
+an exercise appears in at most two blocks. Canonical prescriptions, sidedness, setup profiles,
+equipment, difficulty, impact and position constraints are unchanged; nothing is converted to
+timed intervals. Normal/Hard Metcon composition prefers conditioning whose work-weighted cardio
+averages at least 3.5 (a ranking preference, not a gate, so low-impact options remain usable).
+Composition also prefers three rounds or sets per block over many short blocks (again a ranking
+preference: about 40–65% of sampled blocks use three or more).
+
+Style selection is automatic and seeded: base weights Muscular Endurance 4 / 3 / 2.5 and Metcon
+2 / 3 / 3.5 (Easy / Normal / Hard), halved for the style of the newest completed Strength &
+Stamina session in `recentFamilySessions` (variation, not rotation; completed-only history does not
+imply partial activity never happened). The first style that builds is returned; if it cannot be
+built the other style is tried, and the shared gate's same-family fallback excludes a rejected
+style. Genuinely impossible requests raise `family-not-feasible` with verified adjustments only.
+Swaps and edits keep the label only when the whole revised workout passes this gate.
+
+`tests/resistance-endurance-composer.test.js` covers identity, roles, the duration × difficulty ×
+equipment matrix, distinct styles, token-resistance/cardio-only/dual-purpose rejection, style
+variation, composition and gate fallback, swaps and the Coach family-plan route; General Fitness
+compatibility is in `tests/general-fitness.test.js`.
 
 ## Shared validation, same-family fallback and edit integrity
 

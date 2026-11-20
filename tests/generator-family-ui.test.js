@@ -11,7 +11,9 @@ function seeded(app){run(app,'Math.random=(seed=>()=>{seed=(seed*1664525+1013904
 test('Additional options has one registry-driven family group with accessible default and native disabled controls',()=>{
  const app=loadAppContext();app.renderGenerator();app.renderGenerator();
  const buttons=el(app,'familyChoices').children;
- assert.equal(buttons.length,7);
+ // None / Any plus the seven canonical families; Strength & Stamina (#399) is appended last.
+ assert.equal(buttons.length,8);
+ assert.equal(buttons[7].textContent,'Strength & Stamina');
  assert.deepEqual(buttons.map(button=>button.textContent),['None / Any',...Object.values(app.GarageFitData.workoutFamilies).map(versions=>versions[1].name)]);
  assert.equal(buttons[0].attributes['aria-pressed'],'true');
  const html=fs.readFileSync('index.html','utf8');

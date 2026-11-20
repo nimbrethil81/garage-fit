@@ -38,11 +38,13 @@ const expected = [
   ['athletic-movement', 'Athletic Movement'],
   ['core-stability', 'Core & Stability'],
   ['mobility-movement-quality', 'Mobility & Movement Quality'],
-  ['full-body-challenges', 'Full-Body Challenges']
+  ['full-body-challenges', 'Full-Body Challenges'],
+  // #399: displayed as Strength & Stamina; the internal id is stable.
+  ['resistance-endurance', 'Strength & Stamina']
 ];
 const fails = (fn, code) => assert.throws(fn, error => error instanceof F.FamilyContractError && error.code === code);
 
-test('six canonical families own immutable versioned identity, policies, suitability and feasibility', () => {
+test('seven canonical families own immutable versioned identity, policies, suitability and feasibility', () => {
   assert.deepEqual(F.FAMILY_IDS, expected.map(([id]) => id));
   assert.ok(Object.isFrozen(definitions) && Object.isFrozen(F.FAMILY_IDS));
   for (const [id, name] of expected) {

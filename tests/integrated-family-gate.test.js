@@ -75,7 +75,7 @@ test('10-minute Easy equipment challenge counts both AMRAP caps, not just its fi
 
 // These sweeps exercise real production composers through BOTH construction routes;
 // individual catalogue, duration-profile and fallback tests stay in their existing suites.
-test('six representative families use the shipped Ramp-up player and truthful work-only tracker plan',()=>{
+test('every canonical family uses the shipped Ramp-up player and truthful work-only tracker plan',()=>{
   const p=pilot(new Map(),'general-fitness',2,{rampupUi:true});
   for(const workoutFamilyId of p.app.GarageFitWorkoutFamilies.FAMILY_IDS) {
     // Both routes build the family's current published version (Athletic v2, #244).
@@ -97,7 +97,7 @@ test('six representative families use the shipped Ramp-up player and truthful wo
   }
 });
 
-test('[Full] integrated six-family matrix: 180 routes × two seeds × four safety/equipment profiles', t => {
+test('[Full] integrated seven-family matrix: 210 routes × two seeds × four safety/equipment profiles', t => {
   const p=pilot(new Map(),'general-fitness',2,{rampupUi:true}), G=p.app.GarageFitGenerator;
   const catalogue=p.app.GarageFitData.exercises, counts={passed:0,infeasible:0,unverified:0}, byProfile={};
   const infeasible=[], parity=new Map();
@@ -136,7 +136,7 @@ test('[Full] integrated six-family matrix: 180 routes × two seeds × four safet
         counts.passed++;totals.passed++;
       }
   }
-  assert.equal(counts.passed+counts.infeasible,1440);
+  assert.equal(counts.passed+counts.infeasible,1680); // seven families (#399) × 5 durations × 3 difficulties × 2 seeds × 2 routes × 4 profiles
   t.diagnostic(JSON.stringify({counts,byProfile,infeasible}));
 });
 

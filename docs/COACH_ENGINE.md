@@ -586,7 +586,18 @@ edited. The plan composes each family at its current published version
 and v2 instances plan Athletic Movement v6, Strength & Control v3, Mobility & Movement Quality v3 and
 Full-Body Challenges v2 automatically with no restart or new programme definition. Prepared sessions,
 saved drafts and results keep their actual versions and original plans. Balance, variety and recency compare families by id, so any Athletic version's
-session earn the same effect and recency; results keep their recorded version. `tests/general-fitness.test.js`
+session earn the same effect and recency; results keep their recorded version.
+
+**Version-aware family set (#399).** `validateDefinition` checks an exact canonical family set
+for the definition's version rather than the registry size: v1 and v2 use exactly the six families
+they were released with (Strength & Control, Cardio & Conditioning, Athletic Movement, Core &
+Stability, Mobility & Movement Quality and Full-Body Challenges). Only a later definition version
+uses every registered family, including Strength & Stamina (`resistance-endurance`); that v3 is
+#400 and is not published here. v1/v2 therefore never plan Strength & Stamina. A cross-source
+Strength & Stamina result has no effect entry in their family list, so it contributes through the
+existing exercise-metadata fallback (`basis: 'exercise-metadata'`), like any other unlisted
+family session. The shared Coach family-plan candidate limit stays six (`coach-model.js`);
+raising it for a seven-family plan belongs with v3 (#400). `tests/general-fitness.test.js`
 covers lifecycle, sequences at 2/3/5 sessions per week, cross-source context, recovery,
 external preferences and the family-plan seam.
 

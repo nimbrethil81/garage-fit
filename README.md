@@ -102,7 +102,7 @@ claimed before then. GitHub Actions can run for private repositories too, but re
 allowances and billing policies before changing repository visibility.
 
 The integrated family gate (`tests/integrated-family-gate.test.js`) reports accepted versus
-genuinely infeasible cases for 180 Generator/Coach routes, two seeds and four constraint/equipment
+genuinely infeasible cases for 210 Generator/Coach routes (seven families), two seeds and four constraint/equipment
 profiles. Its Full sweeps also track real 20-session General Fitness experiences at 2/3/5 weekly.
 For repeatable browser evidence, serve the checkout and run
 `python scripts/verify-family-player.py --url http://127.0.0.1:8000` (existing Playwright/Chromium
