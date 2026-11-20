@@ -908,7 +908,8 @@ resistance work covers lower-body (squat/hinge/lunge) and upper-body (push/pull)
 the permitted pool can supply them.
 
 Fatigue and safety rules apply within every block: adjacent movements, including a repeated
-circuit's wrap-around, never share a major pattern; Metcon conditioning stations are never
+circuit's wrap-around, never share a major pattern, and two strength-4 lower-body movements are
+never adjacent; Metcon conditioning stations are never
 consecutive; at most one high-impact movement and at most one hard-rated loaded ballistic lift
 (snatches, cleans, thrusters, devil's press: conditioning, hard-rated, equipment-based) per block;
 no repeated variation family within a block; at most one `mainRole: supporting` movement per block;

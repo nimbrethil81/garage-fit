@@ -55,7 +55,7 @@
   // Hard-rated loaded ballistic lifts (snatches, cleans, thrusters, devil's press): Hard only, one per block.
   const technical=ex=>ex.conditioning&&ex.difficulty==='hard'&&(ex.equipment||[]).length>0;
   const majorShared=(a,b)=>!!a&&!!b&&G.sharedPatterns(a,b).some(pattern=>MAJOR.includes(pattern));
-  // Two strength-4 lower-body lifts must not share a ten-second changeover.
+  // Two strength-4 lower-body lifts must not share a ten-second changeover or follow each other in a circuit.
   const fatiguingPair=list=>list.length===2&&list.every(ex=>ex.strength>=4&&has(ex,LOWER));
 
   // Active work of every resolved occurrence (target time, or the catalogue estimate for reps,
@@ -109,6 +109,8 @@
     // Adjacent movements (and the wrap-around of a repeated circuit) do not share a major pattern.
     const cyclic=block.protocol==='rounds'&&q.rounds>1&&list.length>=3;
     if(list.some((ex,i)=>i&&majorShared(list[i-1],ex))||cyclic&&majorShared(list[list.length-1],list[0]))issues.push('adjacent-major-pattern');
+    // Nor do two demanding (strength-4) lower-body movements follow each other in a circuit.
+    if(block.protocol==='rounds'&&(list.some((ex,i)=>i&&fatiguingPair([list[i-1],ex]))||cyclic&&fatiguingPair([list[list.length-1],list[0]])))issues.push('fatiguing-sequence');
     if(list.some((ex,i)=>list.slice(0,i).some(other=>G.sameFamily(other,ex))))issues.push('repeated-variation-family');
     if(list.filter(ex=>ex.impact==='high').length>1)issues.push('high-impact-load');
     if(list.filter(technical).length>1)issues.push('technical-load');
@@ -145,6 +147,7 @@
   function choose(ctx,state,chosen,pool,protocol,intent,focus,closing) {
     const previous=chosen[chosen.length-1],ok=pool.filter(ex=>!chosen.some(other=>other.id===ex.id||G.sameFamily(other,ex))
       &&G.setupProfilesCompatible(chosen.concat(ex),ctx.owned)&&!majorShared(previous,ex)&&!(closing&&majorShared(chosen[0],ex))
+      &&!(previous&&fatiguingPair([previous,ex]))&&!(closing&&chosen.length>1&&fatiguingPair([ex,chosen[0]]))
       &&!(ex.mainRole==='supporting'&&chosen.some(other=>other.mainRole==='supporting')));
     const fresh=ok.filter(ex=>!state.usedIds.has(ex.id)),candidates=fresh.length?fresh:ok;
     if(!candidates.length)return null;

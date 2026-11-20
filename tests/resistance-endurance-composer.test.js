@@ -48,6 +48,8 @@ function assertSession(w,{duration,difficulty,equipment}) {
     assert.ok(block.exercises.filter(ex=>ex.impact==='high').length<=1);
     assert.ok(block.exercises.filter(ex=>ex.conditioning&&ex.difficulty==='hard'&&ex.equipment.length).length<=1,'one technical loaded lift per block');
     assert.ok(block.exercises.every((ex,i)=>!i||!G.sharedPatterns(block.exercises[i-1],ex).some(p=>['squat','hinge','lunge','push','pull','carry'].includes(p))));
+    const lowerLift=ex=>ex.strength>=4&&ex.patterns.some(p=>['squat','hinge','lunge'].includes(p));
+    assert.ok(block.protocol!=='rounds'||block.exercises.every((ex,i)=>!i||!(lowerLift(ex)&&lowerLift(block.exercises[i-1]))),'no stacked loaded lower-body lifts');
   }
   const shares=RE.sessionShares(w.main.blocks);
   if(w.familyStyleId==='metcon') {
@@ -142,6 +144,10 @@ test('Muscular Endurance rejects conditioning, Heavy and hard-rated substitutes 
   assert.ok(swap('jumping-jacks').includes('quality:unsuitable-exercise:jumping-jacks'));
   assert.ok(swap('goblet-squat').includes('quality:unsuitable-exercise:goblet-squat'));
   assert.ok(swap('dumbbell-renegade-row').includes('quality:unsuitable-exercise:dumbbell-renegade-row'));
+  // Two demanding lower-body lifts back to back in a circuit (different patterns) are a fatiguing sequence.
+  const stacked=copy(w);stacked.main.blocks[0]={...stacked.main.blocks[0],protocol:'rounds',
+    exercises:['kettlebell-deadlift','kettlebell-goblet-squat','dumbbell-floor-press'].map(id=>copy(C[id]))};
+  assert.ok(validate(stacked,EQUIPMENT.broad).qualityIssues.includes('quality:fatiguing-sequence'));
   // Too little recovery for the difficulty, or rest stretched past its range, is not the published structure.
   const rushed=copy(w);rushed.main.blocks[0].prescription.roundRestSeconds=10;
   assert.ok(validate(rushed,EQUIPMENT.broad).qualityIssues.includes('quality:style-structure-mismatch'));
