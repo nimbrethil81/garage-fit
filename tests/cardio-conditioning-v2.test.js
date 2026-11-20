@@ -245,6 +245,38 @@ test('traditional Normal targets are a preference while Hard is a bounded determ
   assert.ok(harder>=pairs*.7,`Hard exceeded Normal in ${harder}/${pairs}`);
 });
 
+test('traditional Hard Cardio does not deliver a Main that equipment setup fitting pushes below the gate',()=>{
+  // Reported edge case (rings, 20 min, seed 8): the bounded search chose this qualifying Main, then the
+  // whole session (Main 888 s + 330 s preparation/cool-down) exceeded 20 minutes, setup fitting removed a
+  // round from block 2, and the delivered Main fell below the 60% conditioning floor.
+  const block=(ids,rounds)=>({protocol:'rounds',intent:'conditioning',exercises:ids.map(id=>C[id]),prescription:{rounds,exerciseRestSeconds:10,roundRestSeconds:30}});
+  const first=block(['ski-abs','walking-lunge','squat-jumps','plank-up-downs'],2),second=['jumping-jacks','burpees','ring-row','bear-crawl'];
+  const chosen=[first,block(second,3)],fitted=[first,block(second,2)],budget=G.BUDGETS[20];
+  assert.equal(G.cardioChallenge(chosen).suitable,true);
+  assert.ok(G.mainSeconds(chosen,['rings'])+budget.warmup+budget.rampup+budget.cooldown>20*60);
+  const after=G.cardioChallenge(fitted);
+  assert.equal(after.suitable,false);assert.ok(after.conditioningShare<G.HARD_CARDIO_POLICY.conditioningShare);
+  // Now the same bounded search marks such attempts, keeps searching within its 40 attempts and delivers a
+  // Main that still passes the gate after the real setup fitting, deterministically.
+  for(const [equipment,seed] of [[['rings'],8],[['rings','trx','pullup-bar'],18]]){
+    const options={catalogue:C,focus:'cardio',difficulty:'hard',duration:20,equipment},events=[],label=equipment.join('+');
+    const w=G.generate({...options,random:rng(seed),trace:event=>{if(event.type==='main-attempt'&&event.hardCardio)events.push(event.hardCardio);}});
+    assert.ok(events.some(event=>event.suitable&&!event.setupSuitable),label+' reproduces a qualifying Main that setup fitting breaks');
+    assert.ok(events.length<=G.HARD_CARDIO_POLICY.maxAttempts,label);
+    const delivered=G.cardioChallenge(w.main.blocks);
+    assert.equal(delivered.suitable,true,label);assert.equal(delivered.highImpactAdjacency,0,label);
+    assert.deepEqual(G.validateMain(w.main,C,equipment,G.BUDGETS[20].main).filter(issue=>issue!=='main:duration-out-of-tolerance'),[],label);
+    if(w.setupEquipment)assert.ok(w.estimatedSeconds<=20*60,label+' setup-fitted session fits its duration');
+    const again=G.generate({...options,random:rng(seed)});delete again.id;delete w.id;
+    assert.deepEqual(again,w,label+' deterministic');
+  }
+  // With setup equipment but no pool able to meet the gate, generation still fails honestly.
+  const lowImpact=Object.fromEntries(Object.entries(C).map(([id,ex])=>[id,ex.generator&&ex.main&&ex.impact!=='low'?{...ex,generator:false}:ex]));
+  assert.throws(()=>G.generate({catalogue:lowImpact,focus:'cardio',difficulty:'hard',duration:20,equipment:['rings','trx'],random:rng(8)}),
+    error=>error.code==='cardio-intensity-not-feasible'&&error.reason==='catalogue-infeasible'
+      &&error.adjustments.some(item=>item.code==='change-difficulty'&&item.value==='normal'));
+});
+
 test('an ordinary Hard Cardio failure keeps settings, stays on Generator and shows an accessible message without a preview',()=>{
   const storage=new Map(),app=loadAppContext(storage);
   app.selectGeneratorFocus('cardio');app.selectGeneratorDifficulty('hard');app.selectGeneratorDuration(15);

@@ -2026,6 +2026,18 @@
   function hardCardioFit(targetSeconds) {
     return Math.max(120,targetSeconds*.12);
   }
+  // #402: equipment setup fitting removes whole repeats after Main is chosen and can push a qualifying
+  // Hard Main below the gate. Simulate that deterministic fitting with the preparation and cool-down
+  // budgets, so the bounded search (still at most 40 attempts) continues past and ranks below attempts
+  // that would not survive it; the delivered Main is checked again after the real fitting.
+  function hardCardioSetupSuitable(blocks, budget, duration, owned) {
+    const probe={duration,setupEquipment:owned.slice(),main:{blocks:blocks.slice()},
+      warmup:{estimatedSeconds:budget.warmup,exercises:[]},rampup:{estimatedSeconds:budget.rampup,exercises:[]},cooldown:{estimatedSeconds:budget.cooldown,exercises:[]}};
+    // A Main whose setup cannot fit at all keeps the existing setup-budget failure path.
+    try{fitSetupBudget(probe,owned);}catch(error){return true;}
+    const challenge=cardioChallenge(probe.main.blocks);
+    return challenge.suitable&&challenge.highImpactAdjacency===0;
+  }
   function composeMain(catalogue, eligible, budget, duration, focus, owned, history, rest, random, difficulty, bodyFocus, recentProtocols, captureAlternatives) {
     const attempts=[],reserve=[],hardCardio=focus==='cardio'&&difficulty==='hard',normalCardio=focus==='cardio'&&difficulty==='normal';
     const diversityTarget=EQUIPMENT_DIVERSITY[duration]||EQUIPMENT_DIVERSITY[20];
@@ -2038,7 +2050,7 @@
     // only that failure path before using the short last-resort fallback; ordinary
     // valid attempts and supporting-route selection keep their existing draw stream.
     for(let attempt=0;attempt<10||(!attempts.length&&attempt<20)
-      ||(hardCardio&&attempt<HARD_CARDIO_POLICY.maxAttempts&&!attempts.some(item=>item.challenge.suitable&&item.challenge.highImpactAdjacency===0&&Math.abs(item.estimated-budget.main)<=hardCardioFit(budget.main)));attempt++){
+      ||(hardCardio&&attempt<HARD_CARDIO_POLICY.maxAttempts&&!attempts.some(item=>item.challenge.suitable&&item.challenge.highImpactAdjacency===0&&item.setupSuitable&&Math.abs(item.estimated-budget.main)<=hardCardioFit(budget.main)));attempt++){
       const count=chooseBlockCount(duration,eligible.length,random),intents=chooseIntents(focus,count,random);
       const state={exercises:[],usedIds:new Set(),equipmentUsage:new Map(),blocks:[],owned,diversityTarget,supportingRoute,difficulty,bodyFocus,duration,recentProtocols,hardCardio,
         hardCardioRecovery:hardCardio&&attempt>=10?(attempt>=25?2:1):0,blockFamilyVariety:focus==='cardio',
@@ -2090,10 +2102,11 @@
         const dominantBlockShare=Math.max(...state.blocks.map(block=>block.estimatedDurationSeconds))/estimated;
         if(dominantBlockShare>BLOCK_DOMINANCE_CAP)blockDominancePenalty=(dominantBlockShare-BLOCK_DOMINANCE_CAP)*300;
       }
-      const record={attempt,blocks:state.blocks,estimated,...(hardCardio?{challenge:cardioChallenge(state.blocks)}:normalCardio?{challenge:cardioChallenge(state.blocks,NORMAL_CARDIO_PREFERENCE)}:{}),routeFilled:!!state.supportingRouteFilled,fitness:Math.abs(estimated-budget.main)+mainQualityPenalty(state.blocks,budget.main,eligible.length)+dominancePenalty+blockDominancePenalty-varietyCredit-equipmentCredit};
+      const record={attempt,blocks:state.blocks,estimated,...(hardCardio?{challenge:cardioChallenge(state.blocks),setupSuitable:hardCardioSetupSuitable(state.blocks,budget,duration,owned)}:normalCardio?{challenge:cardioChallenge(state.blocks,NORMAL_CARDIO_PREFERENCE)}:{}),routeFilled:!!state.supportingRouteFilled,fitness:Math.abs(estimated-budget.main)+mainQualityPenalty(state.blocks,budget.main,eligible.length)+dominancePenalty+blockDominancePenalty-varietyCredit-equipmentCredit};
       if(diversityOnly){reserve.push(record);continue;}
       attempts.push(record);
-      if(activeTrace)activeTrace({type:'main-attempt',attempt,issues:[],fitness:record.fitness});
+      if(activeTrace)activeTrace({type:'main-attempt',attempt,issues:[],fitness:record.fitness,
+        ...(hardCardio?{hardCardio:{suitable:record.challenge.suitable&&record.challenge.highImpactAdjacency===0,setupSuitable:record.setupSuitable}}:{})});
     }
     // Safety and cardiovascular adequacy precede soft composition preferences. Hard Cardio is a
     // gate (#402 Option A): an attempt that fails it is never returned as a Hard workout. Normal's
@@ -2103,7 +2116,7 @@
     // demand × density), so Hard ordinarily exceeds Normal overall without a both-metrics rule.
     const normalRank=item=>item.fitness+NORMAL_CARDIO_PREFERENCE_WEIGHT*item.challenge.deficit,hardRank=item=>item.fitness-HARD_CARDIO_INTENSITY_CREDIT*item.challenge.cardioDemand*item.challenge.density;
     const rank=(a,b)=>hardCardio?(a.challenge.highImpactAdjacency-b.challenge.highImpactAdjacency
-      ||a.challenge.deficit-b.challenge.deficit||hardRank(a)-hardRank(b))
+      ||a.challenge.deficit-b.challenge.deficit||b.setupSuitable-a.setupSuitable||hardRank(a)-hardRank(b))
       :normalCardio?normalRank(a)-normalRank(b):a.fitness-b.fitness;
     if(hardCardio){
       const qualifies=item=>item.challenge.suitable&&item.challenge.highImpactAdjacency===0;
@@ -3446,7 +3459,8 @@
     const issues=validateMain(workout.main,catalogue,owned,budget.main);
     const fatal=issues.filter(issue=>issue!=='main:duration-out-of-tolerance');
     if(fatal.length)throw new Error('Invalid generated Main: '+fatal.join(', '));
-    // Setup fitting can shorten a qualifying Main; the delivered workout itself must still be Hard.
+    // Setup fitting can shorten a qualifying Main (hardCardioSetupSuitable steers the search away from
+    // that); the delivered workout itself must still pass the Hard gate, or generation fails honestly.
     if(focus==='cardio'&&difficulty==='hard'){
       const challenge=cardioChallenge(workout.main.blocks);
       if(!challenge.suitable||challenge.highImpactAdjacency)throw hardCardioInfeasible(eligible);
