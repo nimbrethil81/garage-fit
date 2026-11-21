@@ -72,3 +72,26 @@ test('standalone menu keeps CSS full height for the status-bar delta, fits the k
   h.context.visualViewport.scale=1;h.context.visualViewport.height=793;h.viewportListeners.resize();
   assert.equal(h.styles['--standalone-menu-height'],'100vh');
 });
+
+// #404 three-region foundation. Geometry is measured in scripts/verify-player-layout.py;
+// these cheap checks keep the structural contract from regressing.
+test('both players share one whole-pixel header offset rule with no per-player header padding',()=>{
+  const css=fs.readFileSync('css/player-layout.css','utf8');
+  assert.match(css,/\.player-top,\.workout-player-top\{[^}]*padding-top:var\(--player-header-offset\)/);
+  assert.doesNotMatch(css,/(^|\})\s*\.(player-top|workout-player-top)\{[^}]*padding-top:\d/m);
+  for(const value of css.matchAll(/--player-header-offset:([^;}]+)/g))assert.match(value[1],/^\d+px$/);
+});
+
+test('workout journey lives in the reserved footer and the fixed stats cards are gone',()=>{
+  const html=fs.readFileSync('index.html','utf8');
+  const player=html.slice(html.indexOf('<main id="workoutPlayer"'),html.indexOf('<main id="done"'));
+  const stage=player.slice(player.indexOf('id="workoutStage"'),player.indexOf('<div class="workout-actions">'));
+  const footer=player.slice(player.indexOf('<div class="workout-actions">'));
+  assert.doesNotMatch(stage,/overall-progress|workout-stats/);
+  assert.ok(footer.indexOf('class="overall-progress"')<footer.indexOf('id="workoutNextPreview"'),'journey precedes the next preview');
+  assert.ok(footer.indexOf('id="workoutNextPreview"')<footer.indexOf('id="previousWorkoutBtn"'),'preview precedes navigation');
+  for(const id of ['workoutPhaseLabel','workoutProgressTrack','workoutCompletedValue'])assert.match(footer,new RegExp('id="'+id+'"'));
+  const routine=html.slice(html.indexOf('<main id="player"'),html.indexOf('<main id="workoutPlayer"'));
+  assert.doesNotMatch(routine,/overall-progress|previous-btn/,'routine player keeps its own footer');
+  assert.match(fs.readFileSync('index.html','utf8'),/\.generated-player \.journey-summary\{display:none\}/,'generated/Coach do not gain the fixed total');
+});

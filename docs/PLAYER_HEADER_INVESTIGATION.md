@@ -206,3 +206,16 @@ then match pixel-for-pixel on all five tabs in both themes; the successful root
 workaround and player header remain intact. Detailed measurements, PR disposition
 and native-validation limits are in [the restoration report](BOTTOM_NAV_RESTORATION.md).
 This browser result does not close #316 or establish physical-device acceptance.
+
+## Shared player header (#404)
+
+The accepted 16px routine-header offset now comes from one shared
+`--player-header-offset` rule applied to both `.player-top` and
+`.workout-player-top`, so the workout header matches the routine position at
+normal heights. To avoid the earlier both-header overflow on reduced-height
+density work, the offset steps down in whole pixels (8px at a player viewport of
+700px or less, 0px at 580px or less) while the layout fits; no transform,
+filter, font change or viewport rounding is involved. Browser checks confirm
+equal header/Exit positions across routine, fixed and generated players. Physical
+installed-iPhone sharpness and safe-area acceptance of the workout header is
+**unverified** until checked on the device.

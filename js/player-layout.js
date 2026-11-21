@@ -110,8 +110,9 @@
           surface.style.top=landscape?'':((ringSize>0 && !ring.closest('.hidden')?ring.getBoundingClientRect().bottom:header.getBoundingClientRect().bottom)-player.getBoundingClientRect().top+10)+'px';
           const content=instruction.querySelector('.player-detail-content');
           const region=instruction.querySelector('.player-instruction-image');
-          const text=instruction.querySelector('p');
-          const available=content.clientHeight-text.getBoundingClientRect().height-32;
+          // Catalogue text plus any workout guidance (#404) take precedence over artwork.
+          const textHeight=[...instruction.querySelectorAll('.player-detail-content>p')].reduce((sum,p)=>sum+p.getBoundingClientRect().height,0);
+          const available=content.clientHeight-textHeight-32;
           const width=Math.min(content.clientWidth-8,320,available*4/3);
           const show=region.datasetReady && width>=160;
           region.style.width=Math.max(0,width)+'px';

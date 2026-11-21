@@ -35,6 +35,12 @@ For new or materially revised Coach, Generator, Prep & Recover and relevant More
 - Make interaction affordances clear: distinguish static information from controls, and provide accessible disclosure state, keyboard access and visible focus.
 - Explain meaningful decisions rather than automatic implementation behaviour.
 
+Active workout players (`#player`, `#workoutPlayer`) share one three-region layout (header, adaptive stage, reserved footer; see `docs/PLAYER_VIEWPORT.md`):
+
+- Show at-the-moment information inline: exercise, target, timer and only brief actionable side/load/safety/setup cues and protocol statuses. Put longer counting, setup or technique text in existing detail or How to do it disclosures.
+- Change shared player rules rather than adding per-workout or per-protocol layout overrides.
+- For player layout changes, inspect representative on-screen states (light/dark, compact, landscape, rep, timed, open instructions) with `scripts/verify-player-layout.py`, not only overflow assertions.
+
 ## Testing and reachability
 
 - Fast: `node --test --test-skip-pattern='\[Full\]' tests/*.test.js`; Full: `node --test tests/*.test.js` (all tests).

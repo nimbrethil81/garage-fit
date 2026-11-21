@@ -22,6 +22,10 @@ spec.loader.exec_module(timers)
 
 # These values simulate conservative iPhone safe areas even in Chromium, whose
 # desktop env(safe-area-inset-*) is otherwise always zero.
+def safe_area_style(top=47):
+    return SAFE_AREAS.replace('padding-top:47px','padding-top:%dpx'%top,1)
+
+
 SAFE_AREAS = """#app.active-player{padding-top:47px}
 #player,#workoutPlayer{padding-bottom:34px;padding-left:14px;padding-right:14px}
 .player-detail-surface{bottom:calc(var(--player-actions-height,54px) + 46px)}
@@ -95,8 +99,51 @@ METRICS = """({optional=false,allowReflow=false}={})=>{
    const d=p.querySelector('details[open] .player-detail-surface'),r=box(d);
    if(r.bottom>nav.y-4||r.y<bounds.y||r.height<60)failures.push('detail surface overlaps navigation/header');
  }
+ // #404 three regions: reserved header below the top safe inset, adaptive stage, footer.
+ const app=document.getElementById('app'),header=p.querySelector('.player-top,.workout-player-top'),hd=box(header),st=box(stage);
+ const safeTop=app.getBoundingClientRect().y+parseFloat(getComputedStyle(app).paddingTop);
+ if(hd.y<safeTop-0.5)failures.push('header above top safe inset');
+ const offset=parseFloat(getComputedStyle(header).paddingTop);
+ if(!Number.isInteger(offset)||offset!==parseFloat(getComputedStyle(p).getPropertyValue('--player-header-offset')))failures.push('header offset not the shared whole-pixel rule');
+ const items=[...header.children].filter(visible).map(box);
+ for(let i=1;i<items.length;i++)if(items[i].x<items[i-1].right-0.5)failures.push('header items collide');
+ const close=box(header.querySelector('.close-btn'));if(close.width<44||close.height<44)failures.push('exit target small');
+ const title=header.querySelector('.routine-name');if(title.scrollWidth>title.clientWidth+1)failures.push('header title overflows');
+ if(hd.bottom>st.y+0.5)failures.push('header overlaps stage');
+ if(!allowReflow&&st.bottom>nav.y+0.5)failures.push('stage overlaps footer');
+ if(!optional&&!allowReflow){
+  const shown=[...stage.querySelectorAll('*')].filter(e=>visible(e)&&!e.children.length&&e.textContent.trim()&&!e.closest('.player-detail-surface')).map(box);
+  if(shown.length){
+   const top=Math.min(...shown.map(r=>r.y)),bottom=Math.max(...shown.map(r=>r.bottom));
+   if(top-hd.bottom<4)failures.push('content crowds header');
+   if(nav.y-bottom<2)failures.push('content crowds footer');
+  }
+ }
+ const journey=p.querySelector('.overall-progress');
+ if(p.id==='workoutPlayer'){
+  const j=box(journey),row=box(controls.querySelector('.workout-secondary-controls')?.firstElementChild||primary);
+  // Only an open editor under a keyboard-height viewport may fold the journey.
+  if(!visible(journey)){if(!(allowReflow&&optional))failures.push('journey hidden')}
+  else{
+   if(!controls.contains(journey)||j.y<nav.y-0.5||j.bottom>nav.bottom+0.5)failures.push('journey outside reserved footer');
+   if(j.bottom>Math.min(pb.y,row.y)-2)failures.push('journey crowds navigation');
+  }
+  const summary=p.querySelector('#workoutCompletedValue');
+  if(visible(summary)&&summary.scrollWidth>summary.clientWidth+1)failures.push('journey summary clipped');
+  // Rep work allocates no ring space (no vacant timer area).
+  const host=p.querySelector('.workout-ring-host');
+  if(host.classList.contains('hidden')&&visible(host))failures.push('vacant ring allocation');
+ }else if(journey)failures.push('routine player gained a journey');
+ // Balance: untimed portrait work splits free space evenly above its content group
+ // and before the Pause control (or footer), rather than packing it at one edge.
+ if(!optional&&!allowReflow&&v.width<540&&p.clientHeight>580&&!visible(p.querySelector('.ring-wrap'))){
+  const pause=[...stage.querySelectorAll('#workoutPausedState,#routinePause')].find(visible);
+  const group=[...stage.querySelectorAll('*')].filter(e=>visible(e)&&!e.children.length&&e.textContent.trim()&&!e.closest('.player-detail-surface,#workoutPausedState,#routinePause')).map(box);
+  const above=Math.min(...group.map(r=>r.y))-st.y,below=(pause?box(pause).y:st.bottom)-Math.max(...group.map(r=>r.bottom));
+  if(Math.abs(above-below)>Math.max(24,(above+below)*0.25))failures.push('rep content not balanced in stage '+Math.round(above)+'/'+Math.round(below));
+ }
  if(!document.getElementById('bottomNav').classList.contains('hidden'))failures.push('tab bar consumes player space');
- return {player:p.id,viewport:[v.width,v.height],playerHeight:[p.scrollHeight,p.clientHeight],stageHeight:[stage.scrollHeight,stage.clientHeight],navigation:nav,ring,failures};
+ return {player:p.id,viewport:[v.width,v.height],playerHeight:[p.scrollHeight,p.clientHeight],stageHeight:[stage.scrollHeight,stage.clientHeight],header:hd,stage:st,navigation:nav,ring,failures};
 }"""
 
 
@@ -149,7 +196,7 @@ def optional_checks(page, report, output, label):
         if not summary.is_visible():continue
         # Exercise real summary activation; the panel must not pause playback.
         if 'Instruction' in selector:
-            page.locator(selector+' p').evaluate("e=>e.textContent+=' Keep your movement controlled and breathe steadily.'.repeat(60)")
+            page.locator(selector+'Text').evaluate("e=>e.textContent+=' Keep your movement controlled and breathe steadily.'.repeat(60)")
         summary.click();settle(page)
         check(page,report,label+'-'+selector[1:],optional=True)
         if 'Instruction' in selector:
@@ -285,6 +332,23 @@ def illustrated_checks(page, report, output, label):
             page.locator('#'+details+' .player-detail-close').click();settle(page)
 
 
+def header_equivalence_checks(browser, url):
+    """#404: both players place Exit/title/context identically below the top inset."""
+    for size,top in [((393,852),59),((390,844),47),((375,667),47),((375,540),47),((320,568),20),((667,375),0)]:
+        page=timers.fresh(browser,url,size);page.add_style_tag(content=safe_area_style(top))
+        heads={}
+        for name,start in [('routine',timers.ROUTINE),('fixed',timers.CHALLENGE),('generated',timers.GENERATED)]:
+            page.evaluate(start);settle(page)
+            heads[name]=page.evaluate("""()=>{const h=document.querySelector('main.screen:not(.hidden) :is(.player-top,.workout-player-top)'),b=e=>{const r=e.getBoundingClientRect();return [r.y,r.bottom]};
+              return {header:b(h),exit:b(h.querySelector('.close-btn')),offset:getComputedStyle(h).paddingTop}}""")
+        ref=heads['routine']
+        for name,head in heads.items():
+            assert abs(head['header'][0]-ref['header'][0])<0.5 and abs(head['exit'][0]-ref['exit'][0])<0.5 and head['offset']==ref['offset'],(size,name,heads)
+            assert head['header'][0]>=top,(size,name,head)
+        page.close()
+    print('Header equivalence passed: routine, fixed and generated players share header/Exit position at six viewports',flush=True)
+
+
 def shell_navigation_checks(browser, url):
     """The tab bar follows the visual viewport, including after player exit.
 
@@ -377,15 +441,86 @@ def standalone_root_checks(browser, url):
     return report
 
 
+# #404 representative states. Each entry is (label, setup JS). The setup only uses
+# public player entry points, so the same list captures before (main) and after.
+EVIDENCE_STATES=[
+    ('routine-work',timers.ROUTINE),
+    ('routine-paused',"document.getElementById('routineRing').click()"),
+    ('routine-rest',"document.getElementById('routineRing').click();enterRestOrNext()"),
+    ('routine-instructions',timers.ROUTINE+"setInstructionDisclosure('routineInstruction',CATALOGUE['trx-row']);document.querySelector('#routineInstruction>summary').click()"),
+    ('challenge-reps',timers.CHALLENGE+"for(let i=0;i<4;i++){__now+=500;completeWorkoutMovement()}"),
+    ('challenge-instructions',"document.querySelector('#workoutInstruction>summary').click()"),
+    ('challenge-long-name',timers.CHALLENGE+"document.getElementById('workoutExercise').textContent='Single-arm dumbbell bent-over row with pause'"),
+    ('fixed-amrap',"startResolvedFixedWorkout(FIXED_WORKOUTS.cindy);for(let i=0;i<4;i++){__now+=500;completeWorkoutMovement()}"),
+    ('generated-timed-work',timers.GENERATED+timers.TIMED),
+    ('generated-rest',"enterGeneratedPhase(generatorState.timeline.findIndex(p=>p.kind==='rest'||p.kind==='round-rest'))"),
+    ('generated-transition',"enterGeneratedPhase(generatorState.timeline.findIndex(p=>p.kind==='transition'||p.kind==='block-transition'))"),
+    ('generated-reps',"enterGeneratedPhase(generatorState.timeline.findIndex(p=>p.kind==='exercise'&&!p.timed&&p.section==='main'))"),
+    ('emom','PROTOCOLS;enterGeneratedPhase(generatorState.timeline.findIndex(p=>p.protocol==="emom"&&p.kind==="exercise"))'),
+    ('amrap','PROTOCOLS;enterGeneratedPhase(generatorState.timeline.findIndex(p=>p.protocol==="amrap"&&p.kind==="exercise"))'),
+    ('density','PROTOCOLS;enterGeneratedPhase(generatorState.timeline.findIndex(p=>p.protocol==="density"&&p.kind==="exercise"));document.getElementById("workoutExercise").textContent="Push-ups with a controlled lowering phase"'),
+    ('coach-anchor','COACH;enterGeneratedPhase(generatorState.timeline.findIndex(p=>p.exercise?.coachAnchor))'),
+    ('coach-anchor-edit',"document.querySelector('#coachAnchorEdit>summary').click()"),
+]
+
+
+def appearance_evidence(browser, url, output, blocks):
+    """Capture light/dark screenshots of representative states with true env() insets.
+
+    Safe areas are substituted into the served CSS (as the shell checks do), so the
+    app's own safe-area rules position the header and footer. Chromium emulation;
+    not a native iOS rasterisation or installed-PWA check.
+    """
+    output.mkdir(parents=True,exist_ok=True)
+    geometry={}
+    for size,insets in [((393,852),dict(top=59,bottom=34,side=0)),((320,568),dict(top=20,bottom=0,side=0)),((667,375),dict(top=0,bottom=21,side=47))]:
+        for theme in ['light','dark']:
+            page=browser.new_page(viewport={'width':size[0],'height':size[1]},device_scale_factor=2,has_touch=True)
+            page.set_default_timeout(60000)
+            def safe_areas(route,request=None):
+                response=route.fetch()
+                body=(response.text().replace('env(safe-area-inset-top)',f"{insets['top']}px")
+                      .replace('env(safe-area-inset-bottom)',f"{insets['bottom']}px")
+                      .replace('env(safe-area-inset-left)',f"{insets['side']}px").replace('env(safe-area-inset-right)',f"{insets['side']}px"))
+                route.fulfill(response=response,body=body)
+            page.route('**/index.html',safe_areas);page.route('**/css/*.css',safe_areas)
+            page.add_init_script(timers.CLOCK)
+            page.goto(url.rstrip('/')+'/index.html')
+            page.wait_for_function("typeof coachUI!=='undefined' && coachUI")
+            page.add_style_tag(content='*,*::before,*::after{transition:none!important;animation:none!important}')
+            page.evaluate('(theme)=>document.documentElement.dataset.appearance=theme',theme)
+            for name,setup in EVIDENCE_STATES:
+                if setup.startswith('PROTOCOLS;'):
+                    protocols(page,blocks);setup=setup[len('PROTOCOLS;'):]
+                elif setup.startswith('COACH;'):
+                    timers.start_coach(page);setup=setup[len('COACH;'):]
+                page.evaluate('()=>{'+setup+'}')
+                settle(page);page.mouse.move(0,0)
+                label=f'{size[0]}x{size[1]}-{theme}-{name}'
+                page.screenshot(path=str(output/(label+'.png')),animations='disabled')
+                geometry[label]=page.evaluate("""()=>{const p=document.querySelector('main.screen:not(.hidden)'),b=e=>{if(!e||!e.getClientRects().length)return null;const r=e.getBoundingClientRect();return [Math.round(r.x),Math.round(r.y),Math.round(r.width),Math.round(r.height)]};
+                  return {header:b(p.querySelector('.player-top,.workout-player-top')),stage:b(p.querySelector('.routine-stage,.workout-stage')),footer:b(p.querySelector('.controls,.workout-actions')),ring:b(p.querySelector('.ring-wrap:not(.hidden)'))}}""")
+                # Leave the state that follows from a clean player.
+                if name.endswith(('instructions','edit')):page.evaluate("document.querySelectorAll('details[open]').forEach(d=>d.open=false)")
+            page.close()
+            print('Evidence captured:',size,theme,flush=True)
+    (output/'evidence-geometry.json').write_text(json.dumps(geometry,indent=2)+'\n')
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--url',default='http://127.0.0.1:8000')
     parser.add_argument('--output',type=Path,default=Path('/tmp/player-layout'))
     parser.add_argument('--navigation-only',action='store_true',help='Check the primary tab shell without running player fixtures')
+    parser.add_argument('--evidence-only',action='store_true',help='Capture light/dark representative screenshots (evidence/) without the full matrix')
     args=parser.parse_args();args.output.mkdir(parents=True,exist_ok=True)
     report=[]
     with sync_playwright() as p:
         browser=p.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH','/usr/bin/chromium'),args=['--no-sandbox'])
+        if args.evidence_only:
+            appearance_evidence(browser,args.url,args.output/'evidence',fixture_blocks())
+            browser.close()
+            return
         navigation=standalone_root_checks(browser,args.url)
         shell_navigation_checks(browser,args.url)
         (args.output/'navigation-report.json').write_text(json.dumps(navigation,indent=2))
@@ -393,11 +528,14 @@ def main():
             browser.close()
             return
         blocks=fixture_blocks()
+        appearance_evidence(browser,args.url,args.output/'evidence',blocks)
         instruction_speech_checks(browser,args.url)
+        header_equivalence_checks(browser,args.url)
         timers.native_entry_checks(browser,args.url)
         for size in [(375,667),(390,844),(393,852),(430,932),(375,540),(320,568),(360,640),(667,375)]:
             label=f'{size[0]}x{size[1]}'
-            page=timers.fresh(browser,args.url,size);page.add_style_tag(content=SAFE_AREAS+'\n*,*::before,*::after{transition:none!important;animation:none!important}')
+            # #404: the iPhone 15 case uses its measured 59px top inset.
+            page=timers.fresh(browser,args.url,size);page.add_style_tag(content=safe_area_style(59 if size==(393,852) else 47)+'\n*,*::before,*::after{transition:none!important;animation:none!important}')
             illustrated_checks(page,report,args.output,label)
             page.evaluate(timers.ROUTINE)
             check(page,report,label+'-routine');capture(page,args.output,label+'-routine')
