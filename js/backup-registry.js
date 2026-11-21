@@ -36,6 +36,8 @@
     gf_desk_break_recent_v1: json(value => sessionIds(value)
       && value.every(session => session.length === 6 && new Set(session).size === 6)),
     gf_post_run_recent_v1: json(ids),
+    gf_evening_reset_recent_v1: json(value => sessionIds(value)
+      && value.every(session => session.length > 0 && new Set(session).size === session.length)),
     gf_appearance_v1: oneOf(['automatic', 'light', 'dark']),
     gf_spoken_voice_v1: json(value => value === null || (object(value)
       && ['voiceURI', 'name', 'lang'].every(key => typeof value[key] === 'string')

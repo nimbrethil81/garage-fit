@@ -96,7 +96,7 @@ function loadApp() {
   };
   context.window = context; context.globalThis = context;
   vm.createContext(context);
-  for (const file of ['data/equipment.js','data/exercises.js','data/workouts.js','data/workout-families.js','js/workout-families.js','js/generator.js','js/routine-generator.js','js/desk-break.js','js/ab-blast.js','js/training-history.js','js/timed-cues.js','js/speech-voices.js','js/completion-signal.js','js/coach-model.js','js/coach-store.js','js/first-use.js','js/session-tracker.js','js/workout-preview.js','js/masthead.js','js/back-navigation.js','js/progress-ui.js']) {
+  for (const file of ['data/equipment.js','data/exercises.js','data/workouts.js','data/workout-families.js','js/workout-families.js','js/generator.js','js/routine-generator.js','js/desk-break.js','js/ab-blast.js','js/evening-reset.js','js/training-history.js','js/timed-cues.js','js/speech-voices.js','js/completion-signal.js','js/coach-model.js','js/coach-store.js','js/first-use.js','js/session-tracker.js','js/workout-preview.js','js/masthead.js','js/back-navigation.js','js/progress-ui.js']) {
     vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), context, { filename:file });
   }
   const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].at(-1)[1];
@@ -129,7 +129,7 @@ test('preview launches the same plan and completes every timed step exactly once
   assert.equal(elements.doneTitle.textContent,'Post Run Stretch Complete');
 });
 
-test('the timed-sequence player suppresses Ab Blast instructions but retains them for Evening Full-Body Reset',()=>{
+test('the timed-sequence player suppresses Ab Blast instructions; the Evening Full-Body Reset player retains them',()=>{
   const ab=loadApp(),abUi=ab.context.GarageFitWorkoutUI;
   let seed=1;
   ab.context.Math=Object.create(Math);
@@ -153,17 +153,22 @@ test('the timed-sequence player suppresses Ab Blast instructions but retains the
   assert.ok(ab.spoken.includes(abCue));
   assert.ok(!ab.spoken.includes(ab.context.GarageFitData.exercises[abTarget.id].instruction));
 
-  const evening=loadApp(),eveningUi=evening.context.GarageFitWorkoutUI;
-  eveningUi.startTimedSequenceWorkout('eveningFullBodyReset');
+  const evening=loadApp(),eveningUi=evening.context.GarageFitWorkoutUI,eveningCatalogue=evening.context.GarageFitData.exercises;
+  // Regenerate the preview until it contains a narrated exercise, then play to it.
+  eveningUi.openWorkoutDetail('eveningFullBodyReset');
+  for(guard=0;!eveningUi.detailDefinition('eveningFullBodyReset').exercises.some(ex=>eveningCatalogue[ex.id].voiceInstruction);guard++){
+    assert.ok(guard<50,'a preview includes a narrated exercise');
+    eveningUi.openWorkoutDetail('eveningFullBodyReset');
+  }
+  eveningUi.startSelectedWorkout();
+  const narrated=vm.runInContext('state.list',evening.context).find(ex=>eveningCatalogue[ex.id].voiceInstruction);
   guard=0;
-  while(vm.runInContext('state.list[state.idx].id',evening.context)!=='dead-bug'){
-    assert.ok(guard++<20,'player reaches Dead bug in Evening Full-Body Reset');
+  while(vm.runInContext('state.phase',evening.context)!=='work'||vm.runInContext('state.list[state.idx].id',evening.context)!==narrated.id){
+    assert.ok(guard++<40,'player reaches the narrated Evening exercise');
     const timer=vm.runInContext('state.timer',evening.context),remaining=vm.runInContext('state.remaining',evening.context);
     tick(evening.intervals,timer,remaining);
   }
-  const deadBug=evening.context.GarageFitData.exercises['dead-bug'];
-  assert.equal(deadBug.voiceInstruction,true);
-  assert.ok(evening.spoken.includes(deadBug.instruction));
+  assert.ok(evening.spoken.includes(eveningCatalogue[narrated.id].instruction));
 });
 
 test('fixed stretch timer ignores queued callbacks and rapid Next at boundaries',()=>{
@@ -201,7 +206,8 @@ test('existing fixed workouts remain unaffected by the new fixed-sequence engine
   assert.equal(cindy.termination.type, 'amrap');
   assert.equal(abBlast.termination.type, 'timed-sequence');
   assert.equal(workout300.termination.type, 'fixed-rounds');
-  assert.equal(evening.termination.type, 'timed-sequence');
+  assert.equal(evening.termination.type, 'fixed-sequence');
+  assert.equal(evening.termination.durationSeconds, 360);
 });
 
 test('stretch pause preserves time, resume advances and exit invalidates old ticks',()=>{
@@ -240,8 +246,15 @@ function runToEnd(context,intervals){
     intervals.get(vm.runInContext('state.timer',context))();
   }
 }
-for(const id of ['deskBreak','postRunReset']){
-  const start=c=>id==='deskBreak'?c.GarageFitWorkoutUI.startDeskBreak():c.GarageFitWorkoutUI.startFixedSequenceWorkout(id);
+function startSpecialist(c,id){
+  if(id==='deskBreak')return c.GarageFitWorkoutUI.startDeskBreak();
+  if(id==='eveningFullBodyReset'){c.GarageFitWorkoutUI.openWorkoutDetail(id);return c.GarageFitWorkoutUI.startSelectedWorkout();}
+  return c.GarageFitWorkoutUI.startFixedSequenceWorkout(id);
+}
+const SPECIALIST_SECTIONS={deskBreak:()=>'movement-break',postRunReset:()=>'cooldown',
+  eveningFullBodyReset:(ex)=>ex.cooldown?'cooldown':'movement-break'};
+for(const id of ['deskBreak','postRunReset','eveningFullBodyReset']){
+  const start=c=>startSpecialist(c,id);
   test(id+' saves actual occurrences once, with non-Main evidence and no Coach draft writes',async()=>{
     const {context,intervals}=loadApp();
     // A persisted live draft must remain byte-for-byte untouched, even if it is unreadable.
@@ -255,14 +268,22 @@ for(const id of ['deskBreak','postRunReset']){
     runToEnd(context,intervals);oldTick();
     const results=await saved(context);assert.equal(results.length,1);
     const result=results[0];assert.equal(result.source,'fixed');assert.equal(result.workoutId,id);
-    assert.equal(result.finalStatus,'completed');assert.equal(result.plannedWork.length,id==='deskBreak'?6:10);
+    assert.equal(result.finalStatus,'completed');assert.equal(result.plannedWork.length,id==='deskBreak'?6:id==='postRunReset'?10:list.length);
     assert.deepEqual(Array.from(result.plannedWork,p=>p.exerciseId),Array.from(list,e=>e.id));
     assert.equal(result.performedWork.length,result.plannedWork.length);
     result.performedWork.forEach((p,i)=>{assert.equal(p.status,'completed');assert.equal(p.sets[0].seconds,list[i].work);assert.equal(p.sets[0].reps,undefined);});
     assert.equal(result.actualDurationSeconds,list.reduce((sum,e)=>sum+e.work+e.rest,3));
     assert.equal(new Set(result.plannedWork.map(p=>p.occurrenceId)).size,result.plannedWork.length);
-    assert.ok(result.plannedWork.every(p=>p.section===(id==='deskBreak'?'movement-break':'cooldown')));
+    assert.ok(result.plannedWork.every(p=>p.section===SPECIALIST_SECTIONS[id](context.GarageFitData.exercises[p.exerciseId])));
     if(id==='postRunReset')assert.deepEqual(Array.from(result.plannedWork,p=>p.prescription.side),Array.from({length:10},(_,i)=>i%2?'left':'right'));
+    if(id==='eveningFullBodyReset'){
+      const plan=JSON.parse(context.localStorage.getItem('gf_evening_reset_recent_v1')).at(-1);
+      assert.deepEqual(plan,[...new Set(list.map(e=>e.id))]);
+      assert.deepEqual(Array.from(result.plannedWork,p=>p.prescription.side||null),Array.from(list,e=>/ - Right$/.test(e.name)?'right':/ - Left$/.test(e.name)?'left':null));
+      assert.equal(result.actualDurationSeconds,363);
+      assert.equal(context.GarageFitProgressUI.label(result),'Evening Full-Body Reset');
+      assert.equal(context.GarageFitProgressUI.classification(result),'Recovery');
+    }
     const history=context.GarageFitTrainingHistory.createHistory(results,context.GarageFitData.exercises);
     assert.equal(history.recentTrainingSummary().sessions.length,0);
     assert.equal(history.recentTrainingSummary({sections:['movement-break','cooldown']}).sessions.length,1);
@@ -295,18 +316,15 @@ for(const id of ['deskBreak','postRunReset']){
     context.goWorkouts();stale();assert.equal((await saved(context)).length,0);
     start(context);context.localStorage.setItem=()=>{throw Error('blocked');};
     runToEnd(context,intervals);await settleHistory();
-    assert.equal(elements.doneTitle.textContent,id==='deskBreak'?'Desk Break Complete':'Post Run Stretch Complete');
+    assert.equal(elements.doneTitle.textContent,({deskBreak:'Desk Break',postRunReset:'Post Run Stretch',eveningFullBodyReset:'Evening Full-Body Reset'})[id]+' Complete');
     assert.match(elements.doneSub.textContent,/History could not be saved/);
   });
 }
 
-test('rapidly skipping every specialist occurrence records no performed credit; unrelated fixed workouts record nothing',async()=>{
+test('rapidly skipping every specialist occurrence records no performed credit',async()=>{
   for(const id of ['deskBreak','postRunReset','eveningFullBodyReset']){
     const {context,intervals}=loadApp();
-    if(id==='deskBreak')context.GarageFitWorkoutUI.startDeskBreak();
-    else if(id==='postRunReset')context.GarageFitWorkoutUI.startFixedSequenceWorkout(id);
-    else context.GarageFitWorkoutUI.startTimedSequenceWorkout(id);
-    if(id==='eveningFullBodyReset'){runToEnd(context,intervals);assert.equal((await saved(context)).length,0);continue;}
+    startSpecialist(context,id);
     let count=0;
     while(vm.runInContext('state.running',context)){
       assert.ok(count++<40);
@@ -319,14 +337,14 @@ test('rapidly skipping every specialist occurrence records no performed credit; 
 });
 
 test('tracked specialist completion acknowledges first use, while skipped-only and failed saves do not',async()=>{
-  for(const id of ['deskBreak','postRunReset'])for(const kind of ['performed','skipped','failed']){
+  for(const id of ['deskBreak','postRunReset','eveningFullBodyReset'])for(const kind of ['performed','skipped','failed']){
     const {context,intervals,elements}=loadApp();
     await vm.runInContext('firstUse.ready',context);
     if(kind==='failed'){
       const original=context.localStorage.setItem;
       context.localStorage.setItem=(key,value)=>{if(key.startsWith('gf_coach_'))throw Error('full');original(key,value);};
     }
-    id==='deskBreak'?context.GarageFitWorkoutUI.startDeskBreak():context.GarageFitWorkoutUI.startFixedSequenceWorkout(id);
+    startSpecialist(context,id);
     if(kind==='skipped'){
       while(vm.runInContext('state.running',context))
         (id==='deskBreak'?context.GarageFitWorkoutUI.skipTimedPhase:context.GarageFitWorkoutUI.skipFixedSequence)();

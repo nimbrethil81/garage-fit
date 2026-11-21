@@ -9,7 +9,7 @@
     return !exercise || !!exercise.load || (exercise.equipment || []).some(group => group.includes('bands'));
   }
   const timestamp = result => result.endedAt || result.startedAt;
-  const supporting = result => result.source === 'fixed' && ['deskBreak','postRunReset','abBlast'].includes(result.workoutId);
+  const supporting = result => result.source === 'fixed' && ['deskBreak','postRunReset','abBlast','eveningFullBodyReset'].includes(result.workoutId);
   function isTraining(result) {
     if (supporting(result) || !['coach','generator','fixed'].includes(result.source)
       || !['completed','partial'].includes(result.finalStatus)) return false;
@@ -19,7 +19,7 @@
   }
   function label(result) {
     if (result.source === 'fixed' && result.workoutId === 'abBlast') return '5-Minute Ab Blast';
-    if (supporting(result)) return result.workoutId === 'deskBreak' ? 'Desk Break' : 'Post-run Stretch';
+    if (supporting(result)) return ({deskBreak:'Desk Break',eveningFullBodyReset:'Evening Full-Body Reset'})[result.workoutId] || 'Post-run Stretch';
     return root.GarageFitCoachProgressUI.workoutIdentity(result)?.label || 'Recorded session';
   }
   const classification = result => result.source === 'fixed' && result.workoutId === 'abBlast' ? 'Core' : supporting(result) ? result.workoutId === 'deskBreak' ? 'Movement break' : 'Recovery'

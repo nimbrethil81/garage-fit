@@ -153,12 +153,15 @@ test('fixed timed and mixed sequences retain exercise ids for the shared player'
   context.clearInterval=id=>intervals.delete(id);
   context.document.readyState='loading';
   vm.runInContext(fs.readFileSync(path.join(__dirname,'../js/workouts-ui.js'),'utf8'),context);
-  context.GarageFitWorkoutUI.startTimedSequenceWorkout('eveningFullBodyReset');
+  context.GarageFitWorkoutUI.openWorkoutDetail('eveningFullBodyReset');
+  context.GarageFitWorkoutUI.startSelectedWorkout();
   vm.runInContext("state.idx=4",context);
   const readyTimer=vm.runInContext('state.timer',context);
   for(let second=0;second<3;second++) intervals.get(readyTimer)();
+  const eveningId=vm.runInContext('state.list[4].id',context);
   assert.equal(el('routineInstruction').classList.contains('hidden'),false);
-  assert.match(el('routineInstructionText').textContent,/back against a wall/);
+  assert.equal(el('routineInstructionText').textContent,context.GarageFitData.exercises[eveningId].instruction);
+  vm.runInContext('state.running=false',context);
   context.GarageFitWorkoutUI.startFixedSequenceWorkout('postRunReset');
   assert.ok(['standing-calf-stretch','bent-knee-calf-stretch'].includes(vm.runInContext('state.list[0].id',context)));
   assert.equal(vm.runInContext('state.list[0].work',context),35);
