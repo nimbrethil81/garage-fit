@@ -402,6 +402,7 @@ test('generation failure explains itself, disables Start and never launches a st
   ui.startSelectedWorkout();
   assert.equal(vm.runInContext('state.running', context), false);
   assert.match(elements.challenge300Error.textContent, /could not start\. The plan must last exactly six minutes\./);
+  assert.equal(ui.detailDefinition('eveningFullBodyReset').exercises.length, 0, 'the refused plan is no longer listed');
   assert.equal(elements.fixedWorkoutDetailStart.disabled, true);
   assert.equal(storage.has('gf_evening_reset_recent_v1'), false);
 });

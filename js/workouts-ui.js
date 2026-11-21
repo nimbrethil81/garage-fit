@@ -164,7 +164,7 @@
   function startEveningReset(){
     var api=root.GarageFitEveningReset,plan=selectedEveningPlan;if(!plan||!api)return;
     var validation=api.validate(plan);
-    if(!validation.valid){selectedEveningPlan=null;eveningError='Evening Full-Body Reset could not start. '+validation.errors.join(' ');renderChallengeControls();return;}
+    if(!validation.valid){selectedEveningPlan=null;eveningError='Evening Full-Body Reset could not start. '+validation.errors.join(' ');renderExercises(detailDefinition('eveningFullBodyReset'));renderChallengeControls();return;}
     var workout=JSON.parse(JSON.stringify(plan));selectedEveningPlan=null;
     api.recordStarted(postRunStorage(),workout);
     return startFixedSequencePlan(workout);
