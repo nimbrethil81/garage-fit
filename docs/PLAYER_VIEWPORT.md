@@ -270,7 +270,10 @@ they hid the cards. For the 300-Rep Challenge only the load cue (for loaded
 exercises: self-selected manageable resistance, never maximal) stays visible as
 the prescribed load/safety note. Its counting and setup sentences moved to the
 How to do it disclosure as a guidance paragraph after the catalogue instruction;
-manual narration reads both. The pre-workout detail still lists all three
+manual narration reads both. Product decision (21 November 2026, PR #418, option A):
+no setup or technique line stays visible during 300-Rep work, including the
+suspension-strap anchor cue and "stop before technique fails"; these remain on the
+pre-workout detail and under How to do it. The pre-workout detail still lists all three
 unchanged. Generated notes (side, load, setup transition), EMOM, density, AMRAP
 and Coach statuses, confirmations and errors are unchanged.
 
