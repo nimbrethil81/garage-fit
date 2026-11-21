@@ -117,9 +117,12 @@ test('generated cards share the exact decorative shuffle symbol and accessible d
   const source=fs.readFileSync(path.join(root,'js/workouts-ui.js'),'utf8');
   const context={document:{readyState:'loading'},addEventListener(){}};
   context.window=context;vm.createContext(context);vm.runInContext(source,context);
-  assert.deepEqual(Object.keys(context.GarageFitWorkoutUI.cardMeta).filter(id=>context.GarageFitWorkoutUI.cardMeta[id].generated),['abBlast','workout300','eveningFullBodyReset','postRunReset']);
+  assert.deepEqual(Object.keys(context.GarageFitWorkoutUI.cardMeta).filter(id=>context.GarageFitWorkoutUI.cardMeta[id].generated),['abBlast','workout300','lowImpact','eveningFullBodyReset','postRunReset']);
   assert.equal(context.GarageFitWorkoutUI.cardMeta.postRunReset.number,'6');
-  assert.deepEqual(Object.fromEntries(Object.entries(context.GarageFitWorkoutUI.cardMeta).filter(([id])=>id!=='postRunReset').map(([id,meta])=>[id,meta.number])),{sevenMinute:'7',abBlast:'5',workout300:'300',eveningFullBodyReset:'6'});
+  assert.deepEqual(Object.fromEntries(Object.entries(context.GarageFitWorkoutUI.cardMeta).filter(([id])=>id!=='postRunReset').map(([id,meta])=>[id,meta.number])),{sevenMinute:'7',abBlast:'5',workout300:'300',lowImpact:'10–30',eveningFullBodyReset:'6'});
+  // #421: Low Impact shows its duration range rather than a misleading single duration.
+  assert.equal(context.GarageFitWorkoutUI.cardMeta.lowImpact.range,true);
+  assert.deepEqual(Object.entries(context.GarageFitWorkoutUI.cardMeta).filter(([,meta])=>meta.range).map(([id])=>id),['lowImpact']);
   assert.match(source,/setAttribute\('aria-description','Generated workout'\)/);
   assert.match(source,/class="icon workout-generated-icon" aria-hidden="true"><use href="#icon-shuffle"/);
   const desk=source.slice(source.indexOf('function addDeskBreakCard'),source.indexOf('function cleanCatalogue'));

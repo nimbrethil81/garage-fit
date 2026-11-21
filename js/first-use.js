@@ -4,7 +4,7 @@
   // Presentation only. Equipment and completion remain owned by their existing stores.
   function eligible(result){
     return !!result && ['generator','coach','fixed'].includes(result.source)
-      && (result.source!=='fixed'||['deskBreak','postRunReset','abBlast','eveningFullBodyReset'].includes(result.workoutId))
+      && (result.source!=='fixed'||['deskBreak','postRunReset','abBlast','eveningFullBodyReset','lowImpact'].includes(result.workoutId))
       && result.finalStatus==='completed' && (result.performedWork||[]).some(work=>
         ['completed','partial'].includes(work.status) && (!(work.sets||[]).some(set=>set.reps!=null||set.seconds!=null)
           || work.sets.some(set=>set.reps>0||set.seconds>0)));
@@ -29,7 +29,7 @@
           const preferenceKeys=['gf_equipment','gf_equipment_inventory','gf_equipment_configured',
             'gf_300_pb_seconds','gf_amrap_results','gf_generator_duration','gf_generator_focus',
             'gf_generator_difficulty','gf_generator_body_focus','gf_generator_history','gf_routine_variant',
-            'gf_routine_recent_v1','gf_post_run_recent_v1','gf_desk_break_recent_v1','gf_evening_reset_recent_v1',
+            'gf_routine_recent_v1','gf_post_run_recent_v1','gf_desk_break_recent_v1','gf_evening_reset_recent_v1','gf_low_impact_recent_v1',
             'gf_appearance_v1','gf_spoken_voice_v1','gf_workout_diagnostics_v1'];
           const legacy=preferenceKeys.some(key=>storage.getItem(key)!==null)||await store.hasInstallationEvidence();
           if(!persist({version:1,audience:legacy?'existing':'new',explored:false,modes:[],acknowledged:null}))return;
