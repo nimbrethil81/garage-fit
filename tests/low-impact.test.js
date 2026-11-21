@@ -101,8 +101,9 @@ function assertSoundPlan(plan, duration) {
     assert.ok(at.length <= (duration >= 20 ? 2 : 1), id + ' repeats too often');
     if (at.length === 2) assert.ok(at[1] - at[0] > 5, id + ' repeat is spaced');
   }
-  const pushUps = slots.filter(slot => slot.id === 'push-up').length;
-  assert.ok(pushUps <= (duration === 30 ? 2 : 1), 'press-ups do not dominate');
+  const pushUps = slots.filter(slot => slot.id === 'push-up');
+  assert.ok(pushUps.length <= (duration === 30 ? 2 : 1), 'press-ups do not dominate');
+  pushUps.forEach(slot => assert.ok(slot.steps[0].durationSeconds >= 30 && slot.steps[0].durationSeconds <= 35, 'moderate press-up dose'));
   // Main covers lower body, upper body/core and low-impact conditioning.
   const mainEx = main.map(slot => catalogue[slot.id]);
   assert.ok(mainEx.some(ex => ex.patterns.includes('squat') || ex.patterns.includes('lunge')), 'lower-body strength');
@@ -140,7 +141,7 @@ test('bounded seeded plans for every duration are exact, phased, sided, grouped 
   }
 });
 
-test('standard press-ups, standing and floor work are reachable at every duration', () => {
+test('standard press-ups, balance, standing and floor work are reachable at every duration', () => {
   for (const duration of DURATIONS) {
     const random = seeded(7 * duration), found = new Set(), withPushUps = [];
     for (let run = 0; run < 40; run++) {
@@ -150,6 +151,7 @@ test('standard press-ups, standing and floor work are reachable at every duratio
     }
     assert.ok(found.has('push-up'), 'push-up reachable at ' + duration + ' min');
     assert.ok(withPushUps.includes(false), 'push-ups are not compulsory at ' + duration + ' min');
+    assert.ok([...found].some(id => POOL.get(id).tags.includes('balance')), 'balance work reachable at ' + duration + ' min');
     assert.ok([...found].some(id => catalogue[id].bodyPosition === 'standing' && POOL.get(id).section === 'main'));
     assert.ok([...found].some(id => catalogue[id].bodyPosition === 'floor' && POOL.get(id).section === 'main'));
   }
@@ -166,6 +168,20 @@ test('[Full] every curated Low Impact exercise is reachable across bounded seede
     }
   }
   assert.deepEqual([...POOL.keys()].filter(id => !found.has(id)), []);
+});
+
+test('formerly exhausted 30-minute seeds and a bounded random sweep generate quickly without failure', () => {
+  // Independent review found seeds 59, 399 and 508 exhausted the search after about two seconds.
+  for (const seed of [59, 399, 508]) {
+    const started = Date.now();
+    assertSoundPlan(Low.generate({ duration: 30, random: seeded(seed) }), 30);
+    assert.ok(Date.now() - started < 500, 'seed ' + seed + ' is fast');
+  }
+  for (const duration of DURATIONS) {
+    const random = seeded(9000 + duration), started = Date.now();
+    for (let run = 0; run < 200; run++) Low.generate({ duration, random });
+    assert.ok(Date.now() - started < 4000, duration + ' min generation stays bounded');
+  }
 });
 
 test('every selectable exercise passes setup, noise, space, impact and timed-prescription checks', () => {
@@ -274,6 +290,8 @@ test('playback validation rejects malformed durations, sides, phases and sequenc
     'back to back': p => { p.exercises[1] = { ...p.exercises[0] }; },
     'extra press-up': p => { const index = p.exercises.findIndex(step => step.section === 'main' && step.position === 'floor' && step.id !== 'push-up' && !step.side); Object.assign(p.exercises[index], { id: 'push-up', name: 'Push-ups' }); },
     'empty': p => { p.exercises = []; },
+    'name contradicts side': p => { p.exercises[perSide].name = p.exercises[perSide].name.replace(/Right$/, 'Left'); },
+    'renamed exercise': p => { p.exercises[0].name = 'Something else'; },
     'reversed sides': p => { p.exercises[perSide].side = 'left'; p.exercises[perSide + 1].side = 'right'; },
     'unequal sides': p => { p.exercises[perSide].durationSeconds += 5; p.exercises[perSide + 1].durationSeconds -= 5; },
     'one side only': p => { const [first, second] = p.exercises.splice(perSide, 2); first.durationSeconds *= 2; first.transitionAfter = second.transitionAfter + 5; p.exercises.splice(perSide, 0, first); }
@@ -409,6 +427,8 @@ test('detail opens at 20 minutes with an accessible duration choice and a full p
   assert.equal(elements.fixedWorkoutDetailStart.disabled, false);
   assert.equal(elements.challenge300Error.textContent, '');
   assert.match(fs.readFileSync(path.join(root, 'js/workouts-ui.js'), 'utf8'), /<h2 id="lowImpactDurationLabel">Duration<\/h2><div class="choice-row" id="lowImpactDurationChoices" role="group" aria-labelledby="lowImpactDurationLabel">/);
+  // The choice sits at the top of the detail, directly under the title and above the description and preview.
+  assert.match(fs.readFileSync(path.join(root, 'js/workouts-ui.js'), 'utf8'), /id="fixedWorkoutDetailTitle"><\/h2><div class="generator-card fixed-detail-duration hidden" id="lowImpactDuration">[\s\S]*?<\/div><\/div><p class="fixed-detail-description"/);
   const buttons = durationButtons(elements);
   assert.deepEqual(buttons.map(button => button.textContent), ['10 min', '15 min', '20 min', '30 min']);
   assert.deepEqual(buttons.map(button => button.getAttribute('aria-pressed')), ['false', 'false', 'true', 'false']);

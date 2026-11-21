@@ -35,14 +35,15 @@
     5: [['pulse'], ['upper'], ['trunk'], ['lower'], ['pulse']]
   };
   var BLOCK_SLOTS = {
-    standing: { 3: [['cardio', 'punch'], ['lower'], ['cardio', 'punch']], 4: [['lower'], ['cardio', 'punch'], ['lower', 'balance'], ['cardio', 'punch']] },
+    standing: { 3: [['cardio', 'punch'], ['lower'], ['cardio', 'punch', 'balance']], 4: [['lower'], ['cardio', 'punch'], ['lower', 'balance'], ['cardio', 'punch']],
+      5: [['lower'], ['cardio', 'punch'], ['lower', 'balance'], ['cardio', 'punch'], ['cardio', 'punch', 'balance']] },
     floor: { 3: [['support'], ['core'], ['support']], 4: [['support'], ['core'], ['support', 'core'], ['core']] }
   };
   var PROFILES = {
     10: { warmup: 120, main: 420, cooldown: 60, warmupSlots: 3, blocks: [['standing', 4], ['floor', 4]], cooldownSlots: 2, repeats: 1, pushUps: 1 },
     15: { warmup: 120, main: 660, cooldown: 120, warmupSlots: 3, blocks: [['standing', 3], ['floor', 3], ['standing', 3], ['floor', 3]], cooldownSlots: 3, repeats: 1, pushUps: 1 },
-    20: { warmup: 180, main: 900, cooldown: 120, warmupSlots: 4, blocks: [['standing', 4], ['floor', 4], ['standing', 4], ['floor', 4]], cooldownSlots: 3, repeats: 2, pushUps: 1 },
-    30: { warmup: 240, main: 1380, cooldown: 180, warmupSlots: 5, blocks: [['standing', 4], ['floor', 4], ['standing', 4], ['floor', 4], ['standing', 4], ['floor', 4]], cooldownSlots: 4, repeats: 2, pushUps: 2 }
+    20: { warmup: 180, main: 900, cooldown: 120, warmupSlots: 4, blocks: [['standing', 5], ['floor', 4], ['standing', 4], ['floor', 4]], cooldownSlots: 3, repeats: 2, pushUps: 1 },
+    30: { warmup: 240, main: 1380, cooldown: 180, warmupSlots: 5, blocks: [['standing', 5], ['floor', 4], ['standing', 5], ['floor', 4], ['standing', 5], ['floor', 4]], cooldownSlots: 4, repeats: 2, pushUps: 2 }
   };
   // A repeated Main movement must be in a later block with at least this many slots between.
   var REPEAT_GAP = 5;
@@ -93,7 +94,7 @@
     ['boxing-slip-and-punch', 'main', 'standing', ['punch'], 'boxing-steps', { max: 45 }],
 
     // Main, floor: upper-body strength (standard press-ups), supported holds and core.
-    ['push-up', 'main', 'floor', ['support', 'push'], 'push-up', { max: 40 }],
+    ['push-up', 'main', 'floor', ['support', 'push'], 'push-up', { max: 35 }],
     ['plank', 'main', 'floor', ['support'], 'plank-hold', { max: 45 }],
     ['bear-plank-hold', 'main', 'floor', ['support'], 'plank-hold', { max: 30 }],
     ['bear-plank-shoulder-taps', 'main', 'floor', ['support'], 'plank-taps', { max: 40 }],
@@ -210,6 +211,9 @@
     if (current.position !== next.position) return CHANGE.position;
     return CHANGE[current.section];
   }
+  // Supported press-ups and holds are the most demanding work, so lighter movements take
+  // extra time first and these stay nearer their minimum dose.
+  function demanding(entry) { return entry.tags.includes('support'); }
   // Distribute a phase's exact work time over its activities in 5-second steps, as evenly
   // as each entry's bounds allow. Returns per-activity seconds (per side when per-side).
   function fitPhase(entries, workSeconds) {
@@ -217,11 +221,12 @@
     var sides = entries.map(function (entry) { return entry.perSide ? 2 : 1; });
     var diff = workSeconds - values.reduce(function (sum, value, i) { return sum + value * sides[i]; }, 0);
     if (diff < 0 || diff % 5) return null;
+    function weight(i) { return values[i] * sides[i] + (demanding(entries[i]) ? 15 : 0); }
     while (diff > 0) {
       var best = -1;
       for (var i = 0; i < entries.length; i++) {
         if (values[i] + 5 > entries[i].max || 5 * sides[i] > diff) continue;
-        if (best < 0 || values[i] * sides[i] < values[best] * sides[best]) best = i;
+        if (best < 0 || weight(i) < weight(best)) best = i;
       }
       if (best < 0) return null;
       values[best] += 5; diff -= 5 * sides[best];
@@ -248,21 +253,45 @@
     var catalogue = options.catalogue || root.GarageFitData.exercises;
     var random = options.random || Math.random;
     var recent = new Set(Array.isArray(options.recent) ? options.recent.slice(-RECENT_SESSIONS).flat() : []);
-    var pool = eligible(catalogue).map(function (entry) { return { entry: entry, order: random() }; });
+    var eligibleEntries = eligible(catalogue);
     var slots = slotPlan(profile);
-    var timings = {};
-    var nodes = 0;
+    var pool, timings, nodes;
+    function matches(entry, slot) {
+      return entry.section === slot.section && entry.position === slot.position &&
+        entry.tags.some(function (tag) { return slot.tags.includes(tag); });
+    }
+    // Per-slot work bounds and fixed changeovers let the search abandon a partial phase as
+    // soon as its exact time can no longer be met, instead of exhausting later slots.
+    var bounds = slots.map(function (slot) {
+      var list = eligibleEntries.filter(function (entry) { return matches(entry, slot); });
+      return { min: Math.min.apply(null, list.map(function (entry) { return entry.min * (entry.perSide ? 2 : 1); })),
+        max: Math.max.apply(null, list.map(function (entry) { return entry.max * (entry.perSide ? 2 : 1); })) };
+    });
+    var fixedChangeovers = {};
+    slots.forEach(function (slot, index) { fixedChangeovers[slot.section] = (fixedChangeovers[slot.section] || 0) + changeoverAfter(slot, slots[index + 1] || null); });
+    function feasible(sequence, section) {
+      var chosen = 0, low = 0, high = 0, remaining = 0, lowRest = 0, highRest = 0;
+      sequence.forEach(function (item) {
+        if (item.slot.section !== section) return;
+        var sides = item.entry.perSide ? 2 : 1;
+        if (item.entry.perSide) chosen += CHANGE.side;
+        low += item.entry.min * sides; high += item.entry.max * sides;
+      });
+      slots.forEach(function (slot, index) {
+        if (index < sequence.length || slot.section !== section) return;
+        remaining++; lowRest += bounds[index].min; highRest += bounds[index].max;
+      });
+      var budget = profile[section] - fixedChangeovers[section] - chosen;
+      // Each remaining activity may still add one side switch, which reduces the work needed.
+      return high + highRest >= budget - CHANGE.side * remaining && low + lowRest <= budget;
+    }
 
     function candidates(slot, sequence) {
       var used = {};
       sequence.forEach(function (item) { used[item.entry.exercise.id] = (used[item.entry.exercise.id] || 0) + 1; });
       // Fresh movements first, then those not used in the last few started sessions, then a
       // random order. Recency only reorders valid candidates; it never displaces a rule.
-      return pool.filter(function (item) {
-        var entry = item.entry;
-        return entry.section === slot.section && entry.position === slot.position &&
-          entry.tags.some(function (tag) { return slot.tags.includes(tag); });
-      }).sort(function (a, b) {
+      return pool.filter(function (item) { return matches(item.entry, slot); }).sort(function (a, b) {
         var ua = used[a.entry.exercise.id] || 0, ub = used[b.entry.exercise.id] || 0;
         if (ua !== ub) return ua - ub;
         var ra = recent.has(a.entry.exercise.id) ? 1 : 0, rb = recent.has(b.entry.exercise.id) ? 1 : 0;
@@ -308,7 +337,7 @@
       return true;
     }
     function search(sequence) {
-      if (++nodes > 60000) return null;
+      if (++nodes > 20000) return null;
       var index = sequence.length;
       if (index === slots.length) return sequence;
       var slot = slots[index];
@@ -317,13 +346,20 @@
         if (!allowed(list[i], slot, sequence)) continue;
         var next = sequence.concat([{ entry: list[i], slot: slot }]);
         var nextSlot = slots[index + 1];
+        if (!feasible(next, slot.section)) continue;
         if ((!nextSlot || nextSlot.section !== slot.section) && !phaseComplete(next, slot.section)) continue;
         var found = search(next);
         if (found) return found;
       }
       return null;
     }
-    var selected = search([]);
+    // A bounded search per attempt; a fresh random order is tried before giving up.
+    var selected = null;
+    for (var attempt = 0; attempt < 3 && !selected; attempt++) {
+      pool = eligibleEntries.map(function (entry) { return { entry: entry, order: random() }; });
+      timings = {}; nodes = 0;
+      selected = search([]);
+    }
     if (!selected) throw new Error('Low Impact is unavailable: there are not enough suitable exercises for a balanced ' + duration + '-minute session. Please try again later.');
 
     var steps = [], counters = { warmup: 0, main: 0, cooldown: 0 };
@@ -372,6 +408,7 @@
       var step = plan.exercises[i], entry = byId.get(step && step.id), last = i === plan.exercises.length - 1;
       if (!entry) return fail('An exercise is not eligible for Low Impact.');
       if (step.section !== entry.section || step.position !== entry.position) return fail('An exercise is in the wrong part of the workout.');
+      if (step.name !== entry.exercise.name + (entry.perSide ? ' - ' + (step.side === 'right' ? 'Right' : 'Left') : '')) return fail('An exercise name does not match its catalogue entry and side.');
       if (!Number.isInteger(step.durationSeconds) || step.durationSeconds <= 0 ||
           !Number.isInteger(step.transitionAfter) || step.transitionAfter < 0 || (last && step.transitionAfter !== 0))
         return fail('Exercise or changeover durations are malformed.');
