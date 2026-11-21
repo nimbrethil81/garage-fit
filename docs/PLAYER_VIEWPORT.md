@@ -245,10 +245,13 @@ visual viewport. No third player, framework or protocol-specific layout was adde
    This supersedes the routine-only `.player-top{padding-top:16px}` rule.
 2. **Adaptive current exercise.** The stage takes the remaining height. Timed states
    keep the unchanged ring, divider, tap-to-pause and colours. Untimed rep work
-   allocates no ring; on portrait/tall viewports its exercise name and target scale
-   up from the stage size (target on its own row), the context/name/target group
-   sits near the optical centre and the explicit Pause control rests at the foot of
-   the stage. Landscape columns and the bounded `player-reflow` fallback are unchanged.
+   allocates no ring. When the player viewport is taller than 620px, its exercise
+   name and target scale up from the stage size (target on its own row); shorter
+   screens keep the existing compact sizes. On portrait viewports taller than 480px
+   the context/name/target group sits near the optical centre and the explicit
+   Pause control rests at the foot of the stage. None of these rules apply in
+   landscape columns or the bounded `player-reflow` fallback, which keep their
+   existing rules.
 3. **Reserved footer.** In the workout player the existing `.overall-progress`
    journey (segmented #292 bar, phase label, IDs and ARIA unchanged) is now a DOM
    child of `.workout-actions`, followed by the `Next:` preview and the #280
@@ -286,9 +289,9 @@ unclipped footer total, no vacant ring host for rep work, the routine player
 without a journey, and a portrait rep name centred within the middle of the
 stage. `header_equivalence_checks` compares routine, fixed and generated header/
 Exit positions at six viewports. The matrix uses a 59px top inset at 393×852.
-`--evidence-only` captures light/dark screenshots of representative states with
-safe areas substituted into the served CSS; run it against main and the branch for
-before/after comparison. Chromium emulation does not establish native iOS header
+`--evidence-only` (or `--evidence` alongside the full run) captures light/dark
+screenshots of representative states with safe areas substituted into the served
+CSS; run it against main and the branch for before/after comparison. Chromium emulation does not establish native iOS header
 sharpness or installed-PWA safe areas: physical iPhone acceptance is separate.
 
 Before/after Chromium captures (same fixtures, safe areas substituted into the CSS:

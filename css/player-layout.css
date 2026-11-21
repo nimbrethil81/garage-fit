@@ -205,16 +205,18 @@ layout: null
 
 #completeMovementBtn>#completeMovementNext{display:block;font-size:13px;line-height:1.3;font-weight:600;margin-top:3px}
 
-/* Region 2 (#404): untimed rep work allocates no ring. Its name and target use the
-   freed space, the context/name/target group sits at the optical centre and the
-   explicit Pause control rests at the foot of the region. Portrait/tall only; the
-   landscape column layout and the reflow fallback keep their existing rules. */
+/* Region 2 (#404): untimed rep work allocates no ring. On normal-height portrait
+   layouts its name and target use the freed space; compact (<=620px) sizes still
+   apply on short screens. The context/name/target group sits at the optical centre
+   and the explicit Pause control rests at the foot of the region. Landscape
+   columns and the player-reflow fallback keep their existing rules. */
 @container player-viewport (min-height:481px){
-  #workoutPlayer .workout-stage:not(:has(.workout-ring-host:not(.hidden))) .workout-exercise{font-size:clamp(28px,min(10cqw,5.6cqh),48px)}
-  #workoutPlayer .workout-stage:not(:has(.workout-ring-host:not(.hidden))) .workout-target{flex-basis:100%;font-size:clamp(30px,min(12cqw,6.4cqh),56px);line-height:1.05}
-  #workoutPlayer .workout-stage:not(:has(.workout-ring-host:not(.hidden))){gap:6px}
-  #workoutPlayer .workout-stage:not(:has(.workout-ring-host:not(.hidden))) :is(#workoutMovementProgress,#workoutPausedState){margin-top:auto}
-  #player .routine-stage:has(.ring-wrap.hidden) :is(#routineTarget,#routinePause){margin-top:auto}
-  #player .routine-stage:has(.ring-wrap.hidden) .routine-target{font-size:clamp(30px,min(12cqw,6.4cqh),56px);line-height:1.05}
+  #workoutPlayer:not(.player-reflow) .workout-stage:not(:has(.workout-ring-host:not(.hidden))){gap:6px}
+  #workoutPlayer:not(.player-reflow) .workout-stage:not(:has(.workout-ring-host:not(.hidden))) :is(#workoutMovementProgress,#workoutPausedState){margin-top:auto}
+  #player:not(.player-reflow) .routine-stage:has(.ring-wrap.hidden) :is(#routineTarget,#routinePause){margin-top:auto}
 }
-
+@container player-viewport (min-height:621px){
+  #workoutPlayer:not(.player-reflow) .workout-stage:not(:has(.workout-ring-host:not(.hidden))) .workout-exercise{font-size:clamp(28px,min(10cqw,5.6cqh),48px)}
+  #workoutPlayer:not(.player-reflow) .workout-stage:not(:has(.workout-ring-host:not(.hidden))) .workout-target{flex-basis:100%;font-size:clamp(30px,min(12cqw,6.4cqh),56px);line-height:1.05}
+  #player:not(.player-reflow) .routine-stage:has(.ring-wrap.hidden) .routine-target{font-size:clamp(30px,min(12cqw,6.4cqh),56px);line-height:1.05}
+}

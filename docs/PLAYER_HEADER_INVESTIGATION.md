@@ -216,6 +216,11 @@ normal heights. To avoid the earlier both-header overflow on reduced-height
 density work, the offset steps down in whole pixels (8px at a player viewport of
 700px or less, 0px at 580px or less) while the layout fits; no transform,
 filter, font change or viewport rounding is involved. Browser checks confirm
-equal header/Exit positions across routine, fixed and generated players. Physical
-installed-iPhone sharpness and safe-area acceptance of the workout header is
-**unverified** until checked on the device.
+equal header/Exit positions across routine, fixed and generated players.
+
+Note that the routine header previously kept 16px at every height. On short
+players (iPhone SE class, or Safari with its toolbars) it now uses 8px, and 0px on
+the shortest layouts. Physical installed-iPhone sharpness and safe-area acceptance
+is **unverified** until checked on the device. That check should cover both
+players on the iPhone 15 (normal height, 16px) and, if available, an SE-size
+screen or Safari with toolbars (reduced offset), in light and dark appearances.

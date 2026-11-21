@@ -119,3 +119,12 @@ test('fixed AMRAP keeps its round context and score in compact form',()=>{
   assert.equal(h.el('workoutMovementProgress').textContent,'Round 2 · Exercise 2 of 3');
   assert.equal(h.el('workoutCompletedValue').textContent,'AMRAP score: 1 rounds + 5 reps');
 });
+
+test('a generated workout started after a fixed one does not retain the fixed confirmed total',()=>{
+  const h=harness();h.app.startChallenge300(h.plan);
+  h.time(400);h.app.completeWorkoutMovement();
+  assert.equal(h.el('workoutCompletedValue').textContent,'25 / 300 completed reps');
+  h.run("workoutState.running=false;generatorState.workout=GarageFitGenerator.generate({catalogue:CATALOGUE,duration:20,focus:'balanced',equipment:state.ownedEquipment,random:()=>0.4});startStandaloneGeneratedWorkout()");
+  assert.equal(h.el('workoutPlayer').classList.contains('generated-player'),true);
+  assert.equal(h.el('workoutCompletedValue').textContent,'');
+});

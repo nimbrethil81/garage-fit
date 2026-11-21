@@ -122,18 +122,21 @@ METRICS = """({optional=false,allowReflow=false}={})=>{
  const journey=p.querySelector('.overall-progress');
  if(p.id==='workoutPlayer'){
   const j=box(journey),row=box(controls.querySelector('.workout-secondary-controls')?.firstElementChild||primary);
-  // Only an open editor under a keyboard-height viewport may fold the journey.
-  if(!visible(journey)){if(!(allowReflow&&optional))failures.push('journey hidden')}
+  // Only an open result/partial editor under a keyboard-height (<=340px) player may fold the journey.
+  const usable=app.getBoundingClientRect().height-parseFloat(getComputedStyle(app).paddingTop);
+  if(!visible(journey)){if(!(usable<=340&&p.querySelector('#coachAnchorEdit[open],#densityPartial[open]')))failures.push('journey hidden')}
   else{
    if(!controls.contains(journey)||j.y<nav.y-0.5||j.bottom>nav.bottom+0.5)failures.push('journey outside reserved footer');
    if(j.bottom>Math.min(pb.y,row.y)-2)failures.push('journey crowds navigation');
   }
   const summary=p.querySelector('#workoutCompletedValue');
   if(visible(summary)&&summary.scrollWidth>summary.clientWidth+1)failures.push('journey summary clipped');
-  // Rep work allocates no ring space (no vacant timer area).
-  const host=p.querySelector('.workout-ring-host');
-  if(host.classList.contains('hidden')&&visible(host))failures.push('vacant ring allocation');
+  // Generator and Coach never show the fixed-workout confirmed total.
+  if(p.classList.contains('generated-player')&&visible(summary))failures.push('generated player shows fixed total');
  }else if(journey)failures.push('routine player gained a journey');
+ // Without a visible ring, its host reserves no stage height (no vacant timer area).
+ const host=stage.querySelector('.routine-ring-host,.workout-ring-host');
+ if(!visible(p.querySelector('.ring-wrap'))&&box(host).height>1)failures.push('vacant ring allocation');
  // Balance: untimed portrait work splits free space evenly above its content group
  // and before the Pause control (or footer), rather than packing it at one edge.
  if(!optional&&!allowReflow&&v.width<540&&p.clientHeight>580&&!visible(p.querySelector('.ring-wrap'))){
@@ -512,6 +515,7 @@ def main():
     parser.add_argument('--url',default='http://127.0.0.1:8000')
     parser.add_argument('--output',type=Path,default=Path('/tmp/player-layout'))
     parser.add_argument('--navigation-only',action='store_true',help='Check the primary tab shell without running player fixtures')
+    parser.add_argument('--evidence',action='store_true',help='Also capture light/dark representative screenshots (evidence/) during the full run')
     parser.add_argument('--evidence-only',action='store_true',help='Capture light/dark representative screenshots (evidence/) without the full matrix')
     args=parser.parse_args();args.output.mkdir(parents=True,exist_ok=True)
     report=[]
@@ -528,7 +532,7 @@ def main():
             browser.close()
             return
         blocks=fixture_blocks()
-        appearance_evidence(browser,args.url,args.output/'evidence',blocks)
+        if args.evidence:appearance_evidence(browser,args.url,args.output/'evidence',blocks)
         instruction_speech_checks(browser,args.url)
         header_equivalence_checks(browser,args.url)
         timers.native_entry_checks(browser,args.url)
