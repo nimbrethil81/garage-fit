@@ -104,6 +104,15 @@
       termination: { type:'fixed-sequence', durationSeconds:360 },
       exercises: []
     },
+    // GF-LOW1 (#421): identity only. js/low-impact.js composes a 10, 15, 20 or 30-minute
+    // plan for preview, and Start plays exactly that validated plan.
+    lowImpact: {
+      id: 'lowImpact',
+      name: 'Low Impact',
+      generated: true,
+      termination: { type:'fixed-sequence' },
+      exercises: []
+    },
     postRunReset: root.GarageFitPostRunStretch.generate({random:function(){return 0;}}),
     sevenMinute: [
       // GarageFit order: alternate on-feet, upper-body and trunk work.

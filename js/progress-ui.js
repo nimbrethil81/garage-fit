@@ -19,6 +19,8 @@
   }
   function label(result) {
     if (result.source === 'fixed' && result.workoutId === 'abBlast') return '5-Minute Ab Blast';
+    // GF-LOW1 (#421): Low Impact is training when its Main work is performed, never supporting-only.
+    if (result.source === 'fixed' && result.workoutId === 'lowImpact') return 'Low Impact';
     if (supporting(result)) return ({deskBreak:'Desk Break',eveningFullBodyReset:'Evening Full-Body Reset'})[result.workoutId] || 'Post-run Stretch';
     return root.GarageFitCoachProgressUI.workoutIdentity(result)?.label || 'Recorded session';
   }

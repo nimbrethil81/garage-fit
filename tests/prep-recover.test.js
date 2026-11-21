@@ -296,7 +296,7 @@ test('a plan that cannot be validated is never played; the error is shown instea
 test('fixed Workouts keep their data; the authored routine lists are retired', () => {
   const data = loadAppContext().GarageFitData;
   assert.equal(data.fixedRoutines, undefined);
-  assert.deepEqual(Object.keys(data.fixedWorkouts), ['workout300','cindy','abBlast','eveningFullBodyReset','postRunReset','sevenMinute']);
+  assert.deepEqual(Object.keys(data.fixedWorkouts), ['workout300','cindy','abBlast','eveningFullBodyReset','lowImpact','postRunReset','sevenMinute']);
   // The routine player still serves the fixed 7 Minute Workout.
   const a = app();
   a.context.startSevenMinuteWorkout();
