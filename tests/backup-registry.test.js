@@ -22,6 +22,7 @@ const sample = {
   gf_routine_variant: 'equipment', gf_routine_recent_v1: json({version: 1,
     warmup: [['old-exercise']], cooldown: [{ids: ['glute-stretch'], completedAt: '2026-10-01T10:00:00Z'}]}),
   gf_desk_break_recent_v1: json([['a', 'b', 'c', 'd', 'e', 'f']]), gf_post_run_recent_v1: json(['old-stretch']),
+  gf_evening_reset_recent_v1: json([['cat-cow', 'glute-stretch'], ['retired-exercise']]),
   gf_appearance_v1: 'automatic', gf_spoken_voice_v1: json({voiceURI: 'device-old', name: 'Old voice', lang: 'en-GB'}),
   gf_first_use_v1: json({version: 1, audience: 'new', explored: true, modes: ['home'], acknowledged: 'result-1'})
 };
@@ -58,6 +59,7 @@ test('malformed, duplicate, unsupported and future-version preferences fail with
     [['gf_first_use_v1', sample.gf_first_use_v1.replace('"version":1', '"version":2')]],
     [['gf_routine_recent_v1', sample.gf_routine_recent_v1.replace('"version":1', '"version":2')]],
     [['gf_desk_break_recent_v1', '[["one"]]']], [['gf_post_run_recent_v1', '[1]']],
+    [['gf_evening_reset_recent_v1', '[["cat-cow","cat-cow"]]']], [['gf_evening_reset_recent_v1', '[[]]']],
     [['gf_spoken_voice_v1', '{}']], [['gf_first_use_v1', '{']],
     [['gf_workout_diagnostics_v1', '{}']], [['third_party_secret', 'private']],
     [['__proto__', '{}']], [['gf_appearance_v1', 'light'], ['gf_appearance_v1', 'dark']],

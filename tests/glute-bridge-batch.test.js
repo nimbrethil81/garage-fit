@@ -76,15 +76,11 @@ test('Dumbbell wood chop is one continuous 40-second interval with a halfway Cha
   assert.deepEqual(GarageFitTimedCues.takeDueCues(tracker,40),[]);
 });
 
-test('the fixed Evening Full-Body Reset glute bridge resolves to the catalogue entry and is unchanged',()=>{
+test('the generated Evening Full-Body Reset no longer prescribes the glute bridge strength set',()=>{
+  // #394 supersedes the fixed seven-exercise prescription with a gentle generated reset.
   const fixed=GarageFitData.fixedWorkouts.eveningFullBodyReset;
-  const index=fixed.exercises.findIndex(item=>item.id==='glute-bridge');
-  assert.equal(index,fixed.exercises.length-1);
-  assert.deepEqual(fixed.exercises[index],{id:'glute-bridge',name:'Glute bridge',durationSeconds:40});
-  assert.equal(fixed.transitionSeconds,10);
-  assert.deepEqual(fixed.exercises.map(item=>item.id),['bodyweight-squat','push-up','alternating-reverse-lunge','bodyweight-good-morning','wall-angel','dead-bug','glute-bridge']);
-  assert.ok(fixed.exercises.every(item=>item.durationSeconds===40));
-  assert.equal(catalogue['glute-bridge'].id,fixed.exercises[index].id);
+  assert.deepEqual(fixed.exercises,[]);
+  assert.equal(fixed.termination.type,'fixed-sequence');
   assert.match(catalogue['glute-bridge'].instruction,/^Lie on your back with knees bent/);
 });
 

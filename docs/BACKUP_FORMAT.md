@@ -31,6 +31,7 @@ an explicit bodyweight-only choice.
 | `gf_routine_recent_v1` | Included | Version 1 warm-up and cool-down session lists; legacy exercise-ID arrays and dated `{ids, completedAt}` entries both retained |
 | `gf_desk_break_recent_v1` | Included | JSON array of six distinct exercise-ID arrays |
 | `gf_post_run_recent_v1` | Included | JSON exercise-ID array |
+| `gf_evening_reset_recent_v1` | Included | JSON array of distinct exercise-ID arrays from recently started Evening Full-Body Resets |
 | `gf_appearance_v1` | Included | `automatic`, `light` or `dark` |
 | `gf_spoken_voice_v1` | Included | JSON voice identity `{voiceURI, name, lang}` or `null` for system default; device availability does not change the identity |
 | `gf_first_use_v1` | Included | Version 1 audience, explored state, mode dismissals and first-completion acknowledgement |

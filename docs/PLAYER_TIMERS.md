@@ -27,7 +27,7 @@ recovery status; EMOM continues to show its minute window and work/rest status.
 | Prep & Recover Warm Up/Cool Down, bodyweight/equipment | `#player` | Get ready, timed work and any rest; Next skips the current interval |
 | 7-Minute Bodyweight Circuit | `#player` | Work/rest circuit |
 | 5-Minute Ab Blast | `#player` through Workouts UI | Continuous timed sequence |
-| Evening Full-Body Reset | `#player` through Workouts UI | Timed sequence with changeovers |
+| Evening Full-Body Reset | `#player` through Workouts UI | Generated fixed timed sequence; per-step changeovers, one longer standing-to-floor changeover |
 | Post-Run Reset | `#player` through Workouts UI | Fixed timed sequence with per-step transition rules |
 | Legacy ramp-up and snack callable entry points | `#player` | Existing timed routines; covered without adding navigation links |
 | Rep-based fixed-sequence support | `#player` through Workouts UI | Rep target/Next, then any timed work; no fabricated ring |

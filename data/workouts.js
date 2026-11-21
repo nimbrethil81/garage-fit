@@ -95,23 +95,14 @@
         { id:'flutter-kicks', name:'Flutter kicks', durationSeconds:40 }
       ]
     },
+    // GF-EVENING1 (#394): identity only. js/evening-reset.js composes each six-minute
+    // plan for preview, and Start plays exactly that validated plan.
     eveningFullBodyReset: {
       id: 'eveningFullBodyReset',
       name: 'Evening Full-Body Reset',
-      subtitle: '5:40 low-impact circuit',
-      description: 'A short, low-impact bodyweight routine for evenings when you want a little full-body movement without doing a full workout.',
-      completionMessage: 'Reset complete. Nice and easy.',
-      termination: { type:'timed-sequence', durationSeconds:340 },
-      transitionSeconds: 10,
-      exercises: [
-        { id:'bodyweight-squat', name:'Bodyweight squat', durationSeconds:40 },
-        { id:'push-up', name:'Press-ups', durationSeconds:40 },
-        { id:'alternating-reverse-lunge', name:'Alternating reverse lunges', durationSeconds:40 },
-        { id:'bodyweight-good-morning', name:'Bodyweight good mornings', durationSeconds:40 },
-        { id:'wall-angel', name:'Wall angels', durationSeconds:40 },
-        { id:'dead-bug', name:'Dead bug', durationSeconds:40 },
-        { id:'glute-bridge', name:'Glute bridge', durationSeconds:40 }
-      ]
+      generated: true,
+      termination: { type:'fixed-sequence', durationSeconds:360 },
+      exercises: []
     },
     postRunReset: root.GarageFitPostRunStretch.generate({random:function(){return 0;}}),
     sevenMinute: [
