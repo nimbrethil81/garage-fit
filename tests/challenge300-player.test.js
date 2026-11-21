@@ -74,3 +74,57 @@ test('completion persists the exact generated prescription and leaves historical
   h.app.completeWorkoutMovement();
   assert.equal(h.run('GarageFitChallenge300.readHistory(localStorage).results.length'),1,'completion is idempotent');
 });
+
+// #404: the active exercise region keeps only brief, actionable copy; longer
+// counting/setup guidance moves to How to do it, and the compact footer total
+// counts confirmed whole targets only.
+test('Challenge player keeps concise central copy, guidance in How to do it and a confirmed footer total',()=>{
+  const h=harness(),frozen=h.plan.exercises;
+  h.app.startChallenge300(h.plan);
+  const first=frozen[0];
+  assert.equal(h.el('workoutSideNote').textContent,first.load||'','only the prescribed load/safety cue stays inline');
+  assert.doesNotMatch(h.el('workoutSideNote').textContent,/Count |mini-sets|stable anchor|full-range/);
+  assert.equal(h.el('workoutInstruction').classList.contains('hidden'),false);
+  assert.equal(h.el('workoutInstructionGuidance').textContent,[first.counting,first.setup].join(' '));
+  assert.equal(h.el('workoutInstructionGuidance').classList.contains('hidden'),false);
+  assert.equal(h.el('workoutMovementProgress').textContent,'Exercise 1 of 7');
+  assert.equal(h.el('workoutCompletedValue').textContent,'0 / 300 completed reps');
+  for(let i=0;i<4;i++){h.time(400);h.app.completeWorkoutMovement();}
+  assert.equal(h.el('workoutMovementProgress').textContent,'Exercise 5 of 7');
+  assert.equal(h.el('workoutCompletedValue').textContent,'175 / 300 completed reps');
+  h.app.previousWorkoutMovement();
+  assert.equal(h.el('workoutCompletedValue').textContent,'125 / 300 completed reps','Previous un-confirms that target');
+  // The pre-workout detail retains the full counting/load/setup wording.
+  h.app.startWorkout();
+  const detail=h.app.GarageFitWorkoutUI.detailDefinition('workout300');
+  assert.ok(detail.exercises.every(ex=>/Count /.test(ex.note)));
+});
+
+test('How to do it narration reads the catalogue instruction followed by workout guidance',()=>{
+  const spoken=[];
+  const h=harness();
+  h.app.startChallenge300(h.plan);
+  h.app.speak=text=>spoken.push(text);
+  h.run("currentScreen='workoutPlayer';instructionSpeechAvailable=()=>true");
+  h.el('workoutInstruction').open=true;
+  h.app.speakDisplayedInstruction('workoutInstruction');
+  assert.equal(spoken.at(-1),h.el('workoutInstructionText').textContent+' '+h.el('workoutInstructionGuidance').textContent);
+});
+
+test('fixed AMRAP keeps its round context and score in compact form',()=>{
+  const h=harness();h.app.startResolvedFixedWorkout(h.app.GarageFitData.fixedWorkouts.cindy);
+  assert.equal(h.el('workoutMovementProgress').textContent,'Round 1 · Exercise 1 of 3');
+  assert.equal(h.el('workoutCompletedValue').textContent,'AMRAP score: 0 rounds + 0 reps');
+  for(let i=0;i<4;i++){h.time(400);h.app.completeWorkoutMovement();}
+  assert.equal(h.el('workoutMovementProgress').textContent,'Round 2 · Exercise 2 of 3');
+  assert.equal(h.el('workoutCompletedValue').textContent,'AMRAP score: 1 rounds + 5 reps');
+});
+
+test('a generated workout started after a fixed one does not retain the fixed confirmed total',()=>{
+  const h=harness();h.app.startChallenge300(h.plan);
+  h.time(400);h.app.completeWorkoutMovement();
+  assert.equal(h.el('workoutCompletedValue').textContent,'25 / 300 completed reps');
+  h.run("workoutState.running=false;generatorState.workout=GarageFitGenerator.generate({catalogue:CATALOGUE,duration:20,focus:'balanced',equipment:state.ownedEquipment,random:()=>0.4});startStandaloneGeneratedWorkout()");
+  assert.equal(h.el('workoutPlayer').classList.contains('generated-player'),true);
+  assert.equal(h.el('workoutCompletedValue').textContent,'');
+});

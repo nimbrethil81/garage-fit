@@ -228,3 +228,82 @@ instruction text and panel heading; otherwise the panel deterministically keeps
 text only. Resizing re-evaluates this without shrinking artwork below that floor.
 Long text can still scroll within the panel under the existing accessibility
 contract. This does not alter clocks, progression, narration or saved outcomes.
+
+### Shared three-region foundation (#404, GF-PLAYER-UX1/UX2 Option A)
+
+Both active players, `#player` (Prep & Recover/routines) and `#workoutPlayer` (fixed
+challenges, Generator and Coach), use the same three regions inside the measured
+visual viewport. No third player, framework or protocol-specific layout was added.
+
+1. **Reserved header.** Exit, concise title and elapsed time/step counter. `#app`
+   already pays `env(safe-area-inset-top)`; one shared rule then applies
+   `--player-header-offset` to `.player-top,.workout-player-top`: 16px at normal
+   heights (the #316 physical-iPhone routine position, now also used by the workout
+   header), 8px when the player viewport is 700px or shorter and 0px at 580px or
+   shorter, so reduced-height density work still fits. Offsets are whole pixels; no
+   transforms, filters, font changes or rounding of viewport measurements.
+   This supersedes the routine-only `.player-top{padding-top:16px}` rule.
+2. **Adaptive current exercise.** The stage takes the remaining height. Timed states
+   keep the unchanged ring, divider, tap-to-pause and colours. Untimed rep work
+   allocates no ring. When the player viewport is taller than 620px, its exercise
+   name and target scale up from the stage size (target on its own row); shorter
+   screens keep the existing compact sizes. On portrait viewports taller than 480px
+   the context/name/target group sits near the optical centre and the explicit
+   Pause control rests at the foot of the stage. None of these rules apply in
+   landscape columns or the bounded `player-reflow` fallback, which keep their
+   existing rules.
+3. **Reserved footer.** In the workout player the existing `.overall-progress`
+   journey (segmented #292 bar, phase label, IDs and ARIA unchanged) is now a DOM
+   child of `.workout-actions`, followed by the `Next:` preview and the #280
+   Previous/primary row and Coach Skip work. Short and landscape grids gained a
+   `journey` row. Because the journey is part of the measured footer, instruction
+   and editor surfaces end above it. The routine footer keeps its preview and
+   centred primary action, and #334 EMOM keeps next activity inside Next.
+
+**Copy hierarchy.** The two large fixed-workout stats cards were removed. The
+exercise index is the central context line (`Exercise 5 of 7`, or `Round 2 of 3 ·
+Exercise 5 of 7`; fixed AMRAP `Round 2 · Exercise 2 of 3`). The confirmed total
+sits at the right of the footer journey label (`175 / 300 completed reps`, or
+`AMRAP score: 1 rounds + 5 reps`) and only changes when a whole target is
+confirmed or un-confirmed by Previous; generated and Coach players hide it as
+they hid the cards. For the 300-Rep Challenge only the load cue (for loaded
+exercises: self-selected manageable resistance, never maximal) stays visible as
+the prescribed load/safety note. Its counting and setup sentences moved to the
+How to do it disclosure as a guidance paragraph after the catalogue instruction;
+manual narration reads both. Product decision (21 November 2026, PR #418, option A):
+no setup or technique line stays visible during 300-Rep work, including the
+suspension-strap anchor cue and "stop before technique fails"; these remain on the
+pre-workout detail and under How to do it. The pre-workout detail still lists all three
+unchanged. Generated notes (side, load, setup transition), EMOM, density, AMRAP
+and Coach statuses, confirmations and errors are unchanged.
+
+**Superseded placement rules.** Only these historical rules change: the journey's
+stage position (#292 "existing overall progress slot" in the stage, order 11),
+the fixed-workout `.workout-stats` cards, and the routine-only 16px header
+offset (#316). #166 no-scroll, #235 divider/preview, #280 one-row navigation,
+#334 EMOM and #203 instruction contracts remain in force.
+
+**Verification.** `scripts/verify-player-layout.py` now also checks, in every
+measured state: header at or below the top safe inset, the shared whole-pixel
+offset, non-colliding header items, a 44px Exit target, unclipped title, header/
+stage/footer boundaries, at least 4px between header and content and 2px between
+content and footer, the journey contained in the footer above navigation, an
+unclipped footer total, no vacant ring host for rep work, the routine player
+without a journey, and a portrait rep name centred within the middle of the
+stage. `header_equivalence_checks` compares routine, fixed and generated header/
+Exit positions at six viewports. The matrix uses a 59px top inset at 393×852.
+`--evidence-only` (or `--evidence` alongside the full run) captures light/dark
+screenshots of representative states with safe areas substituted into the served
+CSS; run it against main and the branch for before/after comparison. Chromium emulation does not establish native iOS header
+sharpness or installed-PWA safe areas: physical iPhone acceptance is separate.
+
+Before/after Chromium captures (same fixtures, safe areas substituted into the CSS:
+393×852 with 59px top/34px bottom, 320×568 with 20px top, 667×375 with 47px sides/
+21px bottom):
+
+| Viewport and appearance | Comparison |
+| --- | --- |
+| 393×852 dark: routine, 300-Rep reps/instructions, fixed AMRAP, timed, transition, EMOM, AMRAP, density, Coach anchor/edit | [393×852 dark](images/player-viewport/404/393x852-dark-before-after.png) |
+| 393×852 light: routine paused/instructions, long name, rest, generated reps, protocols, Coach | [393×852 light](images/player-viewport/404/393x852-light-before-after.png) |
+| 320×568 light compact | [320×568 light](images/player-viewport/404/320x568-light-before-after.png) |
+| 667×375 dark landscape | [667×375 dark](images/player-viewport/404/667x375-dark-before-after.png) |

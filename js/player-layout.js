@@ -45,7 +45,7 @@
         content.setAttribute('role', 'button');
         content.setAttribute('tabindex', '0');
         content.setAttribute('aria-label', 'Read exercise instruction aloud. Activate again to restart.');
-        content.setAttribute('aria-describedby', details.id + 'Text');
+        content.setAttribute('aria-describedby', details.id + 'Text ' + details.id + 'Guidance');
         const icon = document.createElement('span');
         icon.className = 'player-instruction-speaker';
         icon.setAttribute('aria-hidden', 'true');
@@ -110,8 +110,10 @@
           surface.style.top=landscape?'':((ringSize>0 && !ring.closest('.hidden')?ring.getBoundingClientRect().bottom:header.getBoundingClientRect().bottom)-player.getBoundingClientRect().top+10)+'px';
           const content=instruction.querySelector('.player-detail-content');
           const region=instruction.querySelector('.player-instruction-image');
-          const text=instruction.querySelector('p');
-          const available=content.clientHeight-text.getBoundingClientRect().height-32;
+          // Catalogue text plus any workout guidance (#404) take precedence over artwork.
+          const shown=[...instruction.querySelectorAll('.player-detail-content>p')].filter(p=>p.getClientRects().length);
+          const textHeight=shown.length?shown.at(-1).getBoundingClientRect().bottom-shown[0].getBoundingClientRect().top:0;
+          const available=content.clientHeight-textHeight-32;
           const width=Math.min(content.clientWidth-8,320,available*4/3);
           const show=region.datasetReady && width>=160;
           region.style.width=Math.max(0,width)+'px';
