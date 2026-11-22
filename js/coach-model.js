@@ -273,7 +273,7 @@
   // Ordered Coach family intent (#190). Each candidate names a canonical family version
   // and why it is offered; the Generator builds the first feasible one through the shared
   // family gate and reports the actual family. Constraints use the family-context vocabulary.
-  const FAMILY_PLAN_LIMIT = 6;
+  const FAMILY_PLAN_LIMIT = 7;
   const FAMILY_IMPACTS = ['low','medium','high'];
   const FAMILY_BODY_POSITIONS = ['standing','floor','hanging','supported','mixed'];
   // Optional embedded comparable benchmark (#192): a short block of fixed, bodyweight-style rep
@@ -293,7 +293,9 @@
     excludedImpact: nullable(arrayOf(oneOf(FAMILY_IMPACTS))),
     bodyPositions: nullable(arrayOf(oneOf(FAMILY_BODY_POSITIONS))),
     movementRoom: nullable(boolean),
-    benchmark: nullable(familyBenchmark)
+    benchmark: nullable(familyBenchmark),
+    // Soft composition preference used by the controlled resistance composers.
+    resistanceFocus: nullable(oneOf(['push','pull','squat','hinge','lunge','core']))
   }, (value, path, errors) => {
     if (!value.candidates.length || value.candidates.length > FAMILY_PLAN_LIMIT) fail(errors, path+'.candidates', 'must contain one to '+FAMILY_PLAN_LIMIT+' families');
     uniqueBy('workoutFamilyId','family')(value.candidates, path+'.candidates', errors);

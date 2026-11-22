@@ -419,9 +419,9 @@ test('General Fitness v1/v2 keep their exact six-family set with seven canonical
     // Exact, not a size check: neither an extra family nor a substitution is a valid v1/v2 set.
     assert.throws(() => validate(`{...copy,familyBalancePolicy:{...copy.familyBalancePolicy,families:[...copy.familyBalancePolicy.families,${added}]}}`), /every canonical workout family/);
     assert.throws(() => validate(`{...copy,familyBalancePolicy:{...copy.familyBalancePolicy,families:[...copy.familyBalancePolicy.families.slice(0,5),${added}]}}`), /every canonical workout family/);
-    // A later definition version (General Fitness v3 belongs to #400) needs every registered family.
-    assert.throws(() => validate(`{...copy,version:3}`), /every canonical workout family/);
-    assert.equal(validate(`{...copy,version:3,familyBalancePolicy:{...copy.familyBalancePolicy,families:[...copy.familyBalancePolicy.families,${added}]}}`), true);
+    // v3 publishes a distinct seven-family policy.
+    assert.equal(validate("GarageFitData.programmes['general-fitness'][3]"), true);
+    assert.throws(() => validate(`{...copy,version:3,resistanceDayPolicy:{windowDays:7,targetDays:2,unitsPerDay:4}}`), /every canonical workout family/);
     // Existing instances still plan exactly the six released families and run the cross-source context:
     // a standalone Strength & Stamina result is read through the exercise-metadata fallback, never relabelled.
     await p.start();
@@ -434,4 +434,309 @@ test('General Fitness v1/v2 keep their exact six-family set with seven canonical
     assert.deepEqual(out.history, [['resistance-endurance', 'metcon', 'exercise-metadata']]);
     assert.ok(p.run('Object.isFrozen(GarageFitData.programmes["general-fitness"]['+version+'])'));
   }
+});
+
+// #400 fixtures use the player’s actual prescription when generated, or explicit
+// known/unknown performed evidence to target a particular scheduling boundary.
+function v3Context(storage) {
+  const p = context(storage, 3);
+  p.run(`
+    function evidenceResult(id, endedAt, plan, options={}) {
+      const source=options.source || 'generator';
+      return GarageFitCoachModel.createSessionResult({source, sessionResultId:id, endedAt, startedAt:endedAt,
+        ...(source==='coach' ? {programmeInstanceId:options.instance || 'gf',prescriptionId:'rx-'+id} : {}),
+        ...options.identity, finalStatus:options.status || 'completed', feedback:options.feedback,
+        plannedWork:options.withoutPlan ? [] : plan,
+        performedWork:plan.flatMap(entry=>{
+          const outcome=options.outcomes ? options.outcomes(entry) : {status:'completed'};
+          return outcome ? [{exerciseId:entry.exerciseId,occurrenceId:entry.occurrenceId,...outcome}] : [];
+        })
+      });
+    }
+    function repsPlan(exerciseId, count, reps=8, section='main') {
+      return Array.from({length:count},(_,i)=>({exerciseId,occurrenceId:'occ:'+i,section,blockIndex:0,
+        prescription:{type:'reps',timed:false,reps,side:null,protocol:'paired_sets'}}));
+    }
+    function generatedEvidence(settings, seed, options={}) {
+      gfSeed=seed;
+      const workout=GarageFitGenerator.generate({catalogue:CATALOGUE,random:seeded,...settings});
+      const plan=GarageFitSessionTracker.plannedWorkFromTimeline(buildGeneratedTimeline(workout));
+      const result=evidenceResult('generated:'+seed,'2026-10-05T09:00:00Z',plan,
+        {identity:GarageFitSessionTracker.identityFromWorkout(workout),...options});
+      return {workout, result, dose:gfPlan(gfStart('2026-10-05T08:00:00Z'),[result],'2026-10-07T09:00:00Z').rationale.priorities.resistance};
+    }
+  `);
+  return p;
+}
+
+test('v3 scores actual traditional Cardio and Cardio v2 station roles independently of movement tags', () => {
+  const p = v3Context();
+  const cases = p.json(`[generatedEvidence({focus:'cardio',duration:10,difficulty:'normal',equipment:['dumbbells']},7),
+    generatedEvidence({focus:'cardio',duration:10,difficulty:'normal',equipment:['dumbbells']},7,
+      {outcomes:entry=>['devils-press','ski-abs'].includes(entry.exerciseId)?{status:'completed'}:null}),
+    generatedEvidence({workoutFamilyId:'cardio-conditioning',workoutFamilyVersion:2,duration:10,difficulty:'easy',equipment:[]},7),
+    generatedEvidence({focus:'cardio',duration:30,difficulty:'hard',
+      equipment:['dumbbells','kettlebell','pullup-bar','trx','rings','barbell','bench','box','bands']},42)]`);
+  assert.deepEqual(cases[0].workout.main.blocks[0].exercises.map(ex => ex.id),
+    ['devils-press','dumbbell-suitcase-carry','walking-lunge','ski-abs']);
+  assert.equal(cases[0].dose.days[0].units, 4, 'two loaded carries and controlled alternating lunges earn credit');
+  assert.equal(cases[0].dose.patterns.hinge, undefined, 'the cardio-led devil’s press earns no hinge credit');
+  assert.equal(cases[1].dose.days[0].units, 0, 'the conditioning stations alone do not qualify');
+  assert.ok(cases[2].workout.main.blocks.flatMap(block => block.exercises).some(ex => ex.id === 'air-squat'));
+  assert.equal(cases[2].dose.days[0].units, 0, 'the resolved Cardio v2 station purpose disambiguates air squats');
+  assert.ok(cases[3].workout.main.blocks[0].exercises.some(ex => ex.id === 'dumbbell-clean-and-press'));
+  assert.equal(cases[3].dose.days[0].units, 6, 'renegade rows and suitcase marches contribute in a longer mixed circuit');
+  assert.equal(cases[3].dose.patterns.push, undefined, 'ballistic clean-and-press does not add compound push dose');
+});
+
+test('Metcon family validation and v3 performed major resistance give distinct answers for triceps isolation', () => {
+  const p = v3Context();
+  const out = p.json(`(()=>{
+    const equipment=['dumbbells','kettlebell','pullup-bar','trx','rings','barbell','bench','box','bands'];
+    const settings={workoutFamilyId:'resistance-endurance',workoutFamilyVersion:1,duration:15,difficulty:'normal',equipment};
+    const sample=generatedEvidence(settings,19), valid=GarageFitGenerator.validateFamilyWorkout(sample.workout,{catalogue:CATALOGUE,equipment}).valid;
+    const isolation=generatedEvidence(settings,19,{outcomes:entry=>entry.exerciseId==='ring-triceps-extension'?{status:'completed'}:null});
+    const substantive=generatedEvidence(settings,7);
+    const strengths=[sample,substantive].map(({result})=>gfPlan(gfStart('2026-10-05T08:00:00Z'),[result],'2026-10-07T09:00:00Z')
+      .rationale.priorities.effects.find(effect=>effect.effect==='strength').performedSessions);
+    return {valid, sample, isolation, substantive, strengths};
+  })()`);
+  assert.equal(out.valid, true);
+  assert.equal(out.sample.workout.familyStyleId, 'metcon');
+  assert.ok(out.sample.workout.main.blocks[0].exercises.some(ex => ex.id === 'ring-triceps-extension'));
+  assert.equal(out.isolation.dose.days[0].major, 0);
+  assert.equal(out.isolation.dose.days[0].support, 1.5);
+  assert.equal(out.isolation.dose.days[0].units, 0);
+  assert.equal(out.isolation.dose.movements.push, undefined);
+  assert.equal(out.substantive.dose.qualifyingDays, 1);
+  assert.ok(out.strengths[1] > out.strengths[0], 'v3 balance distinguishes different performed work in the same style');
+});
+
+test('v3 quantifies partial Main work, caps support, and credits unilateral and multi-pattern work once', () => {
+  const p = v3Context();
+  const out = p.json(`(()=>{
+    const when='2026-10-05T12:00:00Z', state=gfStart('2026-10-05T08:00:00Z');
+    const r=(id,plan,options)=>evidenceResult(id,when,plan,options);
+    const bridge=repsPlan('single-leg-glute-bridge',4).map((entry,i)=>({...entry,prescription:{...entry.prescription,side:i%2?'left':'right'}}));
+    const multi=repsPlan('dumbbell-bent-over-row',1);
+    const timed=repsPlan('plank',12).map(entry=>({...entry,prescription:{type:'timed',timed:true,seconds:20,side:null}}));
+    const cases=[
+      r('sides',bridge,{status:'partial',outcomes:entry=>entry.occurrenceId==='occ:2'?{status:'partial',sets:[{reps:4}]}:entry.occurrenceId==='occ:3'?{status:'skipped'}:{status:'completed'}}),
+      r('short-reps',repsPlan('push-up',5,4)),
+      r('note',repsPlan('push-up',2),{outcomes:()=>({status:'partial',note:'Some work'})}),
+      r('historical',repsPlan('push-up',3),{withoutPlan:true}),
+      r('warm-up',repsPlan('push-up',6,8,'warmup')),
+      r('zero',repsPlan('push-up',5),{outcomes:()=>({status:'completed',sets:[{reps:0}]})}),
+      r('two-major',repsPlan('push-up',2)),
+      r('supports',timed,{outcomes:entry=>entry.occurrenceId==='occ:0'?{status:'partial',sets:[{seconds:10}]}:{status:'completed'}})
+    ];
+    const summarise=results=>gfPlan(state,results,'2026-10-08T12:00:00Z').rationale.priorities.resistance;
+    return {single:cases.map(item=>summarise([item])), capped:summarise(cases.slice(-2)), multi:summarise([r('multi',multi)])};
+  })()`);
+  const units = out.single.map(item => item.days[0].units);
+  assert.deepEqual(units, [1.25,0,0,0,0,0,2,0]);
+  assert.deepEqual(out.single.map(item => item.incomplete), [false,false,true,true,false,false,false,false]);
+  assert.equal(out.capped.days[0].support, 5.75);
+  assert.equal(out.capped.days[0].units, 4);
+  assert.equal(out.capped.movements.pull, undefined);
+  assert.equal(out.capped.movements.core, 11.5);
+  assert.equal(out.multi.days[0].units, 1);
+  assert.equal(out.multi.patterns.hinge, 1);
+  assert.equal(out.multi.patterns.pull, 1);
+});
+
+test('v3 groups performed sources by local date across DST and year boundaries and reports bounded history', () => {
+  const previous = process.env.TZ;
+  process.env.TZ = 'America/New_York';
+  try {
+    const p = v3Context();
+    const out = p.json(`(()=>{
+      const state=gfStart('2026-10-19T08:00:00Z');
+      const r=(id,when,count,options)=>evidenceResult(id,when,repsPlan('dumbbell-romanian-deadlift',count),options);
+      const a=r('a','2026-11-01T05:30:00Z',2,{source:'coach',instance:'old-instance'}),
+            b=r('b','2026-11-01T06:30:00Z',2,{source:'fixed'});
+      const before=r('before','2026-10-28T03:59:59Z',4);
+      const inside=r('inside','2026-10-28T04:00:00Z',4);
+      const external=r('external','2026-11-01T08:00:00Z',4,{source:'external'});
+      const planned=r('planned','2026-11-02T08:00:00Z',4,{outcomes:()=>null});
+      const date='2026-11-03T18:00:00Z';
+      const atYear=r('year','2026-12-31T23:00:00Z',4);
+      const p=(results,now=date,extra)=>gfPlan(state,results,now,extra).rationale.priorities;
+      const many=Array.from({length:65},(_,i)=>r('stress-'+i,'2026-11-02T14:00:00Z',1));
+      return {dst:p([a,b,b,before,inside,external,planned]), year:p([atYear],'2027-01-02T15:00:00Z'),
+        dense:p(many), damaged:p([],date,{incompleteTrainingContext:true})};
+    })()`);
+    assert.deepEqual(out.dst.resistance.days.map(date => [date.localDate,date.units]), [['2026-11-01',4],['2026-10-28',4]]);
+    assert.equal(out.dst.resistance.qualifyingDays, 2);
+    assert.equal(out.dst.resistance.movements.push, undefined);
+    assert.equal(out.dst.resistance.movements.pull, undefined);
+    assert.equal(out.dst.history.credit, 'none');
+  assert.equal(out.dst.attendance.sessionsPerWeek, 0);
+    assert.equal(out.year.resistance.qualifyingDays, 1);
+    assert.equal(out.year.resistance.days[0].localDate, '2026-12-31');
+    assert.equal(out.dense.resistance.qualifyingDays, 1);
+    assert.equal(out.dense.resistance.incomplete, true);
+    assert.equal(out.dense.history.sessions.length, 64);
+    assert.equal(out.damaged.resistance.incomplete, true);
+    assert.ok(out.damaged.effects.every(effect => effect.confidence === 'unknown'));
+  } finally {
+    if (previous === undefined) delete process.env.TZ;
+    else process.env.TZ = previous;
+  }
+});
+
+test('v3 recovery considers a demanding session even after mobility and gives movement coverage its own preference', () => {
+  const p = v3Context();
+  const out = p.json(`(()=>{
+    const state=gfStart('2026-10-05T08:00:00Z');
+    const before='2026-10-06T10:00:00Z';
+    const after='2026-10-07T15:00:00Z';
+    const strength=evidenceResult('strength','2026-10-05T19:00:00Z',repsPlan('push-up',4),
+      {identity:{workoutFamilyId:'strength-control',workoutFamilyVersion:3,familyStyleId:'paired-sets'}});
+    const mobility=evidenceResult('mobility','2026-10-06T08:00:00Z',repsPlan('cat-cow',2),
+      {identity:{workoutFamilyId:'mobility-movement-quality',workoutFamilyVersion:3,familyStyleId:'reset'}});
+    const first=gfPlan(state,[strength,mobility],before), later=gfPlan(state,[strength,mobility],after);
+    const easy=gfPlan(state,[],after,{easyToday:true});
+    const legacy=legacyPlan();
+    return {first,later,easy,legacy};
+    function legacyPlan() {
+      const def=GarageFitData.programmes['general-fitness'][2];
+      const old=gfEngine.startProgramme(def,{programmeInstanceId:'old',equipment:[]},'2026-10-05T08:00:00Z').state;
+      return gfEngine.planNextSession(def,old,[strength,mobility],{now:before,prescriptionId:'rx:old',equipment:[],duration:30});
+    }
+  })()`);
+  assert.ok(out.first.rationale.priorities.recovery.reasons.includes('recent-demanding-session'));
+  assert.equal(out.legacy.rationale.priorities.recovery.preferLowerDemand, false);
+  assert.equal(out.first.rationale.priorities.resistance.qualifyingDays, 1);
+  assert.equal(out.first.prescription.workoutFamilyPlan.resistanceFocus, undefined);
+  assert.ok(out.first.rationale.priorities.families.every(item => item.resistanceBonus === 0));
+  assert.equal(out.first.rationale.priorities.families[0].recoveryPenalty, 0);
+  assert.equal(out.first.prescription.workoutFamilyPlan.candidates.length, 7, 'demanding alternatives stay available');
+  assert.equal(out.later.prescription.workoutFamilyPlan.resistanceFocus, 'pull');
+  assert.ok(out.later.rationale.priorities.families.some(item => item.resistanceBonus > 0));
+  assert.ok(out.easy.rationale.priorities.families.every(item => item.resistanceBonus === 0));
+});
+
+test('finishing v2 and starting v3 uses old work only as context and recovers a v3 draft exactly once', async () => {
+  const p = v3Context();
+  await p.run("pilot.start(GarageFitData.programmes['general-fitness'][2],['dumbbells'])");
+  await p.begin("{equipment:['dumbbells'],duration:20}");
+  await p.run("(async()=>{for(const work of pilotTracker.plannedWork().filter(item=>item.section==='main')) await pilotTracker.recordDone(work.occurrenceId);})()");
+  const oldResult = await p.finish('complete');
+  const oldState = p.json('pilot.snapshot().state');
+  assert.equal(oldState.programmeDefinitionVersion, 2);
+  assert.equal(oldState.meaningfulSessionsCompleted, 1);
+  await p.run("pilot.manage('finish')");
+  p.run("pilotNow='2026-10-03T08:00:00Z'");
+  await p.start();
+  const state = p.json('pilot.snapshot().state');
+  assert.notEqual(state.programmeInstanceId, oldState.programmeInstanceId);
+  assert.equal(state.programmeDefinitionVersion, 3);
+  assert.equal(state.meaningfulSessionsCompleted, 0);
+  assert.deepEqual(p.json('pilot.snapshot().results'), []);
+  assert.deepEqual(p.json('pilot.progressEvidence().benchmarkResults'), []);
+  const plan = p.json("pilot.plan({equipment:['dumbbells'],duration:20})");
+  assert.equal(plan.prescription.workoutFamilyPlan.candidates.length, 7);
+  assert.ok(plan.rationale.priorities.history.sessions.some(item => item.sessionResultId === oldResult.sessionResultId));
+  assert.equal(plan.rationale.priorities.benchmark.reason, 'too-early');
+  await p.begin("{equipment:['dumbbells'],duration:20}");
+  await p.run("pilotTracker.recordDone(pilotTracker.plannedWork().find(item=>item.section==='main').occurrenceId)");
+  const reopened = v3Context(p.storage);
+  reopened.run("pilotNow='2026-10-03T10:00:00Z'");
+  await reopened.run('pilot.load(true)');
+  await reopened.run('pilot.load(true)');
+  assert.equal(reopened.json('pilot.snapshot().state').meaningfulSessionsCompleted, 1);
+  assert.equal(reopened.json('pilot.snapshot().results').length, 1);
+  const portable = reopened.json(`(()=>{
+    const backup=GarageFitCoachStore.createBackupAccess(localStorage);
+    return backup.materialisePortable(backup.exportPortable());
+  })()`);
+  const restored = v3Context(new Map(portable));
+  restored.run("pilotNow='2026-10-03T10:00:00Z'");
+  await restored.run('pilot.load()');
+  assert.deepEqual(restored.json('pilot.snapshot().state'), reopened.json('pilot.snapshot().state'));
+  assert.deepEqual(restored.json('pilot.snapshot().results'), reopened.json('pilot.snapshot().results'));
+  const restoredV2 = await restored.run(`pilotStore.loadProgrammeState(${JSON.stringify(oldState.programmeInstanceId)})`);
+  assert.equal(restoredV2.programmeDefinitionVersion, 2);
+  assert.equal(restoredV2.status, 'completed');
+});
+
+test('v3 uses only confirmed AMRAP occurrences and measured benchmark work', () => {
+  const p = v3Context();
+  const out = p.json(`(()=>{
+    const state=gfStart('2026-10-05T08:00:00Z'), when='2026-10-05T12:00:00Z';
+    const amrap=repsPlan('push-up',2).map(work=>({...work,prescription:{...work.prescription,protocol:'amrap',amrapSequence:1}}));
+    const benchmark=repsPlan('air-squat',1).map(work=>({...work,requirementId:'benchmark:air-squat',
+      prescription:{...work.prescription,protocol:'rounds'}}));
+    const results=[
+      evidenceResult('amrap',when,amrap,{feedback:{rounds:6}}),
+      evidenceResult('benchmark-unmeasured',when,benchmark,{source:'coach'}),
+      evidenceResult('benchmark-low',when,benchmark,{source:'coach',outcomes:()=>({status:'completed',sets:[{reps:3}]})}),
+      evidenceResult('benchmark-measured',when,benchmark,{source:'coach',outcomes:()=>({status:'completed',sets:[{reps:8}]})})
+    ];
+    return results.map(result=>gfPlan(state,[result],'2026-10-07T12:00:00Z').rationale.priorities.resistance);
+  })()`);
+  assert.deepEqual(out.map(item => item.days[0].units), [2,0,0,1]);
+  assert.deepEqual(out.map(item => item.incomplete), [true,true,false,false]);
+});
+
+test('[Full] v3 plans resistance on distinct dates while retaining other training across weekly frequencies', () => {
+  const p = v3Context();
+  const simulation = p.json(`[2,3,4,5].map(perWeek=>{
+    let state=gfStart('2026-10-05T08:00:00Z'), results=[];
+    const counts={}, weeks=[];
+    gfSeed=41+perWeek;
+    for(let i=0;i<perWeek*5;i++){
+      const hour=Math.round(i*7/perWeek*24), now=new Date(${T0}+hour*3600000).toISOString();
+      const plan=gfPlan(state,results,now,{duration:i%3===0?15:20,equipment:['dumbbells']});
+      const workout=GarageFitGenerator.generate({catalogue:CATALOGUE,sessionPrescription:plan.prescription,random:seeded});
+      const family=workout.workoutFamilyId;
+      counts[family]=(counts[family]||0)+1;
+      const work=GarageFitSessionTracker.plannedWorkFromTimeline(buildGeneratedTimeline(workout));
+      const result=evidenceResult('sim-'+i,now,work,{source:'coach',identity:GarageFitSessionTracker.identityFromWorkout(workout)});
+      results.push(result);
+      state=gfEngine.applySessionResult(GF,state,result,results);
+      if ((i+1)%perWeek===0) {
+        const report=gfPlan(state,results,now,{equipment:['dumbbells']}).rationale.priorities.resistance;
+        weeks.push(report.qualifyingDays);
+      }
+      if(plan.rationale.missedSessionResponse.catchUpSessions!==0) throw Error('Unexpected catch-up');
+      if(workout.familyStyleId===undefined || !GarageFitGenerator.validateFamilyWorkout(workout,{catalogue:CATALOGUE,equipment:['dumbbells']}).valid)
+        throw Error('Invalid delivered family '+family);
+    }
+    return {perWeek,counts,weeks,credited:state.meaningfulSessionsCompleted};
+  })`);
+  for (const result of simulation) {
+    const note = JSON.stringify(result);
+    assert.equal(result.credited, 5 * result.perWeek, note);
+    assert.ok(result.weeks.filter(count => count >= 2).length >= 2, note);
+    assert.ok(result.counts['strength-control'] >= 1 && result.counts['resistance-endurance'] >= 1, note);
+    assert.ok(Object.keys(result.counts).some(family => !['strength-control','resistance-endurance'].includes(family)), note);
+    if (result.perWeek >= 4) assert.ok(Object.keys(result.counts).length >= 4, note);
+  }
+});
+
+test('v3 controller propagates bounded, undated and damaged cross-source evidence without withholding known work', async () => {
+  const p = v3Context(new Map());
+  await p.run(`(async()=>{
+    await pilotStore.saveSessionResult(evidenceResult('undated',null,repsPlan('push-up',4)));
+    for(let i=0;i<64;i++) await pilotStore.saveSessionResult(
+      evidenceResult('dated-'+i,'2026-09-29T08:00:00Z',repsPlan('push-up',i===0?4:1)));
+  })()`);
+  await p.start();
+  const flags = await p.run(`pilotStore.listSessionResults({sources:['generator'],performedOnly:true,
+    since:'2026-09-28T00:00:00Z',limit:64,candidateLimit:64,reportTruncation:true})`);
+  assert.equal(flags.truncated, false);
+  assert.equal(flags.undated, true);
+  await p.run("pilotStore.saveSessionResult(evidenceResult('overflow','2026-09-30T09:00:00Z',repsPlan('push-up',4)))");
+  const damaged = [...p.storage.keys()].find(key => key.endsWith('dated-1'));
+  assert.ok(damaged);
+  p.storage.set(damaged, '{invalid');
+  await p.run('pilot.load()');
+  const priorities = p.json('pilot.plan({equipment:[],duration:20}).rationale.priorities');
+  assert.equal(priorities.resistance.incomplete, true);
+  assert.equal(priorities.resistance.qualifyingDays, 2);
+  assert.equal(priorities.history.sessions.length, 63);
+  assert.equal(priorities.attendance.sessionsPerWeek, 0);
+  assert.ok(p.run('pilot.snapshot().errors.length') > 0);
 });

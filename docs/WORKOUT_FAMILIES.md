@@ -910,7 +910,7 @@ The seventh canonical family is displayed as **Strength & Stamina**; its stable 
 styles are `muscular-endurance` (**Muscular Endurance**) and `metcon` (**Metcon**). It is
 full-body only, has no style picker, setting, membership table, catalogue change or new protocol,
 and is available to the standalone Generator and to any Coach family plan that names it. General
-Fitness v1/v2 keep their six-family plans (see [Coach engine](COACH_ENGINE.md#general-fitness));
+Fitness v1/v2 keep their six-family plans, and v3 includes Strength & Stamina (see [Coach engine](COACH_ENGINE.md#general-fitness));
 General Fitness v3 (#400) is not part of this version.
 
 Load `js/resistance-endurance-composer.js` after `js/core-challenge-composer.js`; it reuses the
@@ -1035,7 +1035,7 @@ the returned workout's transient `familyReplan` reports the requested and actual
 
 A Coach Session Prescription reaches this route only through its optional
 `workoutFamilyPlan`: `{candidates: [{workoutFamilyId, workoutFamilyVersion, rationale}],
-excludedImpact?, bodyPositions?, movementRoom?}` (one to six unique families). Coach Model
+excludedImpact?, bodyPositions?, movementRoom?, resistanceFocus?}` (one to seven unique families). Coach Model
 rejects a plan combined with anchors, Main priorities, avoid/protocol constraints, an optional
 Main pool, time limits or a variation preference, because family composers own their
 programming. `assessSessionPrescription` stays pure and cheap: it reports candidates whose

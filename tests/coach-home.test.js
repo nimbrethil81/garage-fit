@@ -301,7 +301,8 @@ test('General Fitness preview reports a replanned family or style fallback; anch
 
 test('General Fitness setup uses accessible family disclosures and preserves equipment, back and blocked routes', async () => {
   const p=await ui(); await p.click('General Fitness');
-  const labels=['Strength & Control','Cardio & Conditioning','Full-Body Challenges','Athletic Movement','Core & Stability','Mobility & Movement Quality'];
+  assert.match(p.text(), /Seven ways to move/);
+  const labels=['Strength & Control','Cardio & Conditioning','Full-Body Challenges','Athletic Movement','Core & Stability','Mobility & Movement Quality','Strength & Stamina'];
   assert.deepEqual(p.json("nodes('coachContent').filter(n=>n.attributes?.['aria-expanded']!==undefined).map(n=>n.children[0].textContent)"),labels);
   for (const label of labels) {
     const query=`nodes('coachContent').find(n=>n.onclick&&n.children[0]?.textContent===${JSON.stringify(label)})`;
@@ -313,7 +314,7 @@ test('General Fitness setup uses accessible family disclosures and preserves equ
     p.run(`${query}.onclick()`);
     assert.equal(p.run(`${query}.attributes['aria-expanded']`),'false');
   }
-  const families=p.json("GarageFitData.programmes['general-fitness'][2].familyBalancePolicy.families");
+  const families=p.json("GarageFitData.programmes['general-fitness'][3].familyBalancePolicy.families");
   for (const family of families) assert.ok(p.text().includes(p.run(`GarageFitData.workoutFamilies[${JSON.stringify(family.workoutFamilyId)}][${family.workoutFamilyVersion}].purpose`)));
   assert.match(p.text(),/Optional progress checks Around every four weeks.*may be offered.*Take it or skip it/);
   assert.doesNotMatch(p.text(),/anchors|open-ended|catch-up|external activit|equipment you choose|family-selection/i);

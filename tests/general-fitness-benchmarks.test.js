@@ -52,7 +52,8 @@ test('General Fitness v2 adds a closed, conservative benchmark policy; v1 stays 
   assert.deepEqual(rest, (({ version, ...others }) => others)(v1), 'v2 differs from v1 only by version and benchmark policy');
   assert.deepEqual(benchmarkPolicy.benchmarks.map(item => item.exerciseId), IDS);
   assert.ok(benchmarkPolicy.minimumIntervalDays >= 28 && benchmarkPolicy.minimumDurationMinutes >= 20);
-  assert.equal(p.run("Object.keys(GarageFitData.programmes['general-fitness']).join()"), '1,2');
+  assert.deepEqual(p.json("GarageFitData.programmes['general-fitness'][3].benchmarkPolicy"), benchmarkPolicy,
+    'General Fitness v3 carries forward the optional measurement safeguards');
   const invalid = [
     `{...copy.benchmarkPolicy,minimumIntervalDays:21}`, `{...copy.benchmarkPolicy,minimumDurationMinutes:15}`,
     `{...copy.benchmarkPolicy,minimumMeaningfulSessions:0}`, `{...copy.benchmarkPolicy,extra:true}`, `{...copy.benchmarkPolicy,benchmarks:[]}`,

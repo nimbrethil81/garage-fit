@@ -17,15 +17,11 @@
   function weightsValid(weights) {
     return weights && Object.keys(weights).length === EFFECTS.length && EFFECTS.every(effect => positive(weights[effect]));
   }
-  // The six canonical families General Fitness v1 and v2 were released with. Strength & Stamina
-  // (`resistance-endurance`, #399) joined the registry later; only a later definition version
-  // (#400) may use the seven-family set, which is then every family in the registry.
+  // Published sets are versioned independently of later registry additions.
   const ORIGINAL_FAMILY_IDS = Object.freeze(['strength-control','cardio-conditioning','athletic-movement','core-stability',
     'mobility-movement-quality','full-body-challenges']);
-  const LAST_SIX_FAMILY_VERSION = 2;
-  function canonicalFamilySet(definition, registry) {
-    return definition.version <= LAST_SIX_FAMILY_VERSION ? ORIGINAL_FAMILY_IDS.slice() : Object.keys(registry || {});
-  }
+  const RESISTANCE_FAMILIES = ['strength-control','resistance-endurance'];
+  const V3_FAMILY_IDS = Object.freeze([...ORIGINAL_FAMILY_IDS,'resistance-endurance']);
   function validateDefinition(definition) {
     const Policies = root.GarageFitCoachPolicies, Model = root.GarageFitCoachModel;
     Policies.assertDefinition(definition);
@@ -50,7 +46,12 @@
     });
     // Version-aware exact family set (#399): each released definition uses exactly the canonical
     // families published when it was released, so adding a family never invalidates it.
-    const expected = canonicalFamilySet(definition, registry);
+    const expected = definition.version === 3 ? V3_FAMILY_IDS : ORIGINAL_FAMILY_IDS;
+    const resistance = definition.resistanceDayPolicy;
+    if (definition.version === 3) {
+      if (!resistance || resistance.windowDays !== 7 || resistance.targetDays !== 2 || resistance.unitsPerDay !== 4)
+        fail('v3 needs the published resistance-day policy');
+    } else if (resistance !== undefined) fail('resistance-day planning belongs to v3');
     if (ids.size !== expected.length || expected.some(id => !ids.has(id))) fail('it uses every canonical workout family');
     if (!EFFECTS.every(effect => families.some(family => family.effects[effect]))) fail('every training effect needs a family');
     // Every offered duration must be one every family version publishes support for.
@@ -199,15 +200,206 @@
     return athleticWorkload(plannedSeconds, performed, conditioning);
   }
 
+  // GF400-CAL1. These roles interpret saved work for scheduling only. Family
+  // composers (including Metcon) retain their own versioned construction gates.
+  const MAJOR_PATTERNS = ['squat','hinge','lunge','push','pull','carry'];
+  const RESISTANCE_SET_PROTOCOLS = ['paired_sets','complex','ladder','pyramid'];
+  const BALLISTIC_FAMILIES = ['clean','clean-and-press','snatch','kettlebell-swing'];
+  const SUPPORT_PATTERNS = ['trunk','rotation','anti-rotation','anti-extension','anti-lateral-flexion','elbow-flexion','elbow-extension'];
+  const MIN_REPS = 5, MIN_SECONDS = 20;
+  const EPSILON = 1e-9;
+  const targetFor = rx => rx && (rx.timed === true || ['timed','unilateral-timed'].includes(rx.type) ? rx.seconds : rx.reps);
+  const isTimed = rx => rx.timed === true || ['timed','unilateral-timed'].includes(rx.type);
+  const substantive = rx => positive(targetFor(rx)) && targetFor(rx) >= (isTimed(rx) ? MIN_SECONDS : MIN_REPS);
+
+  function resistanceRole(exercise, rx) {
+    if (!exercise || exercise.conditioning || exercise.impact === 'high' || exercise.strength < exercise.cardio) return null;
+    const isolation = !!exercise.directElbowAction || /(?:^|-)chest-fly$/.test(exercise.id);
+    const supporting = isolation || exercise.mainRole === 'supporting';
+    const major = !supporting && exercise.patterns.some(pattern => MAJOR_PATTERNS.includes(pattern));
+    if (major && (exercise.strength >= 3 || exercise.id === 'wall-push-up')) {
+      if (isTimed(rx) && !exercise.prescription.type.includes('timed') && exercise.strength === exercise.cardio) return null;
+      if (BALLISTIC_FAMILIES.includes(exercise.family) && !['paired_sets','complex'].includes(rx.protocol)) return null;
+      return 'major';
+    }
+    if (exercise.strength >= 2 && (supporting || exercise.bodyFocus === 'core'
+      || exercise.patterns.some(pattern => SUPPORT_PATTERNS.includes(pattern)))) return 'support';
+    return null;
+  }
+
+  const knownSide = side => side === 'left' || side === 'right';
+  function blockRoles(plan, performed, catalogue) {
+    const performedIds = new Map(performed.map(item => [item.occurrenceId,item.exerciseId]));
+    const aliases = root.GarageFitData.canonicalExerciseId;
+    const blocks = new Map();
+    for (const entry of plan) {
+      if (entry.section !== 'main' || entry.blockIndex == null) continue;
+      const totals = blocks.get(entry.blockIndex) || {active: 0, major: 0, unknown: false};
+      blocks.set(entry.blockIndex, totals);
+      const rx = entry.prescription;
+      const id = performedIds.has(entry.occurrenceId) ? performedIds.get(entry.occurrenceId) : entry.exerciseId;
+      const exercise = catalogue[aliases ? aliases(id) : id];
+      const target = targetFor(rx);
+      if (!exercise || !positive(target)) { totals.unknown = true; continue; }
+      const sides = exercise.sidedness === 'per-side' ? 2 : 1;
+      const seconds = isTimed(rx) ? target : exercise.estimatedSeconds * target / exercise.prescription.value / sides;
+      if (!positive(seconds)) { totals.unknown = true; continue; }
+      totals.active += seconds;
+      if (substantive(rx) && resistanceRole(exercise, rx) === 'major') totals.major += seconds;
+    }
+    return blocks;
+  }
+
+  function performedRole(result, exercise, rx, block, benchmark) {
+    const role = resistanceRole(exercise, rx);
+    if (role !== 'major' || exercise.strength !== exercise.cardio || benchmark) return role;
+    // #402 establishes the station role for these ambiguous movements. The
+    // family id by itself cannot add or remove credit for an unambiguous lift.
+    if (result.workoutFamilyId === 'cardio-conditioning' && result.workoutFamilyVersion === 2
+      && ['rounds','timed_intervals'].includes(rx.protocol)) return null;
+    if (RESISTANCE_SET_PROTOCOLS.includes(rx.protocol)) return 'major';
+    if (!block || block.unknown) return 'unknown';
+    return positive(block.active) && block.major + EPSILON >= block.active / 2 ? 'major' : null;
+  }
+
+  function trainingDate(timestamp) {
+    const date = new Date(timestamp);
+    return [date.getFullYear(), String(date.getMonth()+1).padStart(2,'0'), String(date.getDate()).padStart(2,'0')].join('-');
+  }
+  const add = (totals, key, value) => { totals[key] = (totals[key] || 0) + value; };
+  function performedResistance(result, performances, catalogue) {
+    const plan = result.plannedWork || [];
+    const byId = new Map(plan.map(item => [item.occurrenceId,item]));
+    const blocks = blockRoles(plan, performances, catalogue);
+    const dose = {major: 0, support: 0, patterns: {}, regions: {}, movements: {}, unknown: false};
+    const work = {effects: {}, performed: 0, planned: plan.filter(item => item.section === 'main').length};
+    for (const item of performances) {
+      if (item.exposure.value === 0 || (item.section != null && item.section !== 'main')) continue;
+      const planned = byId.get(item.occurrenceId), rx = planned?.prescription;
+      const exercise = catalogue[item.exerciseId];
+      if (item.section !== 'main' || !exercise || !positive(targetFor(rx)) || item.exposure.value === null
+        || (!knownSide(item.side) && (exercise.sidedness === 'per-side' || rx.type?.startsWith('unilateral-')))) {
+        dose.unknown = true;
+        continue;
+      }
+      const benchmark = item.requirementId?.startsWith(BENCHMARK_PREFIX);
+      if (benchmark && !item.sets.some(set => positive(set.reps.value))) {
+        dose.unknown = true;
+        continue;
+      }
+      const fraction = item.exposure.value * (knownSide(item.side) ? 0.5 : 1);
+      const role = performedRole(result, exercise, rx, blocks.get(planned.blockIndex), benchmark);
+      if (rx.protocol === 'amrap' || role === 'unknown') dose.unknown = true;
+      work.performed += item.exposure.value;
+      const effect = performedEffect(result, exercise, role);
+      if (effect) add(work.effects, effect, fraction);
+      if (!substantive(rx) || (benchmark && item.sets.reduce((sum, set) => sum + (set.reps.value || 0), 0) < MIN_REPS)
+        || (role !== 'major' && role !== 'support')) continue;
+      dose[role] += fraction * (role === 'support' ? 0.5 : 1);
+      if (exercise.bodyFocus) add(dose.regions, exercise.bodyFocus, fraction);
+      for (const pattern of exercise.patterns) {
+        if (role === 'major' ? MAJOR_PATTERNS.includes(pattern) : pattern === 'core' || SUPPORT_PATTERNS.includes(pattern))
+          add(dose.patterns, pattern, fraction);
+      }
+      // Regional scheduling counts a compound once per area. Isolation never
+      // supplies upper push/pull coverage. Trunk stabilisation retains its own credit.
+      if (role === 'major') {
+        for (const direction of ['push','pull']) if (exercise.patterns.includes(direction)) add(dose.movements, direction, fraction);
+        if (exercise.bodyFocus === 'lower' || exercise.patterns.some(pattern => ['squat','hinge','lunge'].includes(pattern)))
+          add(dose.movements, 'lower', fraction);
+      }
+      if (exercise.bodyFocus === 'core' || exercise.patterns.includes('core')) add(dose.movements, 'core', fraction);
+    }
+    return {dose, work};
+  }
+
+  function performedEffect(result, exercise, role) {
+    if (result.workoutFamilyId === 'mobility-movement-quality') return 'mobility';
+    if (result.workoutFamilyId === 'athletic-movement') return 'athletic';
+    if (role === 'major') return 'strength';
+    if (exercise.conditioning || exercise.cardio > exercise.strength
+      || result.workoutFamilyId === 'cardio-conditioning' && role !== 'support') return 'conditioning';
+    if (exercise.bodyFocus === 'core') return 'core';
+    if (role === 'support') return 'strength';
+    return result.workoutFamilyId === 'full-body-challenges' ? 'challenge' : null;
+  }
+
+  function performedBalanceV3(result, performances, catalogue) {
+    const {dose, work} = performedResistance(result, performances, catalogue);
+    const total = Object.values(work.effects).reduce((sum, amount) => sum + amount, 0);
+    let weight = work.planned ? Math.min(1, work.performed / work.planned) : 0;
+    let effects = {};
+    let demanding = dose.major > 0 || (work.effects.conditioning || 0) > 0;
+    let basis = 'performed-main';
+    if (total) {
+      const challengeShare = result.workoutFamilyId === 'full-body-challenges' ? 0.5 : 0;
+      effects = Object.fromEntries(Object.entries(work.effects).map(([key, amount]) => [key, (1 - challengeShare) * amount / total]));
+      if (challengeShare) add(effects, 'challenge', challengeShare);
+    }
+    if (athleticV6(result)) {
+      const athletic = performedAthleticV6(result, performances, catalogue);
+      weight = athletic.weight; effects = athletic.effects; demanding = athletic.demanding;
+      basis = 'athletic-v6-performed-main';
+    }
+    return {dose, weight, effects, basis,
+      demanding: demanding || result.feedback?.effort === 'hard' || ['hard','too-hard'].includes(result.feedback?.difficulty)};
+  }
+
+  function resistanceDays({sessions, policy, today, incomplete}) {
+    const todayNumber = dayNumber(today.localDate || trainingDate(today.now));
+    const dates = new Map(), patterns = {}, regions = {}, movements = {};
+    for (const {occurredAt, dose} of sessions) {
+      const localDate = trainingDate(occurredAt);
+      const age = todayNumber - dayNumber(localDate);
+      for (const key of Object.keys(dose.patterns)) add(patterns, key, dose.patterns[key]);
+      for (const key of Object.keys(dose.regions)) add(regions, key, dose.regions[key]);
+      for (const key of Object.keys(dose.movements)) add(movements, key, dose.movements[key]);
+      if (age < 0 || age >= policy.windowDays) continue;
+      const date = dates.get(localDate) || {localDate, major: 0, support: 0, unknown: false};
+      date.major += dose.major; date.support += dose.support; date.unknown ||= dose.unknown;
+      dates.set(localDate, date);
+    }
+    const days = [...dates.values()].map(date => {
+      const units = date.major + Math.min(date.major, date.support);
+      return {...date, units, qualifies: units + EPSILON >= policy.unitsPerDay};
+    });
+    return {days, qualifyingDays: days.filter(day => day.qualifies).length,
+      qualifiesToday: days.some(day => day.qualifies && dayNumber(day.localDate) === todayNumber),
+      incomplete: incomplete || days.some(day => day.unknown), patterns, regions, movements};
+  }
+
   // Performed sessions in the rolling window, across Coach instances, standalone Generator
   // and fixed workouts. Each carries a performed fraction and effect shares; nothing here
   // is a programme credit (the engine alone credits this instance's own Coach results).
   function performedSessions({definition, history, catalogue, today}) {
     const now = Date.parse(today.now), families = definition.familyBalancePolicy.families;
-    const summary = history.recentTrainingSummary({limit: root.GarageFitTrainingHistory.MAX_RECENT_SESSION_LIMIT,
-      since: new Date(now - definition.coverageTargets.windowDays * DAY).toISOString(), until: today.now});
-    return summary.sessions.filter(session => SOURCES.includes(session.source)).map(session => {
-      const result = history.sessions.find(item => item.sessionResultId === session.sessionResultId);
+    const limit = root.GarageFitTrainingHistory.MAX_RECENT_SESSION_LIMIT;
+    const since = new Date(now - definition.coverageTargets.windowDays * DAY).toISOString();
+    const results = new Map(history.sessions.map(item => [item.sessionResultId, item]));
+    if (definition.resistanceDayPolicy) {
+      const performances = new Map();
+      for (const item of history.performances) {
+        const session = performances.get(item.sessionResultId) || [];
+        session.push(item);
+        performances.set(item.sessionResultId, session);
+      }
+      const candidates = history.sessions.slice().reverse().filter(result => SOURCES.includes(result.source)
+        && ['completed','partial'].includes(result.finalStatus) && performances.has(result.sessionResultId));
+      const inWindow = candidates.filter(result => {
+        const at = Date.parse(result.endedAt || result.startedAt);
+        return at >= Date.parse(since) && at <= now;
+      });
+      return {incomplete: !!today.incompleteTrainingContext || inWindow.length > limit
+          || candidates.some(result => !result.endedAt && !result.startedAt),
+        sessions: inWindow.slice(0, limit).map(result => ({
+          sessionResultId: result.sessionResultId, source: result.source, programmeInstanceId: result.programmeInstanceId,
+          occurredAt: result.endedAt || result.startedAt, workoutFamilyId: result.workoutFamilyId, familyStyleId: result.familyStyleId,
+          ...performedBalanceV3(result, performances.get(result.sessionResultId), catalogue)
+        }))};
+    }
+    const summary = history.recentTrainingSummary({limit, since, until: today.now});
+    const sessions = summary.sessions.filter(session => SOURCES.includes(session.source)).map(session => {
+      const result = results.get(session.sessionResultId);
       const main = session.performances.filter(item => definition.doseTargets.sections.includes(item.section) || item.section === null);
       const planned = (result.plannedWork || []).filter(item => definition.doseTargets.sections.includes(item.section)).length;
       const performed = main.reduce((sum, item) => sum + (item.exposure.value || 0), 0);
@@ -231,6 +423,7 @@
         occurredAt: session.occurredAt, workoutFamilyId: session.workoutFamilyId, workoutFamilyVersion: session.workoutFamilyVersion,
         familyStyleId: session.familyStyleId, weight, effects, basis, demanding};
     });
+    return {sessions};
   }
 
   // Benchmark occasions in this instance's results: a session that reached its benchmark (completed,
@@ -275,9 +468,16 @@
   function calculatePriorities(input) {
     const {definition, today, state} = input;
     const balance = definition.familyBalancePolicy, variety = definition.varietyPolicy, recoveryPolicy = definition.recoveryPolicy;
-    const now = Date.parse(today.now), sessions = performedSessions(input);
+    const now = Date.parse(today.now), {sessions, incomplete} = performedSessions(input);
+    const resistance = definition.resistanceDayPolicy && resistanceDays({sessions, policy: definition.resistanceDayPolicy, today, incomplete});
+    const incompleteBalance = resistance && (incomplete || sessions.some(item => item.dose.unknown));
     // Attendance adapts emphasis to actual recent frequency; misses create no debt.
-    const attended = sessions.filter(item => item.weight > 0 && now - Date.parse(item.occurredAt) <= balance.attendanceWindowDays * DAY).length;
+    const applied = resistance ? new Set([
+      ...(state.currentTargets.reconciliation?.appliedSessionResultIds || []), state.lastAppliedSessionResultId,
+      ...(state.recentSessionSummaries || []).filter(item => item.meaningful).map(item => item.sessionResultId)
+    ]) : null;
+    const attended = sessions.filter(item => item.weight > 0 && now - Date.parse(item.occurredAt) <= balance.attendanceWindowDays * DAY
+      && (!applied || item.source === 'coach' && item.programmeInstanceId === state.programmeInstanceId && applied.has(item.sessionResultId))).length;
     const sessionsPerWeek = attended / (balance.attendanceWindowDays / 7);
     const level = sessionsPerWeek >= balance.regularAttendanceSessionsPerWeek ? 'regularAttendance' : 'lowAttendance';
     const weights = clone(balance.effectWeights[level]);
@@ -295,18 +495,27 @@
       const credited = sessions.reduce((sum, item) => sum + item.weight * (item.effects[effect] || 0), 0);
       const targetShare = weights[effect] / totalWeight;
       return {effect, label: EFFECT_LABELS[effect], targetShare, performedSessions: credited,
-        need: targetShare * (performedTotal + 1) - credited, confidence: sessions.length ? 'derived' : 'unknown'};
+        need: targetShare * (performedTotal + 1) - credited,
+        confidence: (resistance ? credited > 0 || !incompleteBalance && performedTotal > 0 : sessions.length > 0) ? 'derived' : 'unknown'};
     });
     const need = Object.fromEntries(effects.map(item => [item.effect, item.need]));
     // Recovery preference: transparent, conservative ordering only (never a rest order).
     const reasons = [];
+    const withinRecovery = item => item.demanding && now - Date.parse(item.occurredAt) < recoveryPolicy.recentHours * HOUR;
     const latest = sessions.find(item => item.weight > 0);
-    if (latest && latest.demanding && now - Date.parse(latest.occurredAt) < recoveryPolicy.recentHours * HOUR) reasons.push('recent-demanding-session');
+    if (resistance ? sessions.some(withinRecovery) : latest && withinRecovery(latest)) reasons.push('recent-demanding-session');
     const reports = external && external.actual && external.actual.status === 'confirmed' ? external.actual.reports || [] : [];
     const day = dayNumber(localDateOf(today));
     if (reports.some(report => recoveryPolicy.reportedIntensities.includes(report.reportedIntensity)
       && day - dayNumber(report.localDate) >= 0 && day - dayNumber(report.localDate) <= recoveryPolicy.reportedDays)) reasons.push('reported-hard-activity');
-    const recent = sessions.slice(0, variety.recentSessions);
+    const recent = (resistance ? sessions.filter(item => item.weight > 0) : sessions).slice(0, variety.recentSessions);
+    // A bounded preference to make room for a second day. It never adds debt,
+    // overrides recovery, or asks for more resistance on an already qualifying date.
+    const resistancePriority = resistance && !reasons.length && !today.easyToday && today.difficulty !== 'easy'
+      && !resistance.qualifiesToday && resistance.qualifyingDays < definition.resistanceDayPolicy.targetDays;
+    // Prefer a resistance option that can also address
+    // a conditioning gap. Delivered style still follows the normal auto-selection.
+    const conditioningGap = need.conditioning > need.strength;
     const families = balance.families.map((family, index) => {
       const value = Object.entries(family.effects).reduce((sum, [effect, share]) => sum + share * need[effect], 0);
       const consecutive = recent.findIndex(item => item.workoutFamilyId !== family.workoutFamilyId);
@@ -320,15 +529,23 @@
       const potentiallyDemanding = family.demanding || athleticV6({...family, workoutFamilyVersion: compositionVersion(family)});
       const recoveryPenalty = reasons.length && potentiallyDemanding ? recoveryPolicy.demandingPenalty : 0;
       const last = sessions.find(item => item.workoutFamilyId === family.workoutFamilyId) || null;
+      const resistanceBonus = resistancePriority && RESISTANCE_FAMILIES.includes(family.workoutFamilyId)
+        ? variety.repeatPreviousPenalty * (conditioningGap && family.workoutFamilyId === 'resistance-endurance' ? 1.25 : 1)
+        : 0;
       return {workoutFamilyId: family.workoutFamilyId, workoutFamilyVersion: compositionVersion(family), index,
         primaryEffect: Object.entries(family.effects).sort((a, b) => b[1] - a[1])[0][0],
-        balanceScore: value, varietyPenalty, recoveryPenalty, score: value - varietyPenalty - recoveryPenalty,
+        balanceScore: value, varietyPenalty, recoveryPenalty, ...(resistance ? {resistanceBonus} : {}),
+        score: value - varietyPenalty - recoveryPenalty + resistanceBonus,
         lastPerformedAt: last ? last.occurredAt : null, lastFamilyStyleId: last ? last.familyStyleId : null};
-    }).sort((a, b) => b.score - a.score || a.index - b.index);
+    // Keep demanding fallbacks available when lower-demand candidates cannot
+    // be composed. A large coverage gap cannot undo the v3 recovery preference.
+    }).sort((a, b) => (resistance ? a.recoveryPenalty - b.recoveryPenalty : 0) || b.score - a.score || a.index - b.index);
     const recovery = {preferLowerDemand: reasons.length > 0, reasons};
     return {effects, families,
       attendance: {sessionsPerWeek, level, windowDays: balance.attendanceWindowDays, recommended: clone(definition.recommendedFrequency)},
       recovery,
+      ...(resistance ? {resistance: {...resistance, targetDays: definition.resistanceDayPolicy.targetDays,
+        windowDays: definition.resistanceDayPolicy.windowDays}} : {}),
       ...(definition.benchmarkPolicy ? {benchmark: benchmarkOffer({definition, state, history: input.history, today, recovery, intendedFamily: families[0]})} : {}),
       externalActivity: {typicalSessionsPerWeek, mobilityPreference: mobilityBonus, confidence: typical.length ? 'approximate' : 'unknown',
         confirmedReports: reports.length},
@@ -346,7 +563,8 @@
     const parts = [];
     if (index === 0) {
       const top = priorities.effects.slice().sort((a, b) => b.need - a.need)[0];
-      parts.push(top.effect === family.primaryEffect
+      if (family.resistanceBonus) parts.push(name+' prioritises resistance work in your training plan.');
+      else parts.push(top.effect === family.primaryEffect
         ? name+' prioritises '+label+', the training effect least covered by your recent performed sessions.'
         : name+' adds '+label+' while keeping your recent sessions varied.');
       if (priorities.recovery.preferLowerDemand && !family.recoveryPenalty) parts.push('Recent demanding work favours lower-demand training today.');
@@ -361,6 +579,15 @@
     const first = priorities.families[0];
     const plan = {candidates: priorities.families.map((family, index) => ({workoutFamilyId: family.workoutFamilyId,
       workoutFamilyVersion: family.workoutFamilyVersion, rationale: rationaleFor(family, index, priorities, first)}))};
+    if (priorities.resistance && !priorities.recovery.preferLowerDemand && !today.bodyFocus) {
+      const {movements, patterns} = priorities.resistance;
+      const coverage = ['push','pull','lower','core'].map(area => ({area, amount: movements[area] || 0})).sort((a,b) => a.amount - b.amount);
+      if (coverage[0].amount < coverage.at(-1).amount) {
+        const least = coverage[0].area;
+        plan.resistanceFocus = least === 'lower'
+          ? ['squat','hinge','lunge'].sort((a,b) => (patterns[a] || 0) - (patterns[b] || 0))[0] : least;
+      }
+    }
     // An optional comparable benchmark rides in the intended family's session; it never changes the family.
     const offered = priorities.benchmark && priorities.benchmark.status === 'offered';
     if (offered) plan.benchmark = benchmarkSpec(definition, first);
@@ -389,15 +616,17 @@
   // ---- Progress evidence (#192): three separate, factual views; there is no combined score ----
   // Capability balance: which training effects were actually performed in the rolling window, across
   // every GarageFit source. Coverage of training, never a measure of fitness or adequacy.
-  function balanceSummary({definition, history, catalogue, now}) {
-    const sessions = performedSessions({definition, history, catalogue, today: {now}});
+  function balanceSummary({definition, history, catalogue, now, incompleteContext}) {
+    const {sessions, incomplete} = performedSessions({definition, history, catalogue, today: {now, incompleteTrainingContext: incompleteContext}});
+    const incompleteEvidence = !!definition.resistanceDayPolicy && (incomplete || sessions.some(item => item.dose.unknown));
     const measured = sessions.filter(item => item.weight > 0);
     return {windowDays: definition.coverageTargets.windowDays, sessionCount: measured.length,
       unmeasuredSessions: sessions.length - measured.length,
+      ...(incompleteEvidence ? {incompleteEvidence} : {}),
       effects: EFFECTS.map(effect => {
         const credited = measured.reduce((sum, item) => sum + item.weight * (item.effects[effect] || 0), 0);
         return {effect, label: EFFECT_LABELS[effect], performedSessions: Math.round(credited * 10) / 10,
-          sessionCount: measured.filter(item => (item.effects[effect] || 0) > 0).length, status: credited > 0 ? 'performed' : 'not-performed'};
+          sessionCount: measured.filter(item => (item.effects[effect] || 0) > 0).length, status: credited > 0 ? 'performed' : incompleteEvidence ? 'unknown' : 'not-performed'};
       })};
   }
 

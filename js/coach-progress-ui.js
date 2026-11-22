@@ -197,20 +197,21 @@
       return wrap;
     }
     // Capability balance: which training effects were actually performed recently, from every PickSetGo source.
-    const balanceStatus = {performed: ['✓', 'Performed'], 'not-performed': ['○', 'Not performed']};
+    const balanceStatus = {performed: ['✓', 'Performed'], 'not-performed': ['○', 'Not performed'], unknown: ['○', 'Insufficient evidence']};
     function balance({summary}) {
       const wrap = section('Capability balance · last '+summary.windowDays+' days'), grid = node('div', 'coach-progress-grid');
       summary.effects.forEach(effect => {
         const [icon, status] = balanceStatus[effect.status];
         const lines = [status, effect.sessionCount ? plural(effect.sessionCount, 'session') : 'None recorded'];
         const detail = [paragraph(effect.sessionCount ? 'Performed in '+plural(effect.sessionCount, 'session')+' in the last '+summary.windowDays+' days, across all your PickSetGo workouts.'
-          : 'No performed '+effect.label+' work in the last '+summary.windowDays+' days.')];
+          : effect.status === 'unknown' ? 'Available workout records are incomplete.'
+            : 'No performed '+effect.label+' work in the last '+summary.windowDays+' days.')];
         grid.append(card({key: 'balance-'+effect.effect, label: title(effect.label), lines, detail, icon,
           className: 'coach-capability-card coverage-'+(effect.status === 'performed' ? 'observed' : 'not-observed')}));
       });
       wrap.append(grid);
       if (summary.unmeasuredSessions) wrap.append(paragraph(plural(summary.unmeasuredSessions, 'recent session')+' had work recorded without an amount, so it is not counted here.'));
-      if (!summary.sessionCount) wrap.append(paragraph('No performed training has been recorded in this window yet.'));
+      if (!summary.sessionCount && !summary.incompleteEvidence) wrap.append(paragraph('No performed training has been recorded in this window yet.'));
       wrap.append(paragraph('Training coverage, not a measure of fitness. Balance guides which workout Coach suggests; there is no target to catch up on.'));
       return wrap;
     }

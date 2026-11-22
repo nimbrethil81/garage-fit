@@ -572,7 +572,7 @@ the internal style from performed protocol recency and the shared gate validate 
   0.25 per weekly session, capped at 0.5, labelled approximate. They never earn effect credit.
 
 The prescription has `sessionRole: 'general-fitness'`, no anchors and a `workoutFamilyPlan` of
-all six families in priority order, each with its rationale; `programmeContext` records the
+the definition’s families in priority order, each with its rationale; `programmeContext` records the
 intended family and recovery reasons, and `rationale.priorities` exposes effects, family scores,
 attendance, recovery, external context and the history sessions used (`credit: 'none'`). The
 Generator builds the first feasible family and reports any transparent replan (see
@@ -588,18 +588,41 @@ Full-Body Challenges v2 automatically with no restart or new programme definitio
 saved drafts and results keep their actual versions and original plans. Balance, variety and recency compare families by id, so any Athletic version's
 session earn the same effect and recency; results keep their recorded version.
 
-**Version-aware family set (#399).** `validateDefinition` checks an exact canonical family set
-for the definition's version rather than the registry size: v1 and v2 use exactly the six families
-they were released with (Strength & Control, Cardio & Conditioning, Athletic Movement, Core &
-Stability, Mobility & Movement Quality and Full-Body Challenges). Only a later definition version
-uses every registered family, including Strength & Stamina (`resistance-endurance`); that v3 is
-#400 and is not published here. v1/v2 therefore never plan Strength & Stamina. A cross-source
-Strength & Stamina result has no effect entry in their family list, so it contributes through the
-existing exercise-metadata fallback (`basis: 'exercise-metadata'`), like any other unlisted
-family session. The shared Coach family-plan candidate limit stays six (`coach-model.js`);
-raising it for a seven-family plan belongs with v3 (#400). `tests/general-fitness.test.js`
-covers lifecycle, sequences at 2/3/5 sessions per week, cross-source context, recovery,
-external preferences and the family-plan seam.
+**Versioned family sets (#399, #400).** v1 and v2 retain their exact released six families.
+v3 adds Strength & Stamina (`resistance-endurance`) and accepts seven ordered candidates.
+A Strength & Stamina result contributes to v1/v2 through their existing exercise-metadata fallback.
+New starts select v3. To adopt v3, finish the current programme and start a fresh instance.
+Prior results can inform scheduling. Programme attendance, progress and comparable benchmark
+series belong to their original instance. v3 retains the v2 benchmark cadence and safeguards.
+
+**v3 resistance-day planning (GF400-CAL1).** The seven-date window includes today and uses
+each saved result’s end date in the device calendar, falling back to its start when necessary.
+Threshold **four** uses one unit per eligible major Main occurrence and half a unit for
+eligible supporting trunk/isolation work. The credited support is capped by the day’s major
+units. The resolved prescription needs at least five reps or twenty seconds. Left and right
+occurrences earn half each. A compound contributes once to the day total even when its
+movements cover multiple patterns. A result with measured partial work contributes the
+recorded fraction, and a confirmed eligible AMRAP slot counts once. Uncounted AMRAP rounds and
+unquantified work remain unknown. Skipped and preparation work add no units. Optional benchmarks
+need a recorded substantive effort and are counted once via the Main occurrence.
+
+Exercise role uses the actual exercise plus its delivered prescription and block. This
+preserves controlled bodyweight resistance and excludes conditioning-role movements with a
+resistance pattern. For example, a traditional Cardio circuit may include credited suitcase
+carries and controlled walking lunges alongside devil’s presses that supply conditioning.
+The published Cardio v2 composition resolves its ambiguous stations as conditioning. Metcon
+family validation still uses Strength & Stamina’s versioned construction gate. The v3
+frequency rule credits ring triceps extensions as supporting isolation even when a delivered
+Metcon passes its family gate.
+
+Count qualifying dates once across Coach, Generator and eligible fixed workouts. Retain
+observed patterns and regions separately, including on non-qualifying dates. The 28-day
+balance uses observed Main work and a bounded read window. Missing, truncated or unquantified
+evidence can leave a lower bound on recorded work. The two-day aim is a preference, with
+recovery, variety and feasibility ahead of it. v3 considers every relevant performed
+demanding session in the recovery lookback, including one followed by easier work. Recent
+coverage can add a soft movement preference in the resistance composers. The weekly bars
+remain programme-owned session counts and no results or scores are written by this policy.
 
 **Shared Coach screens (#191).** General Fitness uses the same discovery, home, weekly
 progress, Adjust today, workout card, preview/edit, player, Your progress, session history and

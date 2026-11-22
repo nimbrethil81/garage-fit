@@ -249,11 +249,13 @@
           writeIndex(recovered);
         }
         let candidates = entries || index.ids.map(sessionResultId => ({sessionResultId}));
-        const matches = entry => (!filters.programmeInstanceId || entry.programmeInstanceId === filters.programmeInstanceId)
+        const matchesScope = entry => (!filters.programmeInstanceId || entry.programmeInstanceId === filters.programmeInstanceId)
           && (!filters.source || entry.source === filters.source)
           && (!filters.sources || filters.sources.includes(entry.source))
           && (filters.performedOnly !== true || entry.hasPerformedWork === true)
-          && (!filters.exerciseId || entry.exerciseIds.includes(filters.exerciseId))
+          && (!filters.exerciseId || entry.exerciseIds.includes(filters.exerciseId));
+        const undated = filters.reportTruncation && candidates.some(entry => matchesScope(entry) && !entry.occurredAt);
+        const matches = entry => matchesScope(entry)
           && (!filters.since || Date.parse(entry.occurredAt) >= Date.parse(filters.since))
           && (!filters.until || Date.parse(entry.occurredAt) <= Date.parse(filters.until));
         candidates = candidates.filter(matches);
@@ -264,6 +266,7 @@
         }
         // Optional hard read budget for contextual summaries: damaged evidence
         // consumes a candidate too, rather than triggering an unbounded retry scan.
+        const candidateCount = candidates.length;
         if (filters.candidateLimit !== undefined) {
           if (!Number.isInteger(filters.candidateLimit) || filters.candidateLimit < 0)
             throw new CoachError('invalid-record', 'History candidate limit must be a non-negative integer.', {});
@@ -280,7 +283,9 @@
             } else errors.push(new CoachError('session-index-corrupt', 'Session Result index references a missing record.', {key: sessionResultKey(sessionResultId), sessionResultId, missing: true}));
           } catch (error) { errors.push(error); }
         }
-        return {results, errors, indexRecovered: index.recovered};
+        return {results, errors, indexRecovered: index.recovered,
+          ...(filters.reportTruncation ? {truncated: candidateCount > candidates.length
+            || (filters.limit !== undefined && candidateCount > filters.limit), undated} : {})};
       },
 
       // ---- Active Session Draft (one, mutable) ----
