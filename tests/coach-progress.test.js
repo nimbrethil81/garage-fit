@@ -248,8 +248,8 @@ test('General Fitness Programme progress has no empty strength targets card', as
   const p = await ui(new Map(), ['dumbbells']);
   await p.click('General Fitness'); await p.click('Start programme');
   await p.progress();
-  // New starts use General Fitness v2: its optional benchmark views (#192) follow the phase, before Recent sessions.
-  assert.equal(p.state().programmeDefinitionVersion, 2);
+  // New starts use General Fitness v3 and retain the v2 benchmark views (#192) before Recent sessions.
+  assert.equal(p.state().programmeDefinitionVersion, 3);
   assert.match(p.text().replace(/\s+/g, ' '), /General Fitness Ongoing Programme phase Open-ended programme · 2–5 sessions per week 0 meaningful sessions in total Training consistency .* Capability balance .* Demonstrated comparable improvement .* Recent sessions No saved sessions yet/);
   assert.doesNotMatch(p.text(), /Strength targets|Targets are prescriptions|Tennis fitness|Arm work/);
   // Only balance and benchmark cards exist: there are no empty strength-target cards.
