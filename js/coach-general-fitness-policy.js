@@ -336,12 +336,17 @@
     const total = Object.values(work.effects).reduce((sum, amount) => sum + amount, 0);
     let weight = work.planned ? Math.min(1, work.performed / work.planned) : 0;
     let effects = {};
-    // Use the published recovery context and the share of observed work. A
-    // resistance occurrence can count toward coverage in a lower-demand family
-    // without making the session demanding.
+    // A meaningful completion carries its published family demand. For
+    // incomplete work, the observed mix also needs to represent enough of the
+    // planned Main for a tiny fragment to carry no automatic recovery flag.
+    const completed = result.finalStatus === 'completed';
+    const confirmedMain = completed && performances.some(item => item.section === 'main'
+      && item.status === 'completed' && item.semanticConfidence !== 'unknown' && positive(item.exposure.value));
+    const sufficientWork = confirmedMain || weight + EPSILON >= 0.5;
     const demandingWork = dose.major + (work.effects.conditioning || 0);
-    let demanding = family?.demanding !== false && demandingWork > 0
-      && demandingWork + EPSILON >= work.observed / 2;
+    const contextualDemand = demandingWork > 0 && demandingWork + EPSILON >= work.observed / 2;
+    let demanding = sufficientWork && (completed && family ? family.demanding
+      : family?.demanding !== false && contextualDemand);
     let basis = 'performed-main';
     if (total) {
       const challengeShare = result.workoutFamilyId === 'full-body-challenges' ? 0.5 : 0;

@@ -585,6 +585,63 @@ test('v3 groups performed sources by local date across DST and year boundaries a
   }
 });
 
+test('v3 keeps published recovery demand for completed Strength & Control and Full-Body Challenges', () => {
+  const p = v3Context();
+  const out = p.json(`(()=>{
+    const state=gfStart('2026-10-05T08:00:00Z');
+    const when='2026-10-05T19:00:00Z', nextMorning='2026-10-06T10:00:00Z';
+    const settings={duration:15,difficulty:'hard',equipment:[]};
+    const light=evidenceResult('later-core','2026-10-06T08:00:00Z',repsPlan('abdominal-crunch',4),
+      {identity:{workoutFamilyId:'core-stability',workoutFamilyVersion:1,familyStyleId:'dynamic-core'}});
+    const samples=[
+      generatedEvidence({...settings,workoutFamilyId:'strength-control',workoutFamilyVersion:3},42),
+      generatedEvidence({...settings,workoutFamilyId:'full-body-challenges',workoutFamilyVersion:2},19)
+    ];
+    return samples.map(({workout,result})=>{
+      const plan=result.plannedWork;
+      const identity=GarageFitSessionTracker.identityFromWorkout(workout);
+      const completed=evidenceResult('completed',when,plan,{identity});
+      const familyless=evidenceResult('unlabelled',when,plan);
+      const next=results=>gfPlan(state,results,nextMorning).rationale.priorities;
+      return {main:plan.filter(item=>item.section==='main').map(item=>item.exerciseId),
+        completed:next([completed]), followedByCore:next([completed,light]), familyless:next([familyless])};
+    });
+  })()`);
+  assert.ok(out[0].main.includes('v-ups') && out[0].main.includes('hollow-body-hold'));
+  assert.ok(out[1].main.includes('push-up') && out[1].main.includes('glute-bridge'));
+  for (const sample of out) {
+    const day = sample.completed.resistance.days[0];
+    assert.ok(day.major >= 4 && day.support > 0, 'substantive resistance and supporting work were both performed');
+    assert.equal(sample.familyless.recovery.preferLowerDemand, false, 'the mix alone falls below contextual demand');
+    for (const priorities of [sample.completed, sample.followedByCore]) {
+      assert.deepEqual(priorities.recovery, {preferLowerDemand:true,reasons:['recent-demanding-session']});
+      assert.ok(priorities.families.every(family => family.resistanceBonus === 0));
+    }
+  }
+});
+
+test('v3 recovery scales incomplete work by performed Main and keeps family-less inference contextual', () => {
+  const p = v3Context();
+  const out = p.json(`(()=>{
+    const when='2026-10-05T19:00:00Z', state=gfStart('2026-10-05T08:00:00Z');
+    const plan=repsPlan('push-up',6);
+    const identity={workoutFamilyId:'strength-control',workoutFamilyVersion:3,familyStyleId:'paired-sets'};
+    const light=entry=>entry.occurrenceId==='occ:0'?{status:'partial',sets:[{reps:1}]}:null;
+    const half=entry=>['occ:0','occ:1','occ:2'].includes(entry.occurrenceId)?{status:'completed'}:null;
+    const cases=[
+      evidenceResult('minimal',when,plan,{identity,status:'partial',outcomes:light}),
+      evidenceResult('normal-end-after-skips',when,plan,{identity,outcomes:light}),
+      evidenceResult('half',when,plan,{identity,status:'partial',outcomes:half}),
+      evidenceResult('completed',when,plan,{identity}),
+      evidenceResult('unlabelled-minimal',when,plan,{status:'partial',outcomes:light}),
+      evidenceResult('unlabelled-completed',when,plan),
+      evidenceResult('prep-only',when,repsPlan('push-up',4,8,'warmup'),{identity})
+    ];
+    return cases.map(result=>gfPlan(state,[result],'2026-10-06T10:00:00Z').rationale.priorities.recovery.preferLowerDemand);
+  })()`);
+  assert.deepEqual(out, [false,false,true,true,false,true,false]);
+});
+
 test('v3 recovery considers a demanding session even after mobility and gives movement coverage its own preference', () => {
   const p = v3Context();
   const out = p.json(`(()=>{
