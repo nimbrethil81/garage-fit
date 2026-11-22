@@ -272,7 +272,8 @@
     const byId = new Map(plan.map(item => [item.occurrenceId,item]));
     const blocks = blockRoles(plan, performances, catalogue);
     const dose = {major: 0, support: 0, patterns: {}, regions: {}, movements: {}, unknown: false};
-    const work = {effects: {}, performed: 0, planned: plan.filter(item => item.section === 'main').length};
+    const work = {effects: {}, observed: 0, performed: 0, planned: plan.filter(item => item.section === 'main').length,
+      incompleteEffects: false};
     for (const item of performances) {
       if (item.exposure.value === 0 || (item.section != null && item.section !== 'main')) continue;
       const planned = byId.get(item.occurrenceId), rx = planned?.prescription;
@@ -280,16 +281,22 @@
       if (item.section !== 'main' || !exercise || !positive(targetFor(rx)) || item.exposure.value === null
         || (!knownSide(item.side) && (exercise.sidedness === 'per-side' || rx.type?.startsWith('unilateral-')))) {
         dose.unknown = true;
+        work.incompleteEffects = true;
         continue;
       }
       const benchmark = item.requirementId?.startsWith(BENCHMARK_PREFIX);
       if (benchmark && !item.sets.some(set => positive(set.reps.value))) {
         dose.unknown = true;
+        work.incompleteEffects = true;
         continue;
       }
       const fraction = item.exposure.value * (knownSide(item.side) ? 0.5 : 1);
       const role = performedRole(result, exercise, rx, blocks.get(planned.blockIndex), benchmark);
+      // Extra AMRAP rounds repeat the observed stations. Their dose is unknown,
+      // while confirmed occurrences still establish the recorded training effects.
       if (rx.protocol === 'amrap' || role === 'unknown') dose.unknown = true;
+      if (role === 'unknown') work.incompleteEffects = true;
+      work.observed += fraction;
       work.performed += item.exposure.value;
       const effect = performedEffect(result, exercise, role);
       if (effect) add(work.effects, effect, fraction);
@@ -324,12 +331,17 @@
     return result.workoutFamilyId === 'full-body-challenges' ? 'challenge' : null;
   }
 
-  function performedBalanceV3(result, performances, catalogue) {
+  function performedBalanceV3(result, performances, catalogue, family) {
     const {dose, work} = performedResistance(result, performances, catalogue);
     const total = Object.values(work.effects).reduce((sum, amount) => sum + amount, 0);
     let weight = work.planned ? Math.min(1, work.performed / work.planned) : 0;
     let effects = {};
-    let demanding = dose.major > 0 || (work.effects.conditioning || 0) > 0;
+    // Use the published recovery context and the share of observed work. A
+    // resistance occurrence can count toward coverage in a lower-demand family
+    // without making the session demanding.
+    const demandingWork = dose.major + (work.effects.conditioning || 0);
+    let demanding = family?.demanding !== false && demandingWork > 0
+      && demandingWork + EPSILON >= work.observed / 2;
     let basis = 'performed-main';
     if (total) {
       const challengeShare = result.workoutFamilyId === 'full-body-challenges' ? 0.5 : 0;
@@ -341,7 +353,7 @@
       weight = athletic.weight; effects = athletic.effects; demanding = athletic.demanding;
       basis = 'athletic-v6-performed-main';
     }
-    return {dose, weight, effects, basis,
+    return {dose, weight, effects, basis, incompleteEffects: work.incompleteEffects,
       demanding: demanding || result.feedback?.effort === 'hard' || ['hard','too-hard'].includes(result.feedback?.difficulty)};
   }
 
@@ -394,7 +406,8 @@
         sessions: inWindow.slice(0, limit).map(result => ({
           sessionResultId: result.sessionResultId, source: result.source, programmeInstanceId: result.programmeInstanceId,
           occurredAt: result.endedAt || result.startedAt, workoutFamilyId: result.workoutFamilyId, familyStyleId: result.familyStyleId,
-          ...performedBalanceV3(result, performances.get(result.sessionResultId), catalogue)
+          ...performedBalanceV3(result, performances.get(result.sessionResultId), catalogue,
+            families.find(family => family.workoutFamilyId === result.workoutFamilyId))
         }))};
     }
     const summary = history.recentTrainingSummary({limit, since, until: today.now});
@@ -470,7 +483,7 @@
     const balance = definition.familyBalancePolicy, variety = definition.varietyPolicy, recoveryPolicy = definition.recoveryPolicy;
     const now = Date.parse(today.now), {sessions, incomplete} = performedSessions(input);
     const resistance = definition.resistanceDayPolicy && resistanceDays({sessions, policy: definition.resistanceDayPolicy, today, incomplete});
-    const incompleteBalance = resistance && (incomplete || sessions.some(item => item.dose.unknown));
+    const incompleteBalance = resistance && (incomplete || sessions.some(item => item.incompleteEffects));
     // Attendance adapts emphasis to actual recent frequency; misses create no debt.
     const applied = resistance ? new Set([
       ...(state.currentTargets.reconciliation?.appliedSessionResultIds || []), state.lastAppliedSessionResultId,
@@ -537,9 +550,7 @@
         balanceScore: value, varietyPenalty, recoveryPenalty, ...(resistance ? {resistanceBonus} : {}),
         score: value - varietyPenalty - recoveryPenalty + resistanceBonus,
         lastPerformedAt: last ? last.occurredAt : null, lastFamilyStyleId: last ? last.familyStyleId : null};
-    // Keep demanding fallbacks available when lower-demand candidates cannot
-    // be composed. A large coverage gap cannot undo the v3 recovery preference.
-    }).sort((a, b) => (resistance ? a.recoveryPenalty - b.recoveryPenalty : 0) || b.score - a.score || a.index - b.index);
+    }).sort((a, b) => b.score - a.score || a.index - b.index);
     const recovery = {preferLowerDemand: reasons.length > 0, reasons};
     return {effects, families,
       attendance: {sessionsPerWeek, level, windowDays: balance.attendanceWindowDays, recommended: clone(definition.recommendedFrequency)},
@@ -618,7 +629,7 @@
   // every GarageFit source. Coverage of training, never a measure of fitness or adequacy.
   function balanceSummary({definition, history, catalogue, now, incompleteContext}) {
     const {sessions, incomplete} = performedSessions({definition, history, catalogue, today: {now, incompleteTrainingContext: incompleteContext}});
-    const incompleteEvidence = !!definition.resistanceDayPolicy && (incomplete || sessions.some(item => item.dose.unknown));
+    const incompleteEvidence = !!definition.resistanceDayPolicy && (incomplete || sessions.some(item => item.incompleteEffects));
     const measured = sessions.filter(item => item.weight > 0);
     return {windowDays: definition.coverageTargets.windowDays, sessionCount: measured.length,
       unmeasuredSessions: sessions.length - measured.length,

@@ -910,8 +910,7 @@ The seventh canonical family is displayed as **Strength & Stamina**; its stable 
 styles are `muscular-endurance` (**Muscular Endurance**) and `metcon` (**Metcon**). It is
 full-body only, has no style picker, setting, membership table, catalogue change or new protocol,
 and is available to the standalone Generator and to any Coach family plan that names it. General
-Fitness v1/v2 keep their six-family plans, and v3 includes Strength & Stamina (see [Coach engine](COACH_ENGINE.md#general-fitness));
-General Fitness v3 (#400) is not part of this version.
+Fitness v1/v2 keep their six-family plans, and v3 includes Strength & Stamina (see [Coach engine](COACH_ENGINE.md#general-fitness)).
 
 Load `js/resistance-endurance-composer.js` after `js/core-challenge-composer.js`; it reuses the
 shared composer kit, the Generator's scored selector, generic preparation and the shared gate.

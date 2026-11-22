@@ -593,18 +593,39 @@ test('v3 recovery considers a demanding session even after mobility and gives mo
     const after='2026-10-07T15:00:00Z';
     const strength=evidenceResult('strength','2026-10-05T19:00:00Z',repsPlan('push-up',4),
       {identity:{workoutFamilyId:'strength-control',workoutFamilyVersion:3,familyStyleId:'paired-sets'}});
-    const mobility=evidenceResult('mobility','2026-10-06T08:00:00Z',repsPlan('cat-cow',2),
-      {identity:{workoutFamilyId:'mobility-movement-quality',workoutFamilyVersion:3,familyStyleId:'reset'}});
+    const {workout,result}=generatedEvidence({workoutFamilyId:'mobility-movement-quality',workoutFamilyVersion:3,
+      duration:15,difficulty:'normal',equipment:[]},1);
+    const identity=GarageFitSessionTracker.identityFromWorkout(workout);
+    const mobility=evidenceResult('mobility','2026-10-06T08:00:00Z',result.plannedWork,{identity});
+    const hardMobility=evidenceResult('hard-mobility',mobility.endedAt,mobility.plannedWork,
+      {identity,feedback:{effort:'hard'}});
+    const lightOnly=gfPlan(state,[mobility],before), reported=gfPlan(state,[hardMobility],before);
+    const core=evidenceResult('core',mobility.endedAt,[...repsPlan('cossack-squat',1),
+      ...repsPlan('abdominal-crunch',4).map(entry=>({...entry,occurrenceId:'core:'+entry.occurrenceId}))],
+      {identity:{workoutFamilyId:'core-stability',workoutFamilyVersion:1,familyStyleId:'dynamic-core'}});
+    const lightCore=gfPlan(state,[core],before);
     const first=gfPlan(state,[strength,mobility],before), later=gfPlan(state,[strength,mobility],after);
+    const history=Array.from({length:12},(_,i)=>evidenceResult('old-mobility-'+i,
+      new Date(Date.parse(before)-(i+2)*86400000).toISOString(),mobility.plannedWork,{identity}));
+    const substantialGap=gfPlan(state,[...history,strength,mobility],before);
     const easy=gfPlan(state,[],after,{easyToday:true});
     const legacy=legacyPlan();
-    return {first,later,easy,legacy};
+    const cossack=mobility.plannedWork.find(item=>item.section==='main' && item.exerciseId==='cossack-squat');
+    return {first,later,easy,legacy,cossack,lightOnly,lightCore,reported,substantialGap};
     function legacyPlan() {
       const def=GarageFitData.programmes['general-fitness'][2];
       const old=gfEngine.startProgramme(def,{programmeInstanceId:'old',equipment:[]},'2026-10-05T08:00:00Z').state;
       return gfEngine.planNextSession(def,old,[strength,mobility],{now:before,prescriptionId:'rx:old',equipment:[],duration:30});
     }
   })()`);
+  assert.ok(out.cossack.prescription.seconds >= 20, 'the delivered Mobility squat clears the resistance floor');
+  assert.equal(out.lightOnly.rationale.priorities.resistance.days[0].major, 1);
+  assert.equal(out.lightOnly.rationale.priorities.recovery.preferLowerDemand, false);
+  assert.equal(out.lightCore.rationale.priorities.resistance.days[0].major, 1);
+  assert.equal(out.lightCore.rationale.priorities.recovery.preferLowerDemand, false);
+  assert.deepEqual(out.reported.rationale.priorities.recovery,
+    {preferLowerDemand:true,reasons:['recent-demanding-session']});
+  assert.ok(out.reported.rationale.priorities.families.every(item => item.resistanceBonus === 0));
   assert.ok(out.first.rationale.priorities.recovery.reasons.includes('recent-demanding-session'));
   assert.equal(out.legacy.rationale.priorities.recovery.preferLowerDemand, false);
   assert.equal(out.first.rationale.priorities.resistance.qualifyingDays, 1);
@@ -612,6 +633,10 @@ test('v3 recovery considers a demanding session even after mobility and gives mo
   assert.ok(out.first.rationale.priorities.families.every(item => item.resistanceBonus === 0));
   assert.equal(out.first.rationale.priorities.families[0].recoveryPenalty, 0);
   assert.equal(out.first.prescription.workoutFamilyPlan.candidates.length, 7, 'demanding alternatives stay available');
+  assert.ok(out.substantialGap.rationale.priorities.recovery.preferLowerDemand);
+  assert.ok(out.substantialGap.rationale.priorities.families[0].recoveryPenalty > 0,
+    'a large balance gap can outweigh the recovery penalty without a resistance bonus');
+  assert.ok(out.substantialGap.rationale.priorities.families.every(item => item.resistanceBonus === 0));
   assert.equal(out.later.prescription.workoutFamilyPlan.resistanceFocus, 'pull');
   assert.ok(out.later.rationale.priorities.families.some(item => item.resistanceBonus > 0));
   assert.ok(out.easy.rationale.priorities.families.every(item => item.resistanceBonus === 0));
@@ -678,6 +703,38 @@ test('v3 uses only confirmed AMRAP occurrences and measured benchmark work', () 
   })()`);
   assert.deepEqual(out.map(item => item.days[0].units), [2,0,0,1]);
   assert.deepEqual(out.map(item => item.incomplete), [true,true,false,false]);
+});
+
+test('v3 Capability balance retains effect evidence for a completed AMRAP with unknown extra rounds', () => {
+  const p = v3Context();
+  const out = p.json(`(()=>{
+    const {workout,result,dose}=generatedEvidence({workoutFamilyId:'full-body-challenges',workoutFamilyVersion:2,
+      duration:15,difficulty:'normal',equipment:['trx','bands']},2);
+    const now='2026-10-07T09:00:00Z', state=gfStart('2026-10-05T08:00:00Z');
+    const summary=(results,incompleteContext)=>GarageFitCoachGeneralFitnessPolicy.balanceSummary({
+      definition:GF,history:GarageFitTrainingHistory.createHistory(results,CATALOGUE),
+      catalogue:CATALOGUE,now,incompleteContext});
+    const missingPlan=GarageFitCoachModel.createSessionResult({...result,sessionResultId:'legacy-amrap',plannedWork:[]});
+    const undated=GarageFitCoachModel.createSessionResult({...result,sessionResultId:'undated-amrap',startedAt:null,endedAt:null});
+    const status=balance=>Object.fromEntries(balance.effects.map(item=>[item.effect,item.status]));
+    const priorities=gfPlan(state,[result],now).rationale.priorities;
+    return {style:workout.familyStyleId,finalStatus:result.finalStatus,dose,
+      complete:status(summary([result])),missing:status(summary([missingPlan])),
+      undated:status(summary([result,undated])),incomplete:status(summary([result],true)),
+      confidence:Object.fromEntries(priorities.effects.map(effect=>[effect.effect,effect.confidence]))};
+  })()`);
+  assert.equal(out.style, 'amrap');
+  assert.equal(out.finalStatus, 'completed');
+  assert.equal(out.dose.days[0].units, 3.5, 'recorded slots alone determine the known dose');
+  assert.equal(out.dose.incomplete, true, 'extra AMRAP rounds are still unknown');
+  assert.deepEqual(out.complete, {strength:'performed',conditioning:'not-performed',challenge:'performed',
+    athletic:'not-performed',core:'performed',mobility:'not-performed'});
+  assert.equal(out.confidence.mobility, 'derived', 'planning uses the same effect confidence as Capability balance');
+  assert.ok(Object.values(out.missing).every(status => status === 'unknown'));
+  for (const balance of [out.undated,out.incomplete]) {
+    assert.equal(balance.strength, 'performed', 'known effects survive incomplete history');
+    assert.equal(balance.mobility, 'unknown', 'gaps in history preserve uncertainty');
+  }
 });
 
 test('[Full] v3 plans resistance on distinct dates while retaining other training across weekly frequencies', () => {
