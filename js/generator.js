@@ -3832,7 +3832,8 @@
   function generateFamilyPlanWorkout(prepared) {
     const {rx,context,assessment}=prepared,plan=rx.workoutFamilyPlan,{usable,unavailable}=familyPlanCandidates(rx,context);
     const options={catalogue:context.catalogue,duration:context.duration,difficulty:context.difficulty,bodyFocus:context.bodyFocus,equipment:context.equipment,
-      history:context.history||[],recentProtocols:context.recentProtocols,recentFamilySessions:context.recentFamilySessions,random:context.random};
+      history:context.history||[],recentProtocols:context.recentProtocols,recentFamilySessions:context.recentFamilySessions,random:context.random,
+      ...(plan.resistanceFocus ? {resistanceFocus:plan.resistanceFocus} : {})};
     // Transient, v6-only programme emphasis; never added to saved prescriptions.
     const tennisV6=root.GarageFitData.programmes?.['tennis-conditioning']?.[10];
     if(tennisV6 && rx.programmeContext?.objective === tennisV6.objective

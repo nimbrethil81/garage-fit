@@ -42,7 +42,8 @@
     const pool=Object.values(catalogue).filter(ex=>G.generatedPhaseEligible(ex,'main',owned,difficulty)&&allowed(ex)&&suitable(ex,difficulty));
     // A Coach benchmark block (#192) is placed after composition; its time is taken from Main up front.
     return {label,focus,duration,difficulty,catalogue,owned,random,pool,target:budget.main-MARGIN-(options.reservedMainSeconds||0),
-      history:options.history||[],recent:options.recentProtocols||[],bodyFocus:request.bodyFocus};
+      history:options.history||[],recent:options.recentProtocols||[],bodyFocus:request.bodyFocus,
+      ...(focus==='strength' && options.resistanceFocus ? {resistanceFocus:options.resistanceFocus} : {})};
   }
 
   // Selection state for the Generator's recipe-driven picker (js/generator.js selectBlockExercises).
@@ -50,6 +51,7 @@
   // route (Strength & Control v2); every other composition leaves the state exactly as before.
   const freshState=ctx=>({exercises:[],usedIds:new Set(),equipmentUsage:new Map(),owned:ctx.owned,difficulty:ctx.difficulty,
     bodyFocus:ctx.bodyFocus,diversityTarget:G.EQUIPMENT_DIVERSITY[ctx.duration],duration:ctx.duration,recentProtocols:ctx.recent,
+    ...(ctx.resistanceFocus ? {sessionPrescription:{movementPriorities:[{pattern:ctx.resistanceFocus,priority:'secondary'}]}} : {}),
     ...(ctx.supportingRoute?{supportingRoute:true}:{}),...(ctx.selectionFlags||{})});
   const pick=(ctx,state,pool,count,focus,intent,protocol)=>
     G.selectBlockExercises(pool,count,focus,intent,protocol,state,ctx.history,ctx.random,ctx.catalogue);

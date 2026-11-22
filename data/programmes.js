@@ -222,7 +222,12 @@
       ],
       consistencyWeeks: 4
     }};
+  // #400: a fresh, version-pinned programme with performed resistance-day planning.
+  const generalFitnessV3 = {...JSON.parse(JSON.stringify(generalFitnessBenchmarks)), version: 3,
+    resistanceDayPolicy: {windowDays: 7, targetDays: 2, unitsPerDay: 4}};
+  generalFitnessV3.familyBalancePolicy.families.push(
+    fitnessFamily('resistance-endurance', {strength: 0.75, conditioning: 0.25}, true, true));
   function freeze(value) { Object.values(value).forEach(item => { if (item && typeof item === 'object') freeze(item); }); return Object.freeze(value); }
   root.GarageFitData = root.GarageFitData || {};
-  root.GarageFitData.programmes = freeze({'general-fitness': {1: generalFitness, 2: generalFitnessBenchmarks}, 'general-strength-4w': {1: strength, 2: strengthRings}, 'build-arms': {1: arms}, 'tennis-conditioning': {1: tennis, 2: tennisContext, 3: tennisDevelopment, 4: tennisEvents, 5: tennisPilot, 6: tennisMovement, 7: tennisRings, 8: tennisMovementDrills, 9: tennisAthletic, 10: tennisAthleticV6}});
+  root.GarageFitData.programmes = freeze({'general-fitness': {1: generalFitness, 2: generalFitnessBenchmarks, 3: generalFitnessV3}, 'general-strength-4w': {1: strength, 2: strengthRings}, 'build-arms': {1: arms}, 'tennis-conditioning': {1: tennis, 2: tennisContext, 3: tennisDevelopment, 4: tennisEvents, 5: tennisPilot, 6: tennisMovement, 7: tennisRings, 8: tennisMovementDrills, 9: tennisAthletic, 10: tennisAthleticV6}});
 })(typeof window !== 'undefined' ? window : globalThis);

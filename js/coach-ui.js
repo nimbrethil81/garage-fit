@@ -153,7 +153,7 @@
     // Benchmark observations (#192) can be older than the rolling window, so they are read by exercise from
     // this instance's saved results (bounded, newest first), alongside the window already loaded.
     const BENCHMARK_HISTORY_LIMIT = 24;
-    let benchmarkResults = [], contextResults = [];
+    let benchmarkResults = [], contextResults = [], incompleteContext = false;
     async function loadBenchmarkResults(def) {
       benchmarkResults = []; contextResults = [];
       if (!def.benchmarkPolicy) return;
@@ -168,7 +168,7 @@
       contextResults = results.slice();
     }
     async function recentHistory() {
-      if (!state) { results = []; benchmarkResults = []; contextResults = []; return; }
+      if (!state) { results = []; benchmarkResults = []; contextResults = []; incompleteContext = false; return; }
       const def = definition(), now=clock(), since = new Date(Math.min(localWeek(now).start.getTime(),
         Date.parse(now) - Math.max(def.coverageTargets.windowDays, def.doseTargets.windowDays || 0) * 86400000)).toISOString();
       const scoped = {programmeInstanceId: state.programmeInstanceId};
@@ -176,8 +176,15 @@
       if (def.coverageTargets.includeStandaloneHistory) queries.push(await store.listSessionResults({source: 'generator', since}));
       // Performed context from every PickSetGo source (bounded). It informs planning only:
       // the engine credits this instance's own Coach results and nothing else.
-      if (def.coverageTargets.includeCrossSourceHistory) queries.push(await store.listSessionResults({sources: ['coach','generator','fixed'],
-        performedOnly: true, since, limit: root.GarageFitTrainingHistory.MAX_RECENT_SESSION_LIMIT, candidateLimit: root.GarageFitTrainingHistory.MAX_RECENT_SESSION_LIMIT}));
+      incompleteContext = false;
+      if (def.coverageTargets.includeCrossSourceHistory) {
+        const limit = root.GarageFitTrainingHistory.MAX_RECENT_SESSION_LIMIT;
+        const query = await store.listSessionResults({sources: ['coach','generator','fixed'],
+          performedOnly: true, since, limit, candidateLimit: limit,
+          ...(def.resistanceDayPolicy ? {reportTruncation: true} : {})});
+        incompleteContext = !!query.truncated || !!query.undated || query.errors.length > 0;
+        queries.push(query);
+      }
       const byId = new Map();
       queries.forEach(query => { errors.push(...query.errors); query.results.forEach(result => byId.set(result.sessionResultId, result)); });
       const lastMeaningful = (state.recentSessionSummaries || []).slice().reverse().find(item => item.meaningful);
@@ -217,7 +224,8 @@
       // Loaded only for a definition that uses them; null there means the record could not be read.
       externalPreferences: externalPreferences && clone(externalPreferences)}; }
     // Evidence for the optional benchmark views: read-only copies, empty for a definition without benchmarks.
-    function progressEvidence() { return {benchmarkResults: clone(benchmarkResults), contextResults: clone(contextResults)}; }
+    function progressEvidence() { return {benchmarkResults: clone(benchmarkResults), contextResults: clone(contextResults),
+      ...(state && definition().resistanceDayPolicy ? {incompleteContext} : {})}; }
     function assess(def, equipment, programmeSettings) { return engine.assessProgrammeFeasibility(def,
       {equipment, ...(programmeSettings === undefined ? {} : {programmeSettings})}); }
     async function start(def, equipment, programmeSettings) {
@@ -231,6 +239,9 @@
       await store.saveProgrammeState(started.state);
       await store.saveActiveProgramme(Model().createActiveProgramme(Model().programmeDefinitionRef(started.state)));
       state = started.state; preview = null;
+      // A v3 restart uses older performed work immediately as context. Progress
+      // views and benchmark history still filter by the new instance.
+      if (def.resistanceDayPolicy) await recentHistory();
       await loadExternalPreferences();
       return started;
     }
@@ -238,7 +249,7 @@
       const now = clock(), localDate = localDay(now), def = definition();
       const external = def.externalActivityPolicy ? {localDate, externalActivity: Model().externalActivityContext(
         externalPreferences || Model().createCoachPreferences(), input.sessionContext || {}, localDate)} : {};
-      return {...input, ...(def.contextPolicy ? {localDate} : {}), ...external, now, prescriptionId: id('prescription')};
+      return {...input, ...(def.contextPolicy ? {localDate} : {}), ...external, ...(def.resistanceDayPolicy ? {incompleteTrainingContext: incompleteContext} : {}), now, prescriptionId: id('prescription')};
     }
     function plan(input) { return engine.planNextSession(definition(), state, results, today(input)); }
     // Everything that shapes today's session: the user's choices (not the request
@@ -247,7 +258,7 @@
       const {now, prescriptionId, localDate, ...choices} = input || {};
       const canonical = value => Array.isArray(value) ? value.map(canonical) : value && typeof value === 'object'
         ? Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])])) : value;
-      return JSON.stringify(canonical({choices, day: localDay(clock()), state, results: results.map(item => item.sessionResultId)}));
+      return JSON.stringify(canonical({choices, day: localDay(clock()), state, ...(definition().resistanceDayPolicy ? {incompleteContext} : {}), results: results.map(item => item.sessionResultId)}));
     }
     function prepare(input) {
       if (draft || tracker) throw new Error('Save the current session before preparing another.');
@@ -293,7 +304,7 @@
     }
     async function begin() {
       if (!preview || draft) throw new Error('Prepare a session before beginning.');
-      if (!tracker && definition().contextPolicy && localDay(clock()) !== localDay(preview.today.now)) {
+      if (!tracker && (definition().contextPolicy || definition().resistanceDayPolicy) && localDay(clock()) !== localDay(preview.today.now)) {
         preview = null;
         throw new Error('The local day changed. Prepare today’s session again.');
       }
@@ -962,7 +973,7 @@
         // Three separate views of General Fitness progress; there is no combined fitness score.
         const policy=root.GarageFitCoachGeneralFitnessPolicy, evidence=controller.progressEvidence();
         wrap.append(progressViews.consistency({weeks:weeklyConsistency({definition:def,state,results:current.results,catalogue,now,weeks:def.benchmarkPolicy.consistencyWeeks})}),
-          progressViews.balance({summary:policy.balanceSummary({definition:def,history:root.GarageFitTrainingHistory.createHistory(evidence.contextResults,catalogue),catalogue,now})}),
+          progressViews.balance({summary:policy.balanceSummary({definition:def,history:root.GarageFitTrainingHistory.createHistory(evidence.contextResults,catalogue),catalogue,now,incompleteContext:evidence.incompleteContext})}),
           progressViews.improvement({items:policy.benchmarkImprovement({definition:def,state,history:root.GarageFitTrainingHistory.createHistory(evidence.benchmarkResults,catalogue)}),
             interval:{days:def.benchmarkPolicy.minimumIntervalDays,minutes:def.benchmarkPolicy.minimumDurationMinutes}}));
       }
@@ -1050,7 +1061,7 @@
         const frequency=def.recommendedFrequency;
         const facts=setupFacts(frequency.minSessionsPerWeek+'–'+frequency.maxSessionsPerWeek+' sessions per week','Recommended, not obligatory');
         const families=document.createElement('section'); families.className='coach-progress-section';
-        const heading=document.createElement('h2'); heading.textContent='Six ways to move';
+        const heading=document.createElement('h2'); heading.textContent=def.resistanceDayPolicy ? 'Seven ways to move' : 'Six ways to move';
         const grid=document.createElement('div'); grid.className='coach-progress-grid';
         def.familyBalancePolicy.families.forEach(item=>{
           const family=familyDefinition(item.workoutFamilyId,item.workoutFamilyVersion);
