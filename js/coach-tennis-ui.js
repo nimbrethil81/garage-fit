@@ -37,16 +37,16 @@
         dayChoices.hidden = irregular.checked;
         controls.forEach(({check}) => { check.disabled = irregular.checked; if (irregular.checked) check.checked = false; });
       };
-      wrap.append(days,intensity.field,paragraph('Your usual tennis schedule helps plan sessions. Playing days are preferences; only confirmed performed work earns progress.'));
+      wrap.append(days,intensity.field,paragraph('Coach plans around your usual playing days. Adding a day to your schedule does not record training.'));
       let intent, date;
       if (includeEvent) {
         intent = selectField('Training intent', [['ongoing','Ongoing development'],['event','Prepare for an important event']],settings.intent);
         const eventField = document.createElement('label'); eventField.className = 'coach-setting';
         date = document.createElement('input'); date.type = 'date'; date.min = localDate; date.value = settings.significantEventDate || '';
-        date.setAttribute('aria-label','Important event date'); eventField.append(paragraph('Important event date · local calendar date'),date);
+        date.setAttribute('aria-label','Important event date'); eventField.append(paragraph('Important event date'),date);
         const update = () => { eventField.hidden = intent.select.value !== 'event'; date.disabled = eventField.hidden; };
         intent.select.onchange = update; update();
-        wrap.append(intent.field,eventField,paragraph('Choose an important event explicitly. You can change or cancel it later while keeping the same programme, anchors and history.'));
+        wrap.append(intent.field,eventField,paragraph('Choose the event you want to train for. You can change or cancel it and keep your programme, targets and history.'));
       }
       function read() {
         const patch = {focus: focus.select.value, weeklyCoachFrequency: Number(frequency.select.value),
@@ -63,24 +63,51 @@
       }
       return {wrap,read};
     }
+    const eventMessages = {
+      build: 'There’s time to build gradually before your event. You don’t need to make up missed workouts.',
+      refine: 'Stick with familiar strength and movement exercises. Keep your targets steady and avoid unfamiliar, difficult or explosive work.',
+      reduced: 'Keep training light before your event. Use familiar exercises and avoid power work or tiring conditioning.',
+      final: 'With your event at most two days away, stick to gentle core and shoulder work or rest. Avoid hard leg work and power exercises, and keep your targets steady.',
+      expired: 'Your event date has passed. Return to ongoing training or choose a new date. You’ll keep your targets and progress.'
+    };
+    const eventNote = 'Your event date guides the plan. It records no training and cannot predict how you’ll perform.';
+    // Adaptation reasons are stored with prescriptions. Keep their original values in policy.
+    const adaptationMessages = {
+      'tired today': 'You reported feeling tired today.',
+      'lighter before planned tennis': 'Training is lighter before tennis on your schedule.',
+      'lighter after reported hard tennis': 'Training is lighter after the hard tennis you reported.',
+      'lighter before a planned match': 'Training is lighter before your match.',
+      'lighter before your planned event': 'Training is lighter before your event.',
+      'easy today': 'You chose Easy today.',
+      'short session': 'The workout fits the shorter time you chose.',
+      'easier session after your sport feedback; this is subjective context, not proof of a fitness decline': 'Today is easier because of how tennis felt at your last check-in. That feedback guides the plan and does not measure your fitness.'
+    };
+    const eventMessage = event => eventMessages[event.phase];
     function whyToday(plan) {
-      const priorities = plan.rationale.priorities;
-      if (priorities.adaptation?.recommendation) return priorities.adaptation.recommendation;
-      const reasons = priorities.adaptation?.reasons || [];
-      const reason = priorities.event?.rationale || (priorities.phase?.phase === 'consolidation' ? priorities.phase.rationale : null);
-      return [reason, reasons.filter(value => value !== reason).join(' · ')
-        || 'Recent performed work and your training focus guide today’s priorities.'].filter(Boolean).join(' ');
+      const {adaptation, event, phase} = plan.rationale.priorities;
+      const eventCopy = event ? eventMessage(event)+' '+eventNote : null;
+      if (event?.phase === 'expired') return eventCopy;
+      const reasons = (adaptation?.reasons || []).map(reason => adaptationMessages[reason]).filter(Boolean);
+      if (adaptation?.classification === 'rest') return ['Rest today and keep your current targets.', ...reasons, eventCopy].filter(Boolean).join(' ');
+      const consolidation = phase?.phase === 'consolidation'
+        ? 'A lighter workout is due. Your targets stay the same. Record enough work from the main part of this workout for it to count, then return to building fitness.' : null;
+      return [eventCopy, consolidation, ...reasons].filter(Boolean).join(' ')
+        || 'The workouts you’ve recorded and your training focus guide what you’ll work on today.';
     }
     // Concise two-week coverage lines for Why this workout?; Your progress keeps the detail.
     function coverageSummary(summary) {
       const names = state => summary.capabilities.filter(cap => cap.coverage === state).map(cap => cap.label).join(', ');
       const missing = names('not-observed'), unknown = names('unknown');
-      return [missing || unknown ? 'Last two weeks'+(missing ? ' · no performed exposure yet: '+missing : '')+(unknown ? ' · exposure unknown: '+unknown : '')+'.'
-          : 'Last two weeks · every capability has performed exposure.',
-        ...(summary.unclassifiedObservations.length ? ['Some performed work cannot be classified; no capability coverage is assumed for it.'] : []),
-        'Exercise exposure describes performed conditioning work, not proven tennis skill improvement. Capabilities overlap; no catch-up debt. Details are in Your progress.'];
+      const incomplete = summary.unclassifiedObservations.some(item => item.classification.status === 'unknown-exercise');
+      return [
+        missing || unknown ? 'Your last two weeks of training.' : 'You recorded training in every area over the last two weeks.',
+        ...(missing ? [incomplete ? 'Not enough information to check '+missing+'.' : 'No exercises recorded for '+missing+'.'] : []),
+        ...(unknown ? ['Some work was recorded without an amount for '+unknown+'.'] : []),
+        ...(summary.unclassifiedObservations.length ? ['Some saved exercises could not be linked to a training area.'] : []),
+        'This shows the training you recorded. It cannot tell you how much your tennis has improved. Some exercises count in more than one area. You don’t need to make up missed workouts. See Your progress for details.'
+      ];
     }
-    return {settingsForm,selectField,whyToday,coverageSummary,focusName: value=>focusNames[value] || value};
+    return {settingsForm,selectField,whyToday,eventMessage,eventNote,coverageSummary,focusName: value=>focusNames[value] || value};
   }
   root.GarageFitCoachTennisUI = {createViews};
 })(typeof window !== 'undefined' ? window : globalThis);

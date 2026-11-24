@@ -52,9 +52,9 @@ test('General Strength shows its read-only plan and keeps maintenance, pause and
   assert.match(p.text(), /Set by the programme; these are not editable/);
   assert.match(p.text(), /Sessions per week 2–3 in development; 1–2 in maintenance/);
   assert.match(p.text(), /Mode Development/);
-  assert.match(p.text(), /Four-week block Week 1 of 4 · aim for 8 meaningful sessions/);
+  assert.match(p.text(), /Four-week block Week 1 of 4 · aim for 8 sessions that count towards your programme/);
   assert.match(p.text(), /Session length 30 min by default; 20, 45 min also supported/);
-  assert.match(p.text(), /Strength targets 3 stable targets/);
+  assert.match(p.text(), /Strength targets 3 regular strength targets/);
   assert.equal(p.field('Training focus'), undefined); assert.equal(p.field('PickSetGo sessions per week'), undefined);
   assert.equal(p.field('Important event date'), undefined, 'no irrelevant event settings');
   const instance = p.state().programmeInstanceId, anchors = p.state().anchors;
@@ -79,7 +79,7 @@ test('a due four-week review stays on Coach home and in settings, without a stan
   assert.ok(p.has('Continue building'), 'Coach home still announces the due decision');
   await p.click('Programme settings');
   assert.match(p.text(), /Four-week block Block complete · review due/);
-  assert.match(p.text(), /Four-week review 0 meaningful sessions in this block/);
+  assert.match(p.text(), /Four-week review 0 sessions counted towards your programme this block/);
   assert.ok(p.has('Continue building')); assert.ok(p.has('Move to maintenance')); assert.ok(p.has('Finish programme'));
   await p.click('Move to maintenance');
   const state = p.state();
@@ -92,8 +92,8 @@ test('Build Arms shows its own read-only plan and never offers maintenance', asy
   await p.click('Programme settings');
   assert.match(p.text(), /Sessions per week Aim for 3; 2 is acceptable/);
   assert.match(p.text(), /Mode Open-ended development · no maintenance mode/);
-  assert.match(p.text(), /Direct arm work 9 curl and 9 extension set exposures per rolling 7 days/);
-  assert.match(p.text(), /Strength targets 2 stable targets/);
+  assert.match(p.text(), /Direct arm work 9 curl and 9 extension set equivalents over the last 7 days/);
+  assert.match(p.text(), /Strength targets 2 regular strength targets/);
   assert.doesNotMatch(p.text(), /Four-week|Move to maintenance|Return to development/);
   assert.equal(p.field('Training focus'), undefined);
   await p.click('Pause'); assert.equal(p.state().status, 'paused'); await p.click('Resume');
@@ -107,7 +107,7 @@ test('Tennis settings edit only permitted values, keep targets and inventory, an
   await p.click('Programme settings');
   for (const label of ['Training focus', 'PickSetGo sessions per week', 'Typical tennis intensity', 'Irregular / no fixed days', 'Important event date', 'Event label (optional)'])
     assert.ok(p.field(label), label);
-  assert.match(p.text(), /Training phase Development/);
+  assert.match(p.text(), /Training phase Building fitness/);
   assert.doesNotMatch(p.text(), /Move to maintenance/);
   p.run("field('PickSetGo sessions per week').value='3';field('Typical tennis intensity').value='light'");
   await p.click('Save tennis settings');

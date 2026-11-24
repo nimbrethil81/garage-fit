@@ -576,7 +576,7 @@ test('the preview and player offer an optional benchmark that records exactly wh
   assert.deepEqual(p.json(`coachPlayerTracker().outcome(${JSON.stringify(third.occurrenceId)})`).sets, [{reps: null, load: null}]);
   await p.run(`(async()=>{const tracker=coachPlayerTracker();for(const work of tracker.plannedWork().filter(item=>item.section==='main'&&!item.requirementId))await tracker.recordDone(work.occurrenceId);})()`);
   await p.run("coachUI.showEnd('complete',900)"); await p.run("coachUI.saveFeedback('about-right')");
-  assert.match(p.text(), /Session saved · completed · Strength & Control — .* · 1 benchmark recorded/);
+  assert.match(p.text(), /Session saved · Completed · Strength & Control — .* · 1 benchmark logged/);
   assert.equal(p.state().anchors.length, 0);
   const saved = p.json('coachUI.controller.snapshot().results').at(-1);
   assert.equal(saved.workoutFamilyId, 'strength-control');
@@ -591,11 +591,11 @@ test('Your progress keeps training consistency, capability balance and comparabl
   p.day(1); await p.run('coachUI.open()');
   await p.run('coachUI.openProgrammeProgress()');
   const empty = p.text('coachProgressContent').replace(/\s+/g, ' ');
-  const order = ['Training consistency · last 4 weeks', 'Capability balance · last 28 days', 'Demonstrated comparable improvement', 'Recent sessions'].map(label => empty.indexOf(label));
+  const order = ['Training consistency · last 4 weeks', 'Training mix · last 28 days', 'Progress checks', 'Recent sessions'].map(label => empty.indexOf(label));
   assert.ok(order.every(index => index > 0) && order.every((index, i) => !i || index > order[i - 1]), 'three separate sections precede Recent sessions: ' + order);
   assert.match(empty, /This week · 0 sessions .* Active weeks · 0 of 4/);
-  assert.match(empty, /No performed training has been recorded in this window yet/);
-  assert.match(empty, /Not enough comparable evidence yet\. Improvement is shown only when the same benchmark is recorded again under identical conditions/);
+  assert.match(empty, /No training has been recorded for this period yet/);
+  assert.match(empty, /Repeat the same check under the same conditions to compare your reps/);
   assert.match(empty, /Push-up Push Not measured yet/);
   assert.doesNotMatch(empty, /score|fitness level|VO2|recovery score|steps|heart rate|Strength targets/i);
   assert.ok(p.json("nodes('coachProgressContent').filter(node=>node.className==='coach-progress-card-button').length") === 6 + 3, 'six balance cards and three benchmark cards');
@@ -612,18 +612,18 @@ test('Your progress keeps training consistency, capability balance and comparabl
     for(const work of tracker.plannedWork().filter(item=>item.section==='main'&&!item.requirementId))await tracker.recordDone(work.occurrenceId);})()`;
   await p.session(day, record(10));
   const afterOne = await openProgressText(p, day + 1);
-  assert.match(afterOne, /Push-up Push Not enough comparable evidence/);
-  assert.match(afterOne, /Baseline · 10 reps/);
-  assert.match(afterOne, /Not enough comparable evidence yet/);
+  assert.match(afterOne, /Push-up Push First measurement/);
+  assert.match(afterOne, /First result · 10 reps/);
+  assert.match(afterOne, /Repeat the same check under the same conditions to compare your reps/);
   const next = await uiUntilOfferedFrom(p, day + 28);
   assert.ok(next >= day + 28, 'not offered again within four weeks');
   await p.session(next, record(13));
   const afterTwo = await openProgressText(p, next + 1);
-  assert.match(afterTwo, /3 of 3 compared benchmarks improved/);
+  assert.match(afterTwo, /3 of 3 progress checks had more reps/);
   assert.match(afterTwo, /Improved · 10 → 13 reps/);
-  assert.match(afterTwo, /Same exercise, bodyweight setup and protocol conditions/);
+  assert.match(afterTwo, /Both checks used the same exercise, bodyweight setup and workout instructions/);
   assert.match(afterTwo, /Training consistency/);
-  assert.match(afterTwo, /Strength Performed/);
+  assert.match(afterTwo, /Strength Recorded/);
   assert.doesNotMatch(afterTwo, /score/i);
 });
 async function uiUntilOfferedFrom(p, from = 0) {
@@ -674,4 +674,23 @@ test('v3 mixed strength excludes the optional measurement block from its structu
   assert.equal(out.version,3);assert.ok(out.first);assert.equal(out.style,'mixed-strength');
   assert.ok(out.seconds<=1800);assert.ok(out.straight*2<=out.count);assert.ok(out.straightSeconds*2<=out.mainSeconds);
   assert.deepEqual(out.check,{valid:true,technicalIssues:[],qualityIssues:[]});
+});
+
+test('progress tiles explain missing amounts and incomparable check results separately', async () => {
+  const p = await ui();
+  const text = p.run(`(()=>{
+    const element=(tag,text)=>{const node=document.createElement(tag);node.textContent=text;return node;};
+    const views=GarageFitCoachProgressUI.createViews({paragraph:text=>element('p',text),heading:text=>element('h2',text),catalogue:CATALOGUE});
+    const wrap=document.getElementById('coachProgressContent');
+    wrap.append(views.balance({summary:{windowDays:28,sessionCount:1,unmeasuredSessions:1,incompleteEvidence:true,effects:[
+      {effect:'strength',label:'strength',sessionCount:1,status:'performed'},
+      {effect:'conditioning',label:'conditioning',sessionCount:0,status:'unknown'}]}}));
+    wrap.append(views.improvement({interval:{minutes:30,days:28},items:[
+      {benchmarkId:'push-up',label:'Push-up',capability:'push',status:'not-comparable',latest:{reps:12,occurredAt:'2026-10-12T08:00:00Z'}},
+      {benchmarkId:'squat',label:'Squat',capability:'legs',status:'unmeasured'}]}));
+    return nodes('coachProgressContent').map(node=>node.textContent).join(' ');
+  })()`);
+  assert.match(text, /Strength Recorded 1 session.*Conditioning Insufficient information.*Available workout records are incomplete/);
+  assert.match(text, /Different test conditions.*12 reps.*different conditions.*Measurement incomplete.*record your reps and confirm the bodyweight setup/);
+  assert.doesNotMatch(text, /had more reps|None recorded/);
 });

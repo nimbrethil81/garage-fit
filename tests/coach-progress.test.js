@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {pilot} = require('./helpers/coach-pilot');
+const {sessionResult} = require('./helpers/coach-fixtures');
 
 // Drives the mounted Coach UI for any programme through its real controls.
 async function ui(storage = new Map(), equipment = ['dumbbells','bench']) {
@@ -45,14 +46,14 @@ test('every programme opens the same Programme progress screen with its real num
     const before = p.state(), durable = [...p.storage.entries()].filter(([key])=>key!=='gf_first_use_v1');
     await p.progress();
     assert.equal(p.run("document.getElementById('bottomNav').classList.contains('hidden')"), true, 'secondary screen');
-    const cards = p.cards().filter(label => !/Performed|Unmeasured|Not performed/.test(label.split(' · ')[1]));
+    const cards = p.cards().filter(label => !/Recorded|Unmeasured|None recorded/.test(label.split(' · ')[1]));
     assert.equal(cards.length, count, key);
     labels.forEach((label, index) => assert.match(cards[index], new RegExp(' · '+label+' · \\d × \\d+ reps')));
     assert.match(p.text(), /Strength targets/);
     assert.doesNotMatch(p.text(), /persistent anchor/i);
     assert.match(p.text(), /No saved sessions yet/);
     assert.match(p.text(), /History is local to this browser and device/);
-    assert.equal(/Tennis fitness/.test(p.text()), key === 'tennis');
+    assert.equal(/Tennis training mix/.test(p.text()), key === 'tennis');
     assert.equal(/Arm work · last 7 days/.test(p.text()), key === 'arms');
     assert.doesNotMatch(p.text(), /Pause|Finish programme|Move to maintenance/, 'management stays off Your progress');
     // Viewing progress is read-only.
@@ -70,18 +71,18 @@ test('target drill-down separates prescription, actual per-side evidence and the
   let detail = p.detail(name); assert.equal(detail.hidden, true); assert.equal(detail.expanded, 'false');
   await p.open(name); detail = p.detail(name);
   assert.equal(detail.hidden, false); assert.equal(detail.expanded, 'true');
-  assert.match(detail.text, /Current target 2 × 6 reps each side · prescribed Load · not yet confirmed/);
-  assert.match(detail.text, /Last performed No performed sets recorded yet/);
+  assert.match(detail.text, /Current target 2 × 6 reps each side Load · not yet confirmed/);
+  assert.match(detail.text, /Last recorded No sets recorded yet/);
   await p.run('coachUI.back()');
   const knee = p.state().anchors[0].requirementId;
   await session(p, 'tennis', logAnchor(knee, 'work.prescription.reps', '10', 'kg', 'per-item'), 'complete');
   await p.progress(); detail = p.detail(name);
   assert.equal(detail.hidden, false, 'expansion is retained while navigating');
-  assert.match(detail.text, /Current target 2 × 7 reps each side · prescribed Planned load · 10 kg each/);
-  assert.match(detail.text, /Last performed Mon, 12 Oct|Last performed .*completed · actual recorded work/);
+  assert.match(detail.text, /Current target 2 × 7 reps each side Planned load · 10 kg each/);
+  assert.match(detail.text, /Last recorded .* · Completed/);
   assert.match(detail.text, /Set 1 (right|left) · 6 reps · 10 kg each.*Set 4 (right|left) · 6 reps · 10 kg each/);
-  assert.match(detail.text, /Next progression Try 7 reps at the confirmed load/);
-  assert.match(p.text(), /Completed · \d+ exercise occurrences · counted/);
+  assert.match(detail.text, /What’s next Try 7 reps at the confirmed load/);
+  assert.match(p.text(), /Completed · \d+ exercise entries recorded · Counted towards programme/);
 });
 
 test('unknown loads hold progression honestly and a one-session substitute never rewrites the target series', async () => {
@@ -90,7 +91,7 @@ test('unknown loads hold progression honestly and a one-session substitute never
   await p.progress(); const name = p.cards()[0].split(' · ')[0]; await p.open(name);
   let detail = p.detail(name).text;
   assert.match(detail, /Set 1 · 6 reps · load not recorded/);
-  assert.match(detail, /Progression is held until a full session records your actual load/);
+  assert.match(detail, /Your target stays the same until you record the weight you use in a full session/);
   assert.doesNotMatch(detail, /Planned load/);
   await p.run('coachUI.back()');
   // Today-only substitute: the stable target keeps its own last performance.
@@ -103,18 +104,24 @@ test('unknown loads hold progression honestly and a one-session substitute never
   await p.run('coachUI.open()'); await p.progress(); await p.open(name); detail = p.detail(name).text;
   assert.equal(p.state().anchors[0].exerciseId, 'goblet-squat');
   assert.match(detail, /Set 1 · 6 reps · load not recorded/); assert.doesNotMatch(detail, /20 kg/);
-  assert.match(detail, /you used Dumbbell front squat just for that session\. It is a separate series and did not change this target/);
+  assert.match(detail, /you used Dumbbell front squat just for that session\. We track it separately, so this target stayed the same/);
 });
 
 test('history distinguishes completed, partial and ended-early sessions without crediting unperformed work', async () => {
   const p = await ui(new Map(), ['dumbbells']); await start(p, 'strength');
   await session(p, 'strength', '()=>{}');
   await session(p, 'strength', logAnchor('anchor-squat'));
-  await p.progress();
-  assert.match(p.text(), /Partial · 2 exercise occurrences · counted.*Ended early · no main work counted · 0 exercise occurrences · not counted/);
+  const skipped = sessionResult({sessionResultId:'skipped',programmeInstanceId:p.state().programmeInstanceId,
+    startedAt:null,endedAt:'2026-10-12T08:00:00Z',actualDurationSeconds:0,finalStatus:'skipped-before-start',
+    performedWork:[],anchorResults:[]});
+  await p.run(`pilotStore.saveSessionResult(${JSON.stringify(skipped)})`);
+  await p.run('coachUI.open()'); await p.progress();
+  assert.match(p.text(), /Not started · 0 exercise entries recorded/);
+  assert.doesNotMatch(p.text(), /Not started · 0 exercise entries recorded · Counted towards programme/);
+  assert.match(p.text(), /Partially completed · 2 exercise entries recorded · Counted towards programme.*Ended early · 0 exercise entries recorded · Did not count towards programme/);
   assert.equal(p.state().meaningfulSessionsCompleted, 1);
-  assert.match(p.text(), /Week 1 of 4 · 1 of 8 meaningful sessions this block/);
-  assert.match(p.text(), /Development · 2–3 sessions per week · 1 meaningful session in total/);
+  assert.match(p.text(), /Week 1 of 4 · 1 of 8 sessions counted this block/);
+  assert.match(p.text(), /Development · 2–3 sessions per week · 1 session counted towards your programme/);
 });
 
 test('General Strength phase reports maintenance, pause and a due four-week review truthfully', async () => {
@@ -122,13 +129,13 @@ test('General Strength phase reports maintenance, pause and a due four-week revi
   await p.run("coachUI.controller.manage('maintenance')"); await p.run('coachUI.open()'); await p.progress();
   assert.match(p.text(), /Maintenance · 1–2 sessions per week/);
   await p.open(p.cards()[0].split(' · ')[0]);
-  assert.match(p.detail(p.cards()[0].split(' · ')[0]).text, /Next progression Maintenance keeps this challenge steady; progression is held/);
+  assert.match(p.detail(p.cards()[0].split(' · ')[0]).text, /What’s next In maintenance, your target stays steady/);
   await p.run("coachUI.controller.manage('development')");await p.run("coachUI.controller.manage('pause')");
   await p.run('coachUI.open()'); await p.progress();
   assert.match(p.text(), /Paused.*Paused · targets and history are preserved/);
   await p.run("coachUI.controller.manage('resume')");
   p.run("uiNow='2026-11-10T08:00:00Z'"); await p.run('coachUI.open()'); await p.progress();
-  assert.match(p.text(), /Four-week block complete · 0 of 8 meaningful sessions · review on Coach home/);
+  assert.match(p.text(), /Four-week block complete · 0 of 8 sessions counted · review on Coach home/);
   await p.run('coachUI.back()'); assert.ok(p.run("action('Continue building')"), 'the due decision stays actionable on Coach home');
 });
 
@@ -136,21 +143,22 @@ test('Build Arms progress keeps seven-day curl/extension exposure, unknown amoun
   const p = await ui(); await start(p, 'arms');
   await session(p, 'arms', `async(tracker,planned)=>{
     const curl=planned.filter(item=>item.requirementId==='anchor-flexion');
-    for(const work of curl) await tracker.recordAnchor(work.occurrenceId,{status:'completed',sets:[{reps:8,load:8,loadUnit:'kg',loadInterpretation:'per-item'}]});
+    for(const work of curl.slice(0,2)) await tracker.recordAnchor(work.occurrenceId,{status:'completed',sets:[{reps:8,load:8,loadUnit:'kg',loadInterpretation:'per-item'}]});
+    await tracker.recordPartial(curl[2].occurrenceId,{sets:[{reps:4,load:8,loadUnit:'kg',loadInterpretation:'per-item'}]});
     const extension=planned.find(item=>item.requirementId==='anchor-extension');
     await tracker.recordPartial(extension.occurrenceId,{sets:[{reps:null,load:null}],note:'Some work performed; amount unknown'});}`);
   await p.progress();
   assert.match(p.text(), /Open-ended programme · aim for 3 sessions per week; 2 is acceptable/);
-  assert.match(p.text(), /Curls · 3 \/ 9 performed set exposures/);
-  assert.match(p.text(), /Extensions · 0 \/ 9 performed set exposures Some work is unmeasured/);
-  assert.doesNotMatch(p.text(), /Maintenance|Tennis fitness|check-in/);
+  assert.match(p.text(), /Curls · 2\.5 of 9 set equivalents recorded/);
+  assert.match(p.text(), /Extensions · Amount unknown · aim for 9 set equivalents/);
+  assert.doesNotMatch(p.text(), /Maintenance|Tennis training mix|check-in/);
   const curl = p.cards().find(label => / · Curl · /.test(label)).split(' · ')[0];
   await p.open(curl); assert.match(p.detail(curl).text, /Set 1 · 8 reps · 8 kg each/);
   const extension = p.cards().find(label => / · Extension · /.test(label)).split(' · ')[0];
-  await p.open(extension); assert.match(p.detail(extension).text, /Last performed .*partial.*reps not recorded · load not recorded/);
+  await p.open(extension); assert.match(p.detail(extension).text, /Last recorded .*Partial.*reps not recorded · load not recorded/);
   // Seven days later the rolling window is empty again.
   p.run("uiNow='2026-10-20T08:00:00Z'"); await p.run('coachUI.open()'); await p.progress();
-  assert.match(p.text(), /Curls · 0 \/ 9/);
+  assert.match(p.text(), /Curls · 0 of 9/);
 });
 
 test('Tennis progress shows six coverage cards with observed, unknown and infeasible distinctions, event phase and switching', async () => {
@@ -158,28 +166,28 @@ test('Tennis progress shows six coverage cards with observed, unknown and infeas
   await p.progress();
   const capabilities = p.json("nodes('coachProgressContent').filter(node=>/coach-capability-card/.test(node.className)).map(node=>node.children[0].attributes['aria-label'])");
   assert.equal(capabilities.length, 6);
-  assert.ok(capabilities.every(label => / · Not performed/.test(label)), 'new programme has no false coverage');
-  assert.doesNotMatch(p.text(), /improved|mastered|score|%/i);
-  assert.match(p.text(), /Ongoing development · no fixed end date/);
+  assert.ok(capabilities.every(label => / · None recorded/.test(label)), 'new programme has no false coverage');
+  assert.doesNotMatch(p.text(), /Improved ·|mastered|score|%/i);
+  assert.match(p.text(), /Ongoing training · no fixed end date/);
   await p.run('coachUI.back()');
   const knee = p.state().anchors[0].requirementId;
   await session(p, 'tennis', logAnchor(knee), 'complete');
   await p.progress();
   const after = p.json("nodes('coachProgressContent').filter(node=>/coach-capability-card/.test(node.className)).map(node=>node.children[0].attributes['aria-label'])");
-  assert.ok(after.some(label => / · Performed/.test(label)));
-  const observed = after.find(label => / · Performed/.test(label)).split(' · ')[0];
-  await p.open(observed); assert.match(p.detail(observed).text, /Performed: /);
+  assert.ok(after.some(label => / · Recorded/.test(label)));
+  const observed = after.find(label => / · Recorded/.test(label)).split(' · ')[0];
+  await p.open(observed); assert.match(p.detail(observed).text, /Exercises recorded · /);
   // Event-focused programmes show the event horizon and held progression.
   await p.run("coachUI.controller.saveProgrammeSettings({intent:'event',significantEventDate:'2026-10-20',significantEventLabel:'Club final'})");
   await p.run('coachUI.open()'); await p.progress();
   assert.match(p.text(), /Event preparation.*Event · Club final · 2026-10-20 · 8 days away/);
   const name = p.cards()[0].split(' · ')[0]; await p.open(name);
-  assert.match(p.detail(name).text, /Event preparation holds established resistance and reps/);
+  assert.match(p.detail(name).text, /Keep your usual resistance and reps while preparing for your event/);
   // Switching programmes: finish Tennis, start Build Arms, progress follows the new programme.
   await p.run("coachUI.controller.manage('finish')"); await p.run('coachUI.open()');
   p.run("state.ownedEquipment=['dumbbells','bench']");
   await start(p, 'arms'); await p.progress();
-  assert.doesNotMatch(p.text(), /Tennis fitness/); assert.match(p.text(), /Arm work/);
+  assert.doesNotMatch(p.text(), /Tennis training mix/); assert.match(p.text(), /Arm work/);
   assert.match(p.text(), /No saved sessions yet/, 'another programme’s sessions are not shown');
 });
 
@@ -194,7 +202,7 @@ test('a live session draft is untouched by Programme progress, and a recovered i
   assert.equal(p.run('coachUI.isActive()'), true);
   assert.deepEqual(await p.run('pilotStore.loadSessionDraft()'), draft); assert.deepEqual(p.state(), state);
   const q = await ui(p.storage, ['dumbbells']); await q.progress();
-  assert.match(q.text(), /Partial · 1 exercise occurrence · counted/);
+  assert.match(q.text(), /Partially completed · 1 exercise entry recorded · Counted towards programme/);
   assert.equal((await q.run('pilotStore.listSessionResults()')).results.length, 1);
 });
 
@@ -250,8 +258,8 @@ test('General Fitness Programme progress has no empty strength targets card', as
   await p.progress();
   // New starts use General Fitness v3 and retain the v2 benchmark views (#192) before Recent sessions.
   assert.equal(p.state().programmeDefinitionVersion, 3);
-  assert.match(p.text().replace(/\s+/g, ' '), /General Fitness Ongoing Programme phase Open-ended programme · 2–5 sessions per week 0 meaningful sessions in total Training consistency .* Capability balance .* Demonstrated comparable improvement .* Recent sessions No saved sessions yet/);
-  assert.doesNotMatch(p.text(), /Strength targets|Targets are prescriptions|Tennis fitness|Arm work/);
+  assert.match(p.text().replace(/\s+/g, ' '), /General Fitness Ongoing Programme phase Open-ended programme · 2–5 sessions per week 0 sessions counted towards your programme Training consistency .* Training mix .* Progress checks .* Recent sessions No saved sessions yet/);
+  assert.doesNotMatch(p.text(), /Strength targets|Targets are prescriptions|Tennis training mix|Arm work/);
   // Only balance and benchmark cards exist: there are no empty strength-target cards.
-  assert.ok(p.cards().every(label => /Performed|Not performed|Strength & Control|Push|Squat|Core/i.test(label)));
+  assert.ok(p.cards().every(label => /Recorded|Insufficient information|Strength & Control|Push|Squat|Core/i.test(label)));
 });

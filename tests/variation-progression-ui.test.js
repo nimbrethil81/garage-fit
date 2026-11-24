@@ -93,7 +93,7 @@ test('Try progression durably changes the stable anchor once and survives interr
   assert.deepEqual(await p.durable(), confirmed);
   // Your progress names the explicit choice and keeps prior Session Results.
   await p.run('coachUI.openProgrammeProgress()');
-  assert.match(p.run("copyText('coachProgressContent')"), /You chose to progress from Foot-assisted ring dip on .*Its history is kept as a separate series/);
+  assert.match(p.run("copyText('coachProgressContent')"), /You chose to progress from Foot-assisted ring dip on .*You can still see its history separately/);
   await p.run('pilot.load()');
   assert.equal(p.json('pilot.snapshot().results').length, resultsBefore);
   // The next session prescribes the new exercise at its own target.

@@ -28,7 +28,7 @@ async function start(p, key) { await p.click(names[key]); await p.click('Start p
 test('all three programmes share the compact home hierarchy with programme-appropriate status', async () => {
   for (const [key, status, weekly, extra] of [['strength', 'Development', /^This week · 0 sessions$/, /Week 1 of 4 · four-week block/],
     ['arms', 'Ongoing', /^This week · 0 sessions$/, /Build arms while maintaining whole-body training/],
-    ['tennis', 'Development', /^This week · 0 sessions$/, /Build balanced conditioning for tennis/]]) {
+    ['tennis', 'Building fitness', /^This week · 0 sessions$/, /Build balanced conditioning for tennis/]]) {
     const p = await ui(); await start(p, key);
     const classes = p.json("document.getElementById('coachContent').children.map(node=>node.className)");
     assert.deepEqual(classes.slice(0, 4), ['coach-tennis-intro','coach-weekly','generator-options','coach-card'], key);
@@ -116,13 +116,14 @@ test('a saved session updates the home count; abandoned work and previews earn n
   p.run('coachUI.controller.finish=originalFinish');
   await p.run("coachUI.showEnd('exit',60)"); await p.run("coachUI.saveFeedback('easy')");
   assert.equal(p.weekly().text, 'This week · 0 sessions', 'ended early without main work');
+  assert.match(p.text(), /Session saved · Ended early/);
   assert.equal(p.run("nodes('coachContent').find(node=>node.attributes.role==='status').className"), 'coach-save-status');
   await p.click('View today’s workout'); await p.click('Start workout', 'coachPreviewContent');
   await p.run(`(async()=>{const tracker=coachPlayerTracker();const work=tracker.plannedWork().find(item=>item.requirementId==='anchor-squat');
     await tracker.recordAnchor(work.occurrenceId,{status:'completed',sets:[{reps:6,load:12,loadUnit:'kg',loadInterpretation:'total'}]});})()`);
   await p.run("coachUI.showEnd('exit',600)"); await p.run("coachUI.saveFeedback('about-right')");
   assert.equal(p.weekly().text, 'This week · 1 session'); assert.deepEqual(p.weekly().segments, ['filled','','']);
-  assert.match(p.text(), /Session saved · partial · 1 anchors recorded/);
+  assert.match(p.text(), /Session saved · Partially completed · 1 strength target logged/);
   assert.equal(p.run("nodes('coachContent').find(node=>node.attributes.role==='status').className"), 'coach-save-status');
 });
 
@@ -152,7 +153,9 @@ test('blocked, paused, active, review-due and switching states keep their routes
   await p.click('Dumbbells');
   assert.match(p.text(), /Adjust today’s options/); assert.equal(p.has('View today’s workout'), false);
   assert.ok(p.json("nodes('coachContent').filter(node=>/^Substitute /.test(node.textContent)).length") > 0);
+  assert.match(p.text(), /required strength exercise is unavailable|equipment doesn’t support a suitable exercise/);
   await p.click('Dumbbells'); assert.ok(p.has('View today’s workout'));
+  assert.doesNotMatch(p.text(), /required strength exercise is unavailable|equipment doesn’t support a suitable exercise/);
   // Paused.
   await p.run("coachUI.controller.manage('pause')"); await p.run('coachUI.open()');
   assert.ok(p.has('Resume')); assert.equal(p.has('View today’s workout'), false); assert.ok(p.has('Programme settings'));
@@ -166,7 +169,7 @@ test('blocked, paused, active, review-due and switching states keep their routes
   // Review due: a compact actionable notice, with confirmed finish through settings.
   p.run("uiNow='2026-11-10T08:00:00Z'"); await p.run('coachUI.open()');
   assert.match(p.run("nodes('coachContent').find(node=>node.className==='coach-status').textContent"), /Review due/);
-  assert.match(p.text(), /Four-week review 0 meaningful sessions in this block/);
+  assert.match(p.text(), /Four-week review 0 sessions counted towards your programme this block/);
   assert.equal(p.has('View today’s workout'), false);
   await p.click('Finish programme');
   assert.ok(p.run("!document.getElementById('coachSettings').classList.contains('hidden')")); assert.ok(p.has('Confirm finish programme'));
@@ -247,7 +250,7 @@ test('General Fitness is offered and runs home → preview/edit → player → s
   const intended = p.json(`GarageFitWorkoutFamilies.getDefinition(${JSON.stringify(intendedId)},${intendedVersion})`);
   const intendedDescription = p.run(`GarageFitWorkoutFamilies.getDescription(${JSON.stringify(intendedId)})`);
   assert.ok(home.includes(`Today’s workout ${intended.name} · 30 min View today’s workout ${intendedDescription}`));
-  assert.match(home, /Why this workout/);
+  assert.match(home, /Why this workout .*Today makes room for resistance training in your weekly plan/);
   // Preview shows the delivered family, style and description; one Edit control; swaps only in edit mode.
   await p.click('View today’s workout');
   const workout = p.json('coachUI.controller.snapshot().preview.workout');
@@ -271,7 +274,7 @@ test('General Fitness is offered and runs home → preview/edit → player → s
   assert.equal(p.run("nodes('coachContent').find(node=>node.id==='coach-weekly-detail').hidden"),true);
   p.run("nodes('coachContent').find(node=>node.attributes?.['data-session-result-id']).onclick()");
   assert.match(p.text(),new RegExp(label));
-  assert.match(p.text(), new RegExp('Session saved · completed · '+label));
+  assert.match(p.text(), new RegExp('Session saved · Completed · '+label));
   assert.equal(p.run("nodes('coachContent').find(node=>node.attributes.role==='status').className"), 'coach-save-status coach-save-complete');
   const result = (await p.run('pilotStore.listSessionResults()')).results[0];
   assert.equal(result.workoutFamilyId, workout.workoutFamilyId); assert.equal(result.familyStyleId, workout.familyStyleId);
@@ -289,8 +292,8 @@ test('General Fitness preview reports a replanned family or style fallback; anch
     familyReplan: {requestedWorkoutFamilyId: 'mobility-movement-quality', requestedWorkoutFamilyVersion: 1, workoutFamilyId: 'core-stability', replanned: true},
     familyDiagnostics: [{familyStyleId: 'dynamic-core'}]};
   const messages = p.json(`GarageFitCoachUI.previewMessages({plan:${JSON.stringify(plan)},workout:${JSON.stringify(workout)},state:${JSON.stringify(state)},catalogue:CATALOGUE})`);
-  assert.deepEqual(messages.status, ['Adjusted · Mobility & Movement Quality could not be built with today’s options, so another workout type was chosen.',
-    'Adjusted · An alternative style within this family was selected to suit your settings.']);
+  assert.deepEqual(messages.status, ['Adjusted · Mobility & Movement Quality didn’t fit today’s options, so Coach chose a different workout.',
+    'Adjusted · Coach chose a different format for this workout type to suit your settings.']);
   assert.deepEqual(messages.notices, []);
   await p.run("coachUI.controller.manage('pause')"); await p.run('coachUI.open()');
   assert.match(p.text(), /Paused · history preserved\./); assert.doesNotMatch(p.text(), /anchors and history/);
@@ -445,4 +448,20 @@ test('weekly bars disclose recorded identities chronologically, including partia
   click('partial');assert.equal(panel(),true);click('late');assert.match(p.text(),/Session 4/);
   assert.deepEqual([...p.storage.entries()],saved);
   p.run("uiNow='2026-10-19T08:00:00Z'");await p.run('coachUI.open()');assert.equal(panel(),true);assert.deepEqual(ids(),[]);
+});
+
+test('General Fitness reasons use the delivered workout, shorter and easier choices, and confirmed recovery context', async () => {
+  const p = await ui(new Map(), ['dumbbells']);
+  await start(p, 'fitness');
+  const plan = p.json(`coachUI.controller.plan({duration:15,equipment:['dumbbells'],easyToday:true,
+    sessionContext:{reportedSportActivity:[{sportId:'tennis',localDate:'2026-10-12',intensity:'hard'}]}})`);
+  const copy = workout => p.run(`GarageFitCoachUI.generalFitnessReason({
+    plan:${JSON.stringify(plan)},workout:${JSON.stringify(workout)},defaultDuration:30})`);
+  assert.match(copy(null), /less demanding workout.*hard activity you reported.*set to Easy.*fits the 15 minutes/);
+  const alternative = plan.prescription.workoutFamilyPlan.candidates[1];
+  const effect = plan.rationale.priorities.families.find(family => family.workoutFamilyId === alternative.workoutFamilyId).primaryEffect;
+  const label = effect === 'challenge' ? 'whole-body training' : plan.rationale.priorities.effects.find(item => item.effect === effect).label;
+  const fallback = copy({workoutFamilyId:alternative.workoutFamilyId,familyReplan:{replanned:true}});
+  assert.ok(fallback.includes('gives you time to work on '+label));
+  assert.doesNotMatch(fallback, /less demanding|resistance training in your weekly plan/);
 });

@@ -307,10 +307,10 @@ test('preview message triage keeps material issues visible and routine explanati
   const adjusted=run({...base,workout:{prescriptionOutcome:{softRelaxations:[{code:'x'}]}},plan:plan({})});
   assert.deepEqual(adjusted.status,['Adjusted · Some supporting choices changed to keep your strength targets.']);
   const deferred=run({...base,plan:plan({deferredAnchorRequirementIds:['a-push']})});
-  assert.match(deferred.why[0],/^Not scheduled today · Push-up\. Their targets are retained/);
+  assert.match(deferred.why[0],/^Not scheduled today · Push-up\. Your targets for these exercises stay the same/);
   const arms=run({...base,plan:plan({maintenanceUnavailable:['carry']})});
-  assert.match(arms.notices[0],/cannot provide carry maintenance\. Add suitable equipment/);
-  assert.match(arms.why[0],/no catch-up debt/);
+  assert.match(arms.notices[0],/some whole-body exercises don’t fit \(carry\)\. Add suitable equipment/);
+  assert.match(arms.why[0],/don’t need to make up exercises/);
   const warnings=[{code:'tennis-session-role-unavailable',message:'Strength has no attainable target today.'},
     {code:'tennis-anchor-unavailable',requirementId:'a-knee',message:'Goblet squat cannot fit its full target.'},
     {code:'tennis-capability-unavailable',capabilityId:'lateral-movement',message:'x'},
@@ -319,10 +319,10 @@ test('preview message triage keeps material issues visible and routine explanati
     {code:'tennis-capability-time-limit',capabilityId:'endurance',message:'Endurance does not fit alongside today’s selected work.'},
     {code:'future-policy-warning',message:'A new policy constraint applies.'}];
   const tennis=run({...base,plan:plan({warnings},{capabilities:[{capabilityId:'lateral-movement',label:'Lateral movement'},{capabilityId:'power',label:'Explosive power'}]})});
-  assert.deepEqual(tennis.status,['Adjusted · Today’s planned session type has no target that fits, so another type was chosen.']);
-  assert.deepEqual(tennis.notices,['Goblet squat cannot fit its full target. Try more time or restore its equipment to include it.','A new policy constraint applies.'],
+  assert.deepEqual(tennis.status,['Adjusted · Coach chose a different session type because the planned exercises didn’t fit today.']);
+  assert.deepEqual(tennis.notices,['Goblet squat couldn’t fit today. Your target stays the same. Try allowing more time or adding back its equipment.','A new policy constraint applies.'],
     'blocking target and unknown policy warnings stay visible');
-  assert.deepEqual(tennis.why,['Strength has no attainable target today.','Endurance does not fit alongside today’s selected work.',
+  assert.deepEqual(tennis.why,['The replacement includes time to prepare and rest. You don’t need to make up the other session.','endurance didn’t fit alongside today’s exercises. Your next plan will use the work you record.',
     'Not possible with today’s equipment, space or session limits: Lateral movement.',
-    'Partly limited today, so no coverage is assumed: Explosive power (rotational power).']);
+    'Some exercises aren’t available today: Explosive power (rotational power).']);
 });
