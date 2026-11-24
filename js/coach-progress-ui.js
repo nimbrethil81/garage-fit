@@ -79,13 +79,13 @@
     return latest && (!performed || Date.parse(latest.occurredAt) > Date.parse(performed.occurredAt)) ? latest : null;
   }
   const heldReasons = {
-    'hold-unknown-load': 'Progression is held until a full session records your actual load.',
-    'hold-unknown-setup': 'Progression is held until a full session confirms your resistance setup.',
-    'hold-easy-today': 'Your last session was marked Easy today, so progression was held.'
+    'hold-unknown-load': 'Your target stays the same until you record the weight you use in a full session.',
+    'hold-unknown-setup': 'Your target stays the same until you confirm your resistance setup in a full session.',
+    'hold-easy-today': 'You chose Easy today for your last session, so your target stayed the same.'
   };
   // Only the engine's stored intent or a known hold is shown; nothing is predicted.
   function nextProgression(anchor, {state, holdReason} = {}) {
-    if (state && state.mode === 'maintenance') return {text: null, note: 'Maintenance keeps this challenge steady; progression is held.'};
+    if (state && state.mode === 'maintenance') return {text: null, note: 'In maintenance, your target stays steady.'};
     if (holdReason) return {text: null, note: holdReason};
     const decision = anchor.progression && anchor.progression.decision;
     return {text: anchor.currentTarget && anchor.currentTarget.progressionIntent || null, note: heldReasons[decision] || null};
@@ -123,47 +123,50 @@
         const exercise = catalogue[anchor.exerciseId], target = anchor.currentTarget || anchor;
         const name = exercise ? exercise.name : anchor.exerciseId, label = sectionLabel(anchor);
         const performed = lastPerformed(anchor, history, state.programmeInstanceId);
-        const detail = [heading('Current target'), paragraph(prescriptionText(target, exercise)+' · prescribed'), paragraph(currentLoadText(target))];
-        detail.push(heading('Last performed'));
+        const detail = [heading('Current target'), paragraph(prescriptionText(target, exercise)), paragraph(currentLoadText(target))];
+        detail.push(heading('Last recorded'));
         if (performed) {
-          detail.push(paragraph(dateText(performed.occurredAt)+' · '+performed.status+' · actual recorded work'));
+          detail.push(paragraph(dateText(performed.occurredAt)+' · '+(performed.status === 'partial' ? 'Partial' : 'Completed')));
           performed.sets.forEach((set, index) => detail.push(paragraph(setText(set, index))));
-        } else detail.push(paragraph('No performed sets recorded yet for '+name+'.'));
+        } else detail.push(paragraph('No sets recorded yet for '+name+'.'));
         const transition = (anchor.variationProgression && anchor.variationProgression.transitions || []).slice(-1)[0];
         if (transition) detail.push(paragraph('You chose to progress from '+(catalogue[transition.fromExerciseId]?.name || transition.fromExerciseId)
-          +' on '+dateText(transition.confirmedAt)+'. Its history is kept as a separate series.'));
+          +' on '+dateText(transition.confirmedAt)+'. You can still see its history separately.'));
         const substitute = laterSubstitution(anchor, performed);
         if (substitute) detail.push(paragraph('On '+dateText(substitute.occurredAt)+' you used '+(catalogue[substitute.exerciseId]?.name || substitute.exerciseId)
-          +' just for that session. It is a separate series and did not change this target.'));
+          +' just for that session. We track it separately, so this target stayed the same.'));
         const next = nextProgression(anchor, {state, holdReason});
-        if (next.text || next.note) detail.push(heading('Next progression'));
+        if (next.text || next.note) detail.push(heading('What’s next'));
         if (next.text) detail.push(paragraph(next.text));
         if (next.note) detail.push(paragraph(next.note));
         grid.append(card({key: 'target-'+anchor.requirementId, label: name, lines: [label, prescriptionText(target, exercise)], detail, className: 'coach-target-card'}));
       });
-      wrap.append(grid, paragraph('Targets are prescriptions. Last performed shows only work you recorded; unknown values stay unknown.'));
+      wrap.append(grid, paragraph('Targets show what to aim for. Progress reflects what you recorded, and any missing measurements are marked.'));
       return wrap;
     }
 
-    const coverageStatus = {observed: ['✓', 'Performed'], unknown: ['?', 'Unmeasured'], 'not-observed': ['○', 'Not performed']};
+    const coverageStatus = {observed: ['✓', 'Recorded'], unknown: ['?', 'Unmeasured'], 'not-observed': ['○', 'None recorded']};
     function capabilityGrid(summary) {
-      const wrap = section('Tennis fitness · last '+summary.window.days+' days'), grid = node('div', 'coach-progress-grid');
+      const wrap = section('Tennis training mix · last '+summary.window.days+' days'), grid = node('div', 'coach-progress-grid');
+      const incomplete = summary.unclassifiedObservations.some(item => item.classification.status === 'unknown-exercise');
       summary.capabilities.forEach(cap => {
         const [icon, status] = coverageStatus[cap.coverage];
-        const lines = [status];
+        const lines = [cap.coverage === 'not-observed' && incomplete ? 'Insufficient information' : status];
         if (!cap.achievable) lines.push('Not possible with today’s equipment');
         else if (cap.missingFacets.length) lines.push('Limited by equipment');
         const names = [...new Set(cap.observations.map(work => catalogue[work.exerciseId]?.name || work.exerciseId))];
-        const detail = [paragraph(names.length ? 'Performed: '+names.join(', ') : 'No performed work for this capability in the last '+summary.window.days+' days.')];
-        if (cap.observations.some(work => work.exposure.confidence === 'unknown')) detail.push(paragraph('Some work was recorded without an amount, so exposure is unknown.'));
-        if (!cap.achievable) detail.push(paragraph('Today’s equipment and constraints cannot provide this capability.'));
+        const detail = [paragraph(names.length ? 'Exercises recorded · '+names.join(', ')
+          : incomplete ? 'Some records are incomplete. No exercise could be linked to this area.'
+            : 'You haven’t recorded any exercises for this area in the last '+summary.window.days+' days.')];
+        if (cap.observations.some(work => work.exposure.confidence === 'unknown')) detail.push(paragraph('Some exercises were recorded without a measured amount.'));
+        if (!cap.achievable) detail.push(paragraph('No exercise for this area fits today’s equipment and settings.'));
         else if (cap.missingFacets.length) detail.push(paragraph('Unavailable today: '+cap.missingFacets.join(', ').replaceAll('-', ' ')+'.'));
         grid.append(card({key: 'capability-'+cap.capabilityId, label: cap.label, lines, detail, icon,
           className: 'coach-capability-card coverage-'+cap.coverage}));
       });
       wrap.append(grid);
-      if (summary.unclassifiedObservations.length) wrap.append(paragraph('Some performed work cannot be classified; no capability coverage is assumed for it.'));
-      wrap.append(paragraph('Performed training coverage, not proven tennis skill. Capabilities overlap; there is no catch-up debt.'));
+      if (summary.unclassifiedObservations.length) wrap.append(paragraph('Some saved exercises could not be linked to a training area.'));
+      wrap.append(paragraph('This shows the training you’ve recorded. It cannot tell you how much your tennis has improved. Some exercises count in more than one area. You don’t need to make up missed workouts.'));
       return wrap;
     }
 
@@ -177,11 +180,12 @@
           && item.programmeInstanceId === state.programmeInstanceId && scope.sections.includes(item.section)
           && Date.parse(item.occurredAt) >= Date.parse(scope.since) && Date.parse(item.occurredAt) <= Date.parse(scope.until));
         const tile = node('div', 'coach-progress-tile');
-        tile.append(paragraph((action === 'flexion' ? 'Curls' : 'Extensions')+' · '+Number(exposure.value.toFixed(2))+' / '+target+' performed set exposures'));
-        if (unmeasured) tile.append(paragraph('Some work is unmeasured'));
+        tile.append(paragraph((action === 'flexion' ? 'Curls' : 'Extensions')+(unmeasured && exposure.value === 0 ? ' · Amount unknown · aim for '+target+' set equivalents'
+          : ' · '+Number(exposure.value.toFixed(2))+' of '+target+' set equivalents recorded')));
+        if (unmeasured && exposure.value > 0) tile.append(paragraph('Some work had no recorded amount'));
         grid.append(tile);
       });
-      wrap.append(grid, paragraph('Compound pushing and pulling support whole-body maintenance and are tracked separately from direct arm work.'));
+      wrap.append(grid, paragraph('Partial sets can count towards the total. Presses and pulls are tracked separately from curls and extensions.'));
       return wrap;
     }
 
@@ -193,47 +197,48 @@
       const wrap = section('Training consistency · last '+weeks.length+' weeks'), list = node('ul', 'coach-history-list');
       weeks.slice().reverse().forEach((week, index) => list.append(node('li', null, weekLabel(week, weeks.length-1-index, weeks.length)+' · '+plural(week.count, 'session'))));
       const active = weeks.filter(week => week.count > 0).length;
-      wrap.append(list, paragraph('Active weeks · '+active+' of '+weeks.length+'. Only sessions with performed main work count. Missed weeks create no catch-up.'));
+      wrap.append(list, paragraph('Active weeks · '+active+' of '+weeks.length+'. A session counts towards your programme when you record work from the main part of the workout. You don’t need to make up missed workouts.'));
       return wrap;
     }
     // Capability balance: which training effects were actually performed recently, from every PickSetGo source.
-    const balanceStatus = {performed: ['✓', 'Performed'], 'not-performed': ['○', 'Not performed'], unknown: ['○', 'Insufficient evidence']};
+    const balanceStatus = {performed: ['✓', 'Recorded'], 'not-performed': ['○', 'None recorded'], unknown: ['?', 'Insufficient information']};
     function balance({summary}) {
-      const wrap = section('Capability balance · last '+summary.windowDays+' days'), grid = node('div', 'coach-progress-grid');
+      const wrap = section('Training mix · last '+summary.windowDays+' days'), grid = node('div', 'coach-progress-grid');
       summary.effects.forEach(effect => {
         const [icon, status] = balanceStatus[effect.status];
-        const lines = [status, effect.sessionCount ? plural(effect.sessionCount, 'session') : 'None recorded'];
-        const detail = [paragraph(effect.sessionCount ? 'Performed in '+plural(effect.sessionCount, 'session')+' in the last '+summary.windowDays+' days, across all your PickSetGo workouts.'
+        const lines = [status];
+        if (effect.sessionCount) lines.push(plural(effect.sessionCount, 'session'));
+        const detail = [paragraph(effect.sessionCount ? 'Recorded in '+plural(effect.sessionCount, 'session')+' in the last '+summary.windowDays+' days, across all your PickSetGo workouts.'
           : effect.status === 'unknown' ? 'Available workout records are incomplete.'
-            : 'No performed '+effect.label+' work in the last '+summary.windowDays+' days.')];
+            : 'No '+effect.label+' work was recorded in the last '+summary.windowDays+' days.')];
         grid.append(card({key: 'balance-'+effect.effect, label: title(effect.label), lines, detail, icon,
           className: 'coach-capability-card coverage-'+(effect.status === 'performed' ? 'observed' : 'not-observed')}));
       });
       wrap.append(grid);
       if (summary.unmeasuredSessions) wrap.append(paragraph(plural(summary.unmeasuredSessions, 'recent session')+' had work recorded without an amount, so it is not counted here.'));
-      if (!summary.sessionCount && !summary.incompleteEvidence) wrap.append(paragraph('No performed training has been recorded in this window yet.'));
-      wrap.append(paragraph('Training coverage, not a measure of fitness. Balance guides which workout Coach suggests; there is no target to catch up on.'));
+      if (!summary.sessionCount && !summary.incompleteEvidence) wrap.append(paragraph('No training has been recorded for this period yet.'));
+      wrap.append(paragraph('Coach uses your recorded training to suggest workouts. This mix does not measure your fitness, and there’s nothing to make up.'));
       return wrap;
     }
     // Demonstrated comparable improvement: only completed, measured, identically configured benchmark results.
     function improvementLines(item) {
       const reps = point => point.reps+' reps · '+dateText(point.occurredAt);
       if (item.status === 'none') return {line: 'Not measured yet', detail: ['No benchmark has been recorded for '+item.label+'. It is optional.']};
-      if (item.status === 'unmeasured') return {line: 'Not enough comparable evidence', detail: [
-        'It was done without a completed, rep-counted result with a confirmed bodyweight setup, so it cannot be compared.']};
-      if (item.status === 'baseline') return {line: 'Not enough comparable evidence', detail: ['Baseline · '+reps(item.latest), 'Repeat it in a later benchmark to compare.']};
-      if (item.status === 'not-comparable') return {line: 'Not enough comparable evidence', detail: ['Latest · '+reps(item.latest),
+      if (item.status === 'unmeasured') return {line: 'Measurement incomplete', detail: [
+        'To compare results, finish the set, record your reps and confirm the bodyweight setup.']};
+      if (item.status === 'baseline') return {line: 'First measurement', detail: ['First result · '+reps(item.latest), 'Repeat it in a later benchmark to compare.']};
+      if (item.status === 'not-comparable') return {line: 'Different test conditions', detail: ['Latest · '+reps(item.latest),
         'Earlier results used different conditions, so they are kept separately and not compared.']};
       const change = item.status === 'improved' ? 'Improved · '+item.previous.reps+' → '+item.latest.reps+' reps' : item.status === 'same' ? 'Same as last time · '+item.latest.reps+' reps'
         : 'Lower than last time · '+item.previous.reps+' → '+item.latest.reps+' reps';
       return {line: change, detail: ['Latest · '+reps(item.latest), 'Compared with · '+reps(item.previous),
-        'Same exercise, bodyweight setup and protocol conditions.', ...(item.incomparable ? [plural(item.incomparable, 'earlier result')+' used different conditions and were not compared.'] : [])]};
+        'Both checks used the same exercise, bodyweight setup and workout instructions.', ...(item.incomparable ? [plural(item.incomparable, 'earlier result')+' used different conditions and were not compared.'] : [])]};
     }
     function improvement({items, interval}) {
-      const wrap = section('Demonstrated comparable improvement'), grid = node('div', 'coach-progress-grid');
+      const wrap = section('Progress checks'), grid = node('div', 'coach-progress-grid');
       const improved = items.filter(item => item.status === 'improved').length, compared = items.filter(item => ['improved','same','lower'].includes(item.status)).length;
-      wrap.append(paragraph(compared ? improved+' of '+compared+' compared benchmark'+(compared === 1 ? '' : 's')+' improved. Each is compared only with an earlier identical measurement.'
-        : 'Not enough comparable evidence yet. Improvement is shown only when the same benchmark is recorded again under identical conditions.'));
+      wrap.append(paragraph(compared ? improved+' of '+compared+' progress '+(compared === 1 ? 'check' : 'checks')+' had more reps. We only compare results recorded under the same conditions.'
+        : 'Repeat the same check under the same conditions to compare your reps.'));
       items.forEach(item => {
         const {line, detail} = improvementLines(item);
         const extra = item.unusable && item.status !== 'unmeasured' ? [paragraph(plural(item.unusable, 'result')+' could not be used because reps, completion or setup were not recorded.')] : [];
@@ -247,21 +252,21 @@
     function sessionHistory({state, results}) {
       const wrap = section('Recent sessions'), summaries = new Map((state.recentSessionSummaries || []).map(item => [item.sessionResultId, item]));
       const recent = results.filter(result => result.programmeInstanceId === state.programmeInstanceId).slice(-5).reverse();
-      if (!recent.length) wrap.append(paragraph('No saved sessions yet. Performed work appears here after you save a session.'));
+      if (!recent.length) wrap.append(paragraph('No saved sessions yet. Your recorded work appears here when you save a session.'));
       const list = node('ul', 'coach-history-list');
       recent.forEach(result => {
         const performed = result.performedWork.filter(work => ['completed','partial'].includes(work.status)).length;
         const summary = summaries.get(result.sessionResultId);
-        const status = result.finalStatus === 'abandoned' ? 'Ended early · no main work counted'
-          : result.finalStatus === 'skipped-before-start' ? 'Not started' : title(result.finalStatus);
-        const credit = summary ? summary.meaningful ? 'counted' : 'not counted' : null;
+        const status = result.finalStatus === 'abandoned' ? 'Ended early'
+          : result.finalStatus === 'skipped-before-start' ? 'Not started' : result.finalStatus === 'partial' ? 'Partially completed' : title(result.finalStatus);
+        const credit = summary ? summary.meaningful ? 'Counted towards programme' : 'Did not count towards programme' : null;
         const identity = workoutIdentity(result);
-        list.append(node('li', null, [dateText(result.endedAt), identity && identity.label, status, performed+' exercise occurrence'+(performed === 1 ? '' : 's'), credit].filter(Boolean).join(' · ')));
+        list.append(node('li', null, [dateText(result.endedAt), identity && identity.label, status, performed+' exercise '+(performed === 1 ? 'entry' : 'entries')+' recorded', credit].filter(Boolean).join(' · ')));
       });
       if (recent.length) wrap.append(list);
       const help = node('details', 'coach-help'), label = node('summary', null, 'ⓘ About your history');
       label.setAttribute('aria-label', 'About your history');
-      help.append(label, paragraph('History is local to this browser and device. Clearing site data or changing devices can remove access to it. Only performed work counts; skipped or unperformed work is never credited.'));
+      help.append(label, paragraph('History is local to this browser and device. Clearing site data or changing devices can remove access to it. Skipping an exercise does not count as doing it. A saved session only counts towards your programme if the work recorded meets its requirements.'));
       wrap.append(help);
       return wrap;
     }

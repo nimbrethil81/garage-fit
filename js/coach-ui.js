@@ -49,6 +49,33 @@
     'strength':'Builds strength in your legs, upper body and trunk.',
     'movement-power':'Builds court movement and power.',
     'conditioning-resilience':'Builds conditioning and resilience.'};
+  function generalFitnessReason({plan, workout, defaultDuration}) {
+    const {priorities} = plan.rationale, prescription = plan.prescription;
+    const chosen = workout?.workoutFamilyId || prescription.workoutFamilyPlan.candidates[0].workoutFamilyId;
+    const family = priorities.families.find(item => item.workoutFamilyId === chosen);
+    const effect = priorities.effects.find(item => item.effect === family.primaryEffect);
+    const focus = effect.effect === 'challenge' ? 'whole-body training' : effect.label;
+    const reasons = [];
+    if (workout?.familyReplan?.replanned) {
+      reasons.push('This workout still gives you time to work on '+focus+'.');
+    } else {
+      const reason = root.GarageFitCoachGeneralFitnessPolicy.primaryFamilyReason(family, priorities);
+      if (reason === 'resistance') reasons.push('Today makes room for resistance training in your weekly plan.');
+      else if (reason === 'balance') reasons.push(effect.confidence === 'unknown'
+        ? 'Today’s workout gives extra attention to '+focus+' as part of a balanced plan.'
+        : 'Your recent workouts and your training plan suggest giving '+focus+' extra attention today.');
+      else reasons.push('Today adds variety with a focus on '+focus+'.');
+      if (priorities.recovery.preferLowerDemand && !family.recoveryPenalty) {
+        const causes = priorities.recovery.reasons;
+        reasons.push(causes.includes('reported-hard-activity')
+          ? 'A less demanding workout gives you time to recover after the hard activity you reported.'
+          : 'A less demanding workout gives you time to recover after recent demanding training.');
+      }
+    }
+    if (prescription.difficulty === 'easy') reasons.push('The workout is set to Easy.');
+    if (prescription.duration < defaultDuration) reasons.push('It fits the '+prescription.duration+' minutes you chose.');
+    return reasons.join(' ');
+  }
   // Where each programme message belongs in the Coach preview. `status` is a subdued
   // adjustment label, `notices` stay visible with a remedy, and `why` is the collapsed
   // Why this workout? explanation. Unknown warning codes stay visible rather than
@@ -61,15 +88,15 @@
     const replan=workout.familyReplan;
     if (replan?.replanned) {
       const requested=familyDefinition(replan.requestedWorkoutFamilyId,replan.requestedWorkoutFamilyVersion);
-      status.push('Adjusted · '+(requested ? requested.name : 'The planned workout type')+' could not be built with today’s options, so another workout type was chosen.');
+      status.push('Adjusted · '+(requested ? requested.name : 'The planned workout type')+' didn’t fit today’s options, so Coach chose a different workout.');
     }
-    if ((workout.familyDiagnostics || []).length) status.push('Adjusted · An alternative style within this family was selected to suit your settings.');
+    if ((workout.familyDiagnostics || []).length) status.push('Adjusted · Coach chose a different format for this workout type to suit your settings.');
     const deferred=(context.deferredAnchorRequirementIds || []).map(id=>state.anchors.find(anchor=>anchor.requirementId===id)).filter(Boolean);
-    if (deferred.length) why.push('Not scheduled today · '+deferred.map(anchor=>catalogue[anchor.exerciseId].name).join(', ')+'. Their targets are retained; this is not failed or skipped work.');
+    if (deferred.length) why.push('Not scheduled today · '+deferred.map(anchor=>catalogue[anchor.exerciseId].name).join(', ')+'. Your targets for these exercises stay the same.');
     const unavailable=context.maintenanceUnavailable || [];
     if (unavailable.length) {
-      notices.push('Today’s equipment cannot provide '+unavailable.join(', ')+' maintenance. Add suitable equipment when available.');
-      why.push('Maintenance that today’s equipment cannot provide creates no catch-up debt.');
+      notices.push('With today’s equipment, some whole-body exercises don’t fit ('+unavailable.join(', ')+'). Add suitable equipment when available.');
+      why.push('You don’t need to make up exercises that don’t fit today’s equipment.');
     }
     // Capability diagnostics are not actionable today; group them in plain language.
     const labels=new Map((plan.rationale.priorities.coverage?.capabilities || []).map(cap=>[cap.capabilityId,cap.label]));
@@ -78,14 +105,25 @@
     const label=warning=>labels.get(warning.capabilityId) || warning.capabilityId.replaceAll('-',' ');
     warnings.forEach(warning => {
       if (warning.code==='tennis-session-role-unavailable') {
-        status.push('Adjusted · Today’s planned session type has no target that fits, so another type was chosen.'); why.push(warning.message);
-      } else if (warning.code==='tennis-anchor-unavailable') notices.push(warning.message+' Try more time or restore its equipment to include it.');
-      else if (warning.code==='tennis-capability-time-limit') why.push(warning.message);
-      else if (!['tennis-capability-unavailable','tennis-capability-facets-unavailable'].includes(warning.code)) notices.push(warning.message || 'A programme requirement could not be fully met today.');
+        status.push('Adjusted · Coach chose a different session type because the planned exercises didn’t fit today.');
+        why.push('The replacement includes time to prepare and rest. You don’t need to make up the other session.');
+      } else if (warning.code==='tennis-anchor-unavailable') {
+        const anchor=state.anchors.find(item=>item.requirementId===warning.requirementId);
+        const name=catalogue[anchor?.exerciseId]?.name || 'A usual strength exercise';
+        notices.push(name+' couldn’t fit today. Your target stays the same. Try allowing more time or adding back its equipment.');
+      } else if (warning.code==='tennis-capability-time-limit') {
+        why.push(label(warning)+' didn’t fit alongside today’s exercises. Your next plan will use the work you record.');
+      } else if (warning.code==='tennis-constrained-movement') {
+        notices.push('Today uses gentler movement drills. There are no required strength exercises, and there’s still time to warm up and recover.');
+      } else if (warning.code==='tennis-role-movement-shortfall') {
+        notices.push('Today’s options couldn’t fit both side-to-side drills and extra core, conditioning or power work. This workout covers only part of the planned movement session.');
+      } else if (!['tennis-capability-unavailable','tennis-capability-facets-unavailable'].includes(warning.code)) {
+        notices.push(warning.message || 'Some planned work couldn’t fit today.');
+      }
     });
     if (impossible.length) why.push('Not possible with today’s equipment, space or session limits: '+impossible.map(label).join(', ')+'.');
     const partial=codes('tennis-capability-facets-unavailable').filter(warning=>!blocked.has(warning.capabilityId));
-    if (partial.length) why.push('Partly limited today, so no coverage is assumed: '+partial.map(warning=>label(warning)+' ('+warning.facets.join(', ').replaceAll('-',' ')+')').join(', ')+'.');
+    if (partial.length) why.push('Some exercises aren’t available today: '+partial.map(warning=>label(warning)+' ('+warning.facets.join(', ').replaceAll('-',' ')+')').join(', ')+'.');
     return {status, notices, why};
   }
   let policyRegistry=null;
@@ -460,39 +498,36 @@
     const patternNames = {squat: 'squat', hinge: 'hinge', lunge: 'lunge', push: 'push', pull: 'pull', core: 'core', carry: 'carry'};
     function conflictText(conflicts) {
       return [...new Set((conflicts || []).map(item => {
-        if (item.code === 'tennis-rest-recommended') return item.message;
+        if (item.code === 'tennis-rest-recommended') return 'Rest makes sense before your event. No gentle workout fits today’s time, equipment and settings. Your targets and progress stay as they are.';
         if (item.code === 'missing-pattern') return 'Add equipment for '+item.pattern+' work.';
         if (item.code === 'recovery-interval') return 'Take more recovery time before your next workout.';
-        if (item.code === 'anchor-unavailable' && item.message) return item.message;
-        if (item.code === 'tennis-no-useful-session' || item.code === 'tennis-preflight-required') return item.message || 'No useful Tennis session can be prescribed with these options.';
+        if (item.code === 'tennis-no-useful-session') return 'No tennis workout fits today’s options with enough time to warm up and rest. Try allowing more time or adding suitable equipment.';
+        if (item.code === 'tennis-preflight-required') return 'Coach couldn’t check that a tennis workout would fit safely. Try again.';
+        if (item.code === 'family-plan-not-feasible' || item.code === 'family-plan-unavailable') return 'Coach couldn’t find a workout that fits today’s options.';
         if (item.code === 'anchor-unavailable') return item.directElbowAction
-          ? 'No suitable direct arm '+(item.directElbowAction === 'flexion' ? 'curl' : 'extension')+' anchor is available. Compound pushing or pulling cannot replace it.'
-          : 'No suitable '+item.requirementId.replace('anchor-','')+' anchor is available.';
-        if (['equipment-mismatch','required-anchor-unavailable','difficulty-ineligible'].includes(item.code)) return 'A required anchor is unavailable today. Restore its equipment or choose an approved substitute.';
-        if (['insufficient-duration','unsupported-duration','insufficient-main-time'].includes(item.code)) return 'Required work needs a supported duration that fits. Try 30 or 45 minutes.';
-        return 'A programme requirement cannot be met with today’s options. Adjust equipment or duration.';
+          ? 'No suitable '+(item.directElbowAction === 'flexion' ? 'curl' : 'extension')+' fits your equipment. This type of arm exercise is required to start.'
+          : 'Your equipment doesn’t support a suitable exercise for '+item.requirementId.replace(/^(?:tennis-)?anchor-/,'').replaceAll('-',' ')+' work.';
+        if (['equipment-mismatch','required-anchor-unavailable','difficulty-ineligible'].includes(item.code)) return 'A required strength exercise is unavailable today. Add back its equipment or choose a suitable substitute.';
+        if (['insufficient-duration','unsupported-duration','insufficient-main-time'].includes(item.code)) return 'The required exercises need more time. Try 30 or 45 minutes.';
+        return 'Coach couldn’t fit the required exercises today. Try changing your equipment or session length.';
       }))].join(' ');
     }
     function rationale(plan, workout) {
       if (isTennis()) return tennisViews.whyToday(plan);
-      // A family plan explains the delivered family once built, otherwise the intended one.
-      const familyPlan=plan.prescription?.workoutFamilyPlan;
-      if (familyPlan) return workout?.familyReplan?.rationale || familyPlan.candidates[0].rationale;
-      const adaptation = plan.rationale.priorities.adaptation;
-      if (adaptation && adaptation.recommendation) return adaptation.recommendation;
-      const event = plan.rationale.priorities.event;
-      if (event) return event.rationale+' '+event.evidenceNote
-        +(adaptation ? ' '+adaptation.reasons.filter(reason => reason !== event.rationale).join(' · ') : '');
-      const phase = plan.rationale.priorities.phase;
-      if (phase) return phase.rationale+' '+phase.evidenceNote
-        +(adaptation && adaptation.reasons.length ? ' '+adaptation.reasons.join(' · ')+'.' : '');
-      if (adaptation && adaptation.reasons.length && plan.prescription) return adaptation.reasons.join(' · ')+'. Selected work fits '+plan.prescription.duration+' minutes with preparation and rest.';
-      if (plan.prescription && plan.prescription.programmeContext.roleLabel) return plan.prescription.programmeContext.roleLabel+' today: selected targets fit '+plan.prescription.duration+' minutes with preparation and rest. Keep about 2 reps in reserve on strength anchors.';
+      if (plan.prescription?.workoutFamilyPlan) return generalFitnessReason({plan, workout, defaultDuration:def.sessionTemplate.duration});
+      const prescription = plan.prescription;
       const patterns = plan.rationale.priorities.movements.filter(item => item.deficit > 0).map(item => patternNames[item.pattern]);
-      if (plan.prescription && plan.prescription.sessionRole==='maintenance') return 'Keep your anchor challenge with fewer sets and less supporting work in '+plan.prescription.duration+' minutes.';
-      if (plan.rationale.priorities.directDose) return 'Direct arm anchors first; whole-body maintenance follows'+(patterns.length ? ' with attention to '+patterns.slice(0,3).join(', ') : '')+'.';
-      return plan.prescription && plan.prescription.duration < def.sessionTemplate.duration ? 'Shorter session today: keeping required anchors and reducing supporting work.'
-        : patterns.length ? 'Prioritising '+patterns.slice(0,3).join(', ')+' from your recent performed work.' : 'Keep your anchors steady and maintain whole-body coverage.';
+      if (prescription?.sessionRole==='maintenance') return 'Keep your usual strength targets with fewer sets and fewer extra exercises today.';
+      const shorter = prescription && prescription.duration < def.sessionTemplate.duration;
+      const easy = prescription?.difficulty==='easy' ? ' You chose Easy today.' : '';
+      if (plan.rationale.priorities.directDose) {
+        return 'Curls and extensions come first.'+(shorter ? ' This shorter session has less time for other exercises.'
+          : patterns.length ? ' The rest of the workout gives some attention to '+patterns.slice(0,3).join(', ')+' work.'
+            : ' The rest of the workout trains your whole body.')+easy;
+      }
+      return (shorter ? 'The shorter workout keeps your usual strength exercises and trims the extras.'
+        : patterns.length ? 'Today gives extra attention to '+patterns.slice(0,3).join(', ')+' work to round out your training.'
+          : 'Today keeps your usual strength exercises and includes work for the whole body.')+easy;
     }
     async function open() { overviewOpen = false; showScreen('coach'); await initialisation; await run(async () => {
       await controller.load(); lastSaved='';
@@ -520,7 +555,7 @@
         if (config.typicalSportIntensity!=='moderate') values.push(config.typicalSportIntensity+' tennis');
         if (config.intent==='event') values.push('Event: '+config.significantEventDate);
       }
-      if (Object.keys(options.anchorSubstitutions || {}).length) values.push('Anchor substitution today');
+      if (Object.keys(options.anchorSubstitutions || {}).length) values.push('Strength exercise swapped today');
       const value=document.createElement('span'); value.className='coach-adjust-summary';
       value.textContent=values.join(' · '); summary.appendChild(value);
       summary.setAttribute('aria-label','Adjust today · '+value.textContent);
@@ -539,7 +574,7 @@
         durations.append(item);
       });
       details.append(heading('Available time'), durations);
-      if (unavailable.length) details.append(help('About unavailable durations',unavailable.join('/')+' minutes cannot fit useful work with today’s options. Try a longer duration, restore equipment or use an approved substitute.'));
+      if (unavailable.length) details.append(help('About unavailable durations',unavailable.join('/')+' minutes isn’t enough for the required exercises with today’s options. Try more time, add back equipment or choose a suitable substitute.'));
       if (def.contextPolicy) {
         const readiness = tennisViews.selectField('Readiness today (optional)',[['fresh','Fresh'],['normal','Normal'],['tired','Tired']],options.sessionContext?.readiness?.value || 'normal');
         readiness.select.onchange = () => {
@@ -550,7 +585,7 @@
       }
       const easy = document.createElement('label'), check = document.createElement('input'); check.type = 'checkbox'; check.checked = options.easyToday;
       check.setAttribute('aria-label','Easy today');
-      check.onchange = () => { options.easyToday = check.checked; adjustmentOpen=true; renderToday('Easy today'); }; easy.append(check, paragraph(controller.snapshot().state.anchors.length ? 'Easy today · progression held' : 'Easy today')); details.append(easy);
+      check.onchange = () => { options.easyToday = check.checked; adjustmentOpen=true; renderToday('Easy today'); }; easy.append(check, paragraph(controller.snapshot().state.anchors.length ? 'Easy today · keep your current targets' : 'Easy today')); details.append(easy);
       const select = document.createElement('select'); select.setAttribute('aria-label', 'Body emphasis');
       [['','Whole body'],['upper','Upper'],['lower','Lower'],['core','Core']].forEach(([value,label]) => { const option = document.createElement('option'); option.value=value; option.textContent=label; select.append(option); });
       select.value=options.bodyFocus || ''; select.onchange=() => { options.bodyFocus=select.value || null; adjustmentOpen=true; renderToday('Body emphasis'); }; if (!isTennis()) details.append(heading('Body emphasis'), select);
@@ -675,7 +710,7 @@
         records.slice(weekly.target).forEach((item,index)=>overflow.append(sessionControl(item,index+weekly.target,false)));
         section.append(overflow);
       }
-      section.append(help('About this week','Credited sessions with performed main work count; previews, drafts and sessions without performed main work do not. No catch-up debt.'));
+      section.append(help('About this week','Only saved sessions with enough recorded work from the main part of the workout count here. You don’t need to make up missed workouts.'));
       update(); wrap.append(section);
     }
     // The approved compact Coach home for every programme: title and status, this
@@ -702,10 +737,10 @@
         const card=document.createElement('section'); card.className='coach-card';
         card.append(heading('Workout in progress'),button('Return to workout',()=>showScreen('workoutPlayer'),true)); wrap.append(card); return;
       }
-      if (state.status==='paused') wrap.append(paragraph(state.anchors.length ? 'Paused · anchors and history preserved.' : 'Paused · history preserved.'),button('Resume',() => manage('resume'),true));
+      if (state.status==='paused') wrap.append(paragraph(state.anchors.length ? 'Paused · your targets and history are saved.' : 'Paused · history preserved.'),button('Resume',() => manage('resume'),true));
       else if (reviewDue) {
         const card=document.createElement('section'); card.className='coach-card coach-review';
-        card.append(heading('Four-week review'),paragraph(review.meaningfulSessions+' meaningful sessions in this block'+(review.targetMet?' · Block target met':'')),
+        card.append(heading('Four-week review'),paragraph(review.meaningfulSessions+' sessions counted towards your programme this block'+(review.targetMet?' · Block target met':'')),
           button('Continue building',() => manage('continue'),true),button('Move to maintenance',() => manage('maintenance')),
           button('Finish programme',()=>{openSettings();confirmingFinish=true;renderSettings();}));
         wrap.append(card);
@@ -726,13 +761,14 @@
           if (tennis && role && ROLE_PURPOSES[plan.prescription.sessionRole]) card.append(paragraph(ROLE_PURPOSES[plan.prescription.sessionRole]));
           else if (intended) card.append(paragraph(root.GarageFitWorkoutFamilies.getDescription(intended.id)));
           const event=plan.rationale.priorities.event;
-          if (event && ['reduced','final'].includes(event.phase)) card.append(paragraph(event.rationale));
+          if (event && ['reduced','final'].includes(event.phase)) card.append(paragraph(tennisViews.eventMessage(event)));
           if (!tennis) card.append(help('Why this workout',rationale(plan)));
         }
         else if (expired) card.append(button('Continue ongoing training',async()=>{
           await controller.saveProgrammeSettings({intent:'ongoing',significantEventDate:null,significantEventLabel:null});render();
         },true),button('Change event date',()=>{openSettings();el('coachSettingsContent').querySelector('input[aria-label="Important event date"]')?.focus();}));
-        else if (rest) card.append(paragraph(conflictText(plan.conflicts)));
+        else if (rest) card.append(paragraph(plan.rationale.priorities.adaptation?.classification==='rest'
+          ? tennisViews.whyToday(plan) : conflictText(plan.conflicts)));
         else {
           card.append(paragraph(conflictText(plan.conflicts)),paragraph((state.anchors.length ? 'Try more time, restore equipment or choose a compatible substitute.' : 'Try more time or restore equipment.')+(tennis?' You can also rest.':'')));
           state.anchors.forEach(anchor=>card.append(button('Substitute '+catalogue[anchor.exerciseId].name,()=>showSubstitutes(anchor.requirementId,options))));
@@ -813,8 +849,8 @@
       const durations=def.sessionTemplate.duration+' min by default; '+def.supportedDurations.filter(value=>value!==def.sessionTemplate.duration).join(', ')+' min also supported';
       if (isTennis()) {
         const config=state.currentTargets.programmeSettings, development=state.currentTargets.tennisDevelopment;
-        readOnlyRows(plan,[['Training phase',development?.phase==='consolidation'?'Consolidation':'Development'],
-          ['Strength targets',state.anchors.length+' stable targets keep their progress when settings change']]);
+        readOnlyRows(plan,[['Training phase',development?.phase==='consolidation'?'Lighter training':'Building fitness'],
+          ['Strength targets',state.anchors.length+' regular strength targets keep their progress when settings change']]);
         if (locked) readOnlyRows(plan,[['Training focus',tennisViews.focusName(config.focus)],['PickSetGo sessions per week',String(config.weeklyCoachFrequency)],
           ['Usual tennis playing days',config.usualPlayingDays.length?config.usualPlayingDays.map(day=>day.charAt(0).toUpperCase()+day.slice(1,3)).join(', '):'Irregular / no fixed days'],
           ['Typical tennis intensity',config.typicalSportIntensity.charAt(0).toUpperCase()+config.typicalSportIntensity.slice(1)],
@@ -836,11 +872,11 @@
             : frequency.minSessionsPerWeek+'–'+frequency.maxSessionsPerWeek+' recommended'],
           ['Mode',strength ? (state.mode==='maintenance'?'Maintenance':'Development') : anchored ? 'Open-ended development · no maintenance mode' : 'Open-ended · no maintenance mode'],
           ...(strength ? [['Four-week block',review.due?'Block complete · review due':'Week '+Math.min(Math.ceil(def.nominalDurationDays/7),Math.floor(review.nominalProgress%def.nominalDurationDays/7)+1)
-            +' of '+Math.ceil(def.nominalDurationDays/7)+' · aim for '+def.completionCriteria.blockMeaningfulSessionTarget+' meaningful sessions']] : []),
+            +' of '+Math.ceil(def.nominalDurationDays/7)+' · aim for '+def.completionCriteria.blockMeaningfulSessionTarget+' sessions that count towards your programme']] : []),
           ...(def.doseTargets.directElbowActions ? [['Direct arm work',def.doseTargets.directElbowActions.flexion+' curl and '+def.doseTargets.directElbowActions.extension
-            +' extension set exposures per rolling '+def.doseTargets.windowDays+' days']] : []),
+            +' extension set equivalents over the last '+def.doseTargets.windowDays+' days']] : []),
           ['Session length',durations],
-          ...(anchored ? [['Strength targets',state.anchors.length+' stable targets']] : [])]);
+          ...(anchored ? [['Strength targets',state.anchors.length+' regular strength targets']] : [])]);
       }
       wrap.append(plan);
       if (def.externalActivityPolicy) wrap.append(usualActivities(current,locked));
@@ -849,7 +885,7 @@
       if (!locked) {
         const act=action=>async()=>{ await controller.manage(action); resetOptions(); settingsNotice=''; confirmingFinish=false; renderSettings(); };
         if (review?.due && state.status==='active') {
-          manageSection.append(heading('Four-week review'),paragraph(review.meaningfulSessions+' meaningful sessions in this block'+(review.targetMet?' · Block target met':'')),
+          manageSection.append(heading('Four-week review'),paragraph(review.meaningfulSessions+' sessions counted towards your programme this block'+(review.targetMet?' · Block target met':'')),
             button('Continue building',act('continue'),true),button('Move to maintenance',act('maintenance')));
         } else if (def.supportsMaintenanceMode!==false && !def.openEnded) {
           manageSection.append(button(state.mode==='maintenance'?'Return to development':'Move to maintenance',act(state.mode==='maintenance'?'development':'maintenance')));
@@ -913,7 +949,7 @@
       if (state.status==='paused') return 'Paused';
       if (sessionActive) return 'Workout in progress';
       if (isTennis()) return state.currentTargets.programmeSettings.intent==='event'?'Event preparation'
-        : state.currentTargets.tennisDevelopment?.phase==='consolidation'?'Consolidation':'Development';
+        : state.currentTargets.tennisDevelopment?.phase==='consolidation'?'Lighter training':'Building fitness';
       return state.mode==='maintenance'?'Maintenance':def.openEnded?'Ongoing':'Development';
     }
     function openProgress() { return root.openSharedProgress(); }
@@ -939,19 +975,19 @@
       let hold=null;
       if (isTennis()) {
         const development=state.currentTargets.tennisDevelopment, config=state.currentTargets.programmeSettings;
-        phase.append(paragraph('Training phase · '+(development?.phase==='consolidation'?'Consolidation':'Development')
-          +(plan?.rationale.priorities.phase?.phase==='consolidation' && development?.phase!=='consolidation'?' · consolidation recommended next':'')));
+        phase.append(paragraph('Training phase · '+(development?.phase==='consolidation'?'Lighter training':'Building fitness')
+          +(plan?.rationale.priorities.phase?.phase==='consolidation' && development?.phase!=='consolidation'?' · lighter workout recommended next':'')));
         const event=root.GarageFitCoachTennisPolicy.eventHorizon({definition:def,state,today:{localDate:localDay(now)}});
         if (event) {
-          phase.append(paragraph('Event · '+(event.label ? event.label+' · ' : '')+event.eventDate+' · '+(event.daysUntil<0?'date passed':event.daysUntil+' days away')),paragraph(event.rationale));
-          if (event.holdProgression) hold='Event preparation holds established resistance and reps.';
-        } else phase.append(paragraph('Ongoing development · no fixed end date'));
-        phase.append(paragraph(config.weeklyCoachFrequency+' PickSetGo sessions per week · '+plural(state.meaningfulSessionsCompleted,'meaningful session')+' in total'));
+          phase.append(paragraph('Event · '+(event.label ? event.label+' · ' : '')+event.eventDate+' · '+(event.daysUntil<0?'date passed':event.daysUntil+' days away')),paragraph(tennisViews.eventMessage(event)),paragraph(tennisViews.eventNote));
+          if (event.holdProgression) hold='Keep your usual resistance and reps while preparing for your event.';
+        } else phase.append(paragraph('Ongoing training · no fixed end date'));
+        phase.append(paragraph(config.weeklyCoachFrequency+' PickSetGo sessions per week · '+plural(state.meaningfulSessionsCompleted,'session')+' counted towards your programme'));
       } else if (def.openEnded) {
         const frequency=def.recommendedFrequency;
         phase.append(paragraph('Open-ended programme · '+(frequency.aimSessionsPerWeek ? 'aim for '+frequency.aimSessionsPerWeek+' sessions per week; '+frequency.minSessionsPerWeek+' is acceptable'
           : frequency.minSessionsPerWeek+'–'+frequency.maxSessionsPerWeek+' sessions per week')),
-          paragraph(plural(state.meaningfulSessionsCompleted,'meaningful session')+' in total'));
+          paragraph(plural(state.meaningfulSessionsCompleted,'session')+' counted towards your programme'));
       } else {
         const review=controller.review(), length=def.nominalDurationDays, weeks=Math.ceil(length/7), target=def.completionCriteria.blockMeaningfulSessionTarget;
         const index=Math.floor(review.nominalProgress/length), counts=state.currentTargets.blockMeaningfulCounts;
@@ -959,10 +995,10 @@
         const inBlock=counts ? counts[index] || 0 : (state.recentSessionSummaries || []).filter(item=>item.meaningful
           && Date.parse(item.endedAt)>=blockStart && Date.parse(item.endedAt)<blockStart+length*86400000).length;
         const frequency=state.mode==='maintenance'?def.maintenancePolicy.frequency:def.recommendedFrequency;
-        phase.append(paragraph(review.due ? 'Four-week block complete · '+review.meaningfulSessions+' of '+target+' meaningful sessions'+(review.targetMet?' · block target met':'')+' · review on Coach home'
-          : 'Week '+Math.min(weeks,Math.floor(review.nominalProgress%length/7)+1)+' of '+weeks+' · '+inBlock+' of '+target+' meaningful sessions this block'),
+        phase.append(paragraph(review.due ? 'Four-week block complete · '+review.meaningfulSessions+' of '+target+' sessions counted'+(review.targetMet?' · block target met':'')+' · review on Coach home'
+          : 'Week '+Math.min(weeks,Math.floor(review.nominalProgress%length/7)+1)+' of '+weeks+' · '+inBlock+' of '+target+' sessions counted this block'),
           paragraph((state.mode==='maintenance'?'Maintenance':'Development')+' · '+frequency.minSessionsPerWeek+'–'+frequency.maxSessionsPerWeek+' sessions per week · '
-            +plural(state.meaningfulSessionsCompleted,'meaningful session')+' in total'));
+            +plural(state.meaningfulSessionsCompleted,'session')+' counted towards your programme'));
       }
       if (state.status==='paused') phase.append(paragraph(state.anchors.length ? 'Paused · targets and history are preserved.' : 'Paused · history is preserved.'));
       // Strength targets exist only for programmes with stable anchors.
@@ -997,8 +1033,8 @@
       const saved=message=>{settingsNotice=message;renderSettings();};
       details.append(heading('Training intent and event'),
         paragraph(config.intent==='event' ? 'Preparing for '+(config.significantEventLabel || 'your event')+' · '+config.significantEventDate : 'Ongoing development'),
-        paragraph('Choose an important dated event explicitly. Usual tennis playing days remain routine commitments. Event preparation keeps the same anchors, programme and history.'));
-      if (expired) { details.append(paragraph('Your event date has passed. Return to ongoing development or choose a new date; no missed work needs repaying.')); }
+        paragraph('Choose the event you’re training for. Your usual playing days, strength targets and history stay on your plan.'));
+      if (expired) { details.append(paragraph('Your event date has passed. Return to ongoing training or choose a new date. You don’t need to make up missed workouts.')); }
       const date=document.createElement('input'); date.type='date'; date.min=localDate;
       date.value=config.significantEventDate || ''; date.setAttribute('aria-label','Important event date');
       const label=document.createElement('input'); label.type='text'; label.maxLength=60;
@@ -1015,11 +1051,11 @@
     function renderSportReview(wrap, review, rerender=render) {
       if (review.latestFeedback) wrap.append(paragraph('Last sport check-in · '+new Date(review.latestFeedback.timestamp).toLocaleDateString()
         +' · movement: '+review.latestFeedback.movement+', endurance: '+review.latestFeedback.endurance+', comfort: '+review.latestFeedback.comfort
-        +'. Your impressions are context; exercise progress comes from confirmed performed work.'));
+        +'. How tennis feels can guide your plan. Your exercise progress comes from what you record.'));
       if (!review.due) return;
       const details=document.createElement('details'), summary=document.createElement('summary');
       summary.textContent='Optional tennis progress check-in'; details.append(summary,
-        paragraph('How has tennis felt lately? No recent tennis experience can be Not sure. A worse answer suggests an easier session for review; it does not diagnose injury or change your load baseline.'));
+        paragraph('How has tennis felt lately? No recent tennis experience can be Not sure. If tennis felt worse, Coach can suggest a lighter workout and keep your usual targets. This check-in doesn’t assess injuries.'));
       const answers={movement:'unsure',endurance:'unsure',comfort:'unsure'};
       [['movement','Court movement'],['endurance','Match endurance'],['comfort','Physical comfort']].forEach(([key,label]) => {
         const select=document.createElement('select'); select.setAttribute('aria-label',label);
@@ -1099,10 +1135,10 @@
         setupFacts(def.recommendedFrequency.minSessionsPerWeek+'–'+def.recommendedFrequency.maxSessionsPerWeek+' sessions per week',arms ? 'Aim for 3; 2 is acceptable' : 'Recommended weekly rhythm'),
         paragraph(arms ? 'Curl and extension work comes first, alongside whole-body training.' : 'Squat · Push · Pull — core strength work, supported by whole-body training.'),
         setupHelp('How progression works',arms
-          ? 'Build from 3 × 8 to 3 × 12 reps, then confirm more resistance. Aim for 9 performed curl and 9 extension set exposures in each rolling 7 days. Supporting work maintains squat, hinge, lunge, compound push/pull, core and carry.'
-          : 'Keep familiar strength exercises, starting at '+anchor.targetSets+' × '+anchor.target.maxReps+' reps. Build reps, then confirm more resistance. Aim for '+def.completionCriteria.blockMeaningfulSessionTarget+' meaningful sessions across the four-week block.'),
+          ? 'Build from 3 × 8 to 3 × 12 reps, then confirm more resistance. Over any 7 days, aim for the equivalent of 9 curl sets and 9 extension sets. Partial sets can contribute. Other exercises keep the rest of your body working.'
+          : 'Keep familiar strength exercises, starting at '+anchor.targetSets+' × '+anchor.target.maxReps+' reps. Build reps, then confirm more resistance. Aim for '+def.completionCriteria.blockMeaningfulSessionTarget+' sessions that count towards your programme over four weeks. Record work from the main part of a workout for it to count.'),
         paragraph('Pause or finish whenever you choose.'),
-        paragraph(assessment.status==='infeasible'?'Blocked · '+conflictText(assessment.conflicts):assessment.status==='partially-feasible'?'Partially feasible · required anchors fit; supporting choices may be adjusted.':'Feasible · your equipment supports this programme.'),
+        paragraph(assessment.status==='infeasible'?'Blocked · '+conflictText(assessment.conflicts):assessment.status==='partially-feasible'?'Your equipment covers the main strength exercises. Coach may adjust the extras.':'Your equipment supports this programme.'),
         button('Set up usual equipment',() => root.openEquipment('coach')));
       if (assessment.status!=='infeasible') wrap.append(button('Start programme',async () => {
         const started=await controller.start(def,getEquipment());
@@ -1122,19 +1158,19 @@
           : 'Strength work builds from 2 × 6 to 2 × 10 reps. Each session selects the targets that fit your time.'),form.wrap);
       const assessment=controller.assess(def,getEquipment(),defaults), feasibility=paragraph('');
       const showAssessment=value=>{feasibility.textContent=value.status==='infeasible'?'Equipment needs attention · '+conflictText(value.conflicts)
-        : 'Your equipment supports all four anchor roles. Short-session feasibility is checked for each session.';};
+        : 'Your equipment covers all four strength areas. Coach checks what fits whenever you choose a shorter workout.';};
       showAssessment(assessment); wrap.append(feasibility,button('Set up usual equipment',()=>root.openEquipment('coach')));
       if (assessment.status!=='infeasible') wrap.append(button('Start programme',async()=>{
         const config=Model().updateProgrammeSettings(defaults,form.read()), checked=controller.assess(def,getEquipment(),config);
         showAssessment(checked); if (checked.status==='infeasible') return;
         const started=await controller.start(def,getEquipment(),config);
         if (!started.state) {
-          feasibility.textContent=conflictText(started.assessment.conflicts)+' Your choices have been kept here; choose ongoing development or adjust the event date if today’s work cannot fit.';
+          feasibility.textContent=conflictText(started.assessment.conflicts)+' Your choices have been kept here; choose ongoing training or adjust the event date if today’s work cannot fit.';
           return;
         }
         lastSaved=''; resetOptions(); render();
       },true));
-      wrap.append(paragraph('History is local to this browser and device. Only actual performed work earns progress.'));
+      wrap.append(paragraph('History is local to this browser and device. Coach uses the work you record to track your progress.'));
     }
     function prepare() {
       previewEditing = false; delete disclosureOpen['preview-why'];
@@ -1144,7 +1180,8 @@
     }
     function showBlocked(preview) {
         if (preview.plan.conflicts.some(item => item.code === 'tennis-rest-recommended')) {
-          el('coachContent').append(paragraph(rationale(preview.plan))); return;
+          el('coachContent').append(paragraph(preview.plan.rationale.priorities.adaptation?.classification==='rest'
+            ? rationale(preview.plan) : conflictText(preview.plan.conflicts))); return;
         }
         el('coachContent').append(paragraph('Blocked · '+conflictText(preview.plan.conflicts)));
         controller.snapshot().state.anchors.forEach(anchor => el('coachContent').append(button('Substitute '+catalogue[anchor.exerciseId].name,() => showSubstitutes(anchor.requirementId,preview.today))));
@@ -1169,6 +1206,8 @@
       return (sets ? sets+(sets===1?' set':' sets')+' × ' : '')+quantity+(load ? ' · '+load : '');
     }
     function effortCue(anchor, context) {
+      if (anchor.plannedTarget.progressionIntent === 'Hold established resistance and reps for event preparation; leave comfortable reps in reserve')
+        return 'Keep your usual resistance and reps, and finish each set with reps to spare.';
       const reserve=context.repsInReserve ?? context.essentialConstraints?.repsInReserve;
       return anchor.plannedTarget.progressionIntent || (reserve ? 'Leave about '+reserve+' reps in reserve' : null);
     }
@@ -1253,7 +1292,7 @@
     }
     function showSubstitutes(requirementId, context) {
       const wrap=el('coachSubstituteContent'); wrap.innerHTML='';
-      wrap.append(paragraph('Just for today. Your stable programme anchor stays the same; the substitute starts a new performance series.'));
+      wrap.append(paragraph('This change is just for today. Your usual exercise and its progress stay the same. We’ll track the replacement separately.'));
       const anchor=controller.snapshot().state.anchors.find(item=>item.requirementId===requirementId);
       const alternatives=controller.alternatives(requirementId,context).filter(id=>id!==anchor.exerciseId);
       alternatives.forEach(id => wrap.append(button(catalogue[id].name,() => {
@@ -1330,7 +1369,7 @@
       try { const set=actualSet();
         if (activeResistance && activeResistance.benchmark) { el('coachActualSummary').textContent='Optional benchmark · Next records: '+(set.reps===null?'reps not entered, so nothing to compare':set.reps+' reps')
           +(set.resistanceSetup?' · bodyweight setup confirmed':set.reps===null?'':' · setup not confirmed, so it cannot be compared'); return; }
-        el('coachActualSummary').textContent='Next confirms: '+(set.reps===null?'unknown reps':set.reps+' reps')+' · '+(activeResistance && !activeResistance.numericLoad ? set.resistanceSetup?'resistance setup confirmed':'setup unknown; progression held' : set.load===null?'load unknown':set.load+' '+set.loadUnit+(set.loadInterpretation==='per-item'?' each':' total')); } catch(error) { el('coachActualSummary').textContent=error.message; }
+        el('coachActualSummary').textContent='Next confirms: '+(set.reps===null?'unknown reps':set.reps+' reps')+' · '+(activeResistance && !activeResistance.numericLoad ? set.resistanceSetup?'resistance setup confirmed':'setup not confirmed, so your target stays the same' : set.load===null?'load unknown':set.load+' '+set.loadUnit+(set.loadInterpretation==='per-item'?' each':' total')); } catch(error) { el('coachActualSummary').textContent=error.message; }
     }
     async function record(phase, tracker, action, elapsed) {
       if (busy) return false; return run(async () => {
@@ -1349,7 +1388,8 @@
     function showEnd(kind, seconds) {
       stopPlayer(); endKind=kind; endSeconds=seconds;
       const current=controller.snapshot(), work=current.interruptedDraft?current.interruptedDraft.occurrenceOutcomes:root.coachPlayerTracker().performedWork();
-      el('coachResultSummary').textContent=work.filter(item=>['completed','partial'].includes(item.status)).length+' work occurrences recorded. Only performed work counts.';
+      const count=work.filter(item=>['completed','partial'].includes(item.status)).length;
+      el('coachResultSummary').textContent=count+' exercise '+(count===1?'entry':'entries')+' recorded. A session counts towards your programme only if the recorded work meets its requirements.';
       showScreen('coachResult');
     }
     async function saveFeedback(value) {
@@ -1359,9 +1399,10 @@
         const measured=result.anchorResults.filter(item=>item.requirementId.startsWith('benchmark:') && item.status==='completed' && item.sets && item.sets.some(set=>set.reps!==null && set.reps!==undefined)).length;
         const identity=root.GarageFitCoachProgressUI.workoutIdentity(result);
         lastSavedStatus=result.finalStatus;
-        lastSaved=result.finalStatus==='abandoned'?'Session saved · no meaningful main work recorded.'
-          : stableIds.size ? 'Session saved · '+result.finalStatus+' · '+recorded+' anchors recorded'
-          : ['Session saved',result.finalStatus,identity?.label,measured ? plural(measured,'benchmark')+' recorded' : null].filter(Boolean).join(' · ');
+        const status=result.finalStatus==='completed'?'Completed':result.finalStatus==='partial'?'Partially completed':'Not started';
+        lastSaved=result.finalStatus==='abandoned'?'Session saved · Ended early.'
+          : stableIds.size ? 'Session saved · '+status+' · '+plural(recorded,'strength target')+' logged'
+          : ['Session saved',status,identity?.label,measured ? plural(measured,'benchmark')+' logged' : null].filter(Boolean).join(' · ');
         resetOptions(); showScreen('coach'); render(); if(onSessionSaved)await onSessionSaved(result); });
     }
     return {open, overview, controller, renderAnchor, record, showEnd, saveFeedback, updateActualSummary,
@@ -1369,5 +1410,5 @@
       progressContext: async () => {await initialisation;const state=controller.snapshot().state;return state?{state,definition:root.GarageFitData.programmes[state.programmeDefinitionId]?.[state.programmeDefinitionVersion]}:null;}, openSettings, back: () => {previewEditing=false;showScreen('coach');render();},
       init: () => { initialisation=run(() => controller.load()); return initialisation; }};
   }
-  root.GarageFitCoachUI = {createController, mount, tennisWeeklyProgress, programmeWeeklyProgress, weeklyConsistency, previewMessages};
+  root.GarageFitCoachUI = {createController, mount, tennisWeeklyProgress, programmeWeeklyProgress, weeklyConsistency, previewMessages, generalFitnessReason};
 })(typeof window !== 'undefined' ? window : globalThis);

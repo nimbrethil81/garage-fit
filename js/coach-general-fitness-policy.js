@@ -574,13 +574,18 @@
     const versions = root.GarageFitData.workoutFamilies[id];
     return versions && versions[version] ? versions[version].name : id;
   }
+  function primaryFamilyReason(family, priorities) {
+    if (family.resistanceBonus) return 'resistance';
+    const top = priorities.effects.slice().sort((a, b) => b.need - a.need)[0];
+    return top.effect === family.primaryEffect ? 'balance' : 'variety';
+  }
   function rationaleFor(family, index, priorities, first) {
     const name = familyName(family.workoutFamilyId, family.workoutFamilyVersion), label = EFFECT_LABELS[family.primaryEffect];
     const parts = [];
     if (index === 0) {
-      const top = priorities.effects.slice().sort((a, b) => b.need - a.need)[0];
-      if (family.resistanceBonus) parts.push(name+' prioritises resistance work in your training plan.');
-      else parts.push(top.effect === family.primaryEffect
+      const reason = primaryFamilyReason(family, priorities);
+      if (reason === 'resistance') parts.push(name+' prioritises resistance work in your training plan.');
+      else parts.push(reason === 'balance'
         ? name+' prioritises '+label+', the training effect least covered by your recent performed sessions.'
         : name+' adds '+label+' while keeping your recent sessions varied.');
       if (priorities.recovery.preferLowerDemand && !family.recoveryPenalty) parts.push('Recent demanding work favours lower-demand training today.');
@@ -676,6 +681,6 @@
 
   const policy = Object.freeze({validateDefinition, assessFeasibility, initialiseState, getModeSettings, calculatePriorities,
     buildPrescription, interpretDose, respondToMissedSessions, isComplete: () => false,
-    BENCHMARK_PREFIX, benchmarkOffer, benchmarkSpec, balanceSummary, benchmarkImprovement, assessAthleticV6Workload});
+    BENCHMARK_PREFIX, benchmarkOffer, benchmarkSpec, primaryFamilyReason, balanceSummary, benchmarkImprovement, assessAthleticV6Workload});
   root.GarageFitCoachGeneralFitnessPolicy = policy;
 })(typeof window !== 'undefined' ? window : globalThis);

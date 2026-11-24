@@ -215,12 +215,12 @@ test('existing Coach entry point lists both programmes and renders open-ended st
   const el=id=>p.app.document.getElementById(id);
   assert.ok(el('coachContent').children.some(c=>c.attributes?.['aria-label']==='Build Arms'));
   const button=el('coachContent').children.find(c=>c.attributes?.['aria-label']==='Build Arms');await button.onclick();
-  assert.ok(el('coachContent').children.some(c=>/direct arm curl/.test(c.textContent)));
+  assert.ok(el('coachContent').children.some(c=>/No suitable curl fits your equipment/.test(c.textContent)));
   await p.run("coachUI.controller.start(armsDef,['bands'])");await p.run('coachUI.open()');
   const text=el('coachContent').children.map(c=>c.textContent).join(' ');
   const visit=node=>[node.textContent,...(node.children||[]).map(visit)].join(' ');
   assert.match(visit(el('coachContent')),/Build Arms Ongoing.*This week · 0 sessions.*2 is acceptable/);
   await p.run('coachUI.openProgrammeProgress()');
   const progress=p.run("(function visit(node){return [node.textContent,...(node.children||[]).map(visit)].join(' ')})(document.getElementById('coachProgressContent'))");
-  assert.match(progress,/Curls · 0 \/ 9/);assert.match(progress,/Extensions · 0 \/ 9/);
+  assert.match(progress,/Curls · 0 of 9 set equivalents recorded/);assert.match(progress,/Extensions · 0 of 9 set equivalents recorded/);
 });

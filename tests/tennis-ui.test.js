@@ -27,7 +27,7 @@ test('compact Tennis home orders the weekly progress, collapsed adjustments and 
   assert.equal(p.state().programmeDefinitionVersion,10,'new starts use the approved v10; existing saved versions stay pinned');
   assert.deepEqual(p.json("document.getElementById('coachContent').children.slice(0,4).map(node=>node.className)"),
     ['coach-tennis-intro','coach-weekly','generator-options','coach-card']);
-  assert.match(p.run("nodes().find(node=>node.className==='coach-status').textContent"),/Development/);
+  assert.match(p.run("nodes().find(node=>node.className==='coach-status').textContent"),/Building fitness/);
   assert.match(p.run("nodes().find(node=>node.className==='coach-weekly').children[0].textContent"),/This week · 0 sessions/);
   assert.match(p.run('copyText()'),/Strength and stability.*Builds strength and stability/);
   assert.equal(p.run("nodes().find(node=>node.id==='coachAdjustToday').open"),false);
@@ -174,7 +174,7 @@ test('Coach selection groups existing programmes and Tennis; minimal setup saves
 test('equipment shortages and invalid event dates are actionable and cannot create an active programme',async()=>{
   const missing=await ui(new Map(),[]);await missing.click('Tennis Conditioning');
   assert.equal(missing.run("action('Start programme')"),undefined);
-  assert.match(missing.run('copyText()'),/Add equipment for a pull anchor/);
+  assert.match(missing.run('copyText()'),/equipment doesn’t support a suitable exercise for pull work/);
   assert.ok(missing.run("action('Set up usual equipment')"));
   assert.equal(missing.state(),null);
   for(const date of ['', '2026-10-11', '2026-02-30']) {
@@ -218,7 +218,7 @@ test('readiness changes today’s plan, rest creates no session, and settings ed
   await p.change('Readiness today (optional)','tired');
   assert.deepEqual(p.state().anchors,before.anchors);assert.match(p.run('copyText()'),/Tired/);
   await p.click('Programme settings');await p.change('Important event date','2026-10-12');await p.click('Prepare for event');
-  await p.run('coachUI.back()');assert.match(p.run('copyText()'),/Rest today/);assert.equal(p.run("action('View today’s workout')"),undefined);
+  await p.run('coachUI.back()');assert.match(p.run('copyText()'),/Rest today.*You reported feeling tired today.*gentle core and shoulder work/);assert.equal(p.run("action('View today’s workout')"),undefined);
   assert.equal(p.state().meaningfulSessionsCompleted,0);
   assert.equal((await p.run('pilotStore.listSessionResults()')).results.length,0);
   assert.equal(await p.run('pilotStore.loadSessionDraft()'),null);
@@ -252,7 +252,7 @@ test('10-minute preview and the common player count actual selected anchors with
   const p=await ui();await start(p);const initial=p.state();
   await p.click('10 min');assert.equal(p.run("action('10 min').disabled"),undefined);
   await p.click('View today’s workout');assert.match(p.run("copyText('coachPreviewContent')"),/Warm-up.*Ramp-up.*Main.*Cool-down/);
-  assert.match(p.run("copyText('coachPreviewContent')"),/Not scheduled today.*not failed or skipped work/);
+  assert.match(p.run("copyText('coachPreviewContent')"),/Not scheduled today.*Your targets for these exercises stay the same/);
   const rx=p.json('coachUI.controller.snapshot().preview.plan.prescription');
   const selected=rx.requiredAnchors.filter(item=>initial.anchors.some(anchor=>anchor.requirementId===item.requirementId));
   assert.ok(selected.length>0&&selected.length<4);
@@ -269,7 +269,7 @@ test('10-minute preview and the common player count actual selected anchors with
   assert.ok(deferred.every(anchor=>!result.anchorResults.some(item=>item.requirementId===anchor.requirementId)));
   assert.ok(deferred.every(anchor=>JSON.stringify(after.anchors.find(item=>item.requirementId===anchor.requirementId))===JSON.stringify(anchor)));
   await p.run('coachUI.openProgrammeProgress()');
-  assert.match(p.run("copyText('coachProgressContent')"),/Tennis fitness · last 14 days.*Performed/);
+  assert.match(p.run("copyText('coachProgressContent')"),/Tennis training mix · last 14 days.*Recorded/);
   assert.doesNotMatch(p.run("copyText('coachProgressContent')")+p.run('copyText()'),/Week NaN|Four-week review|Move to maintenance/);
   await p.run('coachUI.back()');
   await p.run('coachUI.open()');
@@ -284,7 +284,7 @@ test('strict preflight infeasibility is a helpful alternative with disabled shor
   await p.run("const realPlan=coachUI.controller.plan;coachUI.controller.plan=input=>realPlan({...input,allowedImpact:[]});coachUI.back()");
   assert.match(p.run('copyText()'),/Adjust today’s options.*You can also rest/);
   assert.equal(p.run("action('10 min').disabled"),true);
-  assert.match(p.run('copyText()'),/cannot fit useful work/);
+  assert.match(p.run('copyText()'),/isn’t enough for the required exercises/);
   assert.equal(p.run("action('View today’s workout')"),undefined);
   assert.deepEqual(p.state(),before);assert.equal(p.run("document.getElementById('coachError').textContent"),'');
   await p.run('coachUI.controller.plan=realPlan;coachUI.back()');assert.ok(p.run("action('View today’s workout')"));
@@ -296,7 +296,7 @@ test('unknown partial coverage and an interrupted session recover once, with loc
     await coachPlayerTracker().recordPartial(work.occurrenceId,{sets:[{reps:null,load:null}],note:'Some work performed; amount unknown'});})()`);
   const q=await ui(p.storage),before=q.state();
   await q.run('coachUI.openProgrammeProgress()');const progress=q.run("copyText('coachProgressContent')");
-  assert.match(progress,/Unmeasured.*recorded without an amount, so exposure is unknown/);
+  assert.match(progress,/Unmeasured.*recorded without a measured amount/);
   assert.match(progress,/Not possible with today’s equipment|Limited by equipment/);
   assert.match(progress,/History is local to this browser and device/);
   await q.run('coachUI.back()');
@@ -338,7 +338,7 @@ test('Coach preview uses Generator sections and rows for every phase, with small
   const stable=new Set(p.state().anchors.map(anchor=>anchor.requirementId));
   const byClass=name=>p.json(`nodes('coachPreviewContent').filter(node=>node.className===${JSON.stringify(name)}).map(node=>node.textContent)`);
   assert.equal(p.run("nodes('coachPreviewContent').find(node=>node.className==='preview-rounds').textContent"),rx.programmeContext.roleLabel);
-  assert.match(p.run("nodes('coachPreviewContent').find(node=>node.className==='preview-kicker').textContent"),new RegExp('^'+rx.duration+' min · Development'));
+  assert.match(p.run("nodes('coachPreviewContent').find(node=>node.className==='preview-kicker').textContent"),new RegExp('^'+rx.duration+' min · Building fitness'));
   assert.deepEqual(byClass('preview-section-title').map(title=>title.split(' · ')[0]),['Warm-up','Ramp-up','Main workout','Cool-down']);
   // Each phase is a shared list whose rows carry the same formatted quantities as the Generator.
   const lists=p.json("nodes('coachPreviewContent').filter(node=>node.className==='coach-preview-section').map(section=>section.children[1].children.map(row=>[row.className,row.children[1].textContent,row.children[1].children[0].textContent]))");
@@ -366,8 +366,8 @@ test('Coach preview uses Generator sections and rows for every phase, with small
   assert.equal(p.run("action('Back to Coach','coachPreviewContent')"),undefined,'the top-left back is the single return control');
   const why=p.json("(()=>{const why=nodes('coachPreviewContent').find(node=>node.className==='generator-options coach-why');return {open:!!why.open,summary:why.children[0].textContent,text:why.children.slice(1).map(node=>node.textContent).join(' ')};})()");
   assert.deepEqual([why.open,why.summary],[false,'Why this workout?']);
-  assert.match(why.text,/Last two weeks.*not proven tennis skill improvement/);
-  assert.match(why.text,/Partly limited today.*Lateral movement.*lateral braking/);
+  assert.match(why.text,/last two weeks.*cannot tell you how much your tennis has improved/);
+  assert.match(why.text,/Some exercises aren’t available today.*Lateral movement.*lateral braking/);
   assert.doesNotMatch(text,/lateral-control|rotational-power/,'internal facet ids are not shown');
 });
 
@@ -401,4 +401,26 @@ test('reopening an unchanged Coach preview keeps the same session; real changes 
   assert.equal(p.json('coachUI.controller.snapshot().preview.plan.prescription.prescriptionId'),settled);
   await p.run("uiNow='2026-10-13T08:00:00Z';coachUI.back()");await p.click('View today’s workout');
   assert.notEqual(p.json('coachUI.controller.snapshot().preview.plan.prescription.prescriptionId'),settled,'a new local day prepares a new session');
+});
+
+test('Tennis reasons distinguish ongoing, a lighter scheduled workout, and near or past events', async () => {
+  const p = await ui();
+  await start(p);
+  await p.click('View today’s workout');
+  assert.match(p.run("copyText('coachPreviewContent')"), /workouts you’ve recorded and your training focus/);
+  await p.run('coachUI.back()');
+  const why = priorities => p.run(`GarageFitCoachTennisUI.createViews({}).whyToday({rationale:{priorities:${JSON.stringify(priorities)}}})`);
+  assert.match(why({phase:{phase:'consolidation'}}), /lighter workout is due.*targets stay the same.*for it to count/);
+  await p.run("coachUI.controller.saveProgrammeSettings({intent:'event',significantEventDate:'2026-10-14'})");
+  await p.run('coachUI.open()');
+  assert.match(p.run('copyText()'), /gentle core and shoulder work or rest.*Avoid hard leg work and power exercises/);
+  await p.run('coachUI.openProgrammeProgress()');
+  assert.match(p.run("copyText('coachProgressContent')"), /records no training and cannot predict how you’ll perform/);
+  p.run("uiNow='2026-10-15T08:00:00Z'");
+  await p.run('coachUI.open()');
+  assert.match(p.run('copyText()'), /Event date has passed/);
+  assert.equal(p.run("action('View today’s workout')"), undefined);
+  await p.click('Continue ongoing training');
+  assert.equal(p.state().currentTargets.programmeSettings.intent, 'ongoing');
+  assert.ok(p.run("action('View today’s workout')"));
 });
