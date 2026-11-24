@@ -128,7 +128,7 @@
     }
     return list;
   }
-  // The display name and purpose of a published workout family version, or null.
+  // The published workout family definition for this version, or null.
   function familyDefinition(workoutFamilyId, workoutFamilyVersion) {
     const versions=root.GarageFitData.workoutFamilies?.[workoutFamilyId];
     return versions && versions[workoutFamilyVersion] || null;
@@ -724,7 +724,7 @@
             plan.prescription.workoutFamilyPlan.candidates[0].workoutFamilyVersion);
           card.append(paragraph([role || intended?.name,plan.prescription.duration+' min',intended && plan.prescription.difficulty==='easy' ? 'Easy' : null].filter(Boolean).join(' · ')),button('View today’s workout',prepare,true));
           if (tennis && role && ROLE_PURPOSES[plan.prescription.sessionRole]) card.append(paragraph(ROLE_PURPOSES[plan.prescription.sessionRole]));
-          else if (intended) card.append(paragraph(intended.purpose));
+          else if (intended) card.append(paragraph(root.GarageFitWorkoutFamilies.getDescription(intended.id)));
           const event=plan.rationale.priorities.event;
           if (event && ['reduced','final'].includes(event.phase)) card.append(paragraph(event.rationale));
           if (!tennis) card.append(help('Why this workout',rationale(plan)));
@@ -1069,7 +1069,7 @@
           const control=document.createElement('button'); control.type='button'; control.className='coach-progress-card-button';
           const label=document.createElement('span'); label.className='coach-progress-card-title'; label.textContent=family.name;
           const detail=document.createElement('div'); detail.className='coach-progress-detail'; detail.id='coach-family-'+family.id;
-          detail.hidden=true; detail.append(paragraph(family.purpose));
+          detail.hidden=true; detail.append(paragraph(root.GarageFitWorkoutFamilies.getDescription(family.id)));
           control.setAttribute('aria-controls',detail.id); control.setAttribute('aria-expanded','false');
           control.append(label,text('span','coach-progress-card-line','Show details'));
           control.onclick=()=>{detail.hidden=!detail.hidden;control.setAttribute('aria-expanded',String(!detail.hidden));control.children[1].textContent=detail.hidden?'Show details':'Hide details';};
@@ -1184,7 +1184,7 @@
       const header=document.createElement('div'); header.className='coach-preview-header';
       header.append(text('div','preview-kicker',[prescription.duration+' min',programmeStatus(state),identity && prescription.difficulty==='easy' ? 'Easy' : null].filter(Boolean).join(' · ')),
         text('h2','preview-rounds',context.roleLabel || identity?.label || def.name));
-      if (identity) header.append(text('p','equipment-note coach-preview-purpose',identity.purpose));
+      if (identity) header.append(text('p','equipment-note coach-preview-purpose',root.GarageFitWorkoutFamilies.getDescription(workout.workoutFamilyId)));
       wrap.append(header);
       messages.status.forEach(message => { const node=text('p','coach-preview-status',message); node.setAttribute('role','status'); wrap.append(node); });
       messages.notices.forEach(message => wrap.append(text('p','coach-preview-notice',message)));
