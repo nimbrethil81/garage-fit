@@ -32,7 +32,7 @@
     const versions = root.GarageFitData && root.GarageFitData.workoutFamilies && root.GarageFitData.workoutFamilies[record.workoutFamilyId];
     const family = versions && versions[record.workoutFamilyVersion];
     const style = family && family.styles.find(item => item.id === record.familyStyleId);
-    return style ? {family: family.name, style: style.name, purpose: family.purpose, label: family.name+' — '+style.name} : null;
+    return style ? {family: family.name, style: style.name, label: family.name+' — '+style.name} : null;
   }
   function perSide(exercise) { return !!exercise && exercise.sidedness === 'per-side'; }
   // Sets/reps only: the prescription. Load is shown separately and never implied.

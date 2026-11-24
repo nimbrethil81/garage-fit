@@ -4,6 +4,19 @@
   const definitions = root.GarageFitData && root.GarageFitData.workoutFamilies;
   if (!definitions) throw new Error('Load data/workout-families.js before js/workout-families.js.');
   const own = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
+  // Display copy is shared across versions of a workout family.
+  const descriptions = new Map([
+    ['strength-control', 'Build strength with controlled exercises and time to recover.'],
+    ['cardio-conditioning', 'Get your heart working with endurance exercises, intervals and mixed workouts.'],
+    ['athletic-movement', 'Work on footwork, balance and coordination with varied movement drills.'],
+    ['core-stability', 'Strengthen your core with steady holds and controlled movements.'],
+    ['mobility-movement-quality', 'Move through gentle mobility exercises and flowing sequences.'],
+    ['full-body-challenges', 'Take on a whole-body challenge with varied exercises and rest built in.'],
+    ['resistance-endurance', 'Build strength and stamina with higher-rep exercises, challenging sets and optional conditioning.']
+  ]);
+  function getDescription(workoutFamilyId) {
+    return descriptions.get(workoutFamilyId);
+  }
   class FamilyContractError extends Error {
     constructor(code, message) { super(message); this.name = 'FamilyContractError'; this.code = code; }
   }
@@ -116,6 +129,6 @@
     return policy.entries.find(entry => entry.exerciseId === exerciseId && entry.role === context.role) || null;
   }
   root.GarageFitWorkoutFamilies = Object.freeze({FamilyContractError,
-    FAMILY_IDS: Object.freeze(Object.keys(definitions)), getDefinition, currentVersion, getStyle, resolveRequest, resolveStyle,
+    FAMILY_IDS: Object.freeze(Object.keys(definitions)), getDefinition, getDescription, currentVersion, getStyle, resolveRequest, resolveStyle,
     registerMembershipPolicy, getMembership});
 })(typeof window !== 'undefined' ? window : globalThis);

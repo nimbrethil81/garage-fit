@@ -69,6 +69,18 @@ test('seven canonical families own immutable versioned identity, policies, suita
   }
 });
 
+test('shared display descriptions use the approved wording for all seven families', () => {
+  assert.deepEqual(Object.fromEntries(F.FAMILY_IDS.map(id => [id, F.getDescription(id)])), {
+    'strength-control': 'Build strength with controlled exercises and time to recover.',
+    'cardio-conditioning': 'Get your heart working with endurance exercises, intervals and mixed workouts.',
+    'athletic-movement': 'Work on footwork, balance and coordination with varied movement drills.',
+    'core-stability': 'Strengthen your core with steady holds and controlled movements.',
+    'mobility-movement-quality': 'Move through gentle mobility exercises and flowing sequences.',
+    'full-body-challenges': 'Take on a whole-body challenge with varied exercises and rest built in.',
+    'resistance-endurance': 'Build strength and stamina with higher-rep exercises, challenging sets and optional conditioning.'
+  });
+});
+
 test('explicit family overrides legacy workout styles without changing user preferences', () => {
   for (const [id] of expected) for (const focus of ['strength', 'balanced', 'cardio']) {
     const preferences = Object.freeze({workoutFamilyId: id, focus, workoutStyle: focus, bodyFocus: 'upper'});

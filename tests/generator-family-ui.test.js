@@ -60,17 +60,34 @@ test('Any preserves seeded legacy generation and existing preview copy',()=>{
  assert.ok(el(app,'previewFamilyPurpose').classList.contains('hidden'));
 });
 
-test('explicit generation uses effective family semantics and actual family/style/purpose in preview and player',()=>{
+test('explicit generation uses effective family semantics and actual family/style/description in preview and player',()=>{
  const app=loadAppContext();app.selectGeneratorFocus('cardio');app.selectGeneratorBodyFocus('upper');app.selectGeneratorDuration(15);app.selectGeneratorDifficulty('easy');app.setOwnedEquipment(['dumbbells']);
- for(const id of ['strength-control','cardio-conditioning','athletic-movement','core-stability','mobility-movement-quality','full-body-challenges']){
-  app.selectGeneratorFamily(id);seeded(app);app.generateWorkout();
+ for(const id of app.GarageFitWorkoutFamilies.FAMILY_IDS){
+  const duration=id==='resistance-endurance'?20:15;
+  app.selectGeneratorDuration(duration);app.selectGeneratorFamily(id);seeded(app);app.generateWorkout();
   const workout=run(app,'generatorState.workout'),definition=app.GarageFitWorkoutFamilies.getDefinition(id,workout.workoutFamilyVersion),style=app.GarageFitWorkoutFamilies.getStyle(id,workout.familyStyleId,workout.workoutFamilyVersion);
-  assert.equal(workout.workoutFamilyId,id);assert.equal(workout.duration,15);assert.equal(workout.difficulty,'easy');
+  assert.equal(workout.workoutFamilyId,id);assert.equal(workout.duration,duration);assert.equal(workout.difficulty,'easy');
   assert.equal(workout.bodyFocus,id==='strength-control'?'upper':'full-body');
   assert.ok(el(app,'previewKicker').textContent.includes(definition.name+' · '+style.name));
-  assert.equal(el(app,'previewFamilyPurpose').textContent,definition.purpose);
+  assert.equal(el(app,'previewFamilyPurpose').textContent,app.GarageFitWorkoutFamilies.getDescription(id));
   app.startGeneratedWorkout();assert.ok(el(app,'workoutPlayerTitle').textContent.includes(definition.name+' · '+style.name));
  }
+});
+
+test('historical family preview shows the shared description and retains its published identity',()=>{
+ const app=loadAppContext();
+ const families=app.GarageFitWorkoutFamilies,id='athletic-movement',version=1;
+ assert.notEqual(families.currentVersion(id),version);
+ const generate=app.GarageFitGenerator.generate;
+ app.GarageFitGenerator.generate=options=>generate({...options,workoutFamilyVersion:version});
+ app.selectGeneratorFamily(id);seeded(app);app.generateWorkout();
+ const workout=run(app,'generatorState.workout');
+ assert.equal(workout.workoutFamilyId,id);
+ assert.equal(workout.workoutFamilyVersion,version);
+ const family=families.getDefinition(id,version),style=families.getStyle(id,workout.familyStyleId,version);
+ assert.ok(el(app,'previewKicker').textContent.includes(family.name+' · '+style.name));
+ assert.equal(el(app,'previewFamilyPurpose').textContent,families.getDescription(id));
+ assert.notEqual(el(app,'previewFamilyPurpose').textContent,family.purpose);
 });
 
 test('infeasible Athletic family stays on Generator with verified adjustment and no diagnostic internals',()=>{

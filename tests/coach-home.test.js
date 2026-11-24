@@ -243,15 +243,17 @@ test('General Fitness is offered and runs home → preview/edit → player → s
   const home = p.text();
   assert.match(home, /Easy today/); assert.doesNotMatch(home, /progression held|stable anchor|anchor substitution|Strength target|tennis/i);
   const plan = p.json('coachUI.controller.plan({duration:30,equipment:["dumbbells"]})');
-  const intended = p.json(`GarageFitData.workoutFamilies[${JSON.stringify(plan.prescription.workoutFamilyPlan.candidates[0].workoutFamilyId)}][1]`);
-  assert.match(home, new RegExp(`Today’s workout ${intended.name} · 30 min View today’s workout ${intended.purpose}`));
+  const {workoutFamilyId: intendedId, workoutFamilyVersion: intendedVersion} = plan.prescription.workoutFamilyPlan.candidates[0];
+  const intended = p.json(`GarageFitWorkoutFamilies.getDefinition(${JSON.stringify(intendedId)},${intendedVersion})`);
+  const intendedDescription = p.run(`GarageFitWorkoutFamilies.getDescription(${JSON.stringify(intendedId)})`);
+  assert.ok(home.includes(`Today’s workout ${intended.name} · 30 min View today’s workout ${intendedDescription}`));
   assert.match(home, /Why this workout/);
-  // Preview shows the delivered family, style and purpose; one Edit control; swaps only in edit mode.
+  // Preview shows the delivered family, style and description; one Edit control; swaps only in edit mode.
   await p.click('View today’s workout');
   const workout = p.json('coachUI.controller.snapshot().preview.workout');
   const family = p.json(`GarageFitData.workoutFamilies[${JSON.stringify(workout.workoutFamilyId)}][${workout.workoutFamilyVersion}]`), style = family.styles.find(item => item.id === workout.familyStyleId);
   assert.equal(p.run("nodes('coachPreviewContent').find(node=>node.className==='preview-rounds').textContent"), family.name+' — '+style.name);
-  assert.equal(p.run("nodes('coachPreviewContent').find(node=>node.className==='equipment-note coach-preview-purpose').textContent"), family.purpose);
+  assert.equal(p.run("nodes('coachPreviewContent').find(node=>node.className==='equipment-note coach-preview-purpose').textContent"), p.run(`GarageFitWorkoutFamilies.getDescription(${JSON.stringify(workout.workoutFamilyId)})`));
   assert.deepEqual(p.json("nodes('coachPreviewContent').filter(node=>/Edit Workout|Done Editing/.test(node.textContent)&&node.onclick).map(node=>node.textContent)"), ['Edit Workout']);
   assert.equal(p.json("nodes('coachPreviewContent').filter(node=>node.className==='swap-btn').length"), 0);
   assert.doesNotMatch(p.run("copyText('coachPreviewContent')"), /Strength target|Substitute/);
@@ -310,12 +312,13 @@ test('General Fitness setup uses accessible family disclosures and preserves equ
     assert.equal(p.run(`${query}.attributes['aria-expanded']`),'false');
     p.run(`${query}.onclick()`);
     assert.equal(p.run(`${query}.attributes['aria-expanded']`),'true');
-    assert.equal(p.run(`nodes('coachContent').find(n=>n.id===${query}.attributes['aria-controls']).hidden`),false);
+    const detail = `nodes('coachContent').find(n=>n.id===${query}.attributes['aria-controls'])`;
+    assert.equal(p.run(`${detail}.hidden`),false);
+    assert.equal(p.run(`${detail}.children[0].textContent`),
+      p.run(`GarageFitWorkoutFamilies.getDescription(${detail}.id.slice('coach-family-'.length))`));
     p.run(`${query}.onclick()`);
     assert.equal(p.run(`${query}.attributes['aria-expanded']`),'false');
   }
-  const families=p.json("GarageFitData.programmes['general-fitness'][3].familyBalancePolicy.families");
-  for (const family of families) assert.ok(p.text().includes(p.run(`GarageFitData.workoutFamilies[${JSON.stringify(family.workoutFamilyId)}][${family.workoutFamilyVersion}].purpose`)));
   assert.match(p.text(),/Optional progress checks Around every four weeks.*may be offered.*Take it or skip it/);
   assert.doesNotMatch(p.text(),/anchors|open-ended|catch-up|external activit|equipment you choose|family-selection/i);
   await p.click('Set up usual equipment');
