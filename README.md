@@ -18,7 +18,19 @@ GitHub Pages, using the checkout's Git revision.
 
 ## Test and contribute
 
-Use Node.js 22.1 or newer. Fast runs on pull requests to `main`. The manual
+Use Node.js 22.1 or newer. Run Fast from the repository root:
+
+```sh
+node --test --test-skip-pattern='\[Full\]' tests/*.test.js
+```
+
+Run Full to include the marked sweeps:
+
+```sh
+node --test tests/*.test.js
+```
+
+Fast runs on pull requests to `main`. The manual
 **PickSetGo Deep validation** workflow runs Full, the reachability audit, or both for a
 selected revision. [Validation and delivery guidance](AGENTS.md#validation)
 
