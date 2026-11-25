@@ -72,7 +72,11 @@
     const visible = new Map();
     let startGroups = [], currentKey;
 
-    function update(path) {
+    function visualLabel() {
+      return resolver.label(unique([...startGroups, ...[...visible.values()].map(item => item.group)]));
+    }
+
+    function update(path, present = true) {
       if (!path.length) {
         visible.clear();
         startGroups = [];
@@ -88,6 +92,9 @@
         currentKey = current.key;
         startGroups = [];
       }
+      // Keep eligible cues already presented and discard obsolete ones. New cues
+      // are only introduced when the player can actually show them.
+      if (!present) return {visual: visualLabel(), speech: null};
       if (current.exercise) {
         startGroups.push(...current.groups.filter(group => !covered(group, introduced)));
         current.groups.forEach(group => {
@@ -123,7 +130,7 @@
       const groups = unique(requested);
       const text = groups.length ? spokenText(resolver.label(groups), !!current.exercise && !current.recovery) : '';
       return {
-        visual: resolver.label(unique([...startGroups, ...[...visible.values()].map(item => item.group)])),
+        visual: visualLabel(),
         speech: text ? {text, groups, seconds: preparationSeconds(text)} : null
       };
     }

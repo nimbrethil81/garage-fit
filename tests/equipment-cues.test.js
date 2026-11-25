@@ -7,7 +7,7 @@ const plain = value => JSON.parse(JSON.stringify(value));
 
 function harness({unsupported = false, busy = false} = {}) {
   let now = 0, timerId = 0;
-  const timers = new Map(), utterances = [], cancelled = [];
+  const timers = new Map(), utterances = [], cancelled = [], visibilityListeners = [];
   const voice = {name:'English UK',lang:'en-GB',voiceURI:'uk'};
   let active = null;
   const synthesis = {
@@ -24,6 +24,9 @@ function harness({unsupported = false, busy = false} = {}) {
     context.performance = {now:()=>now};
     context.wallNow = ()=>100000+now;
     context.document.visibilityState = 'visible';
+    context.document.addEventListener = (name, listener) => {
+      if (name === 'visibilitychange') visibilityListeners.push(listener);
+    };
     context.setInterval = cb => {timers.set(++timerId,cb); return timerId;};
     context.clearInterval = id => timers.delete(id);
     context.speechSynthesis = unsupported ? undefined : synthesis;
@@ -50,6 +53,10 @@ function harness({unsupported = false, busy = false} = {}) {
   const equipmentSpeech = () => utterances.filter(u=>u.text.startsWith('Get your '));
   return {app, run, step, generated, phase, workoutCue, routineCue, exercise, equipmentSpeech, utterances, cancelled, voice,
     endSpeech() {const ended=active;active=null;ended?.onend?.();},
+    async visibility(value) {
+      app.document.visibilityState = value;
+      for (const listen of visibilityListeners) await listen();
+    },
     get active() {return active;},
     get now() {return now;}};
 }
@@ -127,6 +134,75 @@ test('short recovery looks back to timed work and yields to the midpoint and 3-2
   await h.step(5000);
   assert.equal(h.equipmentSpeech().length,1);
   assert.deepEqual(h.utterances.filter(u=>u.text==='Change direction').map(u=>u.text),['Change direction']);
+});
+
+test('the safety cutoff releases a timed equipment offer for one later safe window',async()=>{
+  const h=harness({busy:true});
+  const timed=h.exercise('body-hoops',{prescription:{type:'timed',value:24}});
+  await h.generated([rounds([timed,h.exercise('kettlebell-goblet-squat')],3)]);
+  h.app.enterGeneratedPhase(1);
+  h.endSpeech();
+  await h.step(1500);
+  const cancelled=h.active;
+  assert.equal(cancelled?.text,'Get your kettlebell ready when you can.');
+  await h.step(10250);
+  assert.equal(h.active,null,'cut off before the midpoint');
+  assert.deepEqual(h.cancelled.slice(-1),[cancelled.text]);
+  cancelled.onend();
+  await h.step(250,'generatorState.phaseTimer');
+  assert.equal(h.active?.text,'Change direction');
+  await h.step();
+  assert.equal(h.equipmentSpeech().length,1,'the midpoint still owns speech');
+  h.endSpeech();
+  await h.step();
+  assert.equal(h.equipmentSpeech().length,2);
+  assert.equal(h.active?.text,cancelled.text);
+  h.endSpeech();
+  await h.step();
+  assert.equal(h.equipmentSpeech().length,2,'completion consumes the offer');
+  h.app.enterGeneratedPhase(3);
+  await h.step();
+  assert.equal(h.equipmentSpeech().length,2,'the first use closes the opportunity');
+});
+
+test('foreground return shows equipment first reached while hidden and never speaks that stale offer',async()=>{
+  const h=harness({busy:true});
+  await h.generated([rounds([h.exercise('push-up'),h.exercise('kettlebell-goblet-squat'),h.exercise('kettlebell-swing')])]);
+  await h.visibility('hidden');
+  h.app.enterGeneratedPhase(1);
+  assert.equal(h.workoutCue(),'','a new cue stays unpresented while hidden');
+  h.endSpeech();
+  await h.step();
+  assert.equal(h.equipmentSpeech().length,0);
+  h.app.enterGeneratedPhase(2);
+  await h.visibility('visible');
+  assert.equal(h.workoutCue(),'Get ready: kettlebell');
+  h.endSpeech();
+  await h.step();
+  assert.equal(h.equipmentSpeech().length,0);
+  h.app.enterGeneratedPhase(3);
+  assert.equal(h.workoutCue(),'','later use must not repeat a foreground cue');
+  h.app.previousGeneratedPhase();
+  assert.equal(h.workoutCue(),'','Previous must not repeat a foreground cue');
+});
+
+test('foreground return shows still-upcoming equipment and drops an opportunity that passed hidden',async()=>{
+  for (const passed of [false,true]) {
+    const h=harness({unsupported:true});
+    await h.generated([rounds([h.exercise('push-up'),h.exercise('kettlebell-goblet-squat'),h.exercise('air-squat')])]);
+    await h.visibility('hidden');
+    h.app.enterGeneratedPhase(1);
+    if (passed) h.app.enterGeneratedPhase(3);
+    await h.visibility('visible');
+    assert.equal(h.workoutCue(),passed?'':'Get ready: kettlebell');
+    if (!passed) {
+      await h.visibility('hidden');
+      await h.visibility('visible');
+      assert.equal(h.workoutCue(),'Get ready: kettlebell');
+      h.app.enterGeneratedPhase(2);
+      assert.equal(h.workoutCue(),'','the previously visible cue is covered at use');
+    }
+  }
 });
 
 test('a rep phase waits for its existing speech and can resume an interrupted attempt',async()=>{
@@ -246,7 +322,41 @@ test('EMOM uses settled recovery, keeps its minute boundary and drops prompts on
   assert.equal(h.equipmentSpeech().length,1);
 });
 
-test('capped density and AMRAP re-evaluate on exit, with no future-block cues while looping',async()=>{
+test('an inserted recovery keeps the pending cue attached to its movement and offers it once',async()=>{
+  const h=harness({busy:true});
+  const emom={id:'emom-insert',protocol:'emom',intent:'conditioning',exercises:[h.exercise('push-up')],
+    prescription:{minutes:1,slotSeconds:60,targets:[{type:'reps',value:6}]}};
+  const timeline=await h.generated([emom,rounds([h.exercise('kettlebell-goblet-squat'),h.exercise('kettlebell-swing')])]);
+  h.app.enterGeneratedPhase(1);
+  await h.step(4500);
+  await h.app.updateEmomMinute('done');
+  assert.equal(h.workoutCue(),'Get ready: kettlebell');
+  const target=h.run('generatorState.timeline[3]');
+  assert.equal(target.occurrenceId,timeline[3].occurrenceId);
+  h.run("generatorState.timeline.splice(2,0,{kind:'rest',section:'main',seconds:15})");
+  await h.step(400);
+  assert.equal(h.equipmentSpeech().length,0,'the minute announcement keeps the prep cue pending');
+  await h.app.updateEmomMinute('skip-rest');
+  assert.equal(h.phase().kind,'rest');
+  assert.equal(h.run('generatorState.remaining'),15);
+  assert.equal(h.workoutCue(),'Get ready: kettlebell','the pending cue follows the original target across the insertion');
+  h.endSpeech();
+  await h.step(1000);
+  assert.equal(h.active?.text,'Get your kettlebell ready.','the inserted recovery supplies a speech window');
+  h.endSpeech();
+  h.app.generatedPrimaryAction();
+  assert.equal(h.phase().kind,'block-transition');
+  h.app.enterGeneratedPhase(4);
+  assert.equal(h.phase(),target);
+  assert.equal(h.phase().occurrenceId,timeline[3].occurrenceId);
+  assert.equal(h.workoutCue(),'');
+  h.app.enterGeneratedPhase(5);
+  await h.step(1000);
+  assert.equal(h.workoutCue(),'');
+  assert.equal(h.equipmentSpeech().length,1);
+});
+
+test('capped density and AMRAP prepare the established successor only after the cap resolves',async()=>{
   const {blockFixtures}=require('./helpers/protocol-fixtures');
   for (const protocol of ['density','amrap']) {
     const h=harness({busy:true});
@@ -265,13 +375,48 @@ test('capped density and AMRAP re-evaluate on exit, with no future-block cues wh
     if (protocol==='amrap') assert.equal(h.run('amrapBlockRun().round'),2);
     const elapsed=h.run('currentWorkoutElapsedMs()');
     await h.step((cap+2)*1000-elapsed,'generatorState.phaseTimer');
-    assert.equal(h.workoutCue(),'');
-    assert.equal(h.equipmentSpeech().length,0);
+    assert.equal(h.workoutCue(),'Get ready: kettlebell');
+    assert.match(h.active?.text,protocol==='amrap'?/^Time is up/:/^Time cap reached/);
+    await h.step();
+    assert.equal(h.equipmentSpeech().length,0,'the cap announcement takes priority');
+    h.endSpeech();
+    await h.step();
+    assert.equal(h.active?.text,'Get your kettlebell ready.');
+    h.endSpeech();
     if (protocol==='amrap') await h.app.advanceAmrapBlock('skip');
     else await h.app.updateDensityBlock('done');
     assert.equal(h.phase().kind,'block-transition');
     assert.equal(h.workoutCue(),'Get ready: kettlebell');
+    h.app.enterGeneratedPhase(h.run('generatorState.timelineIndex+1'));
+    assert.equal(h.phase().exercise.id,'kettlebell-goblet-squat');
+    assert.equal(h.workoutCue(),'');
+    await h.step();
+    assert.equal(h.equipmentSpeech().length,1);
   }
+});
+
+test('the final density target can prepare the next exercise before the three-second changeover',async()=>{
+  const h=harness({busy:true});
+  const {blockFixtures}=require('./helpers/protocol-fixtures');
+  const block=blockFixtures(h.app.GarageFitData.exercises,{density:true}).density;
+  const timeline=await h.generated([block,rounds([h.exercise('kettlebell-goblet-squat')])]);
+  const last=timeline.findLastIndex(phase=>phase.protocol==='density');
+  h.app.enterGeneratedPhase(last);
+  assert.equal(h.workoutCue(),'Get ready: kettlebell');
+  const deadline=h.run('densityRun().deadlineMs');
+  await h.step();
+  assert.equal(h.equipmentSpeech().length,0,'density instructions take priority');
+  h.endSpeech();
+  await h.step();
+  assert.equal(h.active?.text,'Get your kettlebell ready when you can.');
+  h.endSpeech();
+  await h.app.updateDensityBlock('done');
+  assert.equal(h.run('densityRun().deadlineMs'),deadline);
+  assert.equal(h.run('densityRun().ended'),'work-ended','unconfirmed targets stay unconfirmed');
+  assert.equal(h.workoutCue(),'Get ready: kettlebell');
+  h.endSpeech();
+  await h.step();
+  assert.equal(h.equipmentSpeech().length,1,'the completion screen does not repeat delivered speech');
 });
 
 test('a second rings configuration change keeps its full existing spoken prompt',async()=>{
