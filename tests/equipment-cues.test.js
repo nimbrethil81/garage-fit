@@ -205,6 +205,49 @@ test('foreground return shows still-upcoming equipment and drops an opportunity 
   }
 });
 
+test('a paused recovery keeps its equipment speech window across a suspended background interval',async()=>{
+  const h=harness({busy:true});
+  const target=h.exercise('kettlebell-goblet-squat');
+  await h.generated([rounds([h.exercise('push-up'),target],20)]);
+  h.app.enterGeneratedPhase(1);
+  h.app.generatedPrimaryAction();
+  assert.equal(h.phase().kind,'rest');
+  assert.equal(h.run('generatorState.remaining'),20);
+  assert.equal(h.workoutCue(),'Get ready: kettlebell');
+  await h.step(1000,'generatorState.phaseTimer');
+  await h.step(0);
+  assert.equal(h.equipmentSpeech().length,0,'the exercise announcement has priority');
+
+  h.app.toggleWorkoutPause();
+  assert.equal(h.run('generatorState.remaining'),19);
+  await h.visibility('hidden');
+  await h.step(25000); // No phase timer callbacks while the app is backgrounded.
+  await h.visibility('visible');
+  assert.equal(h.run('workoutState.paused'),true);
+  assert.equal(h.run('generatorState.remaining'),19);
+  assert.equal(h.app.document.getElementById('workoutRingNum').textContent,'19');
+  assert.equal(h.equipmentSpeech().length,0);
+
+  h.app.toggleWorkoutPause();
+  assert.equal(h.run('generatorState.remaining'),19);
+  await h.step();
+  assert.deepEqual(h.equipmentSpeech().map(u=>u.text),['Get your kettlebell ready.']);
+  h.endSpeech();
+
+  h.app.toggleWorkoutPause();
+  await h.visibility('hidden');
+  await h.step(25000);
+  await h.visibility('visible');
+  h.app.toggleWorkoutPause();
+  await h.step();
+  assert.equal(h.equipmentSpeech().length,1,'a delivered cue is not repeated on resume');
+  await h.step(400,'generatorState.phaseTimer');
+  h.app.generatedPrimaryAction();
+  assert.equal(h.phase().exercise.id,target.id);
+  await h.step();
+  assert.equal(h.equipmentSpeech().length,1,'the cue cannot speak after the target starts');
+});
+
 test('a rep phase waits for its existing speech and can resume an interrupted attempt',async()=>{
   const h=harness({busy:true});
   await h.generated([rounds([h.exercise('push-up'),h.exercise('goblet-squat',{equipment:[['kettlebell']]})])]);

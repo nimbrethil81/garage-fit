@@ -1533,7 +1533,9 @@ function generatedEquipmentWindow() {
     return run.expired || run.ended ? Infinity : amrapBlockRemaining(run);
   }
   if (phase.seconds == null) return Infinity;
-  const remaining = generatorState.remaining - (Date.now() - generatorState.phaseTickAt) / 1000;
+  // Foreground refresh can plan a cue before Resume rebases the frozen countdown.
+  const remaining = workoutState.paused ? generatorState.remaining
+    : generatorState.remaining - (Date.now() - generatorState.phaseTickAt) / 1000;
   return phase.timed ? timedEquipmentWindow(phase.seconds,remaining,generatorState.cueTracker) : remaining;
 }
 function refreshDensityEquipment() {
