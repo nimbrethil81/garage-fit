@@ -54,6 +54,8 @@ layout: null
 :is(#player,#workoutPlayer) :is(.routine-target,.workout-target){font-size:26px;line-height:1.15;margin:0;overflow-wrap:anywhere}
 :is(#player,#workoutPlayer) .workout-side-note{font-size:13px;min-height:0;margin:0;line-height:1.3;overflow-wrap:anywhere}
 :is(#player,#workoutPlayer) :is(.workout-side-note,.workout-target,.coach-error):empty{display:none}
+/* Keep the polite status available before its first update, outside stage flow when empty. */
+:is(#player,#workoutPlayer) .equipment-preparation:empty{display:block;position:absolute;width:1px;height:1px;clip-path:inset(50%);overflow:hidden}
 :is(#player,#workoutPlayer) .workout-paused{flex:none;margin:0;padding:8px;min-height:44px;font-size:14px}
 :is(#player,#workoutPlayer) .timed-cue{min-height:0;font-size:14px;line-height:1.3}
 :is(#player,#workoutPlayer) .overall-progress{margin:0 0 4px;flex:none;width:100%}
@@ -105,17 +107,20 @@ layout: null
   .routine-stage,.workout-stage{gap:2px}
   .exercise-name,.workout-exercise{font-size:27px}
   .movement-progress{font-size:11px;letter-spacing:0}
+  .workout-stage-notes:has(.equipment-preparation:not(:empty)){
+    display:flex;order:4;align-items:baseline;justify-content:center;flex-wrap:wrap;column-gap:10px
+  }
   :is(#player,#workoutPlayer) :is(.routine-target,.workout-target){font-size:23px}
 }
 .routine-ring-host:has(.ring-wrap.hidden){display:none}
 /* Contents participate in the portrait stage; independent columns in landscape
    let optional entry points share the timer column without shrinking the name. */
-.routine-main-column,.workout-main-column,.workout-timer-column{display:contents}
+.routine-main-column,.workout-main-column,.workout-timer-column,.workout-stage-notes{display:contents}
 .routine-main-column>*{flex-shrink:0;max-width:100%}
 .workout-detail-controls{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:4px;order:1;flex:none;width:100%}
 .workout-detail-controls>*{min-width:0}
 .workout-detail-controls .workout-target{order:0}
-.workout-main-column>*,.workout-timer-column>*,.workout-detail-controls>*{flex-shrink:0;max-width:100%}
+.workout-main-column>*,.workout-stage-notes>*,.workout-timer-column>*,.workout-detail-controls>*{flex-shrink:0;max-width:100%}
 .workout-main-column .workout-side-note{order:4}
 .workout-ring-host{order:2}
 #workoutInstruction{order:1}#densityPartial{order:5}
@@ -131,7 +136,7 @@ layout: null
   .workout-detail-controls{display:flex;order:3;align-items:center;justify-content:center;flex:none;gap:4px}
   .workout-detail-controls>*{min-width:0}
   .workout-detail-controls summary{padding:4px;display:flex;align-items:center;justify-content:center;min-height:44px}
-  .workout-main-column>*,.workout-timer-column>*{max-width:100%;flex-shrink:0}
+  .workout-main-column>*,.workout-stage-notes>*,.workout-timer-column>*{max-width:100%;flex-shrink:0}
   .workout-timer-column>.workout-ring-host{flex:1 1 0}
   .routine-stage{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:16px}
   .routine-main-column{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:0;min-width:0;height:100%;grid-column:2;grid-row:1}
@@ -143,7 +148,9 @@ layout: null
   .workout-stage:not(:has(.workout-ring-host:not(.hidden))),.routine-stage:has(.ring-wrap.hidden){
     display:flex;flex-direction:column;flex-wrap:wrap;align-content:space-around;justify-content:center;column-gap:12px;
   }
-  .workout-stage:not(:has(.workout-ring-host:not(.hidden))) .workout-main-column>*,.workout-stage:not(:has(.workout-ring-host:not(.hidden))) .workout-detail-controls,.routine-stage:has(.ring-wrap.hidden) .routine-main-column>*{width:calc(50% - 12px);max-width:calc(50% - 12px)}
+  .workout-stage:not(:has(.workout-ring-host:not(.hidden))) :is(
+    .workout-main-column>*,.workout-stage-notes:not(:has(.equipment-preparation:not(:empty)))>*,.workout-detail-controls
+  ),.routine-stage:has(.ring-wrap.hidden) .routine-main-column>*{width:calc(50% - 12px);max-width:calc(50% - 12px)}
 }
 /* At extreme text enlargement or tiny windows, preserve readable information
    in the stage while keeping navigation reserved. Normal phone use never enters
@@ -151,7 +158,7 @@ layout: null
 :is(#player,#workoutPlayer).player-reflow :is(.routine-stage,.workout-stage){display:flex;flex-flow:column nowrap;justify-content:flex-start;align-content:normal;overflow-y:auto}
 :is(#player,#workoutPlayer).player-reflow :is(.routine-ring-host,.workout-ring-host){flex:none;height:120px;min-height:120px}
 :is(#player,#workoutPlayer).player-reflow :is(.routine-main-column,.workout-main-column,.workout-timer-column,.workout-detail-controls){display:contents}
-:is(#player,#workoutPlayer).player-reflow :is(.routine-main-column,.workout-main-column,.workout-timer-column,.workout-detail-controls)>*,:is(#player,#workoutPlayer).player-reflow .routine-stage>*{width:100%;max-width:100%}
+:is(#player,#workoutPlayer).player-reflow :is(.routine-main-column,.workout-main-column,.workout-stage-notes,.workout-timer-column,.workout-detail-controls)>*,:is(#player,#workoutPlayer).player-reflow .routine-stage>*{width:100%;max-width:100%}
 /* A keyboard can leave only ~300px. The detail surface then uses the header's
    space as well; its own Close control remains reachable above reserved nav. */
 @container player-viewport (max-height:440px){

@@ -80,7 +80,7 @@ METRICS = """({optional=false,allowReflow=false}={})=>{
  }
  let ring;
  if(!optional&&!allowReflow){
-  const items=[...stage.querySelectorAll(':scope > *, .routine-main-column > *, .workout-main-column > *, .workout-timer-column > *')].filter(e=>visible(e)&&e.textContent.trim()&&box(e).height>0);
+  const items=[...stage.querySelectorAll(':scope > *, .routine-main-column > *, .workout-main-column > *, .workout-stage-notes > *, .workout-timer-column > *')].filter(e=>visible(e)&&e.textContent.trim()&&box(e).height>0);
   for(const e of items){const r=box(e);if(r.y<box(stage).y-1||r.bottom>nav.y+1||r.x<bounds.x-1||r.right>bounds.right+1)failures.push((e.id||e.className)+': outside stage');}
   const r=p.querySelector('.ring-wrap');
   if(visible(r)){

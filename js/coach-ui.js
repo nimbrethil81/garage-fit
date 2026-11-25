@@ -453,7 +453,7 @@
       review: () => engine.programmeReview(definition(), state, clock())};
   }
 
-  function mount({catalogue, equipment, getEquipment, setEquipment, buildTimeline, play, showScreen, stopPlayer, onViewChange, onSessionSaved}) {
+  function mount({catalogue, equipment, getEquipment, setEquipment, buildTimeline, preparationPreview, play, showScreen, stopPlayer, onViewChange, onSessionSaved}) {
     let storage;
     try { storage=root.localStorage; } catch (error) { storage=null; }
     const store = root.GarageFitCoachStore.createStore(storage);
@@ -1225,6 +1225,9 @@
       header.append(text('div','preview-kicker',[prescription.duration+' min',programmeStatus(state),identity && prescription.difficulty==='easy' ? 'Easy' : null].filter(Boolean).join(' · ')),
         text('h2','preview-rounds',context.roleLabel || identity?.label || def.name));
       if (identity) header.append(text('p','equipment-note coach-preview-purpose',root.GarageFitWorkoutFamilies.getDescription(workout.workoutFamilyId)));
+      const kit = text('p','equipment-note','');
+      const preparation = preparationPreview?.(kit,buildTimeline(workout).find(phase => phase.kind === 'exercise')?.exercise,preview.today.equipment);
+      if (kit.textContent) header.append(kit);
       wrap.append(header);
       messages.status.forEach(message => { const node=text('p','coach-preview-status',message); node.setAttribute('role','status'); wrap.append(node); });
       messages.notices.forEach(message => wrap.append(text('p','coach-preview-notice',message)));
@@ -1285,7 +1288,7 @@
       const actions=document.createElement('div'); actions.className='preview-actions coach-preview-actions';
       const edit=button(previewEditing?'Done Editing':'Edit Workout',() => { previewEditing=!previewEditing; renderPreview(preview); el('coachPreviewContent').querySelector('.coach-preview-actions button').focus(); });
       edit.className='preview-regenerate'; edit.setAttribute('aria-pressed',String(previewEditing));
-      const start=button('Start workout',async () => { const tracker=await controller.begin(); sessionSetups={}; sessionActive=true; await play(workout,tracker); },true);
+      const start=button('Start workout',async () => { const tracker=await controller.begin(); sessionSetups={}; sessionActive=true; await play(workout,tracker,preview.today.equipment,preparation); },true);
       start.className='preview-start';
       actions.append(edit,start);
       wrap.append(actions); showScreen('coachPreview');
