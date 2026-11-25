@@ -2213,33 +2213,70 @@
     return false;
   }
 
-  function buildSection(catalogue, kind, targetSeconds, owned, random, maximumSeconds=targetSeconds+5) {
-    const eligible = Object.values(catalogue).filter(exercise => generatedPhaseEligible(exercise,kind,owned)).map(exercise => {
-      if (kind==='warmup' && exercise.warmupPrescription) return Object.assign({},exercise,{prescription:Object.assign({},exercise.warmupPrescription),estimatedSeconds:exercise.warmupEstimatedSeconds || exercise.warmupPrescription.value});
-      return exercise;
-    });
+  function refineCooldown(eligible, picked, rolls, owned) {
+    for (let index=1;index<picked.length;index++) {
+      const original=picked[index], previous=picked[index-1];
+      const others=picked.filter((_,position)=>position!==index);
+      const covered=new Set(others.flatMap(exercise=>exercise.stretchTargets||[]));
+      const required=(original.stretchTargets||[]).filter(target=>!covered.has(target));
+      const previousSetup=sectionSetupKey(previous,owned);
+      const continuity=exercise=>Number(sectionSetupKey(exercise,owned)===previousSetup)
+        +Number(exercise.bodyPosition===previous.bodyPosition);
+      const stages=activeTrace?[]:null;
+      const available=narrow(stages,'family-duplicate',eligible.filter(exercise=>!others.includes(exercise)),
+        eligible.filter(exercise=>!others.some(other=>sameExerciseOrFamily(exercise,other))));
+      const fitting=narrow(stages,'duration-fit',available,available.filter(exercise=>
+        exercise.estimatedSeconds===original.estimatedSeconds&&sideCount(exercise)===sideCount(original)));
+      const comparable=narrow(stages,'stretch-coverage',fitting,fitting.filter(exercise=>
+        required.every(target=>(exercise.stretchTargets||[]).includes(target))));
+      const baseline=continuity(original);
+      // Keep configured exercises in their original setup groups so transition timing is unchanged.
+      const choices=narrow(stages,'setup-continuity',comparable,comparable.filter(exercise=>
+        exercise===original||(!original.setupProfile&&!exercise.setupProfile&&continuity(exercise)>baseline)));
+      // The fractional part of the original uniform draw still has a uniform distribution.
+      // Retaining the original as an option keeps natural variety even with a better setup match.
+      picked[index]=weightedPick(choices.map(exercise=>({value:exercise,weight:1+continuity(exercise)-baseline})),
+        ()=>rolls[index]);
+      if (activeTrace) activeTrace({type:'pick',phase:'cooldown',scored:null,candidates:choices,picked:picked[index],stages});
+    }
+  }
+
+  function orderCooldown(exercises, owned) {
+    const positions=new Map();
+    for (const exercise of groupSectionBySetup(exercises,owned)) {
+      // Keep each setup together, with exercises of the same body position adjacent within it.
+      const key=sectionSetupKey(exercise,owned)+':'+exercise.bodyPosition;
+      if (!positions.has(key)) positions.set(key,[]);
+      positions.get(key).push(exercise);
+    }
+    return [...positions.values()].flat();
+  }
+
+  function buildCooldown(catalogue, targetSeconds, owned, random, maximumSeconds=targetSeconds+5) {
+    const eligible = Object.values(catalogue).filter(exercise => generatedPhaseEligible(exercise,'cooldown',owned));
     let candidates = eligible;
-    const picked = [], restSeconds = 5;
+    const picked = [], rolls = [], restSeconds = 5;
     let total = 0;
+    // Establish the existing dose and duration first. Setup preference cannot change the
+    // cooldown budget or cause another Main or preparation attempt to be selected.
     while (candidates.length && total < targetSeconds-10) {
       const fitting = candidates.filter(exercise => total + exercise.estimatedSeconds + (picked.length?restSeconds:0) <= maximumSeconds);
       if (!fitting.length) break;
-      const index = Math.floor(random()*fitting.length);
+      const draw = random()*fitting.length;
+      const index = Math.floor(draw);
       const exercise = fitting[index];
-      // Unscored: every fitting candidate is equally likely.
-      if (activeTrace) {
-        const stages = [];
-        narrow(stages,'family-duplicate',eligible.filter(item => !picked.includes(item)),candidates);
+      if (activeTrace && !picked.length) {
+        const stages=[];
         narrow(stages,'duration-fit',candidates,fitting);
-        activeTrace({ type:'pick', phase:kind, scored:null, candidates:fitting, picked:exercise, stages });
+        activeTrace({type:'pick',phase:'cooldown',scored:null,candidates:fitting,picked:exercise,stages});
       }
       picked.push(exercise);
+      rolls.push(draw-index);
       total += exercise.estimatedSeconds + (picked.length>1?restSeconds:0);
-      // Cool-down policy: a family's alternatives (e.g. a stretch and its TRX version) never co-occur.
       candidates = candidates.filter(item => !sameExerciseOrFamily(item,exercise));
     }
-    if (kind==='cooldown') picked.splice(0,picked.length,...groupSectionBySetup(picked,owned));
-    return { exercises:picked, restSeconds, estimatedSeconds:total };
+    refineCooldown(eligible,picked,rolls,owned);
+    return { exercises:orderCooldown(picked,owned), restSeconds, estimatedSeconds:total };
   }
 
   function preparationMetadataValid(exercise) {
@@ -3292,7 +3329,7 @@
     // prescription budget too; preparation metadata must not push fixed Coach doses over it.
     const cooldownMaximum=Math.min(budget.cooldown+5,(rx.maximumDurationSeconds??context.duration*60)
       -preparation.warmup.estimatedSeconds-preparation.rampup.estimatedSeconds-main.estimatedDurationSeconds);
-    const cooldown=buildSection(selectionCatalogue,'cooldown',budget.cooldown,context.equipment,random,cooldownMaximum);
+    const cooldown=buildCooldown(selectionCatalogue,budget.cooldown,context.equipment,random,cooldownMaximum);
     const workout={schemaVersion:2,id:'generated-'+Date.now(),duration:context.duration,focus:context.focus,bodyFocus:context.bodyFocus,difficulty:context.difficulty,
       estimatedSeconds:preparation.warmup.estimatedSeconds+preparation.rampup.estimatedSeconds+main.estimatedDurationSeconds+cooldown.estimatedSeconds,
       warmup:{...preparation.warmup,exercises:preparation.warmup.exercises.map(copyExercise)},
@@ -3423,7 +3460,7 @@
     const main=composeMain(catalogue,eligible,budget,duration,focus,owned,history,rest,random,difficulty,bodyFocus,options.recentProtocols,blocks=>{alternatives=blocks;});
     const firstMain=main.blocks[0].exercises;
     const preparation=buildPreparation(catalogue,budget,owned,firstMain,focus,random,main.blocks.flatMap(block=>block.exercises),difficulty);
-    const cooldown=buildSection(catalogue,'cooldown',budget.cooldown,owned,random);
+    const cooldown=buildCooldown(catalogue,budget.cooldown,owned,random);
     const estimatedSeconds=preparation.warmup.estimatedSeconds+preparation.rampup.estimatedSeconds+main.estimatedDurationSeconds+cooldown.estimatedSeconds;
     const workout={
       schemaVersion:2,id:'generated-'+Date.now(),duration,focus,bodyFocus,difficulty,estimatedSeconds,
@@ -3730,7 +3767,7 @@
         const mainExercises=result.blocks.flatMap(block=>block.exercises);
         for(let attempt=0;attempt<6;attempt++){
           const preparation=buildPreparation(preparationCatalogue,budget,owned,result.blocks[0].exercises,result.generalPreparation.focus,random,mainExercises,difficulty);
-          const cooldown=buildSection(preparationCatalogue,'cooldown',budget.cooldown,owned,random);
+          const cooldown=buildCooldown(preparationCatalogue,budget.cooldown,owned,random);
           workout=assemble({warmup:{estimatedSeconds:preparation.warmup.estimatedSeconds,restSeconds:preparation.warmup.restSeconds,exercises:preparation.warmup.exercises.map(copyExercise)},
             rampup:{estimatedSeconds:preparation.rampup.estimatedSeconds,restSeconds:preparation.rampup.restSeconds,exercises:preparation.rampup.exercises.map(copyExercise)},
             cooldown:{estimatedSeconds:cooldown.estimatedSeconds,restSeconds:cooldown.restSeconds,exercises:cooldown.exercises.map(copyExercise)}});
