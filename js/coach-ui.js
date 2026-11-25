@@ -90,7 +90,8 @@
       const requested=familyDefinition(replan.requestedWorkoutFamilyId,replan.requestedWorkoutFamilyVersion);
       status.push('Adjusted · '+(requested ? requested.name : 'The planned workout type')+' didn’t fit today’s options, so Coach chose a different workout.');
     }
-    if ((workout.familyDiagnostics || []).length) status.push('Adjusted · Coach chose a different format for this workout type to suit your settings.');
+    const alternateFormat=root.GarageFitWorkoutPreview.alternateFormatMessage(workout);
+    if (alternateFormat) status.push('Adjusted · '+alternateFormat);
     const deferred=(context.deferredAnchorRequirementIds || []).map(id=>state.anchors.find(anchor=>anchor.requirementId===id)).filter(Boolean);
     if (deferred.length) why.push('Not scheduled today · '+deferred.map(anchor=>catalogue[anchor.exerciseId].name).join(', ')+'. Your targets for these exercises stay the same.');
     const unavailable=context.maintenanceUnavailable || [];

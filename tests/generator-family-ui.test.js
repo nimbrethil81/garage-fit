@@ -103,10 +103,33 @@ test('infeasible Athletic family stays on Generator with verified adjustment and
 
 test('same-family fallback identifies actual style and explains alternative without exposing diagnostics',()=>{
  const app=loadAppContext();app.selectGeneratorFamily('mobility-movement-quality');seeded(app);app.generateWorkout();
+ assert.ok(el(app,'previewFamilyAlternative').classList.contains('hidden'));
  run(app,"generatorState.workout.familyDiagnostics=[{code:'style-quality-failed',detail:'internal-secret'}]");app.renderGeneratedPreview();
- assert.match(el(app,'previewFamilyAlternative').textContent,/alternative style within this family/);
- assert.doesNotMatch(el(app,'previewFamilyAlternative').textContent,/internal-secret|style-quality/);
+ assert.equal(el(app,'previewFamilyAlternative').textContent,'We chose a different workout format to fit your settings.');
+ assert.ok(!el(app,'previewFamilyAlternative').classList.contains('hidden'));
+});
+
+test('a family that cannot fit the selected time suggests only its verified adjustments',()=>{
+ const app=loadAppContext();app.selectGeneratorFamily('mobility-movement-quality');
  const error=new app.GarageFitWorkoutFamilies.FamilyContractError('family-not-feasible','internal-secret');error.reasons=[{code:'phase-cannot-fit',detail:'internal-secret'}];error.adjustments=[{code:'change-duration',value:30},{code:'change-difficulty',value:'easy'}];
  app.GarageFitGenerator.generate=()=>{throw error};app.generateWorkout();
- assert.equal(run(app,'currentScreen'),'generator');assert.match(el(app,'generatorFamilyError').textContent,/Try 30 minutes\. Try Easy difficulty\./);assert.doesNotMatch(el(app,'generatorFamilyError').textContent,/internal-secret/);
+ assert.equal(run(app,'currentScreen'),'generator');assert.match(el(app,'generatorFamilyError').textContent,/We couldn't put together this workout in the time you selected\./);assert.match(el(app,'generatorFamilyError').textContent,/Try 30 minutes\. Try Easy difficulty\./);assert.doesNotMatch(el(app,'generatorFamilyError').textContent,/internal-secret/);
+});
+
+test('family errors with no verified adjustment explain only what is known',()=>{
+ const app=loadAppContext();app.selectGeneratorFamily('core-stability');
+ for(const code of ['insufficient-eligible-movements','missing-essential-practice']){
+  assert.match(app.familyFailureMessage({reasons:[{code}]}),/There aren't enough suitable exercises for this workout\.$/);
+ }
+ assert.equal(app.familyFailureMessage({reasons:[{code:'style-quality-failed'}],adjustments:[{code:'unknown'}]}),
+  'Core & Stability is unavailable with these settings.');
+});
+
+test('My Equipment explains how to keep workouts bodyweight-only',()=>{
+ const app=loadAppContext();app.openEquipment('generator');
+ const items=el(app,'equipmentList').children;
+ assert.ok(items.length>0&&items.every(item=>item.attributes['aria-pressed']==='false'));
+ assert.ok(el(app,'ringsSetupGuidance').classList.contains('hidden'));
+ const html=fs.readFileSync('index.html','utf8');
+ assert.match(html,/<p class="equipment-note">You don't need to add a mat here\. Leave equipment unselected for bodyweight workouts\.<\/p>/);
 });

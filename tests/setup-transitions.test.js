@@ -180,7 +180,7 @@ test('Generator preview presents the owned setup instruction and its allowance e
   const setup=nodes(app.document.getElementById('previewList')).filter(node=>node.className==='preview-setup-transition');
   assert.equal(setup.length,1);
   const text=nodes(setup[0]).map(node=>node.textContent).join(' ');
-  assert.match(text,/Adjust rings to low position/);assert.match(text,/45 sec planned allowance/);assert.match(text,/Pause if you need longer/);
+  assert.match(text,/Adjust rings to low position/);assert.match(text,/45 sec for setup/);assert.match(text,/Pause if you need longer/);
 });
 
 test('setup playback has visible and spoken cues, uses the existing pause clock and creates no tracker work',async()=>{
@@ -246,7 +246,7 @@ test('Coach preview and player share setup rows and adjustment-only navigation e
     function setupAction(id,label){return setupNodes(id).find(node=>node.textContent===label&&node.onclick).onclick();}`);
   await p.run("setupAction('coachContent','View today’s workout')");
   assert.equal(p.run("setupNodes('coachPreviewContent').filter(node=>node.className==='preview-setup-transition').length"),1);
-  assert.match(p.run("setupNodes('coachPreviewContent').map(node=>node.textContent).join(' ')"),/Adjust rings to low position.*45 sec planned allowance/);
+  assert.match(p.run("setupNodes('coachPreviewContent').map(node=>node.textContent).join(' ')"),/Adjust rings to low position.*45 sec for setup/);
   await p.run("setupAction('coachPreviewContent','Start workout')");
   const index=p.run("generatorState.timeline.findIndex(phase=>phase.kind==='setup-transition')");
   p.run(`enterGeneratedPhase(${index})`);

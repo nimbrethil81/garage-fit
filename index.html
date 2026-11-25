@@ -388,7 +388,7 @@ layout: null
     <p class="page-header-copy">Select what you own. Bodyweight exercises are always available.</p>
     <div class="equipment-list" id="equipmentList"></div>
     <p class="equipment-note hidden" id="ringsSetupGuidance"><strong>Gymnastic rings setup:</strong> Use secure, load-rated overhead mounting and straps suitable for the chosen exercise; not all mounts are suitable for dynamic loading. Allow enough clearance, adjust and check the setup before loading, and enter and exit under control.</p>
-    <p class="equipment-note">A mat is not listed because it isn’t mechanically required. Leaving everything unselected gives you bodyweight workouts.</p>
+    <p class="equipment-note">You don't need to add a mat here. Leave equipment unselected for bodyweight workouts.</p>
     <p class="equipment-note">Saved across PickSetGo for future workouts. Already prepared workouts and workouts in progress keep their original equipment and exercises.</p>
     <button class="generator-primary equipment-done" type="button" onclick="closeEquipment(true)">Done</button>
   </main>
@@ -1120,15 +1120,34 @@ async function refreshGeneratorFamilySessions(){
 }
 function familyFailureMessage(error){
   const family=GarageFitWorkoutFamilies.getDefinition(generatorState.workoutFamilyId),codes=(error.reasons||[]).map(reason=>reason.code);
-  const reason=codes.includes('insufficient-eligible-movements')||codes.includes('missing-essential-practice')?'There are too few suitable movements for its required practice.':codes.includes('phase-cannot-fit')?'Its movement practice and recovery cannot fit the selected time.':codes.includes('intensity-standard-infeasible')?'The movements these settings allow cannot reach its '+DIFFICULTY_LABELS[generatorState.difficulty]+' cardio intensity.':'A suitable session with the required movement balance and recovery could not be built.';
-  const adjustments=(error.adjustments||[]).map(item=>item.code==='change-duration'?'Try '+item.value+' minutes.':item.code==='change-difficulty'?'Try '+DIFFICULTY_LABELS[item.value]+' difficulty.':item.code==='confirm-movement-room'?'This family needs confirmed room for travelling movements.':item.code==='remove-body-position-restriction'?'Allow more body positions.':item.code==='reduce-impact-exclusions'?'Allow more low or medium impact movement while keeping high impact excluded.':null).filter(Boolean);
-  return family.name+' is unavailable with these settings. '+reason+' '+(adjustments.join(' ')||'Choose another family or None / Any.');
+  let reason='';
+  if(codes.includes('insufficient-eligible-movements')||codes.includes('missing-essential-practice')){
+    reason="There aren't enough suitable exercises for this workout.";
+  }else if(codes.includes('phase-cannot-fit')){
+    reason="We couldn't put together this workout in the time you selected.";
+  }else if(codes.includes('intensity-standard-infeasible')){
+    reason="The available exercises can't deliver a "+DIFFICULTY_LABELS[generatorState.difficulty]+" cardio workout with these settings.";
+  }
+  const adjustments=(error.adjustments||[]).map(item=>{
+    switch(item.code){
+      case 'change-duration': return 'Try '+item.value+' minutes.';
+      case 'change-difficulty': return 'Try '+DIFFICULTY_LABELS[item.value]+' difficulty.';
+      case 'confirm-movement-room': return 'If you have room to move safely, confirm you have enough space.';
+      case 'remove-body-position-restriction': return 'Allow more body positions.';
+      case 'reduce-impact-exclusions': return 'Allow low- and medium-impact exercises'+(item.value.includes('high')?', while keeping high-impact exercises excluded.':'.');
+      default: return '';
+    }
+  });
+  return [family.name+' is unavailable with these settings.',reason,...adjustments].filter(Boolean).join(' ');
 }
 // Option A (#402): an ordinary Hard Cardio request that cannot meet the Hard standard is never shown as Hard.
 // Only adjustments the Generator proved with a whole workout are suggested; equipment is never guessed.
 function cardioFailureMessage(error){
   const adjustments=(error.adjustments||[]).map(item=>item.code==='change-duration'?item.value+' minutes':item.code==='change-difficulty'?DIFFICULTY_LABELS[item.value]+' difficulty':null).filter(Boolean);
-  return "Couldn't generate a Hard cardio workout with these settings."+(error.reason==='catalogue-infeasible'?" The movements available with your equipment can't reach Hard cardio intensity.":'')
+  const reason=error.reason==='catalogue-infeasible'
+    ?"The exercises available with your equipment aren't enough for a Hard cardio workout."
+    :"We couldn't put together a Hard cardio workout with these settings.";
+  return reason
     +(adjustments.length?' Try '+(adjustments.length>1?adjustments.slice(0,-1).join(', ')+' or '+adjustments.at(-1):adjustments[0])+'.':'');
 }
 function showGeneratorError(text){const message=document.getElementById('generatorFamilyError');message.textContent=text;message.classList.remove('hidden');showScreen('generator');message.focus()}
@@ -1154,7 +1173,7 @@ function protocolLabel(block){return GarageFitWorkoutPreview.protocolLabel(block
 function renderGeneratedPreview(){
   const workout=GarageFitGenerator.normaliseWorkout(generatorState.workout),options=generatorOptionsSummary(workout);
   document.getElementById('previewKicker').textContent=workout.duration+' min · '+generatedWorkoutIdentity(workout)+(workout.workoutFamilyId?(workout.bodyFocus!=='full-body'?' · '+BODY_FOCUS_LABELS[workout.bodyFocus]:'')+(workout.difficulty!=='normal'?' · '+DIFFICULTY_LABELS[workout.difficulty]:''):(options?' '+options:''));
-  const purpose=document.getElementById('previewFamilyPurpose'),alternative=document.getElementById('previewFamilyAlternative');purpose.textContent=workout.workoutFamilyId?GarageFitWorkoutFamilies.getDescription(workout.workoutFamilyId):'';purpose.classList.toggle('hidden',!workout.workoutFamilyId);alternative.textContent=workout.familyDiagnostics&&workout.familyDiagnostics.length?'An alternative style within this family was selected to suit your settings.':'';alternative.classList.toggle('hidden',!alternative.textContent);
+  const purpose=document.getElementById('previewFamilyPurpose'),alternative=document.getElementById('previewFamilyAlternative');purpose.textContent=workout.workoutFamilyId?GarageFitWorkoutFamilies.getDescription(workout.workoutFamilyId):'';purpose.classList.toggle('hidden',!workout.workoutFamilyId);alternative.textContent=GarageFitWorkoutPreview.alternateFormatMessage(workout);alternative.classList.toggle('hidden',!alternative.textContent);
   const plan=GarageFitGenerator.trainingSectionPlan(workout),mainCount=plan.blocks.filter(item=>item.section==='main').length;
   document.getElementById('previewRounds').textContent=mainCount+' main block'+(mainCount===1?'':'s');
   const list=document.getElementById('previewList');list.innerHTML='';
@@ -1598,7 +1617,7 @@ function applyGeneratedSetupTransitions(timeline,workout){
     if(index<0)continue;
     const nextExercise=timeline[index].exercise,previous=timeline[index-1];
     const phase={kind:'setup-transition',section:change.section,blockIndex:change.blockIndex,
-      seconds:change.seconds,label:change.instruction,note:change.seconds+' sec planned allowance. '+GarageFitGenerator.EQUIPMENT_SETUP_NOTE,nextExercise};
+      seconds:change.seconds,label:change.instruction,note:change.seconds+' sec for setup. '+GarageFitGenerator.EQUIPMENT_SETUP_NOTE,nextExercise};
     if(previous&&previous.kind!=='exercise'&&previous.seconds===change.replacesSeconds)timeline.splice(index-1,1,phase);
     else timeline.splice(index,0,phase);
   }

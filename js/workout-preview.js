@@ -10,6 +10,11 @@
     return node;
   }
 
+  function alternateFormatMessage(workout) {
+    return workout.workoutFamilyId && !workout.familyReplan?.replanned && workout.familyDiagnostics?.length
+      ? 'We chose a different workout format to fit your settings.' : '';
+  }
+
   function sectionHeading(title) {
     return text('h2','preview-section-title',title);
   }
@@ -32,7 +37,7 @@
   function setupTransitionRow(change,phaseLabel) {
     const row=text('li','preview-setup-transition','');
     row.append(text('span','preview-index','↔'),text('div','preview-exercise',(phaseLabel?phaseLabel+' · ':'')+change.instruction));
-    row.children[1].append(text('span','preview-prescription',change.seconds+' sec planned allowance · Pause if you need longer'));
+    row.children[1].append(text('span','preview-prescription',change.seconds+' sec for setup · Pause if you need longer'));
     return row;
   }
   function appendSetupTransitions(list,workout,location) {
@@ -170,5 +175,5 @@
     }).join(' → ');
   }
 
-  root.GarageFitWorkoutPreview={guidanceSections,sectionHeading,blockHeading,sectionDurationLabel,setupTransitionRow,appendSetupTransitions,exerciseRow,instructionDisclosure,formatPrescription,protocolLabel,supersetMarker,emomTargetLabel,occurrenceTargetLabel};
+  root.GarageFitWorkoutPreview={guidanceSections,sectionHeading,blockHeading,sectionDurationLabel,alternateFormatMessage,setupTransitionRow,appendSetupTransitions,exerciseRow,instructionDisclosure,formatPrescription,protocolLabel,supersetMarker,emomTargetLabel,occurrenceTargetLabel};
 })(typeof window==='undefined' ? globalThis : window);
