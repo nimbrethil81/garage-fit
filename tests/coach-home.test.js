@@ -288,12 +288,14 @@ test('General Fitness is offered and runs home → preview/edit → player → s
 test('General Fitness preview reports a replanned family or style fallback; anchor-free pause and blocked copy stay neutral', async () => {
   const p = await ui(new Map(), ['dumbbells']); await start(p, 'fitness');
   const plan = p.json('coachUI.controller.plan({duration:30,equipment:[]})'), state = p.state();
-  const workout = {main: {blocks: []}, prescriptionOutcome: {softRelaxations: []},
+  const workout = {workoutFamilyId:'core-stability', main: {blocks: []}, prescriptionOutcome: {softRelaxations: []},
     familyReplan: {requestedWorkoutFamilyId: 'mobility-movement-quality', requestedWorkoutFamilyVersion: 1, workoutFamilyId: 'core-stability', replanned: true},
     familyDiagnostics: [{familyStyleId: 'dynamic-core'}]};
   const messages = p.json(`GarageFitCoachUI.previewMessages({plan:${JSON.stringify(plan)},workout:${JSON.stringify(workout)},state:${JSON.stringify(state)},catalogue:CATALOGUE})`);
-  assert.deepEqual(messages.status, ['Adjusted · Mobility & Movement Quality didn’t fit today’s options, so Coach chose a different workout.',
-    'Adjusted · Coach chose a different format for this workout type to suit your settings.']);
+  assert.deepEqual(messages.status, ['Adjusted · Mobility & Movement Quality didn’t fit today’s options, so Coach chose a different workout.']);
+  delete workout.familyReplan;
+  const sameFamily = p.json(`GarageFitCoachUI.previewMessages({plan:${JSON.stringify(plan)},workout:${JSON.stringify(workout)},state:${JSON.stringify(state)},catalogue:CATALOGUE})`);
+  assert.deepEqual(sameFamily.status, ['Adjusted · We chose a different workout format to fit your settings.']);
   assert.deepEqual(messages.notices, []);
   await p.run("coachUI.controller.manage('pause')"); await p.run('coachUI.open()');
   assert.match(p.text(), /Paused · history preserved\./); assert.doesNotMatch(p.text(), /anchors and history/);

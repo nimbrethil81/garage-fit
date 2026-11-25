@@ -294,15 +294,17 @@ test('an ordinary Hard Cardio failure keeps settings, stays on Generator and sho
   assert.deepEqual(copy([...storage]),before);
   const message=app.document.getElementById('generatorFamilyError');
   assert.equal(message.classList.contains('hidden'),false);
-  assert.equal(message.textContent,"Couldn't generate a Hard cardio workout with these settings. The movements available with your equipment can't reach Hard cardio intensity. Try Normal difficulty.");
+  assert.equal(message.textContent,"The exercises available with your equipment aren't enough for a Hard cardio workout. Try Normal difficulty.");
   // A bounded-search miss is not described as impossible; verified adjustments are listed.
   assert.equal(app.cardioFailureMessage({code:'cardio-intensity-not-feasible',reason:'search-limit',
     adjustments:[{code:'change-duration',value:20},{code:'change-difficulty',value:'normal'}]}),
-    "Couldn't generate a Hard cardio workout with these settings. Try 20 minutes or Normal difficulty.");
+    "We couldn't put together a Hard cardio workout with these settings. Try 20 minutes or Normal difficulty.");
+  assert.equal(app.cardioFailureMessage({reason:'search-limit',adjustments:[]}),
+    "We couldn't put together a Hard cardio workout with these settings.");
   // The explicit-family message names a proven Cardio v2 intensity infeasibility through the same slot.
   vm.runInContext('generatorState.workoutFamilyId="cardio-conditioning"',app);
   assert.equal(app.familyFailureMessage({reasons:[{code:'intensity-standard-infeasible'}],adjustments:[{code:'change-difficulty',value:'normal'}]}),
-    'Cardio & Conditioning is unavailable with these settings. The movements these settings allow cannot reach its Hard cardio intensity. Try Normal difficulty.');
+    "Cardio & Conditioning is unavailable with these settings. The available exercises can't deliver a Hard cardio workout with these settings. Try Normal difficulty.");
   vm.runInContext('generatorState.workoutFamilyId=null',app);
   // Changing a setting clears the message; the restored Generator builds Normal normally.
   app.selectGeneratorDifficulty('normal');assert.equal(message.classList.contains('hidden'),true);
