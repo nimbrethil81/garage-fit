@@ -189,6 +189,10 @@ technical diagnostics on failures and check first voice discovery, preview and w
 speech on Safari/installed PWA and Android Chrome when available. Voice inventory and
 quality depend on the device.
 
+The owner confirmed [#174 voice selection](https://github.com/nimbrethil81/garage-fit/issues/174)
+on iPhone. Safari versus installed-PWA mode, OS version and voice names were unreported.
+Android Chrome was untested. Keep the Spoken Cues row for future regression checks.
+
 The owner confirmed the #338 repair on iPhone after PR #368. The exact loaded SHA and
 individual matrix results were not reported. Keep the matrix for future regressions.
 [#388](https://github.com/nimbrethil81/garage-fit/issues/388) tracks separate intermittent

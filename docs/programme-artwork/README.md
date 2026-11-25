@@ -12,11 +12,11 @@ programme selection usable.
 
 The owner-supplied `garagefit-coach-artwork-v1.zip` (#341) contained cuts from
 `a_clean_vector_illustration_style_composition_with.png` (1774×887 RGBA), extracted
-as the supplied 887×443 programme masters. No extension, manual redraw or generative
-replacement was used. The original PNG/WebP pairs were integrated byte-for-byte.
-`supplied-manifest.json` records their source quadrants, dimensions, alpha and original
-hashes. `light-dark-preview.jpg` is a composited review aid outside the runtime UI.
-The supplied graphics are raster artwork.
+as 887×443 upper and 887×444 lower programme masters. No extension, manual redraw
+or generative replacement was used. The original PNG/WebP pairs were integrated
+byte-for-byte. [`supplied-manifest.json`](supplied-manifest.json) records their
+source quadrants, dimensions, alpha and original hashes. `light-dark-preview.jpg`
+is a composited review aid outside the runtime UI. The supplied graphics are raster artwork.
 
 The corrected Tennis pair (#365, PR #372) removes a horizontal line. The current
 887×444 files are transparent, with PNG/WebP alpha matching exactly.
