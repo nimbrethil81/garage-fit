@@ -1,9 +1,10 @@
 # PickSetGo portable backup records
 
-The Settings → Your data → Backup & Restore flow implements the approved
-BR1–BR6 and BR-UI1–BR-UI8 Option B decisions. Visual references are the approved
-30 October 2026 v1.0 pack (24 conceptual mockups, 12 states, light/dark), retained
-in Dropbox at `/Apps/GarageFit/Design References/Backup & Restore/`.
+Settings → Your data → Backup & Restore uses the approved BR1–BR6 and
+BR-UI1–BR-UI8 Option B design. The approved visual reference is the 30 October 2026
+v1.0 pack (24 mockups, light and dark), recorded at
+`/Apps/GarageFit/Design References/Backup & Restore/` in Dropbox.
+Verify access to the exact pack before changing the visual contract.
 
 The portable data domain is curated, not a dump of browser storage. Register any
 new durable feature explicitly, validate its stored representation and add a
@@ -73,8 +74,9 @@ state, never portable data.
 isBlocked, withExclusive, now})`. The Coach argument is the synchronous
 `GarageFitCoachStore.createBackupAccess(storage)` boundary. The browser bridge and screen are mounted by the existing inline app bootstrap.
 
-New archives use PickSetGo identity; historic GarageFit archives are not supported.
-See [the upgrade checklist](PICKSETGO_UPGRADE.md) before rollout or rollback.
+New archives use `app: "PickSetGo"` and `PickSetGo-backup-YYYY-MM-DD.json`.
+Brand validation is strict: historic GarageFit archives fail in PickSetGo and the
+old build rejects PickSetGo archives. Never edit an archive to bypass validation.
 
 Format 1 archives contain `app: "PickSetGo"`, an ISO `createdAt`, separate
 version-1 `preferences` and `coach` sections, and a lowercase SHA-256 `checksum`
@@ -152,8 +154,7 @@ setup flow, and restored audience/completion acknowledgement remains durable.
 Fault tests cover each significant storage write/delete and reload from each
 persisted intermediate state. Physical iPhone installed-PWA native picker/share
 and VoiceOver checks remain unverified in this Linux environment and must be
-recorded explicitly in delivery evidence. Chromium emulation does not establish
-physical-device conformance.
+recorded explicitly in delivery evidence. Chromium emulation cannot verify the native picker, share sheet or VoiceOver.
 
 Generated Challenge history validates its versioned stored shape, not current
 catalogue availability. Retired or renamed exercises therefore remain portable
@@ -161,3 +162,29 @@ historical evidence. New Starts separately revalidate equipment and construction
 policy before freezing a snapshot. Restore replaces the registered history
 verbatim, rather than replaying completions or awarding Coach credit; repeated
 restores cannot append duplicate results.
+
+## Installed identity and rollback
+
+Keep the GitHub Pages origin and path at <https://nimbrethil81.github.io/garage-fit/>.
+The manifest `id`, `start_url` and `scope` remain `./`. Retain icon paths, existing
+`gf_*` keys, the `garagefit-data-use-v1` lock, internal APIs and journal/reserve.
+An upgrade within this contract preserves site storage without migration.
+
+For a change affecting installation or persistence, preserve the previous build
+and verify a controlled in-place update using populated synthetic storage at the
+same origin. On an existing iPhone installation record the loaded build, Home
+Screen label, preferences, first-use, programme and workout/history continuity.
+Finish active work and close other tabs. Check appearance and navigation, and
+test fresh installation separately. A cached label does not justify changing
+manifest identity, clearing site data or removing the user's app. Create and
+reselect a verified new PickSetGo archive before any optional reinstall the owner
+chooses. Use a separate test browser for a synthetic restore. The rebrand was
+accepted by the owner in [#376](https://github.com/nimbrethil81/garage-fit/issues/376);
+specific Home Screen label and fresh-install outcomes were not separately reported.
+
+On data divergence or unresolved recovery, stop the rollout and preserve current
+storage, journal and reserve. For a compatible rollback revert to the retained
+build at the same origin/paths and verify the loaded build and data continuity.
+Keep the verified new archive and resolve recovery before resuming writes. For
+brand regressions see `scripts/verify-rebrand.py`; use the backup and recovery
+checks above for installation or persistence changes.

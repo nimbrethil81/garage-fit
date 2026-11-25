@@ -1,131 +1,39 @@
-# GarageFit agent instructions
+# PickSetGo agent instructions
 
-GarageFit is a dependency-free browser PWA for fixed and generated workouts.
+PickSetGo is a dependency-free browser PWA in `nimbrethil81/garage-fit`.
 
-## Before changing code
+## Scope and delivery
 
-1. Inspect the relevant implementation and tests.
-2. Treat `data/exercises.js` as the canonical exercise catalogue; `data/EXERCISE_METADATA.md` defines its fields.
-3. Treat tests as the executable specification of established generator behaviour.
+- Refresh `main` and read the complete approved issue, addenda, dependencies and applicable instructions. Inspect the relevant implementation, tests and contracts. Ask whether two reasonable implementations could materially differ in behaviour or acceptance. Resolve routine choices from approved evidence. Stop the affected work for a material ambiguity, scope, safety or compatibility conflict.
+- GitHub Issues own approved requirements. Code, tests, schemas and configuration own executable behaviour. Read the domain documentation relevant to the change. Preserve established behaviour, stable IDs, saved-record contracts and released definitions unless expressly superseded. Prefer general rules and existing intrinsic metadata, and keep the app dependency-free.
+- With implementation authority, branch from current `main`, implement, validate, commit, push and create one PR to `main`. Put relevant evidence and limitations in the PR and stop. Skip routine implementation or release reports, roadmap logs and retrospectives. Merge, auto-merge, hosted changes and deployment each require applicable explicit authority. Respect required checks and independent review. Check whether merge would publish and keep unrelated work untouched.
+- Check prior correction usage. Allow at most two autonomous diagnose → bounded correction → focused retest cycles per issue across sessions and PRs. At exhaustion preserve the evidence and seek authority for further corrections. Classify test failures before changing expectations. Keep meaningful counterexamples and avoid blind snapshot updates.
 
-## Development principles
+## Product and implementation safeguards
 
-- Prefer general generator rules and exercise metadata over exercise-specific hard coding.
-- Keep exercise metadata minimal and orthogonal. Before adding a new metadata field, prefer reusing an existing field or expressing phase-specific behaviour as generator policy. Add metadata only when it describes an intrinsic property of the exercise and cannot be represented cleanly by the existing model.
-- Preserve established behaviour unless the requested change requires otherwise.
-- Keep the implementation dependency-free unless explicitly authorised.
-- Do not introduce new product decisions merely to complete a task.
-- For changes to established user-visible UI, check approved requirements, existing tests and docs before modifying layout or interaction. Preserve them unless explicitly superseded, and never silently redefine docs or tests to match an unintended change.
-- Informational list/detail screens under More (e.g. Exercise Library, Workout Patterns) should reuse Exercise Library-style whole-card entries, spacing, typography, teal detail headings and the shared back/swipe navigation when appropriate (detail screens use the shared `info-detail` class on their `<main class="screen">`, not per-ID padding rules), and avoid decorative chevrons. This does not apply automatically to settings, forms, action menus or equipment-management views (My Equipment, Settings).
-- New primary tabs must reuse the shared masthead (`js/masthead.js`, `data-masthead` host) and the existing `showScreen()` / `#bottomNav` behaviour, and extend `tests/primary-masthead.test.js`. Inspect existing components and styles before creating new patterns.
-- When adding or editing exercises, follow the catalogue and editorial rules in data/EXERCISE_METADATA.md, including the exercise-instruction standard.
+- Follow [exercise metadata and editorial rules](data/EXERCISE_METADATA.md) for catalogue work. Preserve safe eligibility, phase reachability and protocol feasibility. Treat released programme, workout-family and mapping versions as immutable. Keep progression idempotent, save results before updating state and clear drafts only after durable reconciliation. Keep exclusive backup locking, journal/reserve, checksums and non-destructive failure intact.
+- For shared UI, reuse existing patterns, theme tokens and navigation. Primary tabs use `js/masthead.js`, `data-masthead`, `showScreen()` and `#bottomNav`; extend `tests/primary-masthead.test.js` for a new tab. More information list/detail views follow Exercise Library cards, shared back/swipe navigation and `info-detail` spacing. Settings, forms and equipment management use their own established patterns. Keep choices scannable, distinguish controls from information, and use restrained colour with text, keyboard access and visible focus.
+- Keep player changes within the [shared viewport and audio contract](docs/PLAYER_VIEWPORT.md). Put immediate exercise, target, timer and brief actionable status inline; use existing details for longer instructions. Preserve accessible focus and controls, safe areas and all workout progression/evidence. For material UI changes, use accessible approved references and inspect comparable rendered states, including relevant mobile sizes, modes and interactions.
+- Check first-use guidance when it could change. New users can explore, optionally configure equipment, complete a workout and understand what was saved without an account or programme. Check FAQ accuracy when impact warrants it. Substantive FAQ, About and Help edits require explicit approval (#375).
+- Preserve GitHub Pages front matter and `site.github.build_revision` in `index.html` and `css/player-layout.css`. Use `python3 scripts/preview_server.py` for browser previews. About and the rendered CSS identify the build actually loaded on the device.
 
-First-use impact check for changes: **no impact** for catalogue/exercise/visual-only edits; **minor** for contextual explanations or an existing first-use step; **material** for a new primary mode or fundamental setup/navigation changes. Preserve the maintained contract: newcomers can understand their options, optionally configure equipment, complete a workout and understand what was saved without an account or programme. For minor/material impact, check the affected first-use path and keep its guidance accurate.
+## Validation
 
-## Screen presentation
+- Run the smallest meaningful targeted checks first. Documentation changes need proportionate reference and contract checks. Automatic Fast CI runs on PRs to `main`; preserve it.
+- Run Fast before PR for isolated low-risk UI, copy and player layout changes. Run Full for Generator, Coach construction, exercise eligibility, protocol or persistence contract changes. Catalogue batches and material generator-policy changes also need the separate exhaustive reachability audit. New exercises need bounded deterministic reachability for every flagged generated phase.
+- Fast: `node --test --test-skip-pattern='\[Full\]' tests/*.test.js`.
+  Full: `node --test tests/*.test.js`.
+  Audit: `node scripts/audit-exercise-reachability.js` (outside both tiers).
+- Tests are Fast by default. Mark expensive sweeps `[Full]` only when they cover a distinct risk beyond cheaper representative cases. Use small deterministic fixtures and explain a new Full-only sweep in the PR. Run costly suites near readiness and repeat for relevant changes or diagnosis. Keep essential safety, construction and persistence checks.
 
-For new or materially revised Coach, Generator, Prep & Recover and relevant More information screens, apply these principles proportionately; not everything needs a card.
+## Documentation and external evidence
 
-- Visualise quantities, schedules, categories and choices when useful.
-- Prefer user-facing benefits and actions over technical terminology.
-- Disclose secondary detail contextually.
-- Keep content quickly scannable with concise headings and labels.
-- Reuse GarageFit layout, spacing, navigation and UI patterns.
-- Use purposeful, restrained colour with existing theme tokens to emphasise meaningful information; preserve the calm appearance and never rely on colour alone.
-- Make interaction affordances clear: distinguish static information from controls, and provide accessible disclosure state, keyboard access and visible focus.
-- Explain meaningful decisions rather than automatic implementation behaviour.
+Update docs for enduring implementation-critical facts or procedures, or when expressly
+requested. Keep one current owner per contract. Use Issues, PRs and Git history for
+completed work. This file is the sole standing agent entry. After material edits, check
+the size and loading headroom of applicable instructions for the tools in use.
 
-Active workout players (`#player`, `#workoutPlayer`) share one three-region layout (header, adaptive stage, reserved footer; see `docs/PLAYER_VIEWPORT.md`):
-
-- Show at-the-moment information inline: exercise, target, timer and only brief actionable side/load/safety/setup cues and protocol statuses. Put longer counting, setup or technique text in existing detail or How to do it disclosures.
-- Change shared player rules rather than adding per-workout or per-protocol layout overrides.
-- For player layout changes, inspect representative on-screen states (light/dark, compact, landscape, rep, timed, open instructions) with `scripts/verify-player-layout.py`, not only overflow assertions.
-
-## Testing and reachability
-
-- Fast: `node --test --test-skip-pattern='\[Full\]' tests/*.test.js`; Full: `node --test tests/*.test.js` (all tests).
-- During implementation run targeted tests, then Fast; isolated low-risk UI/copy/player-layout changes need Fast before PR.
-- Generator, Coach construction, exercise eligibility, workout protocol or persistence contract changes need Full before PR.
-- Catalogue batches/material generator-policy changes need Full plus `node scripts/audit-exercise-reachability.js`; the separate exhaustive audit is in neither tier.
-- Documentation-only edits need proportionate validation; run expensive checks once near PR readiness, repeating only to investigate failures or relevant changes.
-- Test observable behaviour and meaningful regressions, including changed generator behaviour; extend existing suites when sensible.
-- Tests are Fast by default; mark only justified expensive sweeps with `[Full]` in the test name (see README).
-- Use the smallest meaningful deterministic fixtures and seed/matrix sizes; check existing tests/audits to avoid duplicate assurance.
-- Explain new expensive Full-only sweeps briefly in the PR: distinct risk beyond cheaper tests and why Full-only suits it; no tracking file or approval ceremony.
-- Reuse native Node tooling; no new dependencies/framework layers without approval, and never trade essential safety, workout-construction or persistence protection for speed.
-- Exercise additions need bounded deterministic reachability for every flagged generated phase; follow `data/EXERCISE_METADATA.md`.
-- Review audit warnings against intended roles, without automatic frequency equalisation.
-
-## Architecture
-
-- `index.html`: application shell/UI and workout player
-- `data/`: exercise, equipment and fixed-workout data
-- `data/programmes.js`: immutable versioned production Coach programme definitions; never change a released policy in place
-- `data/sport-profiles.js`: immutable sport identities, capabilities and permitted user configuration; no Generator mappings
-- `js/generator.js`: workout construction and selection; Main block protocol contracts (vocabulary, resolved steps, playback/tracker plan) are in `docs/WORKOUT_PROTOCOLS.md`
-- `js/routine-generator.js`: standalone five-minute warm-up/cool-down routines (coverage, exact 300 s timing) and their separate `gf_routine_recent_v1` recency
-- `js/rampup-ui.js`: ramp-up presentation
-- `js/masthead.js`: canonical GarageFit logo/wordmark, mounted into primary-tab `data-masthead` hosts
-- `js/coach-model.js`: versioned Coach record contracts and validation (Programme State, Session Prescription, Session Result, Session Draft)
-- `js/coach-store.js`: Coach persistence behind an injected storage adapter; all other code reads and writes Coach records only through this module, never Coach localStorage keys directly
-- `js/training-history.js`: immutable performed-evidence views derived from Session Results and the canonical catalogue; exact-exercise/protocol/side comparability
-- `js/coach-policies.js`: programme-policy registry and parameterised General Strength strategy; production definitions are separate from policy code
-- `js/coach-engine.js`: pure programme lifecycle, planning and idempotent result application; see `docs/COACH_ENGINE.md` for the API and definition inputs
-- `js/coach-recovery.js`: central startup reconciliation and result → state → draft-clear transaction; interrupted Coach drafts finalise only durable outcomes
-- `js/coach-progress-ui.js`: read-only Programme progress view helpers (strength target cards, evidence drill-down, Tennis capability grid, arm exposure, session history) shared by every Coach programme
-- `js/progress-ui.js`: shared read-only progress overview, cross-source history and performed session detail; in-memory navigation state, no recording or programme credit changes
-- `js/coach-ui.js`: Coach screens and orchestration of engine/store/generator/tracker; routine history queries use store metadata filters
-- `js/session-tracker.js`: execution semantics for one generated-workout run (occurrence ids, completed/partial/skipped outcomes, checkpointed Session Draft, finalisation into a Session Result); dormant unless an execution context opts in (Coach sessions, and standalone generated workouts, which persist only completed runs)
-- `tests/`: behavioural and UI regression tests
-- `scripts/`: developer tooling (not shipped), e.g. the reachability audit
-
-## Git and delivery workflow
-
-When implementing an approved GitHub issue, complete the delivery workflow rather than stopping after code changes.
-
-1. **Implement and validate**
-   - Work on a dedicated implementation branch, unless direct changes to `main` are explicitly authorised.
-   - Follow the repository's development instructions and run all required tests and applicable audits.
-   - Do not introduce unapproved scope or product decisions.
-
-2. **Commit and create PR**
-   - Build references in `index.html` and `css/player-layout.css` are rendered automatically from `site.github.build_revision` by the existing GitHub Pages Jekyll build. Preserve the front matter and Liquid expressions; do not manually stamp date/counter codes or fetch the newest server revision to identify a loaded page. Use `python3 scripts/preview_server.py` for local browser previews so these two templates render with the checkout Git SHA.
-   - Commit and push the completed changes.
-   - Create a pull request targeting `main`, referencing the GitHub issue.
-   - Summarise the changes, validation performed and any relevant limitations.
-   - Do not request additional approval merely to commit, push or create the PR.
-
-3. **Merge**
-   - For an implementation explicitly authorised by the user, enable GitHub auto-merge on the PR when available and appropriate.
-   - Use the repository's established merge strategy and respect required checks, branch protection and review requirements.
-   - If all requirements are already satisfied, merge the PR directly.
-   - Do not bypass required checks or protections.
-   - Do not merge if validation fails, material uncertainty remains, or implementation exceeds the approved scope.
-   - Do not request a separate approval solely to merge an implementation that is already authorised and meets these conditions.
-
-4. **Complete and report**
-   - Confirm whether the PR was merged, auto-merge is pending, or delivery is blocked.
-   - Close the associated issue only after the implementation is merged and its acceptance criteria are satisfied. If the PR automatically closes the issue, do not close it again.
-   - Report the PR link, merge status, test results and any outstanding action.
-   - If auto-merge is pending, report that status accurately; do not claim completion or wait indefinitely.
-   - Leave unrelated changes and issues untouched.
-
-### Exceptions
-
-Changes may be committed and pushed directly to `main` when explicitly authorised by the user.
-
-For direct-to-main work, complete the required validation before pushing and report the resulting commit.
-
-If repository permissions, unavailable tooling, failed checks or other safeguards prevent completing the workflow, stop at the furthest safe point and explain the blocker. Do not repeatedly ask for approval for routine delivery steps already covered by the original implementation authorisation.
-
-## FAQ and information copy governance
-
-Whenever a material change is made to PickSetGo's functionality, the existing FAQs must be reviewed to determine whether any answers need updating, or whether questions should be added or removed.
-
-The review is mandatory, but changes to the FAQ content are not automatic.
-
-Any proposed additions, deletions or substantive wording changes must receive explicit user approval before implementation.
-
-If no changes are needed, the development review should explicitly record "FAQ reviewed — no changes required."
-
-The five FAQs approved in #375 are the controlled baseline. About and Help copy also require explicit user approval for substantive changes or expansion. PR checklists must record the FAQ review separately from approval for any proposed copy changes.
+Drive is owner-managed and read-only by default. Use only specific required references
+with verified access. Routine searching, maintenance and synchronisation are outside
+implementation scope. Drive updates require explicit Issue authority. Bring necessary
+unauthorised changes to the owner and keep private evidence out of public issues and PRs.
