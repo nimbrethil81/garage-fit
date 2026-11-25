@@ -13,8 +13,14 @@ test('fixed workout catalogue loads the reusable detail UI module', () => {
 
 test('fixed workout detail model covers all current Workouts-mode entries', () => {
   const source = fs.readFileSync(path.join(root, 'js/workouts-ui.js'), 'utf8');
+  let preparationInput;
   const context = {
     console,
+    state:{ownedEquipment:[]},
+    preparationPreview(_element, exercise, owned) {
+      preparationInput={exerciseId:exercise.id,owned};
+      return [];
+    },
     document: { readyState:'loading', getElementById(){return {textContent:'',innerHTML:'',classList:{toggle(){}},appendChild(){}};}, createElement(){return {append(){},appendChild(){}};} },
     createInstructionDisclosure(){return null;}, showScreen(){},
     addEventListener() {},
@@ -69,6 +75,7 @@ test('fixed workout detail model covers all current Workouts-mode entries', () =
 
   context.GarageFitAbBlast={generate:()=>context.FIXED_WORKOUTS.abBlast};
   ui.openWorkoutDetail('abBlast');
+  assert.deepEqual(preparationInput,{exerciseId:'sit-up',owned:[]});
   const abBlast = ui.detailDefinition('abBlast');
   assert.equal(abBlast.name, '5-Minute Ab Blast');
   assert.equal(abBlast.format, '5 min continuous');
