@@ -15,42 +15,42 @@
     "warmup standing-knee-curls,body-hoops,bum-kicks",
     "rampup mountain-climbers",
     "timed_intervals | conditioning | {\"workSeconds\":30,\"transitionSeconds\":15,\"cycles\":3} :: mountain-climbers@timed:30,ski-abs@timed:30,dumbbell-thruster@timed:35",
-    "cooldown side-stretch,childs-pose,chest-opener"
+    "cooldown side-stretch,chest-opener,childs-pose"
   ],
   "20 strength normal lower kettlebell": [
     "warmup standing-knee-curls,body-hoops,side-step-touches,shallow-knee-bends,jumping-jacks",
     "rampup bum-kicks,squat-jumps,kettlebell-swing",
     "paired_sets | strength | {\"sets\":3,\"betweenExercisesSeconds\":10,\"betweenSetsSeconds\":60} :: kettlebell-sumo-squat@reps:10,kettlebell-single-arm-swing@unilateral-reps:10",
     "rounds | accessory | {\"rounds\":2,\"exerciseRestSeconds\":20,\"roundRestSeconds\":60} :: pike-push-up@reps:8,cossack-squat@reps:10,side-plank@unilateral-timed:20,fast-feet@timed:30",
-    "cooldown full-body-stretch,kneeling-hamstring,pigeon-stretch,hip-flexor-arm-stretch"
+    "cooldown full-body-stretch,kneeling-hamstring,pigeon-stretch,runners-stretch"
   ],
   "20 balanced normal full-body dumbbells": [
     "warmup standing-knee-curls,heel-toe-rocks,arm-circles-backwards,shallow-knee-bends,bum-kicks",
     "rampup air-squat,jumping-jacks,squat-jumps",
     "rounds | strength | {\"rounds\":2,\"exerciseRestSeconds\":15,\"roundRestSeconds\":45} :: dumbbell-sumo-squat@reps:10,dumbbell-clean-and-press@reps:10,single-arm-dumbbell-row@unilateral-reps:10,dumbbell-farmer-carry@timed:30",
     "complex | conditioning | {\"sequences\":3,\"targets\":[{\"type\":\"timed\",\"value\":30},{\"type\":\"reps\",\"value\":8},{\"type\":\"reps\",\"value\":8}],\"changeoverSeconds\":10,\"sequenceRestSeconds\":75} :: mountain-climbers@timed:30,push-up@reps:10,glute-bridge@reps:12",
-    "cooldown kneeling-hamstring,plank-calf-stretch,toe-touch,inside-thigh-stretch,full-body-stretch"
+    "cooldown kneeling-hamstring,plank-calf-stretch,frog-stretch,full-body-stretch,inside-thigh-stretch"
   ],
   "20 cardio easy full-body bodyweight": [
     "warmup standing-knee-curls,heel-toe-rocks,body-hoops,knee-to-opposite-elbow,side-step-touches",
     "rampup bum-kicks,jumping-jacks,switch-kicks",
     "rounds | conditioning | {\"rounds\":3,\"exerciseRestSeconds\":10,\"roundRestSeconds\":30} :: switch-kicks@timed:30,air-squat@reps:10,mountain-climbers@timed:30,alternating-lateral-lunge@reps:12",
     "complex | finisher | {\"sequences\":3,\"targets\":[{\"type\":\"reps\",\"value\":8},{\"type\":\"reps\",\"value\":8}],\"changeoverSeconds\":10,\"sequenceRestSeconds\":105} :: bicycle-crunch@reps:20,push-up@reps:10",
-    "cooldown frog-stretch,downward-upward-dog,runners-stretch,inside-thigh-stretch,side-stretch"
+    "cooldown frog-stretch,downward-upward-dog,runners-stretch,kneeling-hamstring,full-body-stretch"
   ],
   "20 balanced hard upper pullup+trx": [
     "warmup standing-knee-curls,body-twists,arm-side-circles,body-hoops,shallow-knee-bends",
     "rampup bum-kicks,jumping-jacks,walk-plank-push-up",
     "timed_intervals | strength | {\"workSeconds\":30,\"transitionSeconds\":15,\"cycles\":3} :: push-up@reps:10,trx-row@reps:10,trx-body-saw@timed:30",
     "rounds | conditioning | {\"rounds\":3,\"exerciseRestSeconds\":15,\"roundRestSeconds\":45} :: pull-up@reps:5,skater-jumps@timed:30,pike-push-up@reps:8,squat-jumps@reps:10",
-    "cooldown pigeon-stretch,side-stretch,kneeling-hamstring,frog-stretch,trx-lean-back-sink"
+    "cooldown pigeon-stretch,downward-upward-dog,childs-pose,kneeling-hamstring,frog-stretch"
   ],
   "20 strength normal default (no options)": [
     "warmup standing-knee-curls,shoulder-rolls,marching-on-the-spot,calf-raises,side-step-touches",
     "rampup bum-kicks,goblet-squat,dumbbell-romanian-deadlift",
     "paired_sets | strength | {\"sets\":4,\"betweenExercisesSeconds\":10,\"betweenSetsSeconds\":60} :: dumbbell-sumo-squat@reps:10,dumbbell-romanian-deadlift@reps:10",
     "timed_intervals | accessory | {\"workSeconds\":40,\"transitionSeconds\":20,\"cycles\":2} :: bench-dips@reps:10,hollow-body-hold@timed:20,walking-lunge@reps:20",
-    "cooldown chest-opener,side-stretch,childs-pose,glute-stretch,lying-torso-twist"
+    "cooldown chest-opener,side-stretch,toe-touch,glute-stretch,lying-torso-twist"
   ],
   "45 strength hard lower full kit": [
     "warmup standing-knee-curls,arm-side-circles,shoulder-rolls,heel-toe-rocks,marching-on-the-spot,trx-lunge-warmup,trx-lateral-weight-shift,shallow-knee-bends,bum-kicks",
@@ -58,14 +58,14 @@
     "ladder | strength | {\"repSteps\":[10,8,6,4,2],\"exerciseRestSeconds\":20,\"stepRestSeconds\":60} :: box-squat@reps:10,band-romanian-deadlift@reps:12",
     "rounds | accessory | {\"rounds\":3,\"exerciseRestSeconds\":20,\"roundRestSeconds\":60} :: kettlebell-shoulder-press@unilateral-reps:8,bulgarian-split-squat@unilateral-reps:8,hanging-oblique-knee-raise@reps:10,dumbbell-single-leg-calf-raise@unilateral-reps:12",
     "timed_intervals | finisher | {\"workSeconds\":40,\"transitionSeconds\":20,\"cycles\":3} :: squat-jumps@reps:10,abdominal-crunch@timed:30,kettlebell-swing@reps:15",
-    "cooldown arm-across-pull,triceps-stretch,toe-touch,frog-stretch,runners-stretch,standing-quads,plank-calf-stretch,inside-thigh-stretch,trx-side-stretch,trx-glute-standing"
+    "cooldown arm-across-pull,triceps-stretch,toe-touch,hip-flexor-arm-stretch,standing-quads,inside-thigh-stretch,plank-calf-stretch,trx-side-stretch,trx-glute-standing,trx-lean-back-sink"
   ],
   "45 balanced normal full-body full kit": [
     "warmup standing-knee-curls,shoulder-rolls,body-hoops,arm-circles-forwards,heel-toe-rocks,ankle-circles,shallow-knee-bends,step-back-lunge,jumping-jacks",
     "rampup bum-kicks,trx-squat-overhead,dumbbell-farmer-carry,squat-jumps",
     "rounds | strength | {\"rounds\":4,\"exerciseRestSeconds\":15,\"roundRestSeconds\":45} :: dumbbell-front-squat@reps:10,dumbbell-arnold-press@reps:10,toes-to-bar@reps:5,trx-single-leg-deadlift@unilateral-reps:8",
     "rounds | conditioning | {\"rounds\":5,\"exerciseRestSeconds\":15,\"roundRestSeconds\":45} :: switch-kicks@timed:30,abdominal-crunch@timed:30,skater-jumps@timed:30,air-squat@reps:10",
-    "cooldown full-body-stretch,kneeling-hamstring,runners-stretch,side-stretch,toe-touch,frog-stretch,plank-calf-stretch,lying-torso-twist,inside-thigh-stretch,pigeon-stretch,trx-glute-standing"
+    "cooldown full-body-stretch,kneeling-hamstring,runners-stretch,childs-pose,downward-upward-dog,frog-stretch,plank-calf-stretch,lying-torso-twist,pigeon-stretch,standing-quads,inside-thigh-stretch"
   ],
   "45 cardio normal core dumbbells+bands": [
     "warmup standing-knee-curls,standing-side-bends,ankle-circles,body-hoops,arm-circles-forwards,knee-to-opposite-elbow,side-step-touches,shallow-knee-bends,hamstring-sweeps",
@@ -73,7 +73,7 @@
     "timed_intervals | conditioning | {\"workSeconds\":45,\"transitionSeconds\":15,\"cycles\":3} :: mountain-climbers@timed:30,devils-press@reps:6,abdominal-crunch@timed:30",
     "rounds | conditioning | {\"rounds\":4,\"exerciseRestSeconds\":10,\"roundRestSeconds\":30} :: jumping-jacks@timed:30,banded-squat@reps:12,bicycle-crunch@reps:20,band-row@reps:12",
     "rounds | conditioning | {\"rounds\":4,\"exerciseRestSeconds\":10,\"roundRestSeconds\":30} :: ski-abs@timed:30,walking-lunge@reps:20,plank@timed:30,side-plank-reach-through@unilateral-reps:8",
-    "cooldown lying-torso-twist,plank-calf-stretch,hip-flexor-arm-stretch,frog-stretch,runners-stretch,childs-pose,chest-opener,arm-across-pull,downward-upward-dog,side-stretch,pigeon-stretch"
+    "cooldown lying-torso-twist,plank-calf-stretch,glute-stretch,frog-stretch,runners-stretch,childs-pose,full-body-stretch,downward-upward-dog,arm-across-pull,side-stretch,triceps-stretch"
   ],
   "45 balanced easy upper bodyweight": [
     "warmup standing-knee-curls,arm-circles-backwards,heel-toe-rocks,standing-side-bends,marching-on-the-spot,side-step-touches,hand-opposite-toe,leg-swings-side,air-squat",
@@ -81,7 +81,7 @@
     "rounds | strength | {\"rounds\":3,\"exerciseRestSeconds\":15,\"roundRestSeconds\":45} :: air-squat@reps:10,push-up@reps:10,glute-bridge@reps:12,alternating-lateral-lunge@reps:12",
     "timed_intervals | accessory | {\"workSeconds\":40,\"transitionSeconds\":20,\"cycles\":4} :: bicycle-crunch@reps:20,plank@timed:30,walking-lunge@reps:20",
     "rounds | conditioning | {\"rounds\":3,\"exerciseRestSeconds\":15,\"roundRestSeconds\":45} :: fast-feet@timed:30,bird-dog@reps:12,jumping-jacks@timed:30,abdominal-crunch@timed:30",
-    "cooldown triceps-stretch,wide-toe-touch,lying-torso-twist,full-body-stretch,arm-across-pull,kneeling-hamstring,plank-calf-stretch,side-stretch,runners-stretch,toe-touch,childs-pose"
+    "cooldown triceps-stretch,wide-toe-touch,inside-thigh-stretch,chest-opener,arm-across-pull,standing-quads,plank-calf-stretch,downward-upward-dog,runners-stretch,full-body-stretch,childs-pose"
   ],
   "45 strength normal full-body kettlebell": [
     "warmup standing-knee-curls,body-twists,shoulder-rolls,arm-circles-forwards,body-hoops,marching-on-the-spot,side-step-touches,shallow-knee-bends,leg-swings-forward-back",
@@ -89,6 +89,6 @@
     "rounds | strength | {\"rounds\":3,\"exerciseRestSeconds\":20,\"roundRestSeconds\":60} :: kettlebell-sumo-squat@reps:10,kettlebell-clean-and-press@unilateral-reps:8,kettlebell-lateral-lunge@reps:12,single-arm-kettlebell-row@timed:40",
     "rounds | accessory | {\"rounds\":3,\"exerciseRestSeconds\":20,\"roundRestSeconds\":60} :: ski-abs@timed:30,pike-push-up@reps:8,side-plank-reach-through@unilateral-reps:8,air-squat@reps:10",
     "rounds | finisher | {\"rounds\":2,\"exerciseRestSeconds\":20,\"roundRestSeconds\":60} :: bear-crawl@timed:30,reverse-lunge-knee-drive@unilateral-reps:10,mountain-climbers@timed:30,reverse-lunge@unilateral-reps:10",
-    "cooldown wide-toe-touch,triceps-stretch,full-body-stretch,toe-touch,hip-flexor-arm-stretch,plank-calf-stretch,side-stretch,lying-torso-twist,pigeon-stretch,downward-upward-dog,arm-across-pull"
+    "cooldown wide-toe-touch,triceps-stretch,chest-opener,toe-touch,hip-flexor-arm-stretch,plank-calf-stretch,full-body-stretch,lying-torso-twist,pigeon-stretch,downward-upward-dog,glute-stretch"
   ]
 }

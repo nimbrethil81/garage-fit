@@ -193,13 +193,14 @@ test('shared preview/player/tracker use contextual targets and per-side occurren
 test('no-family seeded output and random draws match their approved baselines',()=>{
   const historicalFixtures=require('./helpers/coach-fixtures');
   const snapshotCatalogue=historicalFixtures.catalogueBeforeC1(historicalFixtures.catalogueBeforeMetadata407(C));
+  // #397 updates cool-down exercises and ordering only, with the same doses and RNG counts.
   const fixtures=[
     // Re-pinned for #255: three newly shared Main exercises change this pool (same RNG count).
     [{duration:10,focus:'strength',bodyFocus:'upper',difficulty:'easy',equipment:[]},68,'3f1db1c18734e2513d3aec3b31bb85e6575b15a66cd306d62a590c4588a2f97c'],
     // Re-pinned for #221: AMRAP's Balanced conditioning weight changes this draw (same RNG count).
-    [{duration:20,focus:'balanced',bodyFocus:'lower',difficulty:'normal',equipment:['dumbbells']},111,'44875bbe9c3722c38ccf4f199ea36826df5d6d6139983d405f9c544b13208221'],
+    [{duration:20,focus:'balanced',bodyFocus:'lower',difficulty:'normal',equipment:['dumbbells']},111,'ff82c6ef4e3f3196712221b9dba170b34ed06ba0dff0f321817cc9782bb19d31'],
     // Re-pinned for #366, then #402: approved Hard Cardio gate, cardio-2 limit and intensity ranking (same RNG count).
-    [{duration:45,focus:'cardio',bodyFocus:'core',difficulty:'hard',equipment:['trx','bands']},189,'3311e0d7910dc94bbcf58c1d73101fcfede2c36d24966193385790a7957024c2']
+    [{duration:45,focus:'cardio',bodyFocus:'core',difficulty:'hard',equipment:['trx','bands']},189,'5b3096f657083bad6af1fea67457866674b80f157134619ca622f5a0e2c8d1f8']
   ];
   for(const [options,expectedDraws,expectedHash] of fixtures){
     let seed=31,draws=0;
