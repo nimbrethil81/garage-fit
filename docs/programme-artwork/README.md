@@ -1,39 +1,38 @@
 # Programme artwork
 
-Issue #341 uses the user-supplied `garagefit-coach-artwork-v1.zip`. The initial four PNG masters and runtime WebPs were copied byte-for-byte from that archive, without regeneration, recolouring, resizing or re-encoding. The current manifest records the original archive SHA-256, each current file hash and any approved replacement; the supplied manifest and README are retained unchanged alongside it. The supplied JPEG is a review aid only and is not shipped in the UI.
+Use the approved PNG masters here and the decorative WebPs in
+`assets/programmes/<programme-id>.webp`. The four stable programme IDs are
+`general-fitness`, `general-strength-4w`, `build-arms` and `tennis-conditioning`.
+Programme artwork uses its own mapping and stays independent of the exercise lookup.
+Keep the full composition and aspect ratio with `object-fit: contain`. The themed
+Coach card provides the surface. Missing artwork hides only the image, leaving
+programme selection usable.
 
-The supplied objects and geometric backdrops carry the colour. Following the subsequent user-approved Coach visual reference, cards use soft programme-specific peach, mint, coral and sage surfaces in Light, with muted dark equivalents. The artwork has no extra coloured image container. Display preserves the full composition and original aspect ratio with `object-fit:contain`. Missing images hide only the decorative image and leave programme selection usable.
+## Provenance and integrity
 
-PNG/WebP dimensions and pixel-identical alpha were verified with Pillow. Node tests verify current file hashes, formats and byte limits, linking unchanged assets and approved replacements to the retained supplied hashes. The user instructed use of this exact supplied artwork and explicitly approved the final real-app layout on 2026-10-30 after reviewing the Light, Dark and Tennis captures. No physical installed-iPhone check is available in this environment.
+The owner-supplied `garagefit-coach-artwork-v1.zip` (#341) contained cuts from
+`a_clean_vector_illustration_style_composition_with.png` (1774×887 RGBA), extracted
+as the supplied 887×443 programme masters. No extension, manual redraw or generative
+replacement was used. The original PNG/WebP pairs were integrated byte-for-byte.
+`supplied-manifest.json` records their source quadrants, dimensions, alpha and original
+hashes. `light-dark-preview.jpg` is a composited review aid outside the runtime UI.
+The supplied graphics are raster artwork.
 
-## Tennis correction (issue #365, PR #372)
+The corrected Tennis pair (#365, PR #372) removes a horizontal line. The current
+887×444 files are transparent, with PNG/WebP alpha matching exactly.
+[`manifest.json`](manifest.json) records current hashes, the original archive and
+approved replacements, with `replacesSha256` linking to the original Tennis files.
+The other three pairs match the supplied manifest. Preserve both manifests and the
+source assets. `node --test tests/programme-artwork.test.js` checks associations,
+formats, hashes and byte bounds. Use real-app Light/Dark and compact-to-wide mobile
+captures for future visual changes. Verify on an installed iPhone where possible.
 
-The owner supplied corrected Tennis Conditioning PNG and WebP files to remove an
-unwanted horizontal line. PR #372 replaced both assets. They remain 887 × 444,
-retain transparency and have pixel-identical alpha between source and runtime.
-The current manifest records their replacement hashes, the issue/PR provenance,
-and the original hashes in `replacesSha256`. The original archive hash,
-`supplied-manifest.json` and `supplied-README.md` remain historical evidence of
-the initial delivery; they do not describe the replacement bytes. The other
-three programme illustrations remain byte-for-byte identical to that delivery.
+## Rights boundary
 
-## Rights provenance review (issue #364, 31 October 2026)
-
-The four Coach compositions (`general-fitness`, `general-strength-4w`, `build-arms`
-and `tennis-conditioning`) originated in the supplied archive above; Tennis later received the owner-supplied correction documented above. Its retained
-`supplied-README.md` identifies the parent image as
-`a_clean_vector_illustration_style_composition_with.png` and describes extraction
-into quadrants. The original creator, generation operator, tool terms and any
-underlying third-party source permissions are not identified in this repository.
-The user supplied these files for integration and approved their appearance;
-no separate commercial licence, ownership assignment or source-clearance evidence
-is recorded here. The hashes and pixel/alpha checks prove file integrity only.
-
-No concrete copied artwork or branded source was established by this bounded
-review, so retain the approved files without regeneration. Commercial rights
-remain unverified: obtain and record the creator/source and applicable permission
-or licence from the supplier before claiming clearance. The supplied preview JPEG
-is a review aid, with the same unresolved source rights, and remains unshipped.
-Follow the lightweight naming/provenance checklist in
-[Exercise artwork](../exercise-artwork/README.md#checklist-for-future-catalogue-and-programme-changes)
-for future programme names, wording and assets as well.
+The owner supplied the compositions for integration and approved the real Coach
+cards on 30 October 2026. Original author/operator, tool terms and any underlying
+third-party permission remain undocumented, including for the preview JPEG. Asset
+hashes, transparency and visual approval establish integrity and acceptance. Obtain
+the source creator and applicable permission before asserting commercial clearance.
+Follow the [naming and provenance checklist](../exercise-artwork/README.md#checklist-for-future-catalogue-and-programme-changes)
+for later artwork or names.

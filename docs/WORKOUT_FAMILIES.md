@@ -1,23 +1,10 @@
 # Shared workout-family contract
 
-`data/workout-families.js` owns the canonical seven-family registry, exposed as
-`GarageFitData.workoutFamilies[workoutFamilyId][version]`. Definitions and nested
-values are immutable. Released versions remain available unchanged; a material
-policy change needs a new definition version and versioned policy reference.
-A later version of the same family keeps its id, name and purpose; supported styles and composition may evolve by version, while family feasibility remains explicit; it is the
-same family for training balance and recency, while composition and history keep the version.
-`GarageFitData.workoutFamilyCurrentVersions` names the version new workouts use; today that is
-version 1 for every family except Athletic Movement (current version 6; #403), Strength & Control
-(current version 3; #261, #373), Mobility & Movement Quality (current version 3; #272),
-Full-Body Challenges (current version 2; #398) and Cardio & Conditioning (current version 2; #402). Strength & Stamina (`resistance-endurance`, #399)
-was added as the seventh family at version 1.
-
-Each definition owns its display name, purpose, supported internal styles, Body
-Focus compatibility, composition/membership policy references, suitability criteria
-and family feasibility requirements. Those requirements describe obligations for
-the downstream composers and validator, not proof that a workout can be generated.
-Supporting a duration/difficulty does not promise feasibility for every equipment,
-impact or space configuration. Policy references do not register working composers.
+`data/workout-families.js` owns the immutable seven-family registry and current
+versions. Publish a new definition and policy reference for a material change.
+A family keeps its ID and purpose across versions, while composition and history
+keep the exact version. Definition-level support for a duration or difficulty
+still needs a registered composer and a feasible equipment/impact/space context.
 
 ## Shared resolution
 
@@ -44,17 +31,6 @@ continues through its established path.
    request and the revised feasible candidates before display, not feed the already
    resolved identity back into `resolveRequest`.
 
-For example:
-
-```js
-const request = GarageFitWorkoutFamilies.resolveRequest({
-  workoutFamilyId: 'strength-control', workoutFamilyVersion: 1,
-  focus: 'cardio', bodyFocus: 'upper'
-});
-// After composition proves a paired-set session feasible:
-const identity = GarageFitWorkoutFamilies.resolveStyle(request, ['paired-sets']);
-```
-
 `getDefinition(id, version = 1)` and `getStyle(id, styleId, version = 1)` are strict
 lookups. The default remains version 1 for historical/explicit-contract compatibility.
 All new-workout consumers resolve the current family version unless an explicit, justified
@@ -67,7 +43,7 @@ not accept aliases or guess a family from other fields. `FamilyContractError.cod
 distinguishes unknown family, unsupported version/style/Body Focus, invalid request
 and an empty feasible-style list. An empty list means the composer supplied no
 viable style; actionable feasibility reasons and bounded fallback belong to the
-shared validation gate (see the final section).
+shared validation gate below.
 
 ## Boundaries
 
@@ -147,20 +123,11 @@ After the Generator module loads, the catalogue-owning module registers its revi
 membership policy once with `GarageFitWorkoutFamilies.registerMembershipPolicy({
 workoutFamilyId, workoutFamilyVersion: 1, entries})`. The registry resolves the
 definition's versioned `membershipPolicy` reference; duplicate registration and
-unknown versions fail. Registered data is copied and deeply frozen. There are no
-production membership entries in the shared foundation: each catalogue ticket owns its
-complete approved table. The Mobility table (approved M1-M15, roles `prep`, `focused`,
-`flow` and `finish`) lives in `data/mobility-membership.js`, loaded after the Generator.
-Its eight new movements are family-only catalogue entries with no phase flags; the seven
-existing ones keep their canonical flags. The Athletic Movement table (approved A1-A8,
-A10-A12; roles `footwork`, `control` and `integrated`) lives in `data/athletic-membership.js`.
-Its six new drills are family-only catalogue entries with no phase flags; `bear-crawl`,
-`skater-jumps`, `reverse-lunge-knee-drive`, `alternating-lateral-lunge` and
-`knee-to-opposite-elbow` keep their canonical entries and flags. Travelling drills set
-`requiresMovementRoom`, so only in-place low-impact drills are assumed viable in ordinary
-space; high-impact skater jumps need an explicit Hard-difficulty opt-in that lifts the
-default high-impact exclusion. Deferred A9 and A13 are absent from membership v1 (they join membership v2, #255). Neither Coach nor Generator supplies a
-separate table, guessed exercise aliases or grants copied from saved data.
+unknown versions fail. Registered data is copied and deeply frozen. Exact member tables live in `data/mobility-membership.js` and
+`data/athletic-membership.js`. Both users of the Generator consult these same
+reviewed versions. Family-only members retain their canonical phase flags.
+Travelling drills need confirmed movement room and the high-impact v1 skater
+route needs Hard and explicit permission to allow high impact.
 
 Each entry identifies one exact canonical `exerciseId` and family-specific `role`,
 its allowed `protocols`, and reviewed `prescriptions`. Roles describe contextual
@@ -212,7 +179,7 @@ copies. Main validation, normalisation, step resolution and estimation share tha
 check. Existing setup compatibility and protocol validators remain authoritative.
 Within-family swaps must preserve the role's membership, canonical safety and every
 occurrence target. Final family composition/quality revalidation uses the shared
-validation gate (see the final section).
+validation gate below.
 
 Contextual targets use the existing `block.occurrenceTargets` contract from
 [Workout protocols](WORKOUT_PROTOCOLS.md#shared-occurrence-targets). Pass
@@ -227,11 +194,6 @@ carry the transient context so Session Tracker can validate permitted mode chang
 the context is not a new persisted workout-family identity/history field. Existing
 variable-target evidence rules and saved record schemas remain unchanged. Without
 an explicit family context, these seams retain the original behaviour and RNG use.
-
-The foundation tests demonstrate shared rounds, supersets and intervals plus existing
-advanced protocol compatibility, not specialist composition. Whole-session allocation,
-exercise-sensitive recovery and sequential-flow characterisation belong to issue 05
-(#181); no new protocol or player is introduced here.
 
 ## Explicit family composition
 
@@ -291,28 +253,13 @@ Mobility family v2 pairs reviewed membership v2 (registered in `data/mobility-me
 (see [Mobility composition v2](#mobility-composition-v2-264)); #263 delivered the membership and the four new
 movements, #264 the composer and activation. Membership is eligibility only.
 
-Membership v2 resolves 34 identities: all 15 v1 identities with their v1 roles and prescriptions (v1 stays
-frozen), fifteen existing catalogue movements and four new family-only ones. Roles (`prep`, `focused`, `flow`,
-`finish`) are eligibility, not mandatory selection.
-
-| Exercise | v2 roles |
-| --- | --- |
-| `ankle-circles`, `heel-toe-rocks`, `standing-side-bends`, `body-twists` | prep, focused |
-| `shoulder-rolls`, `open-close-gates`, `body-hoops`, `shallow-knee-bends` | prep |
-| `trx-lateral-weight-shift` (TRX required) | prep, flow |
-| `hip-flexor-arm-stretch` (static hold) | focused, finish |
-| `runners-stretch` (static; plank set-up, `minimumDifficulty: normal`, not offered at Easy) | focused |
-| `childs-pose`, `lying-torso-twist`, `glute-stretch`, `chest-opener` | finish |
-| `quadruped-thoracic-rotation`, `half-kneeling-hip-flexor-rocks-with-reach` (15-25 s per side) | focused, flow |
-| `supported-squat-rocks` (20-30 s; TRX required) | focused, flow |
-| `controlled-shoulder-rotations` (15-25 s per side) | prep, focused |
-
-The four new movements are family-only catalogue entries (no phase flags, low impact, no difficulty), so
-ordinary Generator, Warm-up and Cool-down selection never sees them. `supported-squat-rocks` requires the
-user's TRX because the catalogue has no way to promise a reliably stable support otherwise; no equipment
-setting was added. Existing additions use 15-40 s contextual bounds (per side where applicable); static holds
-appear only in focused and finish roles. Same-session near-duplicate avoidance among similar members belongs
-to the composer, not to membership.
+Membership v2 resolves 34 identities, keeping v1's 15 entries and their original
+roles/doses. `data/mobility-membership.js` owns exact member tables and contextual
+bounds. V2 includes the family-only quadruped thoracic rotation, half-kneeling
+hip-flexor rocks with reach, supported squat rocks and controlled shoulder rotations.
+The squat rocks require owned TRX for stable support. These four have no global
+phase flags. Runner's stretch is Normal/Hard with a plank setup. Static holds stay
+in Focus/Finish. Membership gives eligibility and the composer chooses the sequence.
 
 ### Mobility composition v1
 
@@ -450,21 +397,6 @@ than accepting generic bilateral 30–60 s holds. No Main promotion, Ramp-up add
 programme revision or general Generator/Routine fitter change is made. General Strength, Build Arms and Tennis
 retain their shared eligible preparation/recovery routes and their exact required anchors.
 
-A bounded indoor, no-kit Normal sample (eight fixed seeds per version at 10/30/45 minutes) observed:
-
-| Measure | v2 | v3 |
-| --- | ---: | ---: |
-| Mean distinct, 10 min | 14 | 16 |
-| Mean distinct, 30 min | 21.625 | 29.75 |
-| Mean distinct, 45 min | 24.125 | 33.75 |
-| Mean same-seed 10-vs-30 min Jaccard overlap | 0.629 | 0.477 |
-| Mean same-seed 10-vs-45 min Jaccard overlap | 0.582 | 0.450 |
-| Mean neighbouring sampled 30-min session overlap | 0.818 | 0.688 |
-| Mean neighbouring sampled 45-min session overlap | 0.827 | 0.717 |
-
-This describes the sample, not a frequency target; passive Focus caps, regional balance and safe sequences
-continue to govern selection.
-
 ### Athletic Movement composition v1
 
 Load `js/athletic-composer.js` after the Generator and approved Athletic membership.
@@ -528,12 +460,8 @@ also fail honestly. Membership is never expanded to fill time; A9/A13 remain def
 
 ### Athletic Movement composition v2 (#244)
 
-v1 cut each phase into roughly four-minute slices and filled them from fixed drill patterns. With
-the ordinary in-place pool (three footwork drills, two integrated lunges) a standalone 30-minute
-Normal session became 11 blocks: two footwork blocks that were subsets of the first, three control
-triples around the same balance anchor and an integrated pair repeated in reverse order. v2 is the
-same family (definition, styles, reviewed v1 membership, feasibility, minute profiles, style
-emphasis, per-drill caps and exercise-sensitive recovery are unchanged) with a new composition:
+V2 keeps v1 membership, feasibility, profiles, styles and work/recovery limits.
+V2 changes how the composer earns blocks:
 
 - **Purposeful blocks.** A stage gains another block only for each further four minutes of its
   budget *and* when that block brings a drill the stage has not practised yet. Otherwise the stage
@@ -560,10 +488,7 @@ which resolves the v1 membership policy. v2 stays composable and validatable exa
 
 ### Athletic Movement composition v3 (#244 follow-up)
 
-v2 judged novelty only against earlier blocks of the same stage, so a control block built from
-footwork's own stepping drills passed (a 30-minute Dynamic Balance session showed forward-back and
-quarter-turn steps in warm-up, footwork, control and cool-down). v3 is the same family and the same
-staged script, with novelty judged across the whole Main session:
+V3 keeps the v2 stages but evaluates novelty across all Main blocks.
 
 - **Session-wide purpose.** Each footwork, control or integrated block must bring at least two drills
   (both, for a two-drill block) that no earlier Main block practised. When a stage's approved pool is
@@ -593,22 +518,9 @@ family-policy field, enforced by the shared eligibility check for generation, va
 exercise metadata, because family-only catalogue entries carry no `difficulty`. Travelling drills set
 `requiresMovementRoom`; high impact still needs Hard **and** an explicit exclusion list that permits it.
 
-| Identity | Athletic roles | Minimum difficulty | Room | Impact | Shared elsewhere |
-| --- | --- | --- | --- | --- | --- |
-| In-in-out-out steps | footwork | Easy | in place | medium | Main flags: Cardio & Conditioning, Full-Body, Generator (supporting conditioning) |
-| Lateral line steps | footwork | Easy | in place | low | family-only |
-| Split-stance step switches | footwork, control | Easy | in place | low | family-only |
-| Clock-step balance | control | Easy | in place | low | family-only |
-| Single-leg hip hinge reach | control | Normal | in place | low | Main flags: Strength & Control, Generator; Tennis mapping v4 (lower body) |
-| Lateral lunge to balance | control, integrated | Normal | in place | medium | Main flags: Strength & Control, Generator; Tennis mapping v4 (lateral control, lower body) |
-| 180-degree step turns | footwork | Normal | in place | low | family-only |
-| Lateral shuffle and stop | footwork, integrated | Normal | confirmed | medium | family-only |
-| Forward-back acceleration and stop (A9) | footwork, integrated | Normal | confirmed | medium | family-only |
-| Forward hop and stick (A13) | integrated | Hard | confirmed | high | family-only |
-| Lateral bound and stick | integrated | Hard | confirmed | high | family-only |
-| Fast feet (reused) | footwork | Easy | in place | medium | existing Cardio/Generator flags |
-| Side step touches (reused) | control (finish, partner) | Easy | in place | low | existing warm-up flag |
-| Cossack squat (reused) | integrated | Easy | in place | medium | existing flags; Tennis mapping unchanged |
+`data/athletic-membership.js` owns the exact v2 role, dose, difficulty and space
+table. Its shared Main entries include in-in-out-out steps, single-leg hip hinge
+reach and lateral lunge to balance. Most new technical drills are family-only.
 
 Intentional exclusions: travelling and landing drills are never globally flagged, because the Generator
 has no confirmed-room concept; they are therefore unavailable to Tennis Conditioning, Mobility, Core &
@@ -898,10 +810,9 @@ AMRAP requires more than one complementary pair for whole-body balance with toda
 long or bodyweight-only requests can legitimately select another format. Ladder also depends
 on a compatible dose and budget; individual formats are not promised under every constraint.
 
-Preview format guidance uses existing block headings in both Generator and Coach; the existing
-phase labels, circular clocks, journey bar, controls and tracker remain unchanged. AMRAP guidance
-states that rounds/reps are not scored. Session end, confirmed/skipped work and unmeasured
-performance remain distinct. FAQ reviewed — no changes required.
+Preview states the resolved format and its dose and recovery. AMRAP guidance explains
+that rounds/reps are not scored. Session end, confirmed/skipped work and unmeasured
+performance stay distinct.
 
 ### Strength & Stamina composition v1 (#399, current)
 
@@ -1047,7 +958,7 @@ repeats it with no anchor placements. No generic `sessionPrescription` is attach
 use the family gate rather than Main budgets. If no candidate builds, generation throws
 `SessionPrescriptionError` with hard conflict `family-plan-not-feasible` and the attempts.
 General Strength, Build Arms and Tennis v1–v8 never send a family plan. General
-Fitness (see [Coach engine](COACH_ENGINE.md#general-fitness)) and normal Tennis v9
+Fitness (see [Coach engine](COACH_ENGINE.md#general-fitness)) and normal Tennis v9/v10
 movement roles use this shared route; constrained Tennis days keep the prescribed path.
 
 ### Optional embedded benchmark (#192)
@@ -1090,7 +1001,7 @@ store is introduced.
 Controller methods `saveExternalActivityPreferences(activities)` (replace/edit),
 `clearExternalActivityPreferences()` and `externalActivityContext(sessionContext?)`
 provide the opt-in seam for General Fitness #190 and settings #191. Only a definition
-with `externalActivityPolicy` (General Fitness v1) consumes it during planning; its
+with `externalActivityPolicy` (General Fitness) consumes it during planning; its
 optional editor lives in that programme's existing Programme settings (#191). The pure equivalent is
 `GarageFitCoachModel.externalActivityContext(preferences, sessionContext?, localDate?)`.
 Its deeply frozen output separates:
@@ -1161,19 +1072,12 @@ both sides, rest and shared block transitions. The v6 quality gate checks actual
 prescriptions, technical anchors, conditioning, recovery and duplicate combinations,
 including edits. Earlier validators remain unchanged.
 
-General Fitness v1/v2 generate their current Athletic version without definition changes.
-Before composition the existing recovery penalty conservatively treats v6 as potentially
-demanding, since its eventual dose is unknown. Actual delivered and performed demand,
-partial credit and bounded secondary conditioning effects follow the approved
-[GF-AM6-CAL1 calibration](athletic-v6-calibration.md). There is no new persisted score,
-programme migration or change to #400's separate policy. Tennis v9 and existing v9
-instances remain pinned to v5; new starts choose v10/v6. Existing Finish programme →
-Start programme is the explicit adoption route, while lighter/event/readiness protections
-retain the conservative path.
+General Fitness uses current Athletic composition through its pinned family plan.
+See [Athletic v6 workload and training effects](COACH_ENGINE.md#athletic-v6-workload-and-training-effects)
+for General Fitness's version-specific credit and demand. Tennis v9 stays on v5;
+new Tennis v10 starts use v6 while retaining the lighter/readiness and event paths.
 
-[Reproducible v5/v6 samples](athletic-v6-samples.md) show actual exercise sequences,
-technical/conditioning-role exposure and rest at 20, 30 and 45 minutes across all three
-consumers, plus completed-history examples. Regenerate with
-`node scripts/sample-athletic-v6.js`. These samples demonstrate composition and variety,
-not enjoyment or user testing. Existing screens, navigation, layout, first-use guidance,
-FAQ, Help and About copy are unchanged. FAQ reviewed — no changes required.
+The [v5/v6 samples](athletic-v6-samples.md) are the deterministic fixture read by
+`tests/athletic-v6.test.js`. Reproduce them with `node scripts/sample-athletic-v6.js`.
+The Full-Body examples above are the output of
+`scripts/export-full-body-challenge-examples.js`.

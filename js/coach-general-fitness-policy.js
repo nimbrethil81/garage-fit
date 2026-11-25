@@ -141,7 +141,7 @@
   // GF-AM6-CAL1: v6 can contain energetic work, but neither its name/style nor the
   // catalogue's broad conditioning flag establishes delivered demand. Use bounded
   // timed Main work only; the same calculation serves the transient generated preview
-  // and saved performed evidence. See docs/athletic-v6-calibration.md.
+  // and saved performed evidence. See docs/COACH_ENGINE.md#athletic-v6-workload-and-training-effects.
   const athleticV6 = item => item.workoutFamilyId === 'athletic-movement' && item.workoutFamilyVersion === 6;
   function athleticConditioning(exerciseId, catalogue) {
     return (catalogue[exerciseId] && catalogue[exerciseId].cardio >= 3)

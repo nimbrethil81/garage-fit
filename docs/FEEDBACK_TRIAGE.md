@@ -2,8 +2,8 @@
 
 Use the current central [Feedback Triage method](https://github.com/nimbrethil81/pwa-product-ops/blob/main/operations/FEEDBACK_TRIAGE.md)
 and [common contract](https://github.com/nimbrethil81/pwa-product-ops/blob/main/PRODUCT_OPERATIONS.md)
-with [this product's adapter](../ops/product-operations.yml). This page owns only local
-source handling; the central method owns classification, evidence assessment and reporting.
+with [this product's adapter](../ops/product-operations.yml). This page owns local
+source handling. The central method owns classification, evidence assessment and reporting.
 
 - Source: the connected Gmail account **picksetgoapp@gmail.com**; verify the selected
   account before reading. Support reporting uses subject **PickSetGo — Problem report**
@@ -47,6 +47,6 @@ sanitised details for issues. A coding agent needs an approved sanitised excerpt
 separately authorised, securely accessible visual handover; a private Gmail link or
 ChatGPT-only attachment does not establish that access. Do not upload private evidence.
 
-The existing **PickSetGo Feedback Triage** daily ChatGPT task runs in the 08:00
-Europe/London window. Reuse it; do not create another scheduler. Prompt changes require
-separate approval. Routine reports remain ephemeral, as required by the central method.
+The hosted **PWA Product Operations — Daily Review** task covers PickSetGo feedback in
+its combined daily 08:00 Europe/London review window. The task is managed outside this
+repository. Prompt or schedule changes require separate approval. Routine reports are ephemeral.

@@ -2,7 +2,7 @@ schema_version: 1
 framework_repository: nimbrethil81/pwa-product-ops
 
 product:
-  name: GarageFit
+  name: PickSetGo
   repository: nimbrethil81/garage-fit
 
 capabilities:
@@ -21,21 +21,34 @@ capabilities:
         authority: docs/FEEDBACK_TRIAGE.md
 
 security_boundaries:
-  - Static GitHub Pages publication of the repository root; no workflow or deploy config in the repo, so publication source and repository permissions are hosted settings (see exclusions).
-  - Frontend trust surface is index.html, which loads only same-origin scripts and styles, plus manifest.webmanifest; there is no service worker.
-  - Browser-local Coach history is persisted only through js/coach-store.js and validated by js/coach-model.js; no import/export path or server exists.
+  - Static GitHub Pages site with a same-origin app shell, scripts, styles and manifest. The repository registers no service worker. Build templates are visible in code. Publication source and permissions are hosted settings.
+  - Coach records are browser-local, owned by js/coach-store.js and validated by js/coach-model.js.
+  - Backup and Restore is a browser-local file operation. Portable export and verified restore use the registered data boundary, checksums, exclusive replacement and startup recovery. See docs/BACKUP_FORMAT.md.
+  - Feedback is private, Observe/Prepare only. Keep source evidence in Gmail and obtain specific approval for any disposition or publication.
 
 canonical_sources:
-  - concern: Agent/development delivery rules
+  - concern: Agent instructions and validation policy
     path: AGENTS.md
   - concern: Product entry point
     path: README.md
-  - concern: Exercise catalogue authoring (metadata fields)
+  - concern: Automatic PR Fast tests
+    path: .github/workflows/picksetgo-fast-tests.yml
+  - concern: Manual Full and reachability workflows
+    path: .github/workflows/picksetgo-deep-validation.yml
+  - concern: Exercise catalogue authoring
     path: data/EXERCISE_METADATA.md
   - concern: Coach engine contract
     path: docs/COACH_ENGINE.md
+  - concern: Family composition and compatibility
+    path: docs/WORKOUT_FAMILIES.md
   - concern: Workout protocol contract
     path: docs/WORKOUT_PROTOCOLS.md
+  - concern: Player layout, timing and audio
+    path: docs/PLAYER_VIEWPORT.md
+  - concern: Browser-local backup and recovery
+    path: docs/BACKUP_FORMAT.md
+  - concern: Local feedback source and disposition
+    path: docs/FEEDBACK_TRIAGE.md
 
 health_signals:
   - kind: http_endpoint
@@ -51,5 +64,6 @@ documentation:
     - data/**/*.md
 
 exclusions:
-  - Static, dependency-free, browser-local PWA; Coach history is local to the device, so no hosted database, server backups, DEV environment, CI/workflows or automated release process exist by design.
-  - HTTP 200 from the live site verifies public reachability only, not workout generation or persisted user history.
+  - No hosted app database, server-side backups, cross-device sync or DEV environment is declared by the repository. Fast and Deep are validation workflows, with no repository deployment workflow.
+  - An HTTP 200 checks public reachability only. Browser-local history, restore and workout generation require separate evidence.
+  - Treat hosted publication settings, task schedules and device acceptance as external evidence. Repository files alone do not verify them.

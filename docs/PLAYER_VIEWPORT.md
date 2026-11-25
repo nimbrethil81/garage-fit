@@ -1,309 +1,200 @@
-# Active player viewport (#166)
+# Shared workout player
 
-Both active players reserve a navigation row inside the usable visual viewport.
-`showScreen()` removes the tab bar and marks the app as an active player.
-`js/player-layout.js` follows `visualViewport.height` and `offsetTop`, including
-browser chrome, orientation and keyboard changes; `innerHeight` is the fallback.
-The shared shell also follows these measurements on menu screens so returning
-from a player cannot fall back to a different fixed-layout viewport height. The
-shell extends by one bottom safe inset, matching the tab bar's existing padding;
-its background reaches the screen edge and its buttons stay above the home
-indicator. Active players omit that extension and pay safe areas inside their
-measured height.
+`#player` handles routines and compatible fixed sequences. `#workoutPlayer` handles
+Generator, Coach and fixed challenges. Both reserve a header and footer around an
+adaptive stage inside the measured visual viewport. Active players hide the tab bar.
+`js/player-layout.js` follows `visualViewport.height` and `offsetTop` with an
+`innerHeight` fallback. Keep all three regions inside safe areas.
 
-The iOS installed-app trial (build 2026.10.27.2) is a scoped exception: iOS
-27.0.1 device evidence shows a 793px reported viewport on an 852px screen with a
-59px top inset. `navigator.standalone` adds a pre-paint class. html/body use 100vh,
-and non-player screens use a normal-flow, full-height shell with the navigation
-compensation inside it. A keyboard-sized visual-viewport reduction (>150px at scale
-1) uses the measured menu height instead. Safari and player sizing retain the
-existing path. Chromium validates these rules, not the native iOS compositor;
-The user confirmed that this removes the physical-device gap. The subsequent
-compact/centred control overrides are superseded by restoration of the original
-navigation from `40521292f`: 8px button padding, 4px gap and natural label flow.
-The original fixed shell's bottom safe-area extension cancelled the extra inset
-in the bar's padding, leaving 8px visible below its buttons. The full-height iOS
-root retains that visible padding directly, without moving individual controls.
-At 393×852 the visible bar is 81px with 64px targets, matching the historical
-render. See [bottom-navigation evidence](BOTTOM_NAV_RESTORATION.md). Native iPhone
-confirmation remains required; the shell workaround and player code are unchanged.
+## Layout and navigation
 
-`css/player-layout.css` gives the stage the remaining height. The circular timer
-uses that space through a size container, equal width/height and the original
-200-unit SVG, radius 90, 12-unit stroke and round caps. Countdown, phase label,
-pause mark, colours and progress direction retain the shared timer presentation.
-Typography follows the ring with readable minimum sizes. Secondary spacing and
-labels condense before the exercise or navigation. Short landscape viewports use
-two columns. Targets, phase/protocol status, progress, pause, Previous, Next and
-Skip work remain available with at least 44px hit targets (navigation starts at
-54px). Timing, progression, generator policy and outcome contracts are unchanged.
+- **Header.** Exit, concise title and elapsed time or step count. After the shell's
+  top safe inset, the shared whole-pixel offset is 16px, 8px at heights ≤700px
+  and 0px at ≤580px. Keep Exit at least 44px, the title unclipped and header
+  contents clear of the stage. Preserve unrounded viewport measurements and avoid
+  transforms, filters and font changes for positioning.
+- **Stage.** Keep the immediate exercise, target, timer and brief side, load, setup
+  or protocol cues. The timer follows the available height with a proportional
+  200-unit SVG, radius 90, 12-unit stroke, round caps, tabular numerals and a
+  centred countdown. The teal divider has reserved space outside the pause target.
+  Compact views condense secondary space first. Short landscape uses two columns.
+  Untimed work uses an explicit Pause control and allocates no timer ring.
+- **Footer.** The workout journey, immediate `Next: …` line and action controls stay
+  reserved below the stage. Previous is to the left of Next/Finish, with Coach's
+  Skip work following in focus order. On short screens the three share a row.
+  The preview names only the immediate activity and is associated with the primary
+  button using `aria-describedby`. EMOM may keep its next activity in Next itself.
+  The routine's sole advance action stays centred at 70% width (maximum 340px).
+  Keep navigation usable with a disclosure open or the keyboard raised.
 
-Instructions, density partial reps and Coach edits keep their native `details`
-summary and existing form elements/listeners. Opening one creates a single
-reading/editing surface bounded above navigation. Only its content scrolls.
-Close and Escape return focus to the summary; opening it focuses Close and does
-not pause the workout. The Coach confirmation summary stays visible when the
-editor is closed and is mirrored inside while editing. Save errors occupy the
-reserved controls area, so an open surface cannot cover them. On very short keyboard viewports the surface also uses the
-player header's space, with its own Close action. Inputs can scroll into view
-inside the surface while navigation stays accessible.
+Tap, click, Enter and Space use one native pause action. Pause updates its accessible
+action and pressed state while preserving phase colour, number and label position.
+Clocks freeze until Resume. Routine navigation is forward-only. Workout navigation
+keeps explicit rep confirmation distinct from timed skip/partial work. EMOM minutes
+cannot be replayed, density retains recovery minimums and ended-block limits, and AMRAP
+Previous is restricted to the current round. Preserve Coach busy, retry and outcome
+entry behaviour. [Resolved playback and tracking](WORKOUT_PROTOCOLS.md)
 
-In both players, opening How to do it stays silent. When browser speech is
-available, its full expanded content area reads the displayed catalogue
-instruction aloud on tap, Enter or Space; a small speaker icon signals the
-action. Activating again restarts narration through the shared selected voice.
-Close, Escape and the native summary retain their disclosure behaviour. Manual
-narration leaves clocks running, yields to automatic cues and is cancelled when
-the instruction resets or the player exits. Unsupported browsers keep readable
-instructions without the speaker cue or narration action.
+The journey reflects Warm-up, Ramp-up, actual Main blocks and Cool-down. It weights
+resolved durations, counts an EMOM minute in full and each AMRAP/density cap once.
+Rep estimates size the segments and are described as estimates. Navigation or
+confirmation advances rep positions. Pause freezes progress, Previous revisits it and
+skipped work never becomes performed credit. Fixed-workout totals change on
+confirmation or reversal. The routine player has no journey.
 
-## Accessibility and platform constraints
+For the 300-Rep Challenge, Regenerate replaces the seven exercises. A swap revalidates
+the whole plan for owned equipment and the slot's 25/50-rep dose. Start freezes the
+selection. Only whole confirmed targets count, and voluntary mini-sets/rests leave
+elapsed time running unless the player is paused. Keep the manageable-load cue inline.
+Counting, safety, anchor setup and technique guidance remain on the preview and in
+How to do it. Timing is not comparable across generated prescriptions. Reviewed dose
+and composition eligibility belongs to `js/challenge300.js`.
 
-Normal supported phone layouts do not scroll, including the reduced-height case
-below. Extreme text enlargement or a genuinely tiny window can make the full
-exercise/status content physically taller than the available stage. The measured
-`player-reflow` exception then makes just the stage readable by scrolling, while
-keeping the navigation row reserved and the player page stationary. It is also
-allowed underneath an explicitly opened editor while a keyboard occupies most
-of the viewport. This preserves information instead of clipping it or shrinking
-all text. Closing the keyboard or restoring text size re-evaluates the regular
-layout. Browser zoom settings are unchanged by this issue.
+## Disclosures and accessibility
 
-The implementation uses modern Safari/Chromium features: VisualViewport, dynamic
-viewport units, size container queries and `:has()`. Browser evidence was collected
-in Chromium with touch enabled and explicit iPhone safe-area simulation. Keyboard
-checks simulate VisualViewport resize/pan separately from the layout viewport,
-then focus and scroll the actual load input into the contained editor. This is
-not a physical iPhone/Safari keyboard or standalone-PWA hardware test; real-device
-browser chrome, keyboard animation, audio and wake-lock checks remain manual.
+Instruction, Coach editing and density partial-rep disclosures use the existing native
+controls. Opening focuses Close without pausing. Close and Escape return focus to the
+summary. Only panel content scrolls. Keep Coach confirmation visible and save errors
+in the reserved controls area. When the keyboard consumes most of the viewport the
+editor can use header space while leaving navigation accessible. Normal player pages
+stay stationary. Extreme text enlargement or very small usable heights can enable
+`player-reflow` for the stage alone.
 
-## Reproduce
+How to do it keeps the live timer visible (compact circle above in portrait, alongside
+in landscape). Artwork is optional, contained at its original aspect ratio, and shown
+only with room for at least 160×120 CSS px after text and heading. Use the canonical
+lookup; never wait for images or preload the catalogue. Reset clears the old image,
+and late/failed loads leave the text and speech usable. [Exercise artwork](exercise-artwork/README.md)
+
+## Installed iOS viewport
+
+Outside active players the shell follows viewport measurements and extends one bottom
+inset so the tab bar background reaches the edge and buttons clear the home indicator.
+Installed iOS (`navigator.standalone`, set before paint) uses a normal-flow, full-height
+root and keeps navigation compensation inside it. A keyboard-sized visual viewport
+reduction (>150px at scale 1) switches the menu to its measured height. Browser mode
+and active players keep their measured paths. Retain the historical tab button
+padding (8px), gap (4px), natural labels and 8px visible bottom padding on the installed
+root. Emulated restoration at 393×852 measures an 81px bar with 64px targets.
+
+The owner accepted the installed-iPhone header and tab bar in [#316](https://github.com/nimbrethil81/garage-fit/issues/316#issuecomment-6463664476).
+That check predates the shared #404 height-dependent header. Native sharpness and
+safe-area confirmation for the shared offsets remains unverified. When checking it,
+include both players at normal height and an SE-size screen or reduced Safari viewport
+if available, in light and dark. Check device keyboard, browser chrome, home-indicator
+clearance and wake-lock separately when affected.
+
+## Speech and tones
+
+- More → Settings → Spoken Cues selects a device voice (System default, then en-GB
+  before other locales). `gf_spoken_voice_v1` retains its device-local identity.
+  Prefer a unique URI/language match and use name/language only when there is no URI.
+  Ambiguity or absence falls back to system default without erasing the stored
+  choice. Voice discovery can finish later. Preview is user-initiated, replaces
+  earlier preview, cancels on choice/navigation and is unavailable during live or
+  paused workouts. No external speech service is used.
+- Opening How to do it is silent. Once supported speech is ready, the expanded
+  content and artwork share one speaker affordance and restart narration on tap,
+  Enter or Space. Automatic cues take precedence. Reset and exit cancel manual
+  narration. Unsupported speech and failed startup keep plain, readable instructions.
+  Bind idempotently both immediately and at `garagefit-ready`; never move voice
+  preference reads ahead of Backup & Restore startup and recovery.
+- Web Audio is separate from speech. Use trusted-gesture unlock/resume and request
+  the playback session type when supported. Recover suspended, interrupted or
+  closed contexts as allowed. A delayed resume never replays dropped audio.
+  Final 3/2/1 ticks are for active timed work only, excluding rep work, setup,
+  transitions, recovery and AMRAP/density cap clocks. Retain established start,
+  end and completion signals, and invalidate stale callbacks across pause,
+  navigation, exit and backgrounding.
+- About's audio diagnostics retain up to 40 technical events in memory, with an
+  8 KiB copied Audio section. There is no workout text, storage or automatic
+  transmission. Use the loaded page and layout SHA for device evidence. Scheduled oscillators and speech events show attempts,
+  while actual audibility is a hardware observation.
+
+## Equipment preparation
+
+Use the actual final resolved play order and inventory, including preview substitutions,
+preparation/ramp-up and cool-down. Reuse canonical IDs and AND-of-OR requirements:
+announce the selected owned alternative when known, and present unresolved alternatives
+truthfully. Combine newly needed items. Bodyweight needs no cue. Generator and Coach
+share playback preparation. Equipment-bearing fixed flows and standalone routines
+follow the same first-use rule using their actual frozen selection or routine inventory.
+
+The existing preview or ready state covers only first-movement gear. Later cues prefer
+a useful existing rest or changeover and can look earlier past a short gap. In a safe
+work window, give advance notice to prepare when able. Use visual fallback when speech
+cannot fit. The inline status wraps, announces politely without repeating on render,
+and remains visible across intervening phases until first use or obsolescence. Hide an
+empty row. No extra rest, timer, occurrence or persisted record is created. Planned
+setup changes such as ring-height adjustments still have independent timing and
+announcements. [Setup transitions](WORKOUT_PROTOCOLS.md#planned-equipment-setup-changes)
+
+Equipment speech uses the selected voice and yields to ordinary announcements, doses,
+sides, manual instructions, setup/safety, midpoint cues, countdowns and chimes. Keep
+speech attempts distinct from presentation and delivery. An interrupted attempt may
+retry with time and relevance in the same phase, without repeating a completed cue.
+Guard pending speech by run, phase and reachable first use. Pause uses the frozen
+clock, Resume rebases it, and background/foreground must not replay stale speech.
+Recalculate on skip, Previous/redo and other jumps. Keep first-use state across rounds,
+sides and revisits, and reset it only for a new run. Keep cue identity with live phase
+objects across inserted recovery. Observe settled EMOM recovery, density cap/target
+and AMRAP completion boundaries. Live loops withhold cues for unreached later blocks.
+Coach save/retry never becomes preparation time. [Approved behaviour](https://github.com/nimbrethil81/garage-fit/issues/430)
+
+## Regression and device verification
+
+For shared startup, Backup & Restore, player, instructions or audio changes, run the
+affected focused suites and the normal PR validation. Run the focused browser verifier
+for affected startup and speech bindings. It uses the real bootstrap/layout with
+deferred recovery and checks both player surfaces, including failure and unsupported
+speech. Browser interception can verify dispatch and timing.
 
 ```sh
+node --test tests/instruction-startup.test.js tests/instruction-speech.test.js tests/player-audio.test.js tests/exercise-countdown.test.js tests/timed-cues.test.js tests/equipment-cues.test.js
 python3 scripts/preview_server.py --port 8000
-# In a second terminal (requires developer-installed Playwright and Chromium;
-# set CHROMIUM_PATH if Chromium is not at /usr/bin/chromium):
-python scripts/verify-player-layout.py --url http://127.0.0.1:8000 --output /tmp/player-layout
-node --test tests/*.test.js
 ```
 
-`verify-player-timers.py` remains an alias and supplies the shared native entry/
-timer interaction checks. The app and Node suite have no new dependencies.
+In another terminal with developer-installed Playwright and Chromium:
 
-The browser matrix covers 375×667, 393×852, 430×932, 375×540, 320×568 and 667×375
-CSS px. Portrait tests reserve 47px at the top and 34px at the bottom; landscape
-reserves 47px at each side and 21px at the bottom. It checks both players, all
-fixed workout entry points, Prep & Recover, Generator, real Coach anchors and
-all eight generated protocols, including work/rest/transition and unilateral
-cool-downs. It also exercises long names/instructions, pause, rotation, numeric
-Coach entry with a reduced keyboard viewport, extreme text enlargement, and
-actual Coach outcome persistence through Next.
-It also checks manual instruction narration in both players with a stubbed speech
-engine: silent opening, full-area touch, replay/cancellation, Enter/Space,
-Close/Escape/summary isolation, unchanged playback state and unsupported speech.
+```sh
+python3 scripts/verify-player-audio.py http://127.0.0.1:8000 /tmp/player-audio
+python3 scripts/verify-player-layout.py --url http://127.0.0.1:8000 --output /tmp/player-layout
+```
 
-Every normal state measures player-page `scrollHeight <= clientHeight` and
-stage fit (with 1 CSS px tolerance for subpixel rounding),
-horizontal fit, safe navigation bounds, visible content bounds, unobstructed
-button hit tests and ring/countdown geometry. Open detail surfaces separately
-check navigation clearance and contained scrolling. The report records the
-explicit accessibility exception separately from normal states.
+`verify-player-timers.py` aliases the shared verifier. Use `--navigation-only` for tab
+bar and viewport transitions. For layout changes compare matching states against main
+using `--evidence` or `--evidence-only`. Include light/dark, both players, native entry
+points, timed and rep work, short portrait and landscape, recovery, disclosures and
+Coach actual entry. Check safe-area fit, ring proportion, focus, hit targets, keyboard
+and enlarged text as well as page overflow.
+[Viewport measurements](images/player-viewport/measurements.json) ·
+[393×852 shared layout](images/player-viewport/404/393x852-dark-before-after.png) ·
+[320×568 compact](images/player-viewport/404/320x568-light-before-after.png) ·
+[667×375 landscape](images/player-viewport/404/667x375-dark-before-after.png) ·
+[Equipment cue comparisons](images/player-viewport/equipment-cues-430/)
 
-Validation: all 78 Node test files passed, and all 390 measured browser states
-passed, including Coach actuals and density partial-rep persistence. Normal
-states include open optional surfaces; keyboard and enlarged-text exceptions are
-measured separately. The 1px stage rounding in one 393×852 rest state stays
-inside the gap above navigation and introduces no scrollable player area.
+For affected installed-iPhone behaviour, record loaded page/layout SHA, OS, installed
+mode, route, media volume, silent-switch state and observations:
 
-| Viewport | Measured states | Maximum page overflow | Maximum normal stage overflow | Smallest normal ring |
-| --- | --- | --- | --- | --- |
-| 375×667 | 65 | 0px | 0px | 248.09px |
-| 393×852 | 65 | 0px | 1px | 330px |
-| 430×932 | 65 | 0px | 0px | 330px |
-| 375×540 | 65 | 0px | 0px | 121.09px |
-| 320×568 | 65 | 0px | 0px | 134.8px |
-| 667×375 | 65 | 0px | 0px | 182px |
-
-Generated AMRAP (#221) adds one status line and reuses the ring, target, Next, Previous and Skip
-work. The verifier now also covers the AMRAP fixture: a long name, open instructions, round 2,
-pause, the timer at zero, the ended block, Coach Retry save and rotation. In Chromium all 270
-AMRAP-inclusive states (every fixture phase plus those AMRAP states) passed at the six viewports
-with no page overflow, at most 1px stage rounding at 667×375 and a smallest ring of 137px (375×540).
-
-### Shared action footer and timer divider (#235)
-
-Timed layouts restore the short teal divider below the ring. It is drawn in space
-the timer host reserves under the ring (18px, 10px on short viewports), so the ring
-keeps its proportional sizing, and it is not a pause target. Once the ring reaches
-its 330px maximum the host stops growing, so the stage centres the timer, divider,
-name and details as one group. A 2px stage bottom inset absorbs the display
-line-height's sub-pixel text overflow, which otherwise pushed one rest state into
-`player-reflow` in current Chromium.
-
-The immediate-next preview (`updateRoutineControls()` / `renderUpNext()`, unchanged)
-is a muted `Next: …` line above the navigation. In the workout player
-(generated, fixed and Coach) **Previous sits on the left and the primary Next/Finish
-workout action on the right, in one row** at every size (GF-R1 Option B, #280). On
-normal portrait phones the two share the full content width in equal columns;
-Coach Skip work follows centred beneath the row. DOM and focus order stay Previous,
-primary, Skip work. This supersedes #235 Decision 1B's stacked, centred 70% portrait
-primary layout. The routine player has no Previous control, so its primary action
-stays centred at 70% of the content width (capped at 340px). When the usable height
-is 580px or less, the workout player keeps one reserved row with Previous, the primary
-action and Skip work, the preview above the primary action. Wide landscape rows centre
-the primary action.
-
-The verifier now also checks that the preview is above and outside the primary
-action in one colour, Previous and the primary action share one row with Previous on
-the left (also with the Finish workout label) and contained in the navigation, the
-routine player's lone primary action is centred at ~70%, and the divider is present
-inside the timer space. The matrix includes 390×844 and 360×640. The Python
-script needs a developer-installed Playwright. For this change the same matrix,
-native entry checks and assertions were run through a Node Playwright port with
-Chromium 141. All 444 measured states passed with no page or normal-stage overflow.
-The smallest rings were 165px (375×667), 321px (393×852), 330px (430×932), 101px
-(375×540), 115px (320×568) and 163px (667×375). In every viewport the smallest was
-the deliberately long three-line density fixture with Skip work. Representative fixed,
-routine, Generator, Coach, AMRAP, EMOM, interval, Mobility and Athletic states were
-also inspected at 393×852, 375×540 and 667×375. These cover first, intermediate, final,
-paused and instruction-open states.
-
-The retained [measurement summary](images/player-viewport/measurements.json) and
-screenshots (refreshed for #235) show the viewport evidence; running the script emits the full report
-and additional captures.
-
-| Example | Screenshot |
+| Check | Expected |
 | --- | --- |
-| 375×667 generated timed work | [Timed work](images/player-viewport/375x667-timed.png) |
-| 393×852 Coach anchor | [Coach anchor](images/player-viewport/393x852-coach.png) |
-| 430×932 routine | [Routine](images/player-viewport/430x932-routine.png) |
-| 375×540 density with a long exercise name | [Reduced height](images/player-viewport/375x540-density.png) |
-| Coach editor with a 300px usable keyboard viewport | [Keyboard](images/player-viewport/375x540-keyboard.png) |
-| 667×375 landscape EMOM | [Landscape](images/player-viewport/667x375-emom.png) |
+| How to do it in both players | Silent open, speaker when supported, text/artwork tap and Enter/Space restart, Close/Escape and focus work |
+| Spoken Cues | Named voice, preview replacement/cancellation and reload persistence, device fallback and rediscovery if a voice disappears |
+| Generator 15 min Cardio/Full body/Hard/bodyweight, and 30 min Mixed/bodyweight | Existing announcements and distinct tones. Timed work ticks once at 3, 2, 1. Reps, setup, rest and cap clocks stay quiet |
+| Pause near 3s, rapid Next/Previous, exit, background, audio interruption, then trusted Resume | Current work resumes when allowed, with no stale or duplicate sound |
+| Equipment in ordinary, short-rest and no-rest playback, including pause/resume | Useful first-use speech yields to normal instructions and tones. Muted/unavailable speech leaves a useful visual cue |
 
-### Workout journey progress (#292, WP-V1–V4)
+Test tone routing with the silent switch in both positions at audible volume. Use
+technical diagnostics on failures and check first voice discovery, preview and workout
+speech on Safari/installed PWA and Android Chrome when available. Voice inventory and
+quality depend on the device.
 
-The workout player's existing overall progress slot now contains one duration-weighted
-journey bar and its concise current-phase label. Only real Warm-up, Ramp-up,
-individual Main blocks and Cool-down appear. Short segments retain an 8px minimum.
-Completed segments fill teal, the current segment fills orange, and upcoming
-segments remain muted. The former dense movement counter shows only relevant
-round context; its responsive space is retained to preserve timer/exercise geometry.
-
-This is a read-only view of the resolved timeline and existing clocks. Timed work,
-recoveries and transitions advance within their owning segment. EMOM includes the
-whole minute; AMRAP and density count their block cap once. Rep estimates weight
-planned work but never fabricate elapsed rep completion: confirmation/navigation
-moves that portion, and the accessible progress description identifies estimates.
-Pause excludes inactive time, Previous reflects the revisited position, and skipped
-work advances the journey without becoming performed evidence. Fixed workouts and
-Coach use the same presentation; the routine player is unchanged.
-
-The viewport capture helper settles CSS transitions and disclosure/viewport layout
-before screenshots, and emits `progress-regions.json` for comparison against the
-same fixtures on main. Compare both versions' region bounds, because the removed
-counter can be wider than the new round text. Images outside these regions must
-remain unchanged; native input focus/scroll state must also match when comparing
-open editors. Chromium emulation is not physical iPhone/Safari validation.
-
-### Illustrated exercise instructions (#203)
-
-Both players resolve artwork through the shared canonical illustration lookup.
-Preparing the current phase starts a best-effort browser image load without
-waiting or preloading the whole catalogue. Phase reset removes the previous
-image; late callbacks are ignored and failures leave the text/speech path intact.
-Images have no separate activation handler or focus stop: image, text and blank
-instruction content all use the existing single narration handler. Opening and
-image loading stay silent.
-
-An open exercise instruction surface keeps the live timer visible. Portrait
-uses a compact 120–128px circular timer above the panel; landscape keeps the timer
-in the left column and instruction content in the right. Circle proportions,
-countdown centring and pause activation remain unchanged. Other editors keep
-their existing bounded overlay. Navigation stays reserved below every panel.
-
-Artwork is contained against the dark artwork background, at its native 4:3
-composition. It appears only when at least 160×120 CSS pixels remain after the
-instruction text and panel heading; otherwise the panel deterministically keeps
-text only. Resizing re-evaluates this without shrinking artwork below that floor.
-Long text can still scroll within the panel under the existing accessibility
-contract. This does not alter clocks, progression, narration or saved outcomes.
-
-### Shared three-region foundation (#404, GF-PLAYER-UX1/UX2 Option A)
-
-Both active players, `#player` (Prep & Recover/routines) and `#workoutPlayer` (fixed
-challenges, Generator and Coach), use the same three regions inside the measured
-visual viewport. No third player, framework or protocol-specific layout was added.
-
-1. **Reserved header.** Exit, concise title and elapsed time/step counter. `#app`
-   already pays `env(safe-area-inset-top)`; one shared rule then applies
-   `--player-header-offset` to `.player-top,.workout-player-top`: 16px at normal
-   heights (the #316 physical-iPhone routine position, now also used by the workout
-   header), 8px when the player viewport is 700px or shorter and 0px at 580px or
-   shorter, so reduced-height density work still fits. Offsets are whole pixels; no
-   transforms, filters, font changes or rounding of viewport measurements.
-   This supersedes the routine-only `.player-top{padding-top:16px}` rule.
-2. **Adaptive current exercise.** The stage takes the remaining height. Timed states
-   keep the unchanged ring, divider, tap-to-pause and colours. Untimed rep work
-   allocates no ring. When the player viewport is taller than 620px, its exercise
-   name and target scale up from the stage size (target on its own row); shorter
-   screens keep the existing compact sizes. On portrait viewports taller than 480px
-   the context/name/target group sits near the optical centre and the explicit
-   Pause control rests at the foot of the stage. None of these rules apply in
-   landscape columns or the bounded `player-reflow` fallback, which keep their
-   existing rules.
-3. **Reserved footer.** In the workout player the existing `.overall-progress`
-   journey (segmented #292 bar, phase label, IDs and ARIA unchanged) is now a DOM
-   child of `.workout-actions`, followed by the `Next:` preview and the #280
-   Previous/primary row and Coach Skip work. Short and landscape grids gained a
-   `journey` row. Because the journey is part of the measured footer, instruction
-   and editor surfaces end above it. The routine footer keeps its preview and
-   centred primary action, and #334 EMOM keeps next activity inside Next.
-
-**Copy hierarchy.** The two large fixed-workout stats cards were removed. The
-exercise index is the central context line (`Exercise 5 of 7`, or `Round 2 of 3 ·
-Exercise 5 of 7`; fixed AMRAP `Round 2 · Exercise 2 of 3`). The confirmed total
-sits at the right of the footer journey label (`175 / 300 completed reps`, or
-`AMRAP score: 1 rounds + 5 reps`) and only changes when a whole target is
-confirmed or un-confirmed by Previous; generated and Coach players hide it as
-they hid the cards. For the 300-Rep Challenge only the load cue (for loaded
-exercises: self-selected manageable resistance, never maximal) stays visible as
-the prescribed load/safety note. Its counting and setup sentences moved to the
-How to do it disclosure as a guidance paragraph after the catalogue instruction;
-manual narration reads both. Product decision (21 November 2026, PR #418, option A):
-no setup or technique line stays visible during 300-Rep work, including the
-suspension-strap anchor cue and "stop before technique fails"; these remain on the
-pre-workout detail and under How to do it. The pre-workout detail still lists all three
-unchanged. Generated notes (side, load, setup transition), EMOM, density, AMRAP
-and Coach statuses, confirmations and errors are unchanged.
-
-**Superseded placement rules.** Only these historical rules change: the journey's
-stage position (#292 "existing overall progress slot" in the stage, order 11),
-the fixed-workout `.workout-stats` cards, and the routine-only 16px header
-offset (#316). #166 no-scroll, #235 divider/preview, #280 one-row navigation,
-#334 EMOM and #203 instruction contracts remain in force.
-
-**Verification.** `scripts/verify-player-layout.py` now also checks, in every
-measured state: header at or below the top safe inset, the shared whole-pixel
-offset, non-colliding header items, a 44px Exit target, unclipped title, header/
-stage/footer boundaries, at least 4px between header and content and 2px between
-content and footer, the journey contained in the footer above navigation, an
-unclipped footer total, no vacant ring host for rep work, the routine player
-without a journey, and a portrait rep name centred within the middle of the
-stage. `header_equivalence_checks` compares routine, fixed and generated header/
-Exit positions at six viewports. The matrix uses a 59px top inset at 393×852.
-`--evidence-only` (or `--evidence` alongside the full run) captures light/dark
-screenshots of representative states with safe areas substituted into the served
-CSS; run it against main and the branch for before/after comparison. Chromium emulation does not establish native iOS header
-sharpness or installed-PWA safe areas: physical iPhone acceptance is separate.
-
-Before/after Chromium captures (same fixtures, safe areas substituted into the CSS:
-393×852 with 59px top/34px bottom, 320×568 with 20px top, 667×375 with 47px sides/
-21px bottom):
-
-| Viewport and appearance | Comparison |
-| --- | --- |
-| 393×852 dark: routine, 300-Rep reps/instructions, fixed AMRAP, timed, transition, EMOM, AMRAP, density, Coach anchor/edit | [393×852 dark](images/player-viewport/404/393x852-dark-before-after.png) |
-| 393×852 light: routine paused/instructions, long name, rest, generated reps, protocols, Coach | [393×852 light](images/player-viewport/404/393x852-light-before-after.png) |
-| 320×568 light compact | [320×568 light](images/player-viewport/404/320x568-light-before-after.png) |
-| 667×375 dark landscape | [667×375 dark](images/player-viewport/404/667x375-dark-before-after.png) |
+The owner confirmed the #338 repair on iPhone after PR #368. The exact loaded SHA and
+individual matrix results were not reported. Keep the matrix for future regressions.
+[#388](https://github.com/nimbrethil81/garage-fit/issues/388) tracks separate intermittent
+tone and first-announcement reports. Reuse the existing diagnostics and record the
+loaded build and each symptom separately.
+The installed-iPhone equipment row remains outstanding for #430/PR #432. Chromium
+layout, startup and dispatch evidence do not verify native audio or compositor behaviour.
+[Audio acceptance](https://github.com/nimbrethil81/garage-fit/issues/338) ·
+[Equipment acceptance](https://github.com/nimbrethil81/garage-fit/pull/432)
