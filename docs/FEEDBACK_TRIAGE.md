@@ -2,8 +2,8 @@
 
 Use the current central [Feedback Triage method](https://github.com/nimbrethil81/pwa-product-ops/blob/main/operations/FEEDBACK_TRIAGE.md)
 and [common contract](https://github.com/nimbrethil81/pwa-product-ops/blob/main/PRODUCT_OPERATIONS.md)
-with [this product's adapter](../ops/product-operations.yml). This page owns only local
-source handling; the central method owns classification, evidence assessment and reporting.
+with [this product's adapter](../ops/product-operations.yml). This page owns local
+source handling. The central method owns classification, evidence assessment and reporting.
 
 - Source: the connected Gmail account **picksetgoapp@gmail.com**; verify the selected
   account before reading. Support reporting uses subject **PickSetGo — Problem report**
@@ -47,6 +47,16 @@ sanitised details for issues. A coding agent needs an approved sanitised excerpt
 separately authorised, securely accessible visual handover; a private Gmail link or
 ChatGPT-only attachment does not establish that access. Do not upload private evidence.
 
-The existing **PickSetGo Feedback Triage** daily ChatGPT task runs in the 08:00
-Europe/London window. Reuse it; do not create another scheduler. Prompt changes require
-separate approval. Routine reports remain ephemeral, as required by the central method.
+More → Settings → About provides separate App and Workout diagnostic reports. Workout
+diagnostics keeps only the latest captured Generator or Coach preview, including edits,
+as allowlisted text in one local version-1 record (`gf_workout_diagnostics_v1`, capped
+at 96,000 characters when serialised). If storage is unavailable, the capture stays
+available for the current session. An unchanged composition keeps its original capture
+time and composition build. Copying adds the currently loaded build and report time.
+The snapshot describes the planned composition and cannot establish whether a session
+started or finished. Fixed Workouts and standalone Prep & Recover are excluded. Neither
+report is uploaded automatically.
+
+The hosted **PWA Product Operations — Daily Review** task covers PickSetGo feedback in
+its combined daily 08:00 Europe/London review window. The task is managed outside this
+repository. Prompt or schedule changes require separate approval. Routine reports are ephemeral.

@@ -12,53 +12,40 @@ given phase (Main, Warm-up, Ramp-up, Cool-down) is generator policy in
 
 ## Adding an exercise
 
-1. Decide its intended phases and, for Main, its role (`mainRole`) before writing metadata.
-2. Give it a unique kebab-case `id` and a display `name`.
-3. State `prescription`, plus `estimatedSeconds` if it is rep-based (timed estimates
-   are derived).
-4. Set the phase flags it belongs to (`generator`/`main`, `warmup`, `rampup`,
-   `cooldown`) and each phase's own fields.
-5. Generator and preparation exercises must state `patterns`, `conditioning`,
-   `strength` and `cardio`; choose them with the anchors below, not by copying a
-   neighbour. Generator and Ramp-up exercises must also state `difficulty`, and generator
-   exercises `bodyFocus` (see below).
-6. Add `family` / `repetitionClass` only if the definitions below are met.
-7. Add a short, useful `instruction` for every exercise, including familiar movements and fixed-only exercises; follow the editorial standard below.
-8. Run `node --test tests/*.test.js`; it validates the catalogue.
-9. Prove reachability. For every generated phase the exercise is flagged for, add a
-   bounded deterministic test (fixed seeds, at most a few hundred generated workouts)
-   showing it is selected in a suitable equipment/focus/duration configuration; see
-   `tests/reachability.test.js`. Reachability is not a frequency target: the exercise
-   stays subject to its role and the phase's rules, and need not be as common as its
-   peers or appear in every workout.
-10. For a batch of exercises, run `node scripts/audit-exercise-reachability.js`. It fails
-    if any exercise eligible for a generated phase is never selected across its
-    representative configurations, and warns about rare and dominant ones. Its configuration matrix covers bodyweight, each
-    catalogue requirement set, all equipment and every two-equipment combination, plus small bodyweight Easy samples using decorrelated
-    and dense seed banks to cover accessible Main and gentle preparation roles. Review the
-    warnings against each exercise's intended role rather than equalising frequencies,
-    and include the relevant results in the PR summary.
+1. Decide the intended phases and Main role before authoring. Set a unique ID,
+   name, prescription, instruction and the phase fields below. Supply a rep-based
+   estimate, and derive timed estimates from dose. Add relationship fields only
+   when their definitions are met.
+2. Run validation per [AGENTS.md](../AGENTS.md#validation). For each flagged generated
+   phase, prove deterministic selection in a suitable equipment/focus/duration
+   context with a bounded sample (see `tests/reachability.test.js`).
+3. Use the exhaustive audit for catalogue batches and material generator-policy or
+   phase/relationship policy changes. Review rare/dominant warnings against the
+   intended role. Eligibility can be broad while viable selection windows are
+   narrow. Use the built-in eligibility, selection funnel, rank and labelled score
+   traces (`--json` exports them and `--no-diagnostics` omits them). Diagnose the
+   actual stage that excludes an exercise. Frequency alone warrants neither a
+   metadata change nor a safety conclusion.
 
-Also run the full audit after material generator selection or scoring changes, after
-changing relationship or phase metadata rules, and when investigating observed overuse
-or absence. It is not part of the ordinary test run.
+### Published catalogue compatibility (#407)
 
-Each failure and rare warning is followed by diagnostic evidence from the generator's own
-selection trace (`--no-diagnostics` skips it; `--json` includes it as `diagnostics`):
+The exact 73 deltas across 67 stable IDs are pinned in
+[`tests/helpers/metadata-407-deltas.json`](../tests/helpers/metadata-407-deltas.json).
+`tests/metadata-407.test.js` reverses them and hashes the whole catalogue to protect
+the other approved fields. `data/exercises.js` keeps complete frozen pre-correction
+definitions. New family plans and Main blocks carry `exerciseCatalogueVersion: 2`
+and use the current definitions. Unknown or inconsistent version markers fail.
 
-- `eligible` / `selected`: configurations where the exercise is eligible (and what excludes
-  it elsewhere), where it was selected and its best configuration.
-- `funnel`: the share of its selection slots that pass the pre-score filters, reach the
-  shortlist window, are drawn, and survive later attempt or sequence choice, each against
-  the phase median, with the rules or outcomes that removed it.
-- `rank` / `score`: its best and median rank against the window, how far its score falls
-  short of the window boundary, and the generator's labelled score components: its own
-  largest penalties and where the candidate ranked directly above it leads (means over a
-  deterministic sample of slots).
-- `above`: the exercises most often ranked directly above it.
-- `diagnosis`: a general classification of the stage furthest below the phase median and
-  its main cause. It is guidance for review, not a decision; never change metadata just to
-  move a classification or a frequency.
+Unmarked historical Main descriptors can resolve to the pre-correction era.
+Validate a coherent era against the complete published definitions, reject extra
+fields or mixed values and preserve a supplied catalogue's identity restrictions.
+Preparation declarations can evolve independently, without authorising Main
+membership. The selected era still passes equipment, safety, eligibility,
+prescription, protocol, recovery, family and timeline validation. Playback and
+estimates resolve the same era without rewriting a saved plan or its occurrences.
+Genuine historical definitions establish compatibility, without authenticating
+record origin. Future safety/equipment corrections need explicit historical-era
+review. [Approval and limits](https://github.com/nimbrethil81/garage-fit/issues/407)
 
 ## Exercise instructions
 
@@ -103,7 +90,8 @@ require a change. Other equipment and bodyweight can accompany that setup.
 Generated Main blocks select compatible profiles together, allowing configuration
 changes between blocks. Repeated protocols and paired sets validate this constraint;
 Coach anchors retain their exact dose in separate permitted blocks or report the
-existing partner-unavailable conflict. Setup profiles do not add time or player cues.
+existing partner-unavailable conflict. A change between incompatible setups can add a timed transition and instruction.
+[Setup transitions](../docs/WORKOUT_PROTOCOLS.md#planned-equipment-setup-changes)
 
 ## Movement classification
 
@@ -346,9 +334,12 @@ applies to generated Main only:
 | Full Body | Neutral: no score change; generation is identical to omitting the setting. |
 | Upper / Lower / Core | Nothing is excluded. Exercises whose `bodyFocus` is the focus area get a score preference, `full-body` exercises a smaller one. The preference pauses beside a run of two focus-area exercises (a `full-body` exercise neither extends nor breaks the run), is withheld from a high-impact exercise following high-impact work, and works through the usual scores, so pattern, repetition, recency, equipment and structure rules still apply. |
 
-Warm-up, Ramp-up and Cool-down are unchanged (the Warm-up still adapts its lower-body
-preparation to the Main it precedes). Main swaps keep the workout's body focus. Body focus
-combines freely with workout style and difficulty.
+Body focus combines with workout style and difficulty. Main swaps retain it. Warm-up's
+lower-body preparation still follows actual Main. On Upper, Lower or Core, ordinary
+generation and swaps reject more than four consecutive exercises matching that
+selected focus across Main blocks. A different body focus breaks that run, and the
+Full Body setting has no cap. This output rule is independent of the two-in-a-row
+preference limit and does not revalidate a historical, family or nonempty prescribed plan.
 
 ## Preparation metadata
 
@@ -414,8 +405,12 @@ regions the stretch primarily lengthens, from `hamstrings`, `glutes`, `calves`,
 (abdominals, obliques and spinal rotation or side bending). List only the regions a user
 would say the stretch is for, not every tissue it touches: a standing quadriceps stretch is
 `['quadriceps']`, a downward-to-upward dog flow `['hamstrings','calves','chest','trunk']`.
-`cooldown: true` and `family` say nothing about regional coverage; standalone cool-down
-routines read this field.
+`stretchTargets` describes anatomical coverage independently of `cooldown` eligibility
+and variation `family`. Workout cool-downs select from the existing eligible pool and fit within the phase
+budget. Refinement keeps each replaced exercise's estimate and side count and
+preserves its otherwise uncovered stretch targets. Shared setup and posture are
+preferred, with adjacent same-position stretches within a setup group.
+Standalone routines use their distinct coverage and fixed 300-second fitter below.
 
 ## Standalone routines (generator policy)
 
@@ -523,11 +518,8 @@ avoidable adjacency. This is generator policy, not another metadata relationship
 
 ## Optional illustration
 
-`GarageFitData.exerciseIllustration(id)` resolves a catalogue-backed, optional
-same-origin WebP path or null. The small opt-in set lives beside the canonical
-catalogue; paths derive from IDs. No exercise fields or workout contracts change.
-Future consumers must hide failed images without interrupting instructions or
-playback. See `docs/exercise-artwork/README.md` for sources and verification.
+The canonical optional WebP lookup and fallback are in
+[Exercise artwork](../docs/exercise-artwork/README.md).
 
 ### Optional detailed guidance (display only)
 

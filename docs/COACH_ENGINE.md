@@ -1,30 +1,11 @@
 # Coach engine and policy contract
 
-Load `data/sport-profiles.js`, `coach-model.js`, `training-history.js`, `coach-policies.js`, then
-`coach-engine.js`. For Tennis also load `data/sport-capabilities.js`, `sport-coverage.js`
-and `coach-tennis-policy.js` (after `coach-policies.js`, before creating the engine).
-General Fitness similarly needs `coach-general-fitness-policy.js` (after `coach-policies.js`)
-and, to generate its sessions, the workout-family modules and composers.
-These scripts use the repository's `GarageFit*` globals and run
-in Node without browser, storage, player, clock or third-party dependencies.
-They are dormant until a caller explicitly creates an engine.
-
-```js
-const engine = GarageFitCoachEngine.createEngine({
-  catalogue: GarageFitData.exercises,
-  registry: GarageFitCoachPolicies.createDefaultRegistry(),
-  assessSessionPrescription: GarageFitGenerator.assessSessionPrescription
-});
-const assessment = engine.assessProgrammeFeasibility(definition, {equipment});
-const started = engine.startProgramme(definition, {programmeInstanceId, equipment}, now);
-const planned = engine.planNextSession(definition, started.state, sessionResults, {
-  now, prescriptionId, equipment, duration, easyToday, bodyFocus
-});
-// When planned.prescription exists, pass it to Generator.generate().
-// After execution, persist the immutable Session Result through Coach Store, then:
-const updated = engine.applySessionResult(definition, started.state, result, sessionResults);
-// Persist updated Programme State through Coach Store.
-```
+`js/coach-engine.js` owns pure lifecycle, planning and result application. Its
+`createEngine` receives the catalogue, policy registry and optional pure Generator
+preflight. See `index.html` for the production script order and
+`tests/coach-engine.test.js` for direct API calls. Pass a returned executable
+Session Prescription through Generator and save the immutable Session Result
+before applying it to Programme State.
 
 IDs and ISO timestamps come from the caller. `duration` is in minutes and
 `bodyFocus` uses `upper`, `lower`, `core`, or `full-body`. Equipment is today's owned
@@ -114,22 +95,10 @@ positive `nominalDurationDays`. `nominalProgress` measures elapsed days from
 `startedAt`; elapsed days alone award no meaningful sessions or progression.
 The engine rejects a definition whose ID/version differs from the state's pin.
 
-The General Strength strategy requires these explicit inputs:
-
-| Field | Meaning |
-| --- | --- |
-| `recommendedFrequency` | `minSessionsPerWeek` / `maxSessionsPerWeek` |
-| `coverageTargets` | Rolling `windowDays`, broad `patterns` and optional `bodyRegions` exposure targets; optional boolean `includeStandaloneHistory` (see below) |
-| `doseTargets` | Eligible `sections` and `meaningfulExposure` threshold |
-| `anchorSelectionPolicy.requirements` | Ordered candidate `exerciseIds`, `pattern`, `role` (`primary` / `accessory`), and bounded Generator anchor fields |
-| `progressionPolicy` | Explicit `minimumRepsImprovement`, `minimumLoadImprovement`, `minimumSecondsImprovement` thresholds; each positive or null to disable that progression category |
-| `sequencingRules` | Explicit `minimumRecoveryHours` and any additional essential preparation/rest context |
-| `shortSessionPolicy` | `preservePreparation: true`, `preserveRest: true`, and explicit reduction `tiers` |
-| `maintenancePolicy` | `frequency`, `coverageMultiplier`, `keepAccessories`, `allowProgression`, `anchorTargetOverrides` by requirement ID |
-| `missedSessionPolicy` | `strategy: 'recompute-no-debt'` |
-| `feasibilityRequirements` | `minimumDurationMinutes` and `requiredPatterns` |
-| `completionCriteria` | `minimumMeaningfulSessions` (null for no automatic completion) and `requireNominalDuration` |
-| `sessionTemplate` | Bounded Session Prescription defaults: duration, workout style, difficulty, body focus, variation and constraints |
+General Strength uses the explicit frequency, coverage/dose, anchor progression,
+recovery, short-session, maintenance, missed-session, feasibility and completion
+policies in the released definitions. See `data/programmes.js` for production
+values and `js/coach-policies.js` for strict definition validation.
 
 Anchor requirements explicitly supply dose, target, prescription mode and permitted
 protocols. Candidate order selects stable anchors deterministically, with an optional
@@ -202,29 +171,14 @@ user-confirmed variation changes are described in
 
 ## Coach screens
 
-Coach groups Fitness programmes and Sport cross-training → Tennis. Tennis setup offers
-focus/frequency, usual playing days, intensity and an optional local-date event.
-Anchor Done explicitly confirms visible actual reps/load; blank values stay unknown.
-
-Every Coach home uses the same compact layout: title and status, this week's
-credited sessions (Tennis: its chosen weekly frequency; General Strength: 2–3, or
-1–2 in maintenance; Build Arms: aim 3, 2 acceptable), a collapsed Adjust today
-summary, View today's workout, and a due four-week review when there is one.
-Every programme's Coach home links to one shared **Your progress** screen: one
-tappable card per actual strength target (current prescription, last recorded
-performance, stored next progression), recent saved sessions and the programme's
-phase. General Strength shows its four-week block, Build Arms its seven-day
-curl/extension exposure and Tennis its six capability cards for performed coverage
-in the last two weeks plus any due check-in. It is read-only and invents no scores.
-A shared **Programme settings** screen groups the training plan and programme
-management. Tennis edits its existing focus, weekly frequency, playing days,
-intensity and event; General Strength and Build Arms show their definition-fixed
-plan read-only. Pause/Resume and a confirmed Finish work for all three; only
-General Strength offers maintenance and its four-week review choices. Settings are
-locked while a workout is in progress, and today-only adjustments stay on Coach home.
-
-Regression coverage lives in `tests/coach-home.test.js`, `tests/coach-progress.test.js`
-and `tests/coach-settings.test.js`.
+Coach shares programme discovery, home, Adjust today, preview/edit, player, Your
+progress, session history and Programme settings. Derive active controls from the
+pinned programme policy and current lifecycle. Today-only adjustments stay in the
+home flow. Settings are locked during a workout. Review and maintenance are
+policy-driven. Anchor Done confirms visible actuals and leaves blank inputs unknown.
+The read-only progress screen uses performed evidence and current state, including
+only relevant strength targets, programme progress or phase, Build Arms exposure
+and Tennis capability coverage. It cannot award progression.
 
 ## Policy strategies
 
@@ -316,18 +270,8 @@ days/intensity without resetting anchors.
 
 `GarageFitTrainingHistory.createHistory(results, catalogue)` validates, deduplicates,
 chronologically sorts and freezes Session Results and performed observations.
-Conflicting contents under the same result ID are rejected. It provides:
-
-- `sessionsForProgramme(instanceId, options)`;
-- `recentPerformedSessions(options)`;
-- `exactExercisePerformances(exerciseId, options)`;
-- `movementPatternExposure(pattern, options)`;
-- `directElbowExposure(action, options)`;
-- `compoundPatternExposure(pattern, options)` (excludes direct arm work);
-- `bodyRegionExposure(bodyRegion, options)`;
-- `anchorPerformanceSeries(requirementId, options)`;
-- `sessionEvidence(sessionResultId)`;
-- `contextualEvidence(options)`.
+Conflicting contents under the same result ID are rejected. Use the result and occurrence query APIs in `js/training-history.js`; these
+views do not persist or write policy credit.
 
 Options support `programmeInstanceId` and inclusive `since` / `until`. With a
 `programmeInstanceId`, `includeStandalone: true` also includes performed work
@@ -580,13 +524,10 @@ Generator builds the first feasible family and reports any transparent replan (s
 the tracker records the delivered family/style. Unsupported durations are planning conflicts;
 a plan no family can build fails visibly with each family's reasons.
 
-**Family versions (#244, #261, #264).** Both released definitions name every family at version 1 and are not
-edited. The plan composes each family at its current published version
-(`GarageFitData.workoutFamilyCurrentVersions`, never older than the definition's), so existing v1
-and v2 instances plan Athletic Movement v6, Strength & Control v3, Mobility & Movement Quality v3 and
-Full-Body Challenges v2 automatically with no restart or new programme definition. Prepared sessions,
-saved drafts and results keep their actual versions and original plans. Balance, variety and recency compare families by id, so any Athletic version's
-session earn the same effect and recency; results keep their recorded version.
+**Family versions.** The plan composes at each family's current published version
+(never older than the definition's pin). Prepared sessions, drafts and results
+keep the actual family version and plan. Family recency compares IDs across
+versions. Athletic v6 training effects use its delivered dose, as described below.
 
 **Versioned family sets (#399, #400).** v1 and v2 retain their exact released six families.
 v3 adds Strength & Stamina (`resistance-endurance`) and accepts seven ordered candidates.
@@ -624,23 +565,45 @@ demanding session in the recovery lookback, including one followed by easier wor
 coverage can add a soft movement preference in the resistance composers. The weekly bars
 remain programme-owned session counts and no results or scores are written by this policy.
 
-**Shared Coach screens (#191).** General Fitness uses the same discovery, home, weekly
-progress, Adjust today, workout card, preview/edit, player, Your progress, session history and
-Programme settings as every programme; there is no separate page, tab or style selector.
-Presentation is neutral to `state.anchors.length`: strength targets, anchor substitution and
-anchor/progression copy render only when anchors exist. The home card names the plan's intended
-family, duration and family purpose; the preview, saved-session notice, weekly list and session
-history show the **delivered** family and style (`GarageFitCoachProgressUI.workoutIdentity`),
-with a status line when the plan was replanned or a same-family style fallback was used. Records
-without a complete published identity keep neutral copy and are never given a family label.
-Programme settings for a definition with `externalActivityPolicy` include an optional, editable
-"Usual activities" section over the shared preferences seam; it never blocks planning.
+**Presentation.** Show intended family/duration before composition and delivered
+family/style in preview, progress and saved history. Explain replans and style
+fallbacks. A missing published identity keeps neutral copy. Anchor-specific inputs
+and progress require anchors. Usual activities is optional for definitions with
+`externalActivityPolicy`.
+
+### Athletic v6 workload and training effects
+
+Athletic v1–v5 remain athletic-only and non-demanding in General Fitness. For v6,
+use resolved planned Main active seconds **P** and bounded performed Main active
+seconds **A**. The energetic subset **C** requires the actual performed exercise
+to have Athletic v6 conditioning membership and canonical `cardio >= 3`. Global
+conditioning flags, role titles or light stepping alone never qualify. Count the
+resolved timed occurrences, one per side. Exclude rest, transitions, preparation,
+finish and unknown sections. Measured work is capped at target. Explicit
+completion without measured seconds uses its target, quantified partials use
+actual seconds, and skipped, zero, unknown or note-only partials contribute zero.
+
+Session weight is `min(1, A/P)`, or zero if P is zero. At **C ≥ 60 s and C/A ≥ 20%**,
+allocate `min(1/3, C/A)` of that weight to conditioning and the rest to athletic.
+Otherwise the full weight is athletic. Delivered work is demanding at
+**C ≥ 180 s and C/A ≥ 30%**. The denominator is actual performed Main work, so a
+skipped planned occurrence reduces coverage without diluting actual demand.
+These are planning weights. They do not measure fitness or grant extra credit.
+
+Before composition the existing recovery ordering treats v6 as potentially
+demanding. Coach preview derives transient `deliveredWorkload` from the resolved
+plan and recomputes after swaps. Later recovery and coverage use the same policy
+with saved planned/performed occurrences. No score or role is added to a workout,
+prescription or result. Existing attendance, meaningful Main, external context,
+and v3 resistance-day rules remain independent.
+[`tests/general-fitness-athletic-v6.test.js`](../tests/general-fitness-athletic-v6.test.js)
+covers both originally released definitions and saved v1–v5 work.
 
 ### Optional comparable benchmarks (#192, v2)
 
 `general-fitness` **version 2** (`benchmarkPolicy`) is v1's scheduling unchanged plus the approved
 Decision 7 C: occasional, optional, embedded benchmarks. Released v1 is not edited; saved v1
-instances stay pinned and never offer one, and new starts select v2. The policy is closed and
+instances stay pinned and never offer one. General Fitness v3 retains this policy. The policy is closed and
 validated: a published family, a cadence of at least 28 days, a first-session wait, a session of
 at least 20 minutes, one fixed rest and one to four reviewed benchmarks, each an unloaded,
 bilateral, rep-based catalogue exercise. Reviewed set: push-up, air squat and leg raises (push,
@@ -925,11 +888,52 @@ positive known exercise exposure; `unknown` means only unquantified partial work
 adequacy. Overlapping capability values must not be summed; `uniqueExposure` counts
 each mapped occurrence once. Facets distinguish controlled lateral work from
 braking, controlled rotation from rotational power, and general conditioning from
-unproven match repeated efforts. See [Tennis mapping constraints](TENNIS_CAPABILITY_AUDIT.md).
+unproven match repeated efforts.
+
+### Tennis mapping and catalogue limits
+
+The explicit mappings in `data/sport-capabilities.js` are separate from Generator
+and family eligibility. Tennis v1–v5 pin mapping v1, v6 pins v2, v7 pins v3,
+v8 pins v4 and v9/v10 pin v5. V2 adds home-feasible stationary/single-step lateral
+control with adequate stance clearance; v1 excludes lateral work in small space.
+V3 adds reviewed ring row/press-up push-pull and face-pull shoulder support. V4
+adds single-leg hinge reach and lateral lunge to balance. V5 adds in-place
+stepping, balance and light repeated-stepping exposure. Publish a new mapping
+for material changes. Keep earlier interpretations available for saved programmes.
+
+Availability checks the owned AND-of-OR equipment, impact, Main/Generator and
+rounds/paired-sets eligibility and reviewed space marking, separately from
+performed classification. For example, fixed-only push-up rotation can classify
+actual work without becoming a Generator candidate. Comfortable stance, anchor,
+floor and overhead clearance still matter. Pallof presses require bands and a
+secure chest-height anchor and are optional. Trunk anti-rotation stays distinct
+from rotation, and thrusts, chops and twists do not imply rotational power merely
+from names or planes. Direct arm work cannot stand in for shoulder-support
+exposure. Generic shoulder work does not establish injury prevention.
+
+Lateral stepping including returning to centre provides home control. Skater
+jumps remain the reviewed lateral-braking mapping and require high impact and
+sideways landing space. Lateral band walks require sideways clearance and do
+not train braking. Travelling shuffle/stop, acceleration/stop and landing
+drills are family-only where reviewed and receive no inferred sport credit.
+No reviewed low-impact braking, rotational-power or match repeated-effort
+mapping is published. Generated bodyweight rotation and bodyweight shoulder
+support/pulling are limited. Bodyweight power drops out when high impact is
+excluded. Keep these evidence limits distinct from individual suitability or
+promises to add exercises.
+
+[#89](https://github.com/nimbrethil81/garage-fit/issues/89) owns the original mapping
+and gap audit. [#96](https://github.com/nimbrethil81/garage-fit/issues/96) tracks
+deferred optional open-space practice. It supplies neither home-workout eligibility
+nor approval for other gap remedies. Assess any additions through an approved
+issue. Reproduce the mapping-v1 audit with `node scripts/audit-tennis-capabilities.js`,
+and the home mapping and v5/v6 comparison with `node scripts/audit-tennis-movement.js`.
+The exact memberships and limits are pinned by `tests/sport-coverage.test.js` and
+`tests/tennis-policy.test.js`.
 
 ### Tennis v6: home movement composition (#159)
 
-New starts select programme v6 and Tennis capability mapping v2. Versions 1–5
+Programme v6 pins Tennis capability mapping v2. Versions 1–5
 and mapping v1 remain available unchanged. Active references, history and drafts
 continue to resolve their saved definition; there is no automatic migration or
 in-place upgrade. Finishing an old programme and explicitly starting another uses
@@ -998,8 +1002,8 @@ dose ties; saved v1–v4 retain their original rules without automatic migration
 
 ## Gymnastic rings in Coach programmes (#146)
 
-Rings are optional equipment and never required. New starts select General
-Strength v2 and Tennis v7; Build Arms stays v1. Released definitions (General
+Rings are optional. Ring anchors entered the General Strength definitions at v2
+and the Tennis definitions at v7. Build Arms v1 uses its existing direct-action policy. Released definitions (General
 Strength v1, Tennis v1–v6) and Tennis capability mappings v1/v2 are unchanged.
 Saved instances keep their pinned version, anchors, targets, history and drafts;
 there is no automatic upgrade or remapping. Adopting a v2/v7 ring anchor means
@@ -1044,7 +1048,7 @@ setup compatibility, timing, recovery and history attribution.
 
 ### Tennis v9: distinct strength and staged movement (#286)
 
-New starts pin Tennis v9 and capability mapping v5. Normal movement-conditioning,
+Tennis v9 pins capability mapping v5 and Athletic v5. Normal movement-conditioning,
 movement-power and conditioning-resilience sessions choose the existing Athletic
 Movement v5 family plan, with no required strength anchors. Strength/full-body
 roles retain the same four anchor identities, selecting at most 1/1/2/2/3 for
@@ -1078,21 +1082,11 @@ instances, drafts, results and mappings remain pinned. There is no in-place
 upgrade route: the existing Finish programme / Start programme workflow retains
 old history but starts a new instance, rather than migrating targets.
 
-Seeded before/after examples: seed 31, Balanced, 2/week, Normal, dumbbells,
-small-space default, 30 minutes, 1 and 4 October 2026. The first strength session
-is explicitly confirmed before planning the movement role. Times below are
-resolved block seconds; whole-session totals also include preparation/recovery
-and transitions. These are simulated confirmations for verification, not user
-performance data.
+### Tennis v10
 
-| Version / role | Whole session | Actual blocks: purpose, protocol, seconds and exercise IDs |
-| --- | --- | --- |
-| v8 / strength-stability | 1729 s | main-1 · rounds · 128 s: `dumbbell-reverse-lunge`<br>main-2 · rounds · 96 s: `dumbbell-romanian-deadlift`<br>main-3 · rounds · 96 s: `dumbbell-floor-press`<br>main-4 · rounds · 96 s: `dumbbell-bent-over-row`<br>main-5 · rounds · 40 s: `dumbbell-plank-pull-through`<br>main-6 · rounds · 40 s: `alternating-lateral-lunge`<br>main-7 · paired_sets · 375 s: `side-plank-reach-through`, `air-squat`<br>main-8 · rounds · 372 s: `tabletop-toe-taps`, `high-knee-power-steps`, `side-plank` |
-| v8 / movement-conditioning | 1748 s | main-1 · rounds · 140 s: `dumbbell-reverse-lunge`<br>main-2 · rounds · 102 s: `dumbbell-romanian-deadlift`<br>main-3 · rounds · 40 s: `cossack-squat`<br>main-4 · rounds · 40 s: `dumbbell-wood-chop`<br>main-5 · rounds · 30 s: `mountain-climbers`<br>main-6 · rounds · 30 s: `dumbbell-push-press`<br>main-7 · rounds · 470 s: `dead-bug`, `side-plank`, `plank`, `dumbbell-thruster`<br>main-8 · paired_sets · 405 s: `dumbbell-plank-pull-through`, `lateral-lunge-to-balance` |
-| v9 / strength-stability | 1737 s | main-1 · rounds · 128 s: `dumbbell-reverse-lunge`<br>main-2 · rounds · 96 s: `dumbbell-romanian-deadlift`<br>main-3 · rounds · 35 s: `dumbbell-lateral-raise`<br>main-4 · rounds · 40 s: `dumbbell-plank-pull-through`<br>main-5 · rounds · 40 s: `alternating-lateral-lunge`<br>main-6 · rounds · 410 s: `squat-to-alternating-knee-drive`, `push-up`, `bear-plank-hold`, `glute-bridge`<br>main-7 · rounds · 500 s: `ski-abs`, `single-arm-dumbbell-row`, `dumbbell-suitcase-march`, `side-step-knee-lift` |
-| v9 / movement-conditioning | 1800 s | athletic-preparation-1 · rounds · 237 s: `knee-to-opposite-elbow`, `forward-back-line-steps`, `quarter-turn-pivot-steps`<br>athletic-footwork-2 · rounds · 291 s: `180-degree-step-turns`, `in-in-out-out-steps`, `forward-back-line-steps`<br>athletic-footwork-3 · rounds · 291 s: `lateral-step-and-stick`, `fast-feet`, `four-square-steps`<br>athletic-control-4 · rounds · 273 s: `clock-step-balance`, `single-leg-balance-reach`, `split-stance-step-switches`<br>athletic-control-5 · rounds · 273 s: `tandem-step-and-hold`, `transverse-lunge-to-balance`, `reverse-lunge-with-rotation`<br>athletic-integrated-6 · rounds · 297 s: `lateral-lunge-to-balance`, `crab-position-alternating-steps`, `reverse-lunge-knee-drive`<br>athletic-finish-7 · rounds · 120 s: `forward-back-line-steps`, `side-step-touches`, `knee-to-opposite-elbow` |
-
-Browser smoke evidence (Chromium, 393 × 852 emulation):
-[movement preview](images/tennis-v9/movement-preview.png) and
-[existing player](images/tennis-v9/movement-player.png), using explicitly simulated
-strength completion to reach the movement role. No browser errors on either route.
+New Tennis starts pin programme v10, keeping mapping v5 and using Athletic v6 for
+the normal movement roles. The shared composer receives a transient Tennis context
+hint for lateral/single-leg technical emphasis. Saved v9 remains on Athletic v5.
+V10 retains the strength progression and lighter/readiness/consolidation/event
+safeguards, and the performed-only movement-role rule. Finish and Start creates a
+new instance while keeping old history. [Athletic v6 composition](WORKOUT_FAMILIES.md#athletic-movement-composition-v6-and-membership-v4-403-current)

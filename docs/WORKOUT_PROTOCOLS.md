@@ -1,9 +1,8 @@
 # Main block protocol contracts
 
 Playable and automatically selected protocols: `rounds`, `paired_sets`, `timed_intervals`, `emom`, `ladder`, `pyramid`, `complex`, `density`, `amrap`.
-These contracts are the extension seams for later block patterns (#75). `tests/protocol-contracts.test.js` and
-`tests/main-blocks.test.js` enforce them; shared fixtures and the step-trace check live in
-`tests/helpers/protocol-fixtures.js`.
+See `tests/protocol-contracts.test.js`, `tests/main-blocks.test.js` and the shared step-trace
+fixtures in `tests/helpers/protocol-fixtures.js`.
 
 ## 1. One vocabulary, three copies
 
@@ -57,8 +56,8 @@ Explicit blocks may add `block.occurrenceTargets`: a dense array in resolved **e
 order, before splitting per-side work. It has exactly one entry per step, at most 256 entries.
 `null` retains that step's default. An override is
 `{plannedPrescription: {type, value}, plannedLoad?: {suggestedLoad, loadUnit, loadInterpretation}}`.
-No other keys are accepted. This is planned guidance, never actual performance or catalogue
-metadata. No generator route or user control produces these overrides yet.
+This closed contract supplies planned guidance only. Family composers use it for
+reviewed doses.
 
 `resolveOccurrenceTarget` and `validateOccurrenceTargets` validate this plain JSON contract.
 Types match the exercise, including `unilateral-` for per-side work. Interval overrides use
@@ -94,13 +93,7 @@ fields inside the existing JSON prescription; no migration is needed.
 
 ### Shared occurrence recovery and whole-session allocation
 
-Characterisation in `tests/shared-sequence.test.js` demonstrates that one-round `rounds`
-plus occurrence targets already expresses sequential Mobility flows, including per-side work.
-Rounds and timed intervals already express 2–4 movement Athletic drills, but their ordinary
-recovery fields are uniform within each gap class. Splitting every movement into a separate
-block introduces fixed inter-block transitions. No new protocol is required.
-
-Explicit `rounds`, `paired_sets` and `timed_intervals` blocks may therefore add
+Explicit `rounds`, `paired_sets` and `timed_intervals` blocks may set
 `occurrenceRecoverySeconds`: a dense array with **one entry per gap between resolved exercise
 steps**, before per-side expansion (exercise-step count minus one; at most 256 exercise steps).
 Each entry is `null` to retain the existing rest/changeover or a finite 0–300 seconds of recovery.
@@ -117,22 +110,14 @@ and the existing setup allowance, once. Both timeline builders consume this same
 Preview summarises the recovery range instead of advertising a uniform default. Frozen
 `protocolConditions.occurrenceRecoverySeconds` stores the plan inside the existing Draft/Result
 JSON prescription. Old records remain valid; differing or malformed recovery conditions cannot
-establish comparable evidence. Protocol vocabulary, occurrence IDs and schema versions stay
-unchanged. No automatic route currently produces the new field.
+establish comparable evidence. Preserve occurrence IDs and record versions.
 
-A future specialist composer can allocate the **whole session** using existing sections and
-shared blocks. For example, reviewed family `prep`, `flow` and `finish` role blocks can own all
-Mobility work; `warmup`, `rampup` and `cooldown` then have empty exercise lists and zero estimates.
-No complete generic preparation/finish is appended. Empty sections have no phase-complete
-transition; Start announces the first actual exercise. Non-empty sections retain their existing
-timing, including the historical ready/phase-boundary overhead outside `estimatedSeconds`.
-For all-empty preparation/finish only the three-second ready countdown remains outside the
-estimate. Work estimates, gap recovery, inter-block transitions and setup increments remain
-separate and are counted once. The standalone five-minute routine engine is unchanged.
-These are explicit-plan primitives, not a family composer, selection policy or new user control.
-A composer can still present its own preparation/finish blocks as Warm-up/Cool-down through the
-derived training-purpose sections in [Workout families](WORKOUT_FAMILIES.md#training-purpose-sections-of-specialist-families-242);
-occurrence ids keep the structural `main` section.
+Whole-session family plans can own preparation and finish within blocks, leaving
+generic sections empty. Empty sections have no completion transition. Ready's
+three seconds stay outside the estimate, as do the existing transitions between
+nonempty generic sections. Count work, gap recovery, block transitions and setup
+increments once. Structural `main` stays in occurrence IDs even when the family
+supplies a [derived training section](WORKOUT_FAMILIES.md#training-purpose-sections-of-specialist-families-242).
 
 ### Repetition ladders
 
@@ -336,9 +321,7 @@ Standalone reads use the store's metadata-filtered `{source: 'generator', limit:
 and after successful completion, cached only in memory; while unavailable/loading recency is neutral.
 Coach reuses its loaded results. `gf_generator_history` remains exercise IDs only; there is no
 additional persistent pattern history. Neither recency nor variety revives an ineligible protocol.
-`tests/automatic-patterns.test.js` covers the seeded routing matrix and these constraints. The
-full reachability audit uses 48 seeds per combination: very rare preparation roles were too
-sensitive to a single draw in the previous 24-seed sample; failure criteria stay unchanged.
+`tests/automatic-patterns.test.js` covers the seeded routing matrix.
 
 ### Presentation names
 
@@ -474,8 +457,8 @@ equipment alternatives do not acquire a ring-height configuration.
 
 The pure `planSetupTransitions` helper remembers configuration through bodyweight
 and other-equipment exercises. Matching profiles need no change. The first use
-has no known previous height and adds no adjustment. Ramp-up remains its separate
-preparation flow; the generated workout timeline is Warm-up → Main → Cool-down.
+has no known previous height and adds no adjustment. Ramp-up plays as its own
+preparation flow between Warm-up and Main.
 Phase-boundary and within-phase changes use this same plan. Incompatible repeated
 blocks fail the existing setup compatibility rule; Coach reserves compatible
 blocks separately, or reports its existing partner/time conflicts.
@@ -517,3 +500,7 @@ exists), displays/speaks the planned instruction and allowance, and uses the
 existing countdown/Pause/Next machinery. It has no occurrence id or exercise
 outcome. Session Tracker and Coach continue to derive evidence exclusively from
 exercise phases, so adjusting equipment cannot earn performed-work credit.
+
+[First-use equipment preparation](PLAYER_VIEWPORT.md#equipment-preparation) is
+presentation over the resolved play order. It does not add setup transitions
+or alter protocol budgets.

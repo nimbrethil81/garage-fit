@@ -1,4 +1,4 @@
-# Manual editorial safety evidence pilot (GF-SR1–SR5)
+# Manual editorial safety evidence
 
 Developer-only, synthetic evidence preparation; no app/UI or first-use impact.
 This workflow does not certify safety, individual medical suitability, eliminate
@@ -120,23 +120,7 @@ extract, then run `verify` against the downloaded directory. Record provider/pat
 archive hash, upload/retrieval times and verification result in a local archive log.
 A successful upload response alone is **uploaded-unverified**, never verified.
 Use statuses local-verified, upload-failed, uploaded-unverified, retrieved-verified.
-Retain local files on any failure. If Dropbox remains unreliable, explore the
-existing GarageFit Google Drive folder manually and use the same upload/download
-checks; record the actual chosen location. No mandatory integration, duplicate
-sync, new database/account or service cost is introduced. Hashes detect accidental
+Retain local files on any failure. With explicit owner authority for a Drive archive,
+use the same upload and readback checks at the approved location. Record the actual
+location. Routine mirroring and synchronisation are unnecessary. Hashes detect accidental
 corruption, not authenticity against a malicious replacement of files and manifest.
-
-## Pilot-readiness report
-
-Implementation pilot at source base `31d878d1a55125897b7a4dba097741ad0cf40acb`
-produced 26 cases / 31 delivered plans: 22 generated cases and four truthful
-restricted-family infeasibilities, with no failed cases. Three Coach sequences
-retain completed/partial/missed history. Local checksum readback passed. Outputs
-remain outside shipped assets. Automated regression checks exercise deterministic
-replay, resolved work/rest, canonical instructions and missing guidance, fixed
-AMRAP semantics, synthetic history, bounded inputs and corruption detection.
-
-Status: **tooling ready for human-led independent AI assessment**. No assessment,
-cloud upload, instructor certification or launch clearance has been performed.
-Regenerate a clean-commit packet for the actual editorial pilot; record its exact
-SHA and archive/review status with that packet. UI impact: none.
