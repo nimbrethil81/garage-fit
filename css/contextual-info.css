@@ -1,0 +1,75 @@
+.contextual-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.contextual-info-row > :first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.contextual-info {
+  flex: none;
+  margin-inline-start: auto;
+}
+.contextual-info-trigger,
+.contextual-info-close {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  color: var(--rest);
+  background: transparent;
+}
+.contextual-info-trigger svg {
+  width: 20px;
+  height: 20px;
+}
+.contextual-info-trigger[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--rest) 12%, transparent);
+}
+.contextual-info-panel {
+  --info-safe-top: env(safe-area-inset-top);
+  --info-safe-bottom: env(safe-area-inset-bottom);
+  --info-safe-left: env(safe-area-inset-left);
+  --info-safe-right: env(safe-area-inset-right);
+  position: fixed;
+  z-index: 10;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 6px 16px 16px;
+  border: 1px solid var(--surface-2);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 5px 14px rgb(0 0 0 / 16%);
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+:root[data-appearance="light"] .contextual-info-panel {
+  background: var(--card);
+}
+.contextual-info-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: .9375rem;
+  line-height: 1.5;
+}
+.contextual-info-close {
+  margin-inline-end: -6px;
+  color: var(--text-muted);
+  font-size: 1.375rem;
+}
+.contextual-info-panel p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: .875rem;
+  line-height: 1.5;
+}

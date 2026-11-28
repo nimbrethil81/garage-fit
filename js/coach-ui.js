@@ -574,15 +574,19 @@
         }
         durations.append(item);
       });
-      details.append(heading('Available time'), durations);
-      if (unavailable.length) details.append(help('About unavailable durations',unavailable.join('/')+' minutes isn’t enough for the required exercises with today’s options. Try more time, add back equipment or choose a suitable substitute.'));
+      const availableTime = heading('Available time');
+      details.append(unavailable.length ? root.GarageFitContextualInfo.row(availableTime, 'About unavailable durations',
+        unavailable.join('/')+' minutes isn’t enough for the required exercises with today’s options. Try more time, add back equipment or choose a suitable substitute.') : availableTime, durations);
       if (def.contextPolicy) {
-        const readiness = tennisViews.selectField('Readiness today (optional)',[['fresh','Fresh'],['normal','Normal'],['tired','Tired']],options.sessionContext?.readiness?.value || 'normal');
+        const readiness = tennisViews.selectField('Readiness today (optional)',[['fresh','Fresh'],['normal','Normal'],['tired','Tired']],options.sessionContext?.readiness?.value || 'normal', {
+          id: 'coach-today-readiness', infoLabel: 'About readiness',
+          infoCopy: 'Normal if unanswered. This check-in affects today’s session, not your persistent targets.'
+        });
         readiness.select.onchange = () => {
           options.sessionContext = {...options.sessionContext,readiness:{value:readiness.select.value,localDate:localDay(new Date().toISOString())}};
           adjustmentOpen=true; renderToday('Readiness today (optional)');
         };
-        details.append(readiness.field,help('About readiness','Normal if unanswered. This check-in affects today’s session, not your persistent targets.'));
+        details.append(readiness.field);
       }
       const easy = document.createElement('label'), check = document.createElement('input'); check.type = 'checkbox'; check.checked = options.easyToday;
       check.setAttribute('aria-label','Easy today');
@@ -590,16 +594,10 @@
       const select = document.createElement('select'); select.setAttribute('aria-label', 'Body emphasis');
       [['','Whole body'],['upper','Upper'],['lower','Lower'],['core','Core']].forEach(([value,label]) => { const option = document.createElement('option'); option.value=value; option.textContent=label; select.append(option); });
       select.value=options.bodyFocus || ''; select.onchange=() => { options.bodyFocus=select.value || null; adjustmentOpen=true; renderToday('Body emphasis'); }; if (!isTennis()) details.append(heading('Body emphasis'), select);
-      details.append(heading('My Equipment'));
+      details.append(root.GarageFitContextualInfo.row(heading('My Equipment'), 'About My Equipment', root.GarageFitContextualInfo.equipmentCopy));
       const kit = document.createElement('div'); kit.className = 'equipment-list';
       equipment.forEach(item => { const control = button(item.name, () => { const owned=getEquipment(); setEquipment(owned.includes(item.id) ? owned.filter(id => id !== item.id) : [...owned,item.id]); adjustmentOpen=true; renderToday(item.name); }); control.setAttribute('aria-pressed',String(options.equipment.includes(item.id))); kit.append(control); });
-      details.append(kit,help('About My Equipment','Saved across PickSetGo for future workouts. Already prepared workouts and workouts in progress keep their original equipment and exercises.')); wrap.append(details);
-    }
-    // Accessible tappable help rather than long inline explanations.
-    function help(label,copy) {
-      const info=document.createElement('details'), control=document.createElement('summary');
-      info.className='coach-help'; control.textContent='ⓘ '+label; control.setAttribute('aria-label',label);
-      info.append(control,paragraph(copy)); retainDisclosure(info,label); return info;
+      details.append(kit); wrap.append(details);
     }
     // The programme list/home and programme overviews share the coach screen; overviewOpen is the one
     // internal view flag the shared back navigation needs. render() always returns to the list/home.
@@ -676,7 +674,8 @@
       section.className='coach-weekly'; row.className='coach-weekly-segments';
       section.setAttribute('aria-label','Current week, Monday to Sunday');
       const header=paragraph('This week · '+weekly.label); header.className='coach-weekly-heading';
-      section.append(header,row);
+      section.append(root.GarageFitContextualInfo.row(header, 'About this week',
+        'Only saved sessions with enough recorded work from the main part of the workout count here. You don’t need to make up missed workouts.'), row);
       const panel=document.createElement('div'); panel.id='coach-weekly-detail'; panel.className='coach-weekly-detail';
       const controls=[];
       const dateLabel=item=>new Date(item.endedAt).toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'});
@@ -711,7 +710,6 @@
         records.slice(weekly.target).forEach((item,index)=>overflow.append(sessionControl(item,index+weekly.target,false)));
         section.append(overflow);
       }
-      section.append(help('About this week','Only saved sessions with enough recorded work from the main part of the workout count here. You don’t need to make up missed workouts.'));
       update(); wrap.append(section);
     }
     // The approved compact Coach home for every programme: title and status, this
@@ -753,7 +751,9 @@
         const role=plan.prescription?.programmeContext.roleLabel;
         const rest=plan.conflicts.some(item=>item.code==='tennis-rest-recommended');
         const expired=plan.rationale.priorities.event?.phase==='expired';
-        card.append(heading(expired ? 'Event date has passed' : plan.prescription ? 'Today’s workout' : rest ? 'Rest today' : 'Adjust today’s options'));
+        const workoutHeading = heading(expired ? 'Event date has passed' : plan.prescription ? 'Today’s workout' : rest ? 'Rest today' : 'Adjust today’s options');
+        const reason = !tennis && !expired && !rest && plan.prescription ? rationale(plan) : null;
+        card.append(reason ? root.GarageFitContextualInfo.row(workoutHeading, 'Why this workout', reason) : workoutHeading);
         if (plan.prescription) {
           // A family plan names its intended workout type; the preview shows the delivered one.
           const intended=plan.prescription.workoutFamilyPlan && familyDefinition(plan.prescription.workoutFamilyPlan.candidates[0].workoutFamilyId,
@@ -763,7 +763,6 @@
           else if (intended) card.append(paragraph(root.GarageFitWorkoutFamilies.getDescription(intended.id)));
           const event=plan.rationale.priorities.event;
           if (event && ['reduced','final'].includes(event.phase)) card.append(paragraph(tennisViews.eventMessage(event)));
-          if (!tennis) card.append(help('Why this workout',rationale(plan)));
         }
         else if (expired) card.append(button('Continue ongoing training',async()=>{
           await controller.saveProgrammeSettings({intent:'ongoing',significantEventDate:null,significantEventLabel:null});render();

@@ -4,13 +4,20 @@
     endurance: 'Match endurance', resilience: 'Resilience & stability'};
   const title = value => value.charAt(0).toUpperCase()+value.slice(1);
   function createViews({button, paragraph, heading, catalogue}) {
-    function selectField(label, choices, value) {
-      const field = document.createElement('label'), select = document.createElement('select');
+    function selectField(label, choices, value, info) {
+      const field = document.createElement(info ? 'div' : 'label'), select = document.createElement('select');
       field.className = 'coach-setting'; select.setAttribute('aria-label', label);
       choices.forEach(([value,text]) => {
         const option = document.createElement('option'); option.value = String(value); option.textContent = text; select.append(option);
       });
-      select.value = String(value); field.append(paragraph(label), select);
+      select.value = String(value);
+      if (info) {
+        const caption = document.createElement('label');
+        caption.textContent = label;
+        caption.htmlFor = select.id = info.id;
+        field.append(root.GarageFitContextualInfo.row(caption, info.infoLabel, info.infoCopy));
+      } else field.append(paragraph(label));
+      field.append(select);
       return {field, select};
     }
     function settingsForm(settings, {includeEvent = false, localDate} = {}) {

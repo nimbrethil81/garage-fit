@@ -97,9 +97,12 @@
       const item = document.createElement(tag); if (className) item.className = className;
       if (text !== undefined) item.textContent = text; return item;
     }
-    function section(label, className) {
+    function section(label, className, info) {
       const wrap = node('section', 'coach-progress-section'+(className ? ' '+className : ''));
-      wrap.setAttribute('aria-label', label); wrap.append(heading(label)); return wrap;
+      wrap.setAttribute('aria-label', label);
+      const title = heading(label);
+      wrap.append(info ? root.GarageFitContextualInfo.row(title, info.label, info.copy) : title);
+      return wrap;
     }
     // A tappable card: the button names the card, a sibling panel holds detail.
     function card({key, label, lines, detail, className, icon}) {
@@ -250,7 +253,11 @@
     }
 
     function sessionHistory({state, results}) {
-      const wrap = section('Recent sessions'), summaries = new Map((state.recentSessionSummaries || []).map(item => [item.sessionResultId, item]));
+      const wrap = section('Recent sessions', null, {
+        label: 'About your history',
+        copy: 'History is local to this browser and device. Clearing site data or changing devices can remove access to it. Skipping an exercise does not count as doing it. A saved session only counts towards your programme if the work recorded meets its requirements.'
+      });
+      const summaries = new Map((state.recentSessionSummaries || []).map(item => [item.sessionResultId, item]));
       const recent = results.filter(result => result.programmeInstanceId === state.programmeInstanceId).slice(-5).reverse();
       if (!recent.length) wrap.append(paragraph('No saved sessions yet. Your recorded work appears here when you save a session.'));
       const list = node('ul', 'coach-history-list');
@@ -264,10 +271,6 @@
         list.append(node('li', null, [dateText(result.endedAt), identity && identity.label, status, performed+' exercise '+(performed === 1 ? 'entry' : 'entries')+' recorded', credit].filter(Boolean).join(' · ')));
       });
       if (recent.length) wrap.append(list);
-      const help = node('details', 'coach-help'), label = node('summary', null, 'ⓘ About your history');
-      label.setAttribute('aria-label', 'About your history');
-      help.append(label, paragraph('History is local to this browser and device. Clearing site data or changing devices can remove access to it. Skipping an exercise does not count as doing it. A saved session only counts towards your programme if the work recorded meets its requirements.'));
-      wrap.append(help);
       return wrap;
     }
 
