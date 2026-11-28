@@ -258,7 +258,7 @@ test('General Fitness Programme progress has no empty strength targets card', as
   await p.progress();
   // New starts use General Fitness v3 and retain the v2 benchmark views (#192) before Recent sessions.
   assert.equal(p.state().programmeDefinitionVersion, 3);
-  assert.match(p.text().replace(/\s+/g, ' '), /General Fitness Ongoing Programme phase Open-ended programme · 2–5 sessions per week 0 sessions counted towards your programme Training consistency .* Training mix .* Progress checks .* Recent sessions No saved sessions yet/);
+  assert.match(p.text().replace(/\s+/g, ' '), /General Fitness Ongoing Programme phase Open-ended programme · 2–5 sessions per week 0 sessions counted towards your programme Training consistency .* Training mix .* Progress checks .* Recent sessions About your history .* No saved sessions yet/);
   assert.doesNotMatch(p.text(), /Strength targets|Targets are prescriptions|Tennis training mix|Arm work/);
   // Only balance and benchmark cards exist: there are no empty strength-target cards.
   assert.ok(p.cards().every(label => /Recorded|Insufficient information|Strength & Control|Push|Squat|Core/i.test(label)));
